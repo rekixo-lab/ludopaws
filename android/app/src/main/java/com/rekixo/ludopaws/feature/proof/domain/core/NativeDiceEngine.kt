@@ -14,7 +14,7 @@ import java.util.UUID
 object NativeDiceEngine {
     const val PROTOCOL = "ludopaws-native-dice-v1"
     const val ALGORITHM = "secure-random-uint32-rejection-sampling-v1"
-    const val RULESET_ID = "ludoproof-standard-v3"
+    const val RULESET_ID = ClassicRuleset.ID
 
     private const val DOMAIN = "ludopaws:native-dice:v1:"
     private const val UINT32_RANGE = 0x1_0000_0000L
