@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   MatchRoom,
 } from "../src/match-room-safe.js";
+import { sha256Hex } from "../src/crypto.js";
 
 const SESSION_KEY =
   "lp_test_session_hmac_key_1234567890abcdef";
@@ -336,117 +337,38 @@ test(
 );
 
 test(
-  "resolved commitment retry is a read-only replay after a lost reveal response",
+  "native roll retry is a read-only replay after a lost response",
   async () => {
-    const {
-      ctx,
-      room,
-      players,
-    } =
-      await createStartedMatch(
-        2,
-      );
+    const { ctx, room, players } = await createStartedMatch(2);
+    const initial = await ctx.storage.get("match-state");
+    initial.players[0].tokens[0] = 0;
+    await ctx.storage.put("match-state", initial);
 
-    const clientCommitment =
-      "a".repeat(64);
-    const stored =
-      await ctx.storage.get(
-        "match-state",
-      );
+    const clientSeed = "a".repeat(64);
+    const clientCommitment = await sha256Hex(
+      "ludopaws:native-roll:v1:client-commit:" + clientSeed,
+    );
+    const makeRequest = () => request("/roll", {
+      method: "POST",
+      token: players[0].playerToken,
+      body: { clientSeed, clientCommitment },
+    });
 
-    stored.randomEventIndex =
-      1;
-    stored.turnSeat =
-      1;
-    stored.pendingRoll =
-      null;
-    stored.history = [
-      {
-        eventIndex: 0,
-        eventId:
-          "roll:0",
-        playerId:
-          players[0]
-            .playerId,
-        color:
-          "RED",
-        roundId:
-          "round-resolved",
-        serverCommitment:
-          "b".repeat(64),
-        clientCommitment,
-        actorHash:
-          "c".repeat(64),
-        previousStateHash:
-          "d".repeat(64),
-        rulesetHash:
-          "e".repeat(64),
-        proofDigest:
-          "f".repeat(64),
-        outcome: 4,
-        moveTokenIndex:
-          null,
-        captures: 0,
-        status:
-          "RESOLVED",
-      },
-    ];
-    await ctx.storage.put(
-      "match-state",
-      stored,
-    );
+    const first = await json(await room.fetch(makeRequest()));
+    assert.equal(first.response.status, 200, JSON.stringify(first.body));
+    assert.ok(first.body.outcome >= 1 && first.body.outcome <= 6);
+    assert.equal(first.body.proof.protocol, "ludopaws-server-csprng-v1");
+    const afterFirst = await ctx.storage.get("match-state");
 
-    const replay =
-      await json(
-        await room.fetch(
-          request(
-            "/roll/commit",
-            {
-              method:
-                "POST",
-              token:
-                players[0]
-                  .playerToken,
-              body: {
-                clientCommitment,
-              },
-            },
-          ),
-        ),
-      );
-
-    assert.equal(
-      replay.response.status,
-      200,
-      JSON.stringify(
-        replay.body,
-      ),
-    );
-    assert.equal(
-      replay.body.replayed,
-      true,
-    );
-    assert.equal(
-      replay.body.historical,
-      true,
-    );
-    assert.equal(
-      replay.body.round.roundId,
-      "round-resolved",
-    );
-    assert.equal(
-      replay.body.state.pendingRoll,
-      null,
-    );
-
-    const after =
-      await ctx.storage.get(
-        "match-state",
-      );
+    const replay = await json(await room.fetch(makeRequest()));
+    assert.equal(replay.response.status, 200, JSON.stringify(replay.body));
+    assert.equal(replay.body.replayed, true);
+    assert.equal(replay.body.outcome, first.body.outcome);
+    assert.equal(replay.body.roundId, first.body.roundId);
     assert.deepEqual(
-      after,
-      stored,
-      "historical commit replay must not mutate authoritative match state",
+      await ctx.storage.get("match-state"),
+      afterFirst,
+      "native roll replay must not mutate authoritative match state",
     );
   },
 );
