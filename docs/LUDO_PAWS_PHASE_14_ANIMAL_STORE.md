@@ -49,7 +49,7 @@ The Starter Paws pack already satisfies this contract with Ducky, Nutty, Spike a
 
 This phase does not alter:
 
-- EntroNex v4 randomness or proof state;
+- native dice randomness or receipt state;
 - dice outcomes or event indexes;
 - legal moves, capture, safe-cell, exact-home, extra-turn or third-six rules;
 - turn order, Team Up semantics or winner calculation;
