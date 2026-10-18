@@ -39,7 +39,7 @@ This is the runtime voice/reaction foundation. Recorded animal voice packs can l
 
 Unchanged by Phase 6:
 
-- EntroNex/randomness derivation;
+- native dice/randomness derivation;
 - dice outcome rules;
 - legal moves;
 - capture rules and safe-cell rules;
