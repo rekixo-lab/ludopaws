@@ -57,7 +57,7 @@ for (const marker of [
 
 for (const forbidden of [
   'OfflineGameEngine(',
-  'EntroNexV4',
+  'NativeDiceEngine',
   'legalTokenIndexes.add',
   'winnerPlayerId =',
 ]) {
