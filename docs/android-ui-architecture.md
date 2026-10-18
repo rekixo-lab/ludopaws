@@ -85,7 +85,7 @@ com/rekixo/ludopaws/
    ├─ proof/
    │  ├─ domain/
    │  │  ├─ core/
-   │  │  │  ├─ EntroNexV4Local.kt
+   │  │  │  ├─ NativeDiceEngine.kt
    │  │  │  ├─ LocalSecretBinding.kt
    │  │  │  └─ SeedCommitment.kt
    │  │  └─ offline/
