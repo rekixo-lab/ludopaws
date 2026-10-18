@@ -235,18 +235,16 @@ internal fun MainActivity.rollVerifiedDice() {
                     it.matchId == code
                 }
 
-        if (decision.kind == OnlineRollActionKind.NEW_ROLL) {
-            if (secret != null) {
-                pendingRollStore.clear()
-                pendingSecret = null
-            }
+        if (decision.kind == OnlineRollActionKind.NEW_ROLL && secret == null) {
+            // Keep a saved seed across uncertain network outcomes. The server's
+            // native roll endpoint is idempotent for the same commitment, so a
+            // retry can recover the exact result without drawing a replacement.
             val prepared = SeedCommitment.prepare()
-            secret =
-                PendingRollSecret(
-                    matchId = code,
-                    clientSeed = prepared.clientSeed,
-                    clientCommitment = prepared.clientCommitment,
-                )
+            secret = PendingRollSecret(
+                matchId = code,
+                clientSeed = prepared.clientSeed,
+                clientCommitment = prepared.clientCommitment,
+            )
             pendingRollStore.save(requireNotNull(secret))
             pendingSecret = secret
         }
@@ -283,7 +281,8 @@ internal fun MainActivity.rollVerifiedDice() {
             reconcileOnError = true,
             prioritizeGameplay = true,
             onComplete = { releaseOnlineGameplayRequest() },
-        )    }
+        )
+    }
 }
 
 internal fun MainActivity.moveToken(
