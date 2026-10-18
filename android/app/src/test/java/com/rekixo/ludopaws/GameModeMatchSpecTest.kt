@@ -104,7 +104,7 @@ class GameModeMatchSpecTest {
             spec.rulesetId,
         )
         assertEquals(
-            OfflineLudoV4Binding
+            NativeDiceEngine
                 .RULESET_ID,
             spec.rulesetId,
         )
