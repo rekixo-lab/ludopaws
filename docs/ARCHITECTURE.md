@@ -1,79 +1,29 @@
-# LudoProof Architecture
+# Ludo Paws Architecture
 
-LudoProof is split into three trust domains.
+Ludo Paws is split into a native Android client and an authoritative Cloudflare Worker/Durable Object backend.
 
-```text
-Android client
-  |
-  | player session token
-  | client randomness commitment / reveal
-  v
-Cloudflare Worker: ludoproof-game-api
-  |
-  | authoritative match rules/state
-  | protected EntroNex bearer credential
-  v
-EntroNex v4 evaluation Worker
-  |
-  v
-commitment + verifiable outcome proof
-```
+Android client → Ludo Paws API Worker → authoritative match Durable Object → persisted match state, history and native dice receipt → state response/realtime event → Android rendering.
 
-## Security boundaries
+## Online authority
 
-The Android APK never contains the EntroNex customer bearer token.
+The match room is authoritative for player seats, turn order, event-index allocation, dice outcomes, legal token moves, captures, safe cells, extra turns, three consecutive six handling, winner determination, reconnects and duplicate-request behavior.
 
-The game Worker is authoritative for:
+## Native roll lifecycle
 
-- player seats and colors;
-- turn order;
-- random-event index allocation;
-- legal token moves;
-- captures;
-- safe cells;
-- extra turns;
-- three-consecutive-six handling;
-- exact-roll home entry;
-- winner determination;
-- retry/reconnect semantics.
+1. Android creates a fresh client seed and a domain-separated commitment.
+2. The API validates the request and commitment, applies rate limiting, and routes one request to the match room.
+3. The room authenticates the active player and checks turn and pending-roll state inside its serialized mutation queue.
+4. The room obtains secure random bytes from the Worker runtime and maps them to a uniform face 1–6 with rejection sampling.
+5. The native receipt binds the face to the match, event, player, ruleset/state hashes and a receipt digest.
+6. The same authoritative transition applies the Ludo rules and persists the outcome/history before returning state.
+7. Retries with the same commitment replay the stored result rather than generating a replacement outcome.
 
-EntroNex is responsible for the committed random outcome transcript.
+No external dice API, third-party dice worker, bearer token or upstream health check is part of the game runtime.
 
-## Random event lifecycle
+## Offline authority
 
-1. Android generates a fresh 32-byte client seed.
-2. Android sends only its SHA-256 v4 client commitment.
-3. The authoritative match room freezes the pre-roll game state.
-4. The room binds `applicationId + matchId + DICE_ROLL + eventIndex`.
-5. The room asks EntroNex to create the v4 round.
-6. Android receives the server commitment.
-7. Android reveals the original client seed.
-8. The room resolves the same EntroNex round.
-9. The room checks proof context and asks the EntroNex verifier to recompute the mathematical proof.
-10. The verified outcome is attached to the turn.
-11. Only a legal token may consume the result.
-12. The result/proof digest is preserved in match history.
+Robot and Pass & Play use Android's native secure-random engine, game rules and a local receipt. Since the device controls its own state, a local receipt is an integrity/replay aid rather than independent remote proof.
 
-A timeout or reconnect does not allocate a replacement random event.
+## Rules
 
-## Ruleset v1
-
-The first playable ruleset intentionally stays deterministic and explicit:
-
-- 2-4 players;
-- four tokens per player;
-- six required to leave yard;
-- exact roll required for home;
-- extra turn on six;
-- extra turn on capture;
-- third consecutive six forfeits that roll and passes the turn;
-- safe global cells: 0, 8, 13, 21, 26, 34, 39, 47;
-- no capture on safe cells.
-
-Blockades/stack restrictions are intentionally not part of v1 yet. They must be added as a new reviewed ruleset revision instead of silently changing existing match semantics.
-
-## Current assurance level
-
-This repository is an MVP/evaluation game integration.
-
-EntroNex v4 is still pre-independent-audit and the current game backend uses the EntroNex evaluation Worker. Do not describe LudoProof as certified, gambling-certified, or production audited.
+Rules remain explicit and versioned: 2–4 players, four tokens per player, six to leave the yard, exact roll for home, extra turns on six and capture, third-consecutive-six forfeiture, and the configured safe-cell list. A material rules change should be tested and released as an intentional ruleset update.
