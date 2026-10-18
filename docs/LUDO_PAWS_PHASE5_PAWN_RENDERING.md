@@ -2,7 +2,7 @@
 
 ## Goal
 
-Render the selected Starter Paws characters on the local Ludo board without changing authoritative gameplay, EntroNex randomness, proof material, saved-match schema, dice outcomes, legal moves, captures, or winners.
+Render the selected Starter Paws characters on the local Ludo board without changing authoritative gameplay, native dice randomness, receipt material, saved-match schema, dice outcomes, legal moves, captures, or winners.
 
 ## Runtime contract
 
