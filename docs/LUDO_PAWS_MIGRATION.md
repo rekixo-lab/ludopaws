@@ -33,7 +33,7 @@ The following must not be changed by a cosmetic/branding phase without a dedicat
 - Cloudflare Worker/Durable Object bindings such as `LUDOPROOF_MATCHES`, `LUDOPROOF_API_GATE`, `LUDOPROOF_LEADERBOARD`, matchmaking, friends, receipts, team matchmaking, and social bindings.
 - Existing Durable Object migration tags/classes.
 - Proof/randomness identifiers and transcript material, including current `ludoproof` application/protocol identifiers and ruleset IDs.
-- EntroNex v4 derivation, commitments, proof digests, fairness chain, verification, and trust configuration.
+- native secure dice receipts, replay handling, fairness history and verification.
 - Server-authoritative legal move, capture, safe-cell, exact-home, turn, timeout/reconnect, and winner semantics.
 - Existing local/remote match compatibility unless a dedicated schema version is introduced.
 
@@ -46,7 +46,7 @@ The current tree is feature-first and already contains the foundations needed fo
 - Core app/lifecycle, network, shared UI/theme/dialogs.
 - Shared game models, board, dice, and result art.
 - Home, online, offline, proof, settings, store, profile, friends, leaderboard, mode routing, and Team Up features.
-- Offline game engine plus local EntroNex/fairness verification.
+- Offline game engine with native SecureRandom dice and local receipt/history checks.
 - Online Cloudflare authoritative match state, matchmaking, friends/social, leaderboard, receipts, Team Up, realtime state, and proof integration.
 - Google Play billing/cosmetic inventory infrastructure.
 - CI, CodeQL, Cloudflare deployment, and offline-v4 conformance workflows.
