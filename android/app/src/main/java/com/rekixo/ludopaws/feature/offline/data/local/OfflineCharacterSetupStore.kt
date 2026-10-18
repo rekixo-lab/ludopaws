@@ -22,7 +22,7 @@ data class ActiveOfflineCharacterSetup(
  * Versioned presentation-only persistence for local character choices.
  *
  * Character metadata intentionally lives outside OfflineGameEngine saved-state
- * and EntroNex/proof material. Phase 5 can consume the active assignment for
+ * and native dice receipts and fairness-history material. Phase 5 can consume the active assignment for
  * rendering without changing authoritative Ludo state or fairness transcripts.
  */
 class OfflineCharacterSetupStore(
