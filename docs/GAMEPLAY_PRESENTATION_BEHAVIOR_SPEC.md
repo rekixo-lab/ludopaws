@@ -2,7 +2,7 @@
 
 Status: Product/presentation contract for implementation
 
-This document defines how a complete Ludo Paws match must look, feel, sound and respond. It is intentionally presentation-focused: authoritative rules, EntroNex/Fair Dice, legal moves, captures, turn ownership, winner calculation and network authority remain outside this document.
+This document defines how a complete Ludo Paws match must look, feel, sound and respond. It is intentionally presentation-focused: authoritative rules, native Fair Dice receipts, legal moves, captures, turn ownership, winner calculation and network authority remain outside this document.
 
 The current Android codebase is the source of truth for gameplay state. Presentation may visualize an already-authoritative transition, but it must never invent or alter game outcomes.
 
