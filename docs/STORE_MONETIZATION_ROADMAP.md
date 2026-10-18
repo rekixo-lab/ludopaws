@@ -104,7 +104,7 @@ Track:
 - DAU/MAU, sessions per user, concurrent matches;
 - Worker requests/CPU, Durable Object requests/duration/storage;
 - R2 storage, Class A/Class B operations and asset bundle sizes;
-- upstream EntroNex requests and actual provider cost/latency/failure rate;
+- native roll request rate, Cloudflare Worker/Durable Object cost, latency and failure rate;
 - AdMob impressions, fill, completed rewarded views, eCPM and net revenue;
 - purchase conversion, average revenue per paying user, refunds and payer retention.
 Use actual billing dashboards and observed request counts to calculate unit economics. Do not claim a precise cost per user from MAU alone.
@@ -129,9 +129,9 @@ These are product-design hypotheses. Adjust after measuring ad eCPM, reward comp
 
 Use USD as the provider-billing baseline and convert only when reviewing the actual invoice. The current published Cloudflare Workers Paid plan starts at $5/month, includes 10 million Worker requests and 30 million CPU milliseconds, and charges beyond included usage; Durable Objects have separate request/duration/storage meters. R2 Standard currently lists 10 GB-month, 1 million Class A and 10 million Class B monthly free allocations, with no internet egress fee. Verify pricing in the Cloudflare billing console before launch.
 
-EntroNex usage is an important unknown: the repository identifies the current v4 integration as an evaluation candidate but does not provide the contract price or real per-roll charge. Do not invent it. Measure billed provider calls and use:
+Native dice removes an upstream per-roll provider call. Measure Cloudflare Worker and Durable Object usage, request latency and storage growth; do not invent unit costs. Use:
 `monthly upstream cost = verified billable API calls × contract price per call`.
-A robust monthly operating model must include Workers, Durable Objects, R2, EntroNex, store fees/tax, customer support, privacy/legal operations and release monitoring. Advertising revenue is variable and should not be assumed to cover API expense until actual eCPM and fill rates are measured.
+A robust monthly operating model must include Workers, Durable Objects, R2, store fees/tax, customer support, privacy/legal operations and release monitoring. Advertising revenue is variable and should not be assumed to cover API expense until actual eCPM and fill rates are measured.
 
 ## Main-branch audit findings recorded for implementation
 - `StoreCatalog.kt` currently defines `remove_ads` as `NON_CONSUMABLE_REMOVE_ADS`; the Worker grants a persistent `ads_removed` boolean. Keep that ID's existing behavior for compatibility.
