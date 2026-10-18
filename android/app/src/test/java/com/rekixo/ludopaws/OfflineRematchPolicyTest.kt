@@ -56,7 +56,7 @@ class OfflineRematchPolicyTest {
             randomEventIndex = 10,
             pendingRoll = null,
             winnerPlayerId = "p1",
-            rulesetId = NativeDiceEngine.RULESET_ID,
+            rulesetId = ClassicRuleset.V3_ID,
             history = emptyList(),
         )
 }
