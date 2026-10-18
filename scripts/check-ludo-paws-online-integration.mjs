@@ -196,13 +196,12 @@ for (const marker of [
 
 for (const marker of [
   "hasAuthoritativeState",
+  "pendingStatus",
   "SYNCING MATCH",
   "NEW_ROLL",
-  "RESUME_COMMIT_THEN_REVEAL",
-  "RESUME_REVEAL_ONLY",
   "WAIT_FOR_RECOVERY",
   "MOVE_REQUIRED",
-  "localClientCommitment == remoteClientCommitment",
+  "WAITING FOR PREVIOUS TURN",
 ]) {
   requireText(
     rollActionPolicy,
@@ -211,13 +210,12 @@ for (const marker of [
   );
 }
 for (const marker of [
+  "freshTurnStartsNativeRoll",
   "cachedOrStaleStateCannotAuthorizeRoll",
-  "creatingRoundWithMatchingSecretResumesCommitThenReveal",
-  "committedRoundWithMatchingSecretResumesRevealOnly",
-  "resolvingRoundWithMatchingSecretRetriesRevealOnly",
-  "lockedRoundWithoutLocalSecretWaitsInsteadOfStartingAnotherRoll",
-  "commitmentMismatchFailsClosed",
-  "resolvedRoundRequiresMoveNotAnotherRoll",
+  "resolvedNativeRollRequiresMove",
+  "incompletePreMigrationRollWaitsForLifecycleTimeout",
+  "offlineConnectionDisablesRoll",
+  "opponentTurnDisablesRoll",
 ]) {
   requireText(
     rollActionTests,
@@ -227,11 +225,9 @@ for (const marker of [
 }
 for (const marker of [
   "val decision = onlineRollActionDecision(state)",
-  "OnlineRollActionKind.RESUME_COMMIT_THEN_REVEAL",
-  "OnlineRollActionKind.RESUME_REVEAL_ONLY",
-  "api.commitRoll",
-  "api.revealRoll",
+  "api.roll",
   "pendingRollStore.save",
+  "pendingRollStore.clear",
   "if (!hasAuthoritativeActionState())",
 ]) {
   requireText(
