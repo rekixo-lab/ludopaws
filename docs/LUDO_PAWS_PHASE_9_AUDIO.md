@@ -55,7 +55,7 @@ Reaction haptics are preference-gated and presentation-only. Capture/third-six u
 Phase 9 intentionally does **not** modify:
 
 - `OfflineGameEngine`
-- EntroNex v4 derivation or commitment/proof code
+- native dice derivation or receipt code
 - server roll/move authority
 - legal token calculation
 - safe-cell/capture/exact-home rules
