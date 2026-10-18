@@ -62,7 +62,7 @@ Phase 3 does not change:
 - Cloudflare Worker or Durable Object bindings;
 - match schemas;
 - online player state;
-- EntroNex/proof/ruleset identifiers;
+- native dice receipt/fairness-history/ruleset identifiers;
 - dice or legal gameplay behavior;
 - CPU move scoring;
 - store ownership logic;
