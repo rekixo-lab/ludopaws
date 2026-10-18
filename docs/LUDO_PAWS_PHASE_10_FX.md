@@ -50,7 +50,7 @@ Important game feedback remains visible even when motion is minimized.
 
 Phase 10 must not influence:
 
-- dice/randomness or EntroNex derivation;
+- dice/randomness or native dice derivation;
 - legal moves or CPU choice;
 - captures, safe cells, exact-home logic or turn advancement;
 - match winner/team winner calculation;
