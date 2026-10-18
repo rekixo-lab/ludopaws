@@ -35,10 +35,8 @@ const bom = {
     },
     properties: [
       {
-        name:
-          "ludoproof.entronex.sourceCommit",
-        value:
-          "d219148338b43e961689a7a7ab6f8ce3eb88e8de",
+        name: "ludopaws.dice.engine",
+        value: "native-secure-random-rejection-sampling-v1",
       },
     ],
   },
@@ -66,17 +64,6 @@ const bom = {
       version: kotlin,
       bomRef:
         "kotlin-android",
-    },
-    {
-      type: "library",
-      name:
-        "EntroNex v4 vendored verifier",
-      version:
-        "d219148338b43e961689a7a7ab6f8ce3eb88e8de",
-      purl:
-        "pkg:github/rajkumarlahare/entronex@d219148338b43e961689a7a7ab6f8ce3eb88e8de",
-      bomRef:
-        "entronex-v4",
     },
   ],
 };
