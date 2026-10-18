@@ -24,7 +24,7 @@ object OfflineMatchInvariantPolicy {
         require(state.randomEventIndex >= 0) {
             "Local match random event index must be non-negative"
         }
-        require(state.rulesetId == NativeDiceEngine.RULESET_ID) {
+        require(state.rulesetId == ClassicRuleset.V3_ID) {
             "Local match is not bound to the current offline ruleset"
         }
 
