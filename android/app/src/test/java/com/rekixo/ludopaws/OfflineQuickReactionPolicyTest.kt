@@ -112,7 +112,7 @@ class OfflineQuickReactionPolicyTest {
             randomEventIndex = 0,
             pendingRoll = null,
             winnerPlayerId = if (status == "FINISHED") "p1" else null,
-            rulesetId = OfflineLudoV3Binding.RULESET_ID,
+            rulesetId = NativeDiceEngine.RULESET_ID,
             history = emptyList(),
         )
 }
