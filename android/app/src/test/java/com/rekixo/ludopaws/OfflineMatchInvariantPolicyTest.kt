@@ -116,7 +116,7 @@ class OfflineMatchInvariantPolicyTest {
                     legalTokenIndexes = setOf(0),
                 ),
             winnerPlayerId = null,
-            rulesetId = NativeDiceEngine.RULESET_ID,
+            rulesetId = ClassicRuleset.V3_ID,
             history =
                 listOf(
                     HistoryEventSnapshot(
@@ -160,7 +160,7 @@ class OfflineMatchInvariantPolicyTest {
             randomEventIndex = 1,
             pendingRoll = null,
             winnerPlayerId = "p0",
-            rulesetId = NativeDiceEngine.RULESET_ID,
+            rulesetId = ClassicRuleset.V3_ID,
             history =
                 listOf(
                     HistoryEventSnapshot(
