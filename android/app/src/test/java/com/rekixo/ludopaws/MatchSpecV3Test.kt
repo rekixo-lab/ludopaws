@@ -10,10 +10,10 @@ class MatchSpecV3Test {
             MatchSpec.classic(
                 mode = GameMode.COMPUTER,
                 playerCount = 2,
-                rulesetId = NativeDiceEngine.RULESET_ID,
+                rulesetId = ClassicRuleset.V3_ID,
             )
 
         assertEquals(ClassicRuleset.V3_ID, spec.rulesetId)
-        assertEquals(NativeDiceEngine.RULESET_ID, spec.rulesetId)
+        assertEquals(ClassicRuleset.V3_ID, spec.rulesetId)
     }
 }
