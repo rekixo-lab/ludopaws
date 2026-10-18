@@ -26,7 +26,7 @@ When one move produces both `CAPTURE_MADE` and `TOKEN_CAPTURED`, the reaction ad
 
 ## Safety boundary
 
-The director never rolls dice, changes legal moves, chooses CPU moves, changes turn order, modifies proof material, writes match state, changes winners, or touches EntroNex derivation. It consumes presentation reactions only.
+The director never rolls dice, changes legal moves, chooses CPU moves, changes turn order, modifies proof material, writes match state, changes winners, or touches native dice derivation. It consumes presentation reactions only.
 
 ## Exit gate
 
