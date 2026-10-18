@@ -117,7 +117,6 @@ internal fun MainActivity.onlineRollActionDecision(
         matchStatus = state.status,
         myTurn = myTurn,
         pendingStatus = state.pendingRoll?.status,
-        pendingStatus = state.pendingRoll?.status,
     )
 }
 
