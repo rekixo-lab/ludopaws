@@ -99,7 +99,7 @@ class OfflinePassAndPlayHandoffPolicyTest {
             randomEventIndex = 0,
             pendingRoll = null,
             winnerPlayerId = if (status == "FINISHED") "p1" else null,
-            rulesetId = NativeDiceEngine.RULESET_ID,
+            rulesetId = ClassicRuleset.V3_ID,
             history = emptyList(),
         )
 }
