@@ -2,9 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import worker from "../src/index-hardening.js";
-import {
-  TEST_TRUST_ENV,
-} from "./entronex-test-trust.js";
 
 function gateBinding() {
   return {
@@ -60,27 +57,15 @@ function receiptBinding(
   };
 }
 
-function readyEnv(
-  entronexService,
-) {
+function readyEnv() {
   return {
-    ENTRONEX_BASE_URL:
-      "https://entronex.example.test",
-    ENTRONEX_API_TOKEN:
-      "lp_test_entronex_token_1234567890",
-    ...TEST_TRUST_ENV,
-    LUDOPROOF_SESSION_HMAC_KEY:
-      "lp_test_session_hmac_key_1234567890abcdef",
+    LUDOPROOF_SESSION_HMAC_KEY: "lp_test_session_hmac_key_1234567890abcdef",
     LUDOPROOF_MATCHES: {},
-    LUDOPROOF_API_GATE:
-      gateBinding(),
+    LUDOPROOF_API_GATE: gateBinding(),
     LUDOPROOF_LEADERBOARD: {},
     LUDOPROOF_MATCHMAKER: {},
     LUDOPROOF_FRIENDS: {},
-    LUDOPROOF_RECEIPTS:
-      receiptBinding(),
-    ENTRONEX_SERVICE:
-      entronexService,
+    LUDOPROOF_RECEIPTS: receiptBinding(),
   };
 }
 
@@ -93,93 +78,26 @@ async function body(response) {
 }
 
 test(
-  "ready caches and coalesces EntroNex reachability probes per environment",
+  "ready checks native backend bindings without upstream dice probes",
   async () => {
-    let serviceCalls = 0;
-    const env =
-      readyEnv({
-        async fetch() {
-          serviceCalls += 1;
-          return Response.json({
-            ok: true,
-            protocol: "v4",
-          });
-        },
-      });
-    const request =
-      () =>
-        new Request(
-          "https://ludoproof.example/ready",
-        );
-
-    const [first, second] =
-      await Promise.all([
-        body(
-          await worker.fetch(
-            request(),
-            env,
-          ),
-        ),
-        body(
-          await worker.fetch(
-            request(),
-            env,
-          ),
-        ),
-      ]);
-
-    assert.equal(
-      first.response.status,
-      200,
-    );
-    assert.equal(
-      second.response.status,
-      200,
-    );
-    assert.equal(
-      first.json.ready,
-      true,
-    );
-    assert.equal(
-      first.json.checks
-        .receiptArchiveConfigured,
-      true,
-    );
-    assert.equal(
-      serviceCalls,
-      1,
-    );
-
-    const third =
-      await body(
-        await worker.fetch(
-          request(),
-          env,
-        ),
-      );
-    assert.equal(
-      third.response.status,
-      200,
-    );
-    assert.equal(
-      serviceCalls,
-      1,
-    );
+    const env = readyEnv();
+    const request = () => new Request("https://ludopaws.example/ready");
+    const [first, second] = await Promise.all([
+      body(await worker.fetch(request(), env)),
+      body(await worker.fetch(request(), env)),
+    ]);
+    assert.equal(first.response.status, 200);
+    assert.equal(second.response.status, 200);
+    assert.equal(first.json.ready, true);
+    assert.equal(first.json.checks.receiptArchiveConfigured, true);
+    assert.equal(first.json.checks.sessionKeyConfigured, true);
   },
 );
 
 test(
   "production readiness fails closed when receipt archive binding is missing",
   async () => {
-    const env =
-      readyEnv({
-        async fetch() {
-          return Response.json({
-            ok: true,
-            protocol: "v4",
-          });
-        },
-      });
+    const env = readyEnv();
     delete env.LUDOPROOF_RECEIPTS;
 
     const result =
