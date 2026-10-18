@@ -51,7 +51,7 @@ No production Worker was deployed, no public website/legal page was published, n
 
 ### AUD-07 — Live production configuration is not verified by repository tests
 - **Paths:** `server/wrangler.json`; `.github/workflows/deploy-cloudflare.yml`; `.github/workflows/android-signed-release.yml`; `scripts/cloudflare-deploy-preflight.mjs`; `scripts/production-game-smoke.mjs`
-- **Risk:** Static tests and the Wrangler dry-run validate source/config shape, not current Cloudflare secrets, live DNS/TLS/CORS, Google Play Console products and service-account permissions, AdMob console setup, or a live signed production flow. The repository describes the EntroNex v4 integration as evaluation-only.
+- **Risk:** Static tests and the Wrangler dry-run validate source/config shape, not current Cloudflare secrets, live DNS/TLS/CORS, Google Play Console products and service-account permissions, AdMob console setup, or a live signed production flow. The native dice implementation still requires internal testing and must not be represented as independently audited or certified.
 - **Disposition:** Do not infer production readiness from CI alone. Verify live configuration and acceptance-test flows under a separate approved release procedure; do not dispatch production deployment as part of this audit.
 - **Verification:** Security checks, runtime-config/preflight tests, account-deletion source checks, server tests, and Worker dry-run passed on the audited CI revision.
 
