@@ -24,7 +24,7 @@ class LocalMatchSession(
 
     override val rulesetId:
         String =
-        NativeDiceEngine.RULESET_ID
+        ClassicRuleset.V3_ID
 
     override fun snapshot():
         MatchSnapshot? =
@@ -51,7 +51,7 @@ class LocalMatchSession(
             playerCount =
                 playerCount,
             rulesetId =
-                NativeDiceEngine.RULESET_ID,
+                ClassicRuleset.V3_ID,
         )
         return OfflineMatchInvariantPolicy.requireValid(
             engine.start(
