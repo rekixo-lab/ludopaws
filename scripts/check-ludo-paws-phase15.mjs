@@ -65,7 +65,7 @@ requireText(
 );
 requireText(
   fairDice,
-  "EntroNex v4",
+  "native dice engine",
   "Advanced Fair Dice details must retain the online proof mechanism name.",
 );
 requireText(
