@@ -39,14 +39,14 @@ A six receives a result chime after the normal roll sound. Third-six and no-lega
 
 Phase 11 does **not** modify:
 
-- EntroNex/local-v4 dice derivation;
+- native SecureRandom dice engine and local receipt;
 - legal move calculation;
 - CPU token scoring/selection;
 - capture or safe-cell rules;
 - exact-home logic;
 - turn/extra-turn/third-six rules;
 - winner calculation;
-- proof/audit transcripts;
+- native receipt and local audit history;
 - backend protocol or Durable Objects;
 - offline saved-match schema.
 
