@@ -34,7 +34,7 @@ class FairDiceExplainerTest {
         val details =
             FairDiceExplainer.ADVANCED_DETAILS
 
-        assertTrue(details.contains("EntroNex v4"))
+        assertTrue(details.contains("Ludo Paws"))
         assertTrue(details.contains("HKDF"))
         assertTrue(details.contains("rejection sampling"))
         assertTrue(details.contains("Natural World"))
