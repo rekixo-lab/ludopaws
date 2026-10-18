@@ -1,6 +1,6 @@
 # Ludo Paws Phase 12 — Online Character Integration
 
-Phase 12 carries the selected Starter Paws animal through every remote match path while keeping character identity outside authoritative Ludo and EntroNex fairness state.
+Phase 12 carries the selected Starter Paws animal through every remote match path while keeping character identity outside authoritative Ludo and native dice receipt and fairness-history state.
 
 ## Covered remote modes
 
@@ -21,7 +21,7 @@ MatchRoom persists the cosmetic character beside each player. Public state retur
 
 Character identity is deliberately excluded from `authoritativeStateForRandomness`. It cannot change:
 
-- EntroNex commitments or proof digests
+- native roll receipt or proof digest
 - dice outcomes
 - legal token indexes
 - CPU or player move decisions
