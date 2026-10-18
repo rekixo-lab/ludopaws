@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   MatchRoom,
 } from "../src/match-room-forfeit.js";
+import { sha256Hex } from "../src/crypto.js";
 
 const SESSION_KEY =
   "lp_test_session_hmac_key_1234567890abcdef";
@@ -562,11 +563,16 @@ test(
         .playerToken,
     );
 
+    const clientSeed = "a".repeat(64);
+    const clientCommitment = await sha256Hex(
+      "ludopaws:native-roll:v1:client-commit:" + clientSeed,
+    );
+
     const mutation =
       await json(
         await room.fetch(
           request(
-            "/roll/commit",
+            "/roll",
             {
               method:
                 "POST",
@@ -574,10 +580,8 @@ test(
                 players[1]
                   .playerToken,
               body: {
-                clientCommitment:
-                  "a".repeat(
-                    64,
-                  ),
+                clientSeed,
+                clientCommitment,
               },
             },
           ),
