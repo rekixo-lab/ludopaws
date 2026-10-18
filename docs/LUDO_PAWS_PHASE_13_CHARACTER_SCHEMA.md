@@ -21,7 +21,7 @@ Persisted legacy room state is handled more leniently: stale or missing stored v
 
 Character metadata remains presentation-only. It is excluded from `authoritativeStateForRandomness()` and therefore cannot change:
 
-- EntroNex commitments, proof digests or fairness transcripts;
+- native dice commitments, receipt digests or fairness-history records;
 - dice outcomes or event indexes;
 - legal token indexes or move validation;
 - captures, safe cells, exact-home, extra turns or third-six behavior;
