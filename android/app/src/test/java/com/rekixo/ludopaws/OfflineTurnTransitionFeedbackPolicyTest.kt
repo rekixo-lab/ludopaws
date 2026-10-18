@@ -122,7 +122,7 @@ class OfflineTurnTransitionFeedbackPolicyTest {
             randomEventIndex = randomEventIndex,
             pendingRoll = null,
             winnerPlayerId = null,
-            rulesetId = OfflineLudoV3Binding.RULESET_ID,
+            rulesetId = NativeDiceEngine.RULESET_ID,
             history = history,
         )
 
