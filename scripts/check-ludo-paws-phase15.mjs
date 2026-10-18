@@ -70,8 +70,8 @@ requireText(
 );
 requireText(
   fairDice,
-  "HKDF",
-  "Advanced Fair Dice details must retain the offline derivation vocabulary.",
+  "rejection sampling",
+  "Advanced Fair Dice details must explain unbiased native sampling.",
 );
 rejectText(
   fairDice.match(/FRIENDLY_SUMMARY =[\s\S]*?ONLINE_SUMMARY =/)?.[0] ?? "",
