@@ -55,7 +55,7 @@ requireText(
 );
 requireText(
   fairDice,
-  'HOME_ACTION_LABEL =\n        "FAIR DICE"',
+  'HOME_ACTION_LABEL = "FAIR DICE"',
   "Fair Dice must replace raw PROOFS wording in the consumer quick action.",
 );
 requireText(
