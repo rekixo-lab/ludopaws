@@ -2089,13 +2089,63 @@ export class MatchRoom {
   }
 }
 
+const FROZEN_NATIVE_RULESET_HASHES = Object.freeze({
+  "ludoproof-standard-v1": {
+    materialDigest: "3d15db0108c87566f5a1fbcf2e7c8b651dd81a5356dc8c3dbfe43a8631e3035b",
+    digest: "4bd777ac5ec430c0a70956dd83a6451f4f8f0e91848b09000791e912fe3886cc",
+  },
+  "ludoproof-team-v1": {
+    materialDigest: "601966d5368325d1e4fea7c32acadd9eceb1ac5e7951f3b7b2cbaca487536b1c",
+    digest: "75610e6d5908344586e1c0d22d5846bae5312c6e0274a4e613a8c5f8cd8bc426",
+  },
+  "ludoproof-standard-v2": {
+    materialDigest: "a92f91683bc6c60d465113eeb72ecc76d3734fb5ee3ee0d0c2549d686f29aa39",
+    digest: "7ad14daf100d7e14eea9b0a6da3a68cbd85d35f647052add4433df2efd9eb862",
+  },
+  "ludoproof-team-v2": {
+    materialDigest: "b10fda5f33e3dc0721559d34361128e97d135aba1c561662a311406a1d19fb5c",
+    digest: "a10326d8a631381eba6bd775fe90decf1c3e5788f5862d19e4f23cf08fec57ce",
+  },
+  "ludoproof-standard-v3": {
+    materialDigest: "d30cdf117cc3c8532f7c6ee9a3b971e2a19aa6c3b8bf62c75cd7d4ad5fc0556f",
+    digest: "df5d0782c06b2233e6654f1e44c310a62734080b7e071effe34bf0ed957c8304",
+  },
+  "ludoproof-team-v3": {
+    materialDigest: "2e11c1d14159bbe934e12ae28804e2ea41c255419939e5afc66f45c9ba632918",
+    digest: "f01648b3ade24d39b76ed037b8a6f6a76db57ded78e7f30fb5aabb6e6342764b",
+  },
+  "ludoproof-standard-v4": {
+    materialDigest: "190844de0fb7395cc34b1faaaec107859fa58dae42801c1f2211a1857f32b63c",
+    digest: "96a06271c5ffd79ea43e13ed785b3f3972faa691105ccd6b1fd870bd5f524531",
+  },
+  "ludoproof-team-v4": {
+    materialDigest: "4fa34e1a17f51d9104d1b0e24895d249cb4e0e7d1e586a8b01ab414da7c0f400",
+    digest: "34efad7fe212c8713ec9200d2f7089a9ad536fdd9edfb361be2c242bd14851bd",
+  },
+});
+
 export async function rulesetHashForState(state) {
-  return sha256Hex(
-    "ludopaws:native-roll:v1:game-ruleset:" +
-      canonicalJson(
-        rulesetForState(state),
-      ),
+  const ruleset = rulesetForState(state);
+  const frozen = FROZEN_NATIVE_RULESET_HASHES[ruleset.id];
+  if (!frozen) {
+    throw httpError(
+      500,
+      "UNSUPPORTED_RULESET_HASH",
+      "the native ruleset has no frozen digest",
+    );
+  }
+
+  const materialDigest = await sha256Hex(
+    "ludopaws:ruleset-freeze:v1:" + canonicalJson(ruleset),
   );
+  if (materialDigest !== frozen.materialDigest) {
+    throw httpError(
+      500,
+      "RULESET_HASH_MATERIAL_DRIFT",
+      "frozen ruleset material changed without a compatibility migration",
+    );
+  }
+  return frozen.digest;
 }
 
 function historyForHash(history) {
