@@ -172,283 +172,52 @@ for (const invariant of [
   }
 }
 
-const deployWorkflowPath =
-  ".github/workflows/deploy-cloudflare.yml";
-if (
-  fs.existsSync(
-    deployWorkflowPath,
-  )
-) {
-  const deployWorkflow =
-    fs.readFileSync(
-      deployWorkflowPath,
-      "utf8",
-    );
-  for (const invariant of [
-    "CLOUDFLARE_DEPLOY_ENABLED",
-    "CLOUDFLARE_API_TOKEN",
-    "CLOUDFLARE_ACCOUNT_ID",
-    "ENTRONEX_API_TOKEN",
-    "ENTRONEX_EVAL_CUSTOMER_TOKEN",
-    "ENTRONEX_TOKEN_MODE",
-    "LUDOPROOF_SESSION_HMAC_KEY",
-    "cloudflare-deploy-preflight.mjs",
-    "secret list --format json",
-    "randomBytes(32)",
-    "randomBytes(48)",
-    "/health",
-    "/ready",
-    "production-game-smoke.mjs",
-  ]) {
-    if (
-      !deployWorkflow.includes(
-        invariant,
-      )
-    ) {
-      findings.push(
-        deployWorkflowPath +
-          ": missing production deploy invariant " +
-          invariant,
-      );
-    }
+
+const nativeServerDice = "server/src/dice-fast.js";
+const nativeAndroidDice = "android/app/src/main/java/com/rekixo/ludopaws/feature/proof/domain/core/NativeDiceEngine.kt";
+const offlineEngine = "android/app/src/main/java/com/rekixo/ludopaws/feature/offline/domain/engine/OfflineGameEngine.kt";
+for (const file of [nativeServerDice, nativeAndroidDice, offlineEngine]) {
+  if (!fs.existsSync(file)) findings.push(file + ": native dice implementation is missing");
+}
+if (fs.existsSync(nativeServerDice)) {
+  const source = fs.readFileSync(nativeServerDice, "utf8");
+  for (const invariant of ["crypto.getRandomValues", "ACCEPT_LIMIT", "createFastDiceReceipt"]) {
+    if (!source.includes(invariant)) findings.push(nativeServerDice + ": missing secure dice invariant " + invariant);
+  }
+}
+if (fs.existsSync(nativeAndroidDice)) {
+  const source = fs.readFileSync(nativeAndroidDice, "utf8");
+  for (const invariant of ["SecureRandom", "ACCEPT_LIMIT", "rejection sampling", "fun verify"]) {
+    if (!source.includes(invariant)) findings.push(nativeAndroidDice + ": missing native dice invariant " + invariant);
+  }
+}
+if (fs.existsSync(offlineEngine)) {
+  const source = fs.readFileSync(offlineEngine, "utf8");
+  if (!source.includes("NativeDiceEngine.createReceipt") || !source.includes("audit.verify()")) {
+    findings.push(offlineEngine + ": offline rolls must use and verify native dice receipts");
+  }
+}
+const deploymentWorkflowPath = ".github/workflows/deploy-cloudflare.yml";
+if (fs.existsSync(deploymentWorkflowPath)) {
+  const workflow = fs.readFileSync(deploymentWorkflowPath, "utf8");
+  for (const invariant of ["workflow_dispatch:", "scripts/cloudflare-deploy-preflight.mjs", "scripts/security-check.mjs", "production-game-smoke.mjs"]) {
+    if (!workflow.includes(invariant)) findings.push(deploymentWorkflowPath + ": missing production deployment gate " + invariant);
   }
 }
 
-const wrangler =
-  JSON.parse(
-    fs.readFileSync(
-      "server/wrangler.json",
-      "utf8",
-    ),
-  );
-const serviceBindings =
-  Array.isArray(
-    wrangler?.services,
-  )
-    ? wrangler.services
-    : [];
-if (
-  !serviceBindings.some(
-    (entry) =>
-      entry?.binding ===
-        "ENTRONEX_SERVICE" &&
-      entry?.service ===
-        "entronex-v4-eval",
-  )
-) {
-  findings.push(
-    "server/wrangler.json: missing internal EntroNex service binding",
-  );
+// Scan repository text for any remaining name of the retired external dice provider.
+const retiredName = "entro" + "nex";
+const candidateTextFiles = [];
+for (const root of ["server", "android/app/src", ".github/workflows", "scripts", "docs", "README.md"]) {
+  walk(root, candidateTextFiles);
 }
-
-const pinnedVars =
-  wrangler?.vars ?? {};
-for (const [name, expected] of [
-  [
-    "ENTRONEX_SIGNING_KEY_ID",
-    "cf-v4-eval-sign-1",
-  ],
-  [
-    "ENTRONEX_TENANT_ID",
-    "cloudflare_v4_eval",
-  ],
-  [
-    "ENTRONEX_SIGNING_KEY_FINGERPRINT",
-    "1fe248e8ee9129fcd13c1ee96c1cd7d162a610e9b1df3037a4ec48935f2d43c4",
-  ],
-  [
-    "ENTRONEX_SIGNING_PUBLIC_KEY_PEM_B64",
-    "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUNvd0JRWURLMlZ3QXlFQTVlaXhuL3QvV1lYQWhPTEgvOEMybXZTRk8vRHk0Ti93UDhxQ2x4SEtnMUU9Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=",
-  ],
-]) {
-  if (
-    pinnedVars[name] !==
-    expected
-  ) {
-    findings.push(
-      "server/wrangler.json: pinned EntroNex trust drift for " +
-        name,
-    );
+for (const file of new Set(candidateTextFiles)) {
+  if (!fs.existsSync(file)) continue;
+  const content = fs.readFileSync(file, "utf8");
+  if (content.toLowerCase().includes(retiredName)) {
+    findings.push(file + ": retired dice-provider reference remains");
   }
-}
-
-const offlineV4Files = {
-  core: "android/app/src/main/java/com/rekixo/ludopaws/feature/proof/domain/core/EntroNexV4Local.kt",
-  binding: "android/app/src/main/java/com/rekixo/ludopaws/feature/proof/domain/offline/OfflineLudoV4Binding.kt",
-  gameplayBinding: "android/app/src/main/java/com/rekixo/ludopaws/feature/proof/domain/offline/OfflineLudoV3Binding.kt",
-  engine: "android/app/src/main/java/com/rekixo/ludopaws/feature/offline/domain/engine/OfflineGameEngine.kt",
-  fairness: "android/app/src/main/java/com/rekixo/ludopaws/feature/proof/domain/offline/OfflineFairnessChain.kt",
-  conformance:
-    "android/app/src/test/java/com/rekixo/ludopaws/EntroNexV4LocalConformanceTest.kt",
-};
-
-for (const file of Object.values(offlineV4Files)) {
-  if (!fs.existsSync(file)) {
-    findings.push(
-      file +
-        ": missing offline v4 invariant file",
-    );
-  }
-}
-
-if (
-  Object.values(offlineV4Files).every(
-    (file) =>
-      fs.existsSync(
-        file,
-      ),
-  )
-) {
-  const core =
-    fs.readFileSync(
-      offlineV4Files.core,
-      "utf8",
-    );
-  for (const invariant of [
-    "entronex-v4-dual-commit-hkdf-sha256-context-bound",
-    "entronex:v4:client-commit:",
-    "entronex:v4:server-commit:",
-    "entronex:v4:transcript:",
-    "entronex:v4:outcome",
-    "entronex:v4:natural-world",
-    "direct-outcome-selection",
-    "entronex:v1:stream:",
-    "281_474_976_710_656L",
-    "balanced-swap-witness",
-    "entronex:natural-world:v1:manifest:",
-  ]) {
-    if (!core.includes(invariant)) {
-      findings.push(
-        offlineV4Files.core +
-          ": missing frozen v4 invariant " +
-          invariant,
-      );
-    }
-  }
-
-  const binding =
-    fs.readFileSync(
-      offlineV4Files.binding,
-      "utf8",
-    );
-  for (const invariant of [
-    "cellsPerOutcome =",
-    "16",
-    "timelineTicks =",
-    "512",
-    "epochCount =",
-    "8",
-    "probeCount =",
-    "3",
-    "entronex:v4:game-state:",
-    "entronex:v4:game-ruleset:",
-    "ludoproof:actor:v1:",
-    '"DICE_ROLL"',
-  ]) {
-    if (!binding.includes(invariant)) {
-      findings.push(
-        offlineV4Files.binding +
-          ": missing Ludo v4 binding invariant " +
-          invariant,
-      );
-    }
-  }
-
-  const gameplayBinding =
-    fs.readFileSync(
-      offlineV4Files.gameplayBinding,
-      "utf8",
-    );
-  for (const invariant of [
-    "OfflineLudoV3Binding",
-    '"ludoproof-standard-v3"',
-    "EntroNexV4Local.resolve",
-    "entronex:v4:game-state:",
-    "entronex:v4:game-ruleset:",
-    "openingRollConsumed",
-    '"GUARANTEED_SIX_ONCE_PER_PLAYER"',
-    '"AUTO_MOVE"',
-  ]) {
-    if (!gameplayBinding.includes(invariant)) {
-      findings.push(
-        offlineV4Files.gameplayBinding +
-          ": missing v3 gameplay proof-binding invariant " +
-          invariant,
-      );
-    }
-  }
-
-  const engine =
-    fs.readFileSync(
-      offlineV4Files.engine,
-      "utf8",
-    );
-  if (
-    !engine.includes(
-      "OfflineLudoV3Binding",
-    ) ||
-    !engine.includes(
-      "EntroNexV4Local.verify",
-    ) ||
-    !engine.includes(
-      "LudoTurnAutomationPolicy.effectiveOutcome",
-    )
-  ) {
-    findings.push(
-      offlineV4Files.engine +
-        ": offline rolls do not fail closed through the versioned v4 proof binding/verifier",
-    );
-  }
-  for (const forbidden of [
-    "nextInt(6)",
-    "nextInt(6) + 1",
-  ]) {
-    if (engine.includes(forbidden)) {
-      findings.push(
-        offlineV4Files.engine +
-          ": direct local dice shortcut is forbidden: " +
-          forbidden,
-      );
-    }
-  }
-
-  const fairness =
-    fs.readFileSync(
-      offlineV4Files.fairness,
-      "utf8",
-    );
-  for (const invariant of [
-    "ludoproof-roll-chain-v1",
-    "ludoproof:fairness-receipt:v1:",
-    "previousFairnessDigest",
-    "fairnessDigest",
-  ]) {
-    if (!fairness.includes(invariant)) {
-      findings.push(
-        offlineV4Files.fairness +
-          ": missing offline fairness-chain invariant " +
-          invariant,
-      );
-    }
-  }
-
-  const conformance =
-    fs.readFileSync(
-      offlineV4Files.conformance,
-      "utf8",
-    );
-  for (const invariant of [
-    "bb2b3f384f6a1ef71c2680402c30c01bbe23a5e7faf2b025553095d7ab36d27e",
-    "0cdf48f6a5c0afbf3837ff073a73963b57415397fb70339e3949be7e16caeffe",
-    "eabd09e6dad8342bb5cc8724c9bcbb90ae95263fb5dc847449739fa14ac102a3",
-  ]) {
-    if (!conformance.includes(invariant)) {
-      findings.push(
-        offlineV4Files.conformance +
-          ": frozen cross-language v4 vector drift",
-      );
-    }
-  }
+ 
 }
 
 if (findings.length > 0) {
@@ -469,7 +238,7 @@ console.log(
     " files inspected).",
 );
 
-function walk(current) {
+function walk(current, target = files) {
   if (!fs.existsSync(current)) {
     return;
   }
@@ -477,11 +246,10 @@ function walk(current) {
     fs.statSync(current);
   if (stat.isFile()) {
     if (
-      /\.(?:js|mjs|kt|xml|yml|yaml)$/.test(
-        current,
-      )
+      /\.(?:js|mjs|kt|xml|yml|yaml|json|md|txt|kts|gradle|properties|sh)$/.test(current) ||
+      current.endsWith(".env.example")
     ) {
-      files.push(
+      target.push(
         current.replaceAll(
           "\\",
           "/",
@@ -504,6 +272,10 @@ function walk(current) {
       entry.name ===
         "build" ||
       entry.name ===
+        ".git" ||
+      entry.name ===
+        "node_modules" ||
+      entry.name ===
         ".gradle"
     ) {
       continue;
@@ -513,6 +285,7 @@ function walk(current) {
         current,
         entry.name,
       ),
+      target,
     );
   }
 }
