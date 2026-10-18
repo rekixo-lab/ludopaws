@@ -161,4 +161,4 @@ The CI Android job runs this gate before unit tests/builds.
 
 ## Integrity boundary
 
-Asset selection, decoding, animation and audio are presentation-only. They must never feed EntroNex inputs, proof digests, dice outcomes, legal-move logic, CPU move authority or winner calculation.
+Asset selection, decoding, animation and audio are presentation-only. They must never feed native dice inputs, receipt digests, dice outcomes, legal-move logic, CPU move authority or winner calculation.
