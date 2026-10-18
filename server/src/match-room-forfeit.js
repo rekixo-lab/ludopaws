@@ -510,9 +510,7 @@ function shouldGuard(
       "POST" &&
     [
       "/start",
-      "/roll/fast",
-      "/roll/commit",
-      "/roll/reveal",
+      "/roll",
       "/move",
     ].includes(
       path,

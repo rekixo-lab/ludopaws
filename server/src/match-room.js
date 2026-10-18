@@ -103,13 +103,7 @@ export class MatchRoom {
         return await this.#mutate(() => this.#start(request));
       }
       if (request.method === "POST" && url.pathname === "/roll") {
-        return await this.#mutate(() => this.#fastRoll(request, body));
-      }
-      if (request.method === "POST" && url.pathname === "/roll/commit") {
-        return await this.#mutate(() => this.#commitRoll(request, body));
-      }
-      if (request.method === "POST" && url.pathname === "/roll/reveal") {
-        return await this.#mutate(() => this.#revealRoll(request, body));
+        return await this.#mutate(() => this.#roll(request, body));
       }
       if (request.method === "POST" && url.pathname === "/move") {
         return await this.#mutate(() => this.#move(request, body));

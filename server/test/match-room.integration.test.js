@@ -1,10 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  MatchRoom,
-  expectedDigests,
-} from "../src/match-room.js";
+import { MatchRoom } from "../src/match-room.js";
 import { verifyFastDiceReceipt } from "../src/dice-fast.js";
 import { MatchRoom as BotMatchRoom } from "../src/match-room-bots.js";
 import {
@@ -13,21 +10,6 @@ import {
   issueLeaderboardProfileAssertion,
   sha256Hex,
 } from "../src/crypto.js";
-import {
-  TEST_TRUST_ENV,
-  attachCommitmentEvidence,
-  attachProofEvidence,
-} from "./entronex-test-trust.js";
-import {
-  clientCommitmentForSeedV4,
-  resolveOutcomeV4,
-  serverCommitmentForSeedV4,
-} from "../src/vendor/entronex-v4/v4.js";
-
-const ALGORITHM =
-  "entronex-v4-dual-commit-hkdf-sha256-context-bound";
-const BASE_URL = "https://entronex.example.test";
-const API_TOKEN = "lp_test_entronex_token_1234567890";
 const SESSION_KEY =
   "lp_test_session_hmac_key_1234567890abcdef";
 
@@ -67,11 +49,7 @@ function makeContext() {
 
 function makeEnv() {
   return {
-    ENTRONEX_BASE_URL: BASE_URL,
-    ENTRONEX_API_TOKEN: API_TOKEN,
-    LUDOPROOF_SESSION_HMAC_KEY:
-      SESSION_KEY,
-    ...TEST_TRUST_ENV,
+    LUDOPROOF_SESSION_HMAC_KEY: SESSION_KEY,
   };
 }
 
@@ -369,282 +347,6 @@ function attachFriendDirectory(
       joinChecks,
   };
 }
-
-function installEntroNexMock(t, {
-  outcomes = [6],
-  clientSeeds = [
-    "1".repeat(64),
-    "3".repeat(64),
-  ],
-} = {}) {
-  const originalFetch = globalThis.fetch;
-  const rounds = new Map();
-  let createCalls = 0;
-  let resolveCalls = 0;
-  let outcomeCursor = 0;
-
-  globalThis.fetch = async (input, init = {}) => {
-    const url =
-      new URL(
-        typeof input === "string"
-          ? input
-          : input.url,
-      );
-    const method =
-      String(init.method ?? "GET").toUpperCase();
-    const parsedBody =
-      init.body == null
-        ? null
-        : JSON.parse(String(init.body));
-
-    if (
-      method === "POST" &&
-      url.pathname === "/v4/rounds"
-    ) {
-      createCalls += 1;
-      const config = {
-        outcomes: parsedBody.outcomes,
-        context: parsedBody.context,
-        world: parsedBody.world,
-      };
-      const digests =
-        await expectedDigests(config);
-      const roundId =
-        "00000000-0000-4000-8000-" +
-        String(createCalls).padStart(12, "0");
-      const desiredOutcome =
-        outcomes[
-          Math.min(
-            createCalls - 1,
-            outcomes.length - 1,
-          )
-        ];
-      const hintedClientSeed =
-        clientSeeds[
-          createCalls - 1
-        ];
-      const serverSeed =
-        chooseServerSeed({
-          roundId,
-          config,
-          digests,
-          clientCommitment:
-            parsedBody.clientCommitment,
-          clientSeed:
-            hintedClientSeed,
-          desiredOutcome,
-          fallbackIndex:
-            createCalls,
-        });
-      const serverCommitment =
-        serverCommitmentForSeedV4(
-          serverSeed,
-        );
-      const round =
-        attachCommitmentEvidence(
-          {
-            protocol: "v4",
-            roundId,
-            serverCommitment,
-            clientCommitment:
-              parsedBody.clientCommitment,
-            config,
-            ...digests,
-            replayed: false,
-          },
-          createCalls * 2 - 1,
-        );
-      rounds.set(roundId, {
-        round,
-        serverSeed,
-        proof: null,
-        revealedSeed: null,
-      });
-      return Response.json(
-        round,
-        { status: 201 },
-      );
-    }
-
-    const resolveMatch =
-      url.pathname.match(
-        /^\/v4\/rounds\/([^/]+)\/resolve$/,
-      );
-    if (
-      method === "POST" &&
-      resolveMatch
-    ) {
-      resolveCalls += 1;
-      const roundId =
-        decodeURIComponent(
-          resolveMatch[1],
-        );
-      const record =
-        rounds.get(roundId);
-      assert.ok(
-        record,
-        "mock round must exist",
-      );
-
-      if (record.proof) {
-        if (
-          record.revealedSeed !==
-          parsedBody.clientSeed
-        ) {
-          return Response.json(
-            {
-              error:
-                "ROUND_ALREADY_RESOLVED",
-              message:
-                "round resolved with another reveal",
-            },
-            { status: 409 },
-          );
-        }
-        return Response.json({
-          ...record.proof,
-          replayed: true,
-        });
-      }
-
-      outcomeCursor += 1;
-
-      const proof =
-        attachProofEvidence(
-          resolveOutcomeV4({
-            roundId,
-            serverSeed:
-              record.serverSeed,
-            serverCommitment:
-              record.round.serverCommitment,
-            clientSeed:
-              parsedBody.clientSeed,
-            clientCommitment:
-              record.round.clientCommitment,
-            contextDigest:
-              record.round.contextDigest,
-            eventBindingDigest:
-              record.round
-                .eventBindingDigest,
-            config:
-              record.round.config,
-            configDigest:
-              record.round.configDigest,
-          }),
-          createCalls * 2,
-        );
-
-      record.revealedSeed =
-        parsedBody.clientSeed;
-      record.proof = proof;
-      return Response.json(proof);
-    }
-
-    const proofMatch =
-      url.pathname.match(
-        /^\/v4\/rounds\/([^/]+)\/proof$/,
-      );
-    if (
-      method === "GET" &&
-      proofMatch
-    ) {
-      const roundId =
-        decodeURIComponent(
-          proofMatch[1],
-        );
-      const record =
-        rounds.get(roundId);
-      if (!record?.proof) {
-        return Response.json(
-          {
-            error: "proof_not_found",
-          },
-          { status: 404 },
-        );
-      }
-      return Response.json({
-        ...record.proof,
-        archived: true,
-      });
-    }
-
-    throw new Error(
-      "unexpected EntroNex request: " +
-        method +
-        " " +
-        url.pathname,
-    );
-  };
-
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-  });
-
-  return {
-    createCalls: () => createCalls,
-    resolveCalls: () => resolveCalls,
-  };
-}
-
-function chooseServerSeed({
-  roundId,
-  config,
-  digests,
-  clientCommitment,
-  clientSeed,
-  desiredOutcome,
-  fallbackIndex,
-}) {
-  if (
-    typeof clientSeed !== "string" ||
-    clientCommitmentForSeedV4(
-      clientSeed,
-    ) !== clientCommitment
-  ) {
-    return String(fallbackIndex)
-      .padStart(64, "0");
-  }
-
-  for (
-    let candidate = 1;
-    candidate <= 10_000;
-    candidate += 1
-  ) {
-    const serverSeed =
-      candidate
-        .toString(16)
-        .padStart(64, "0");
-    const proof =
-      resolveOutcomeV4({
-        roundId,
-        serverSeed,
-        serverCommitment:
-          serverCommitmentForSeedV4(
-            serverSeed,
-          ),
-        clientSeed,
-        clientCommitment,
-        contextDigest:
-          digests.contextDigest,
-        eventBindingDigest:
-          digests.eventBindingDigest,
-        config,
-        configDigest:
-          digests.configDigest,
-      });
-    if (
-      proof.outcome ===
-      desiredOutcome
-    ) {
-      return serverSeed;
-    }
-  }
-
-  throw new Error(
-    "could not find deterministic test server seed",
-  );
-}
-
 
 test(
   "FRIENDS rooms require bound host identity and accepted invite credentials",
@@ -1249,281 +951,6 @@ for (const playerCount of [2, 3, 4]) {
 }
 
 test(
-  "commit/reveal is idempotent across reconnect and consumes eventIndex at commitment",
-  { concurrency: false },
-  async (t) => {
-    const mock =
-      installEntroNexMock(t, {
-        outcomes: [6, 2],
-      });
-    const {
-      ctx,
-      env,
-      room,
-      host,
-    } =
-      await setupActiveMatch(2);
-
-    const clientSeed =
-      "1".repeat(64);
-    const clientCommitment =
-      await sha256Hex(
-        "entronex:v4:client-commit:" +
-          clientSeed,
-      );
-
-    const firstCommit = await json(
-      await room.fetch(
-        roomRequest(
-          "/roll/commit",
-          {
-            method: "POST",
-            token:
-              host.playerToken,
-            body: {
-              clientCommitment,
-            },
-          },
-        ),
-      ),
-    );
-    assert.equal(
-      firstCommit.response.status,
-      201,
-    );
-    assert.equal(
-      firstCommit.body.round
-        .eventIndex,
-      0,
-    );
-    assert.equal(
-      mock.createCalls(),
-      1,
-    );
-
-    const duplicateCommit =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/roll/commit",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientCommitment,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      duplicateCommit.response.status,
-      200,
-    );
-    assert.equal(
-      duplicateCommit.body.replayed,
-      true,
-    );
-    assert.equal(
-      mock.createCalls(),
-      1,
-      "same logical roll must not create another EntroNex round",
-    );
-
-    const otherSeed =
-      "2".repeat(64);
-    const otherCommitment =
-      await sha256Hex(
-        "entronex:v4:client-commit:" +
-          otherSeed,
-      );
-    const conflictingCommit =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/roll/commit",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientCommitment:
-                  otherCommitment,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      conflictingCommit.response.status,
-      409,
-    );
-    assert.equal(
-      conflictingCommit.body.error,
-      "ROLL_ALREADY_PENDING",
-    );
-    assert.equal(
-      mock.createCalls(),
-      1,
-    );
-
-    const revealed = await json(
-      await room.fetch(
-        roomRequest(
-          "/roll/reveal",
-          {
-            method: "POST",
-            token:
-              host.playerToken,
-            body: {
-              clientSeed,
-            },
-          },
-        ),
-      ),
-    );
-    assert.equal(
-      revealed.response.status,
-      200,
-    );
-    assert.equal(
-      revealed.body.outcome,
-      6,
-    );
-    assert.deepEqual(
-      revealed.body
-        .legalTokenIndexes,
-      [0, 1, 2, 3],
-    );
-    assert.equal(
-      mock.resolveCalls(),
-      1,
-    );
-
-    const reconnectedRoom =
-      new MatchRoom(ctx, env);
-    const replayedReveal =
-      await json(
-        await reconnectedRoom.fetch(
-          roomRequest(
-            "/roll/reveal",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientSeed,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      replayedReveal.response.status,
-      200,
-    );
-    assert.equal(
-      replayedReveal.body.replayed,
-      true,
-    );
-    assert.equal(
-      replayedReveal.body.outcome,
-      6,
-    );
-
-    const changedReveal =
-      await json(
-        await reconnectedRoom.fetch(
-          roomRequest(
-            "/roll/reveal",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientSeed:
-                  otherSeed,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      changedReveal.response.status,
-      400,
-    );
-    assert.equal(
-      changedReveal.body.error,
-      "CLIENT_COMMITMENT_MISMATCH",
-    );
-
-    const moved = await json(
-      await reconnectedRoom.fetch(
-        roomRequest(
-          "/move",
-          {
-            method: "POST",
-            token:
-              host.playerToken,
-            body: {
-              tokenIndex: 0,
-              eventIndex: 0,
-            },
-          },
-        ),
-      ),
-    );
-    assert.equal(
-      moved.response.status,
-      200,
-    );
-    assert.equal(
-      moved.body.extraTurn,
-      true,
-    );
-
-    const nextSeed =
-      "3".repeat(64);
-    const nextCommitment =
-      await sha256Hex(
-        "entronex:v4:client-commit:" +
-          nextSeed,
-      );
-    const nextCommit = await json(
-      await reconnectedRoom.fetch(
-        roomRequest(
-          "/roll/commit",
-          {
-            method: "POST",
-            token:
-              host.playerToken,
-            body: {
-              clientCommitment:
-                nextCommitment,
-            },
-          },
-        ),
-      ),
-    );
-
-    assert.equal(
-      nextCommit.response.status,
-      201,
-    );
-    assert.equal(
-      nextCommit.body.round
-        .eventIndex,
-      1,
-    );
-    assert.equal(
-      mock.createCalls(),
-      2,
-    );
-  },
-);
-
-test(
   "move endpoint rejects movement without a resolved verified roll",
   { concurrency: false },
   async () => {
@@ -1588,91 +1015,6 @@ test(
     assert.equal(
       ctx.storage.deleteAllCalls,
       1,
-    );
-  },
-);
-
-
-test(
-  "pending committed roll timeout is sealed and passes the turn without replacement",
-  { concurrency: false },
-  async (t) => {
-    installEntroNexMock(t, {
-      outcomes: [6],
-    });
-    const {
-      ctx,
-      room,
-      host,
-    } =
-      await setupActiveMatch(2);
-
-    const clientSeed = "7".repeat(64);
-    const clientCommitment =
-      await sha256Hex(
-        "entronex:v4:client-commit:" +
-          clientSeed,
-      );
-
-    const committed = await json(
-      await room.fetch(
-        roomRequest(
-          "/roll/commit",
-          {
-            method: "POST",
-            token: host.playerToken,
-            body: { clientCommitment },
-          },
-        ),
-      ),
-    );
-    assert.equal(
-      committed.response.status,
-      201,
-    );
-
-    const stored =
-      await ctx.storage.get(
-        "match-state",
-      );
-    stored.pendingRoll.revealDeadlineAt =
-      Date.now() - 1;
-    await ctx.storage.put(
-      "match-state",
-      stored,
-    );
-
-    await room.alarm();
-
-    const after =
-      await ctx.storage.get(
-        "match-state",
-      );
-    assert.equal(
-      after.pendingRoll,
-      null,
-    );
-    assert.equal(
-      after.turnSeat,
-      1,
-    );
-    assert.equal(
-      after.randomEventIndex,
-      1,
-    );
-    assert.equal(
-      after.history.at(-1).status,
-      "TIMED_OUT",
-    );
-    assert.equal(
-      after.history.at(-1)
-        .replacementRoundAllowed,
-      false,
-    );
-    assert.equal(
-      after.history.at(-1)
-        .clientCommitment,
-      clientCommitment,
     );
   },
 );
@@ -1926,60 +1268,22 @@ test(
 test(
   "move retry is idempotent for the same event and rejects token substitution",
   { concurrency: false },
-  async (t) => {
-    installEntroNexMock(t, {
-      outcomes: [6],
-      clientSeeds: [
-        "1".repeat(64),
-      ],
-    });
-    const {
-      room,
-      host,
-    } =
-      await setupActiveMatch(2);
-
-    const clientSeed =
-      "1".repeat(64);
-    const clientCommitment =
-      await sha256Hex(
-        "entronex:v4:client-commit:" +
-          clientSeed,
-      );
-
-    await room.fetch(
-      roomRequest(
-        "/roll/commit",
-        {
-          method: "POST",
-          token:
-            host.playerToken,
-          body: {
-            clientCommitment,
-          },
-        },
-      ),
+  async () => {
+    const { ctx, room, host } = await setupActiveMatch(2);
+    const before = await ctx.storage.get("match-state");
+    before.players[0].tokens[0] = 0;
+    await ctx.storage.put("match-state", before);
+    const clientSeed = "1".repeat(64);
+    const clientCommitment = await sha256Hex(
+      "ludopaws:native-roll:v1:client-commit:" + clientSeed,
     );
-    const reveal =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/roll/reveal",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientSeed,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      reveal.response.status,
-      200,
-    );
+    const rolled = await json(await room.fetch(roomRequest("/roll", {
+      method: "POST", token: host.playerToken,
+      body: { clientSeed, clientCommitment },
+    })));
+    assert.equal(rolled.response.status, 200);
+    assert.equal(rolled.body.proof.protocol, "ludopaws-server-csprng-v1");
+    assert.ok(rolled.body.legalTokenIndexes.includes(0));
 
     const moveBody = {
       tokenIndex: 0,
@@ -2058,126 +1362,6 @@ test(
     );
   },
 );
-
-test(
-  "client commitment reuse is rejected after a completed roll",
-  { concurrency: false },
-  async (t) => {
-    installEntroNexMock(t, {
-      outcomes: [6],
-      clientSeeds: [
-        "a".repeat(64),
-      ],
-    });
-    const {
-      room,
-      host,
-    } =
-      await setupActiveMatch(2);
-
-    const clientSeed =
-      "a".repeat(64);
-    const clientCommitment =
-      await sha256Hex(
-        "entronex:v4:client-commit:" +
-          clientSeed,
-      );
-
-    const committed =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/roll/commit",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientCommitment,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      committed.response.status,
-      201,
-    );
-
-    const revealed =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/roll/reveal",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientSeed,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      revealed.response.status,
-      200,
-    );
-    assert.equal(
-      revealed.body.outcome,
-      6,
-    );
-
-    const moved =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/move",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                tokenIndex: 0,
-                eventIndex: 0,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      moved.response.status,
-      200,
-    );
-
-    const reused =
-      await json(
-        await room.fetch(
-          roomRequest(
-            "/roll/commit",
-            {
-              method: "POST",
-              token:
-                host.playerToken,
-              body: {
-                clientCommitment,
-              },
-            },
-          ),
-        ),
-      );
-    assert.equal(
-      reused.response.status,
-      409,
-    );
-    assert.equal(
-      reused.body.error,
-      "CLIENT_COMMITMENT_REUSED",
-    );
-  },
-);
-
 
 test("Quick Chat broadcasts only allowlisted emojis to other authenticated active-match sockets", async () => {
   const { ctx, room, host } = await setupActiveMatch(2);
@@ -2392,22 +1576,14 @@ test(
 );
 
 
-test("fast roll resolves with the local CSPRNG and retries idempotently without EntroNex", async () => {
+test("native CSPRNG roll resolves and retries idempotently", async () => {
   const { room, host, env, ctx } = await setupActiveMatch(2);
-  let externalDiceCalls = 0;
-  env.ENTRONEX_SERVICE = {
-    async fetch() {
-      externalDiceCalls += 1;
-      throw new Error("new fast roll must not call EntroNex");
-    },
-  };
-
   const clientSeed = "1".repeat(64);
   const clientCommitment = await sha256Hex(
-    "entronex:v4:client-commit:" + clientSeed,
+    "ludopaws:native-roll:v1:client-commit:" + clientSeed,
   );
   const request = () =>
-    roomRequest("/roll/fast", {
+    roomRequest("/roll", {
       method: "POST",
       token: host.playerToken,
       body: { clientSeed, clientCommitment },
@@ -2426,13 +1602,11 @@ test("fast roll resolves with the local CSPRNG and retries idempotently without 
         event.outcome === first.body.outcome,
     ),
   );
-  assert.equal(externalDiceCalls, 0);
 
   const replay = await json(await room.fetch(request()));
   assert.equal(replay.response.status, 200);
   assert.equal(replay.body.replayed, true);
   assert.equal(replay.body.roundId, first.body.roundId);
   assert.equal(replay.body.outcome, first.body.outcome);
-  assert.equal(externalDiceCalls, 0);
   assert.ok((await ctx.storage.get("match-state")).history.length >= 1);
 });

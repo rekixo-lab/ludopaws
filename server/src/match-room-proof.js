@@ -11,7 +11,7 @@ const STATE_KEY =
 /**
  * Adds best-effort durable proof archival without changing authoritative
  * gameplay responses. Receipt storage is an evidence sink: gameplay remains
- * controlled by MatchRoom state and EntroNex verification.
+ * controlled by MatchRoom state and native dice receipt verification.
  */
 export class MatchRoom extends TeamMatchRoom {
   async fetch(request) {
