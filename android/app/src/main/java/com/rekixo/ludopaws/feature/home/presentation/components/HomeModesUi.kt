@@ -326,7 +326,7 @@ private fun HomeActivity.modeTitle(
 internal fun HomeActivity.fairPlayStrip(): TextView =
     TextView(this).apply {
         text =
-            "✓  FAIR PLAY\nOnline: remote authority  •  Local: on-device v4 recomputation"
+            "✓  FAIR PLAY\nOnline: native server dice  •  Local: on-device secure random receipt"
         LudoProofTheme.body(
             this,
             if (isCompact()) 11f else 12f,
