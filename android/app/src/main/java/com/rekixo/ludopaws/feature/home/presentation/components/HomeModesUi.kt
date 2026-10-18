@@ -347,7 +347,7 @@ internal fun HomeActivity.fairPlayStrip(): TextView =
             ArcadeDialogs.showProofHistory(
                 this@fairPlayStrip,
                 "FAIR PLAY",
-                "Ludo Paws uses the same v4 derivation math online and offline. Online adds remote EntroNex authority; offline is locally reproducible only.",
+                "Online dice results are generated and persisted by the native Ludo Paws match server. Offline dice use Android SecureRandom and a local receipt; local history is not independent remote verification.",
             )
         }
     }
