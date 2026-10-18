@@ -86,7 +86,7 @@ if (
 }
 
 for (const source of [engine, moments, director]) {
-  for (const marker of ['OfflineGameEngine(', 'session.move(', 'session.roll(', 'EntroNexV4Local']) {
+  for (const marker of ['OfflineGameEngine(', 'session.move(', 'session.roll(', 'NativeDiceEngine']) {
     if (source.includes(marker)) {
       throw new Error(`Reaction presentation layer must not mutate gameplay/proof state: ${marker}`);
     }
