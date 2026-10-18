@@ -29,6 +29,8 @@ object FairDiceExplainer {
             append("\n\n")
             append(OFFLINE_SUMMARY)
             append("\n\n")
+            append("Advanced details:")
+            append("\n")
             append(ADVANCED_DETAILS)
         }
 }
