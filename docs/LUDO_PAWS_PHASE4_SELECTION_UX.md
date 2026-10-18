@@ -1,6 +1,6 @@
 # Ludo Paws Phase 4 — Starter Pack Selection UX
 
-Phase 4 makes the Phase 3 character domain selectable in local play without changing Ludo rules, offline fairness, EntroNex material, or server contracts.
+Phase 4 makes the Phase 3 character domain selectable in local play without changing Ludo rules, offline fairness history, native dice material, or server contracts.
 
 ## Starter Paws UX
 
@@ -49,7 +49,7 @@ Character selection is cosmetic/presentation state only. Phase 4 deliberately do
 
 - `OfflineGameEngine` start or saved-state schema;
 - `LocalMatchSession` gameplay contract;
-- dice derivation or EntroNex v4 inputs;
+- dice derivation or native dice inputs;
 - legal moves, turn order, capture, safe-cell, home, CPU decisions, or winner logic;
 - online match/player schema;
 - Cloudflare Durable Objects or proof identifiers.
