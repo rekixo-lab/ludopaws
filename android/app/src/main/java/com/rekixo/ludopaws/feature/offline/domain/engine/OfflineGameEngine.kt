@@ -167,6 +167,7 @@ class OfflineGameEngine(
             eventIndex = event,
             playerId = player.playerId,
             stateMaterial = stateMaterial,
+            rulesetId = ClassicRuleset.V3_ID,
         )
         check(audit.outcome in 1..6 && audit.verify()) {
             "Native Ludo Paws dice receipt verification failed"
@@ -920,7 +921,7 @@ class OfflineGameEngine(
                     )
                 },
             winnerPlayerId = winnerPlayerId,
-            rulesetId = NativeDiceEngine.RULESET_ID,
+            rulesetId = ClassicRuleset.V3_ID,
             history = history.map { it.toSnapshot() },
             finishOrderPlayerIds = finishedPlayerIds.toList(),
         )
