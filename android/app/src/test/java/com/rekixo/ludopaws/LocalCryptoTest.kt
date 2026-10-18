@@ -26,7 +26,7 @@ class LocalCryptoTest {
         )
         assertEquals(
             SeedCommitment.sha256Hex(
-                "entronex:v4:client-commit:" +
+                "ludopaws:native-roll:v1:client-commit:" +
                     first.clientSeed,
             ),
             first.clientCommitment,
