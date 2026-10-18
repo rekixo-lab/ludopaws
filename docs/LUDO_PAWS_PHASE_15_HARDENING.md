@@ -13,7 +13,7 @@ The Fair Dice dialog is intentionally layered:
 1. a plain-language explanation that the UI cannot simply choose the displayed dice outcome;
 2. a short online explanation;
 3. a short offline explanation;
-4. advanced audit vocabulary for players who want the EntroNex v4 / HKDF / rejection-sampling / Natural World details.
+4. advanced audit vocabulary for players who want native dice-engine, rejection-sampling and receipt-context details.
 
 The detailed proof information remains available. Only the order and consumer-facing terminology changed.
 
@@ -51,7 +51,7 @@ Phase 15 deliberately preserves:
 - Android `applicationId = "com.rekixo.ludopaws"`;
 - Cloudflare Worker name `ludoproof-game-api`;
 - existing `LUDOPROOF_*` bindings and Durable Object migrations;
-- current proof/randomness identifiers and EntroNex v4 derivation;
+- current native dice receipt/fairness-history identifiers and native derivation;
 - server-authoritative dice, legal move, capture, safe-cell, exact-home, turn, reconnect and winner behavior;
 - existing local/remote match compatibility.
 
