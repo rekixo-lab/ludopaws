@@ -117,7 +117,7 @@ if (
   throw new Error('Quiet idle scheduling regression coverage is incomplete.');
 }
 
-for (const forbidden of ['OfflineGameEngine(', 'session.move(', 'session.roll(', 'EntroNexV4Local']) {
+for (const forbidden of ['OfflineGameEngine(', 'session.move(', 'session.roll(', 'NativeDiceEngine']) {
   if (detector.includes(forbidden) || idlePolicy.includes(forbidden)) {
     throw new Error(`Game-moment presentation policy must stay authority-free: ${forbidden}`);
   }
