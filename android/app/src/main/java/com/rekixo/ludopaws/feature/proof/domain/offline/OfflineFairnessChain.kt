@@ -115,7 +115,7 @@ object OfflineFairnessChain {
             .sha256Hex(
                 DOMAIN +
                     NativeDiceEngine
-                        .jcs(
+                        .canonicalJson(
                             mapOf(
                                 "protocol" to
                                     PROTOCOL,
