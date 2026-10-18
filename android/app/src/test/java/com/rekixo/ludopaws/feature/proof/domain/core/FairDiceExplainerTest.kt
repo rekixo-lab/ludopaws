@@ -35,9 +35,10 @@ class FairDiceExplainerTest {
             FairDiceExplainer.ADVANCED_DETAILS
 
         assertTrue(details.contains("native dice engine"))
-        assertTrue(details.contains("HKDF"))
+        assertTrue(details.contains("receipt"))
+        assertFalse(details.contains("HKDF"))
         assertTrue(details.contains("rejection sampling"))
-        assertTrue(details.contains("Natural World"))
+        assertFalse(details.contains("Natural World"))
     }
 
     @Test
