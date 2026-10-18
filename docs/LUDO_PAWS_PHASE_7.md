@@ -24,7 +24,7 @@ A later production audit found two Phase 7 behaviors that existed only partially
 
 ## Safety boundary
 
-This phase does not modify `OfflineGameEngine`, EntroNex v4, legal moves, dice derivation, capture rules, safe cells, exact-home rules, winner logic, proof/fairness history, server protocol, Durable Objects, persistence schema, or authoritative turn timers.
+This phase does not modify `OfflineGameEngine`, native dice engine, legal moves, dice derivation, capture rules, safe cells, exact-home rules, winner logic, proof/fairness history, server protocol, Durable Objects, persistence schema, or authoritative turn timers.
 
 Idle scheduling uses only the Android presentation clock. Poor-roll streak detection only reads already-committed history. Neither can affect dice outcomes, CPU decisions, legal moves, network authority, or proof material.
 
