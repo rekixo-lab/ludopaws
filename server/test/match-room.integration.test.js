@@ -1503,7 +1503,11 @@ test(
     assert.equal(after.status, "ACTIVE");
     assert.equal(after.pendingRoll, null);
     assert.equal(after.randomEventIndex, 1);
-    assert.notEqual(after.players[1].tokens[0], 0);
+    assert.notDeepEqual(
+      after.players[1].tokens,
+      rollShown.players[1].tokens,
+      "the bot must apply a legal move chosen for this dice outcome",
+    );
     assert.ok(after.history.some(
       (event) => event.playerId === after.players[1].playerId && event.moveTokenIndex != null,
     ));
