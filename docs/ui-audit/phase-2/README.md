@@ -15,7 +15,7 @@ Provide a small reusable design-token vocabulary and semantic Canvas icons, then
 
 ## Deliberately unchanged
 
-HomeIconView and FriendsIconView are not migrated in this phase, avoiding a large appearance change before screenshot comparison. Settings, Store, Friends interactions, mascot art, board and 3D scene rendering are unchanged. No game rules, EntroNex proof logic, server protocol, session state, billing or ad entitlement behavior is changed.
+HomeIconView and FriendsIconView are not migrated in this phase, avoiding a large appearance change before screenshot comparison. Settings, Store, Friends interactions, mascot art, board and 3D scene rendering are unchanged. No game rules, native dice receipt verification, server protocol, session state, billing or ad entitlement behavior is changed.
 
 ## Validation gates
 
