@@ -175,7 +175,7 @@ jobs:
               process.exit(2);
             }
             // Do not sign a release against a readiness response that omits or
-            // raises a production-certification claim while EntroNex remains in evaluation.
+            // raises a production-certification claim while the native dice implementation remains unaudited.
             if (ready.productionClaim !== false) {
               console.error("Worker readiness must explicitly report productionClaim=false until independent review is completed.");
               process.exit(3);
