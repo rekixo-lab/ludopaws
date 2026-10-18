@@ -272,7 +272,7 @@ if (!manifest.includes('android.permission.VIBRATE')) {
   throw new Error('Haptics require the VIBRATE manifest permission.');
 }
 
-const forbiddenGameplayMarkers = ['OfflineGameEngine(', 'session.roll(', 'session.move(', 'EntroNexV4Local'];
+const forbiddenGameplayMarkers = ['OfflineGameEngine(', 'session.roll(', 'session.move(', 'NativeDiceEngine'];
 for (const file of [requiredSources[1], requiredSources[2], requiredSources[5], requiredSources[6], requiredSources[7], requiredSources[8], requiredSources[9]]) {
   const source = fs.readFileSync(file, 'utf8');
   for (const marker of forbiddenGameplayMarkers) {
