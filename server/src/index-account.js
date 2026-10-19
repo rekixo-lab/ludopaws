@@ -10,6 +10,7 @@ import baseWorker, {
   TeamMatchmakerQueue,
 } from "./index-forfeit.js";
 import { AccountDirectory } from "./account-directory.js";
+import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import { PlayerAccount } from "./player-account.js";
 import {
   billingAccountId,
@@ -46,6 +47,8 @@ const ACCOUNT_WEB_CORS_PATHS = new Set([
 
 export default {
   async fetch(request, env) {
+    const blocked = ageSafetyBlockResponse(request, env);
+    if (blocked) return blocked;
     const url = new URL(request.url);
     if (request.method === "OPTIONS" && ACCOUNT_WEB_CORS_PATHS.has(url.pathname)) {
       const expectedOrigin = accountWebOrigin(env);
