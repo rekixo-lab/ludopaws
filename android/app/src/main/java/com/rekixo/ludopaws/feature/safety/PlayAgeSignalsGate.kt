@@ -91,9 +91,9 @@ object PlayAgeSignalsGate {
     fun requireConnectedAccess(activity: Activity, onAllowed: () -> Unit) {
         // Always check the CURRENT Play Store user, not a cached prior account.
         request(activity, { allowed ->
-            if (allowed) {
+            if (allowed && !activity.isFinishing && !activity.isDestroyed) {
                 onAllowed()
-            } else if (!activity.isFinishing && !activity.isDestroyed) {
+            } else if (!allowed && !activity.isFinishing && !activity.isDestroyed) {
                 AlertDialog.Builder(activity)
                     .setTitle("Available in offline mode")
                     .setMessage("Connected features need adult age sharing from Google Play. Offline Ludo remains available.")
