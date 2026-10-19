@@ -8,6 +8,8 @@ import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import com.rekixo.ludopaws.feature.safety.AgeAccessStore
+import com.rekixo.ludopaws.feature.safety.AgeBand
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.After
@@ -26,6 +28,8 @@ class MainActivitySessionRestoreInstrumentedTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        // Fixture grants a test-local age band; production still requires Google Play.
+        AgeAccessStore(context).saveFromPlay(AgeBand.ADULT)
         clearRemoteStores()
         setDeviceNetworkEnabled(false)
         assertTrue(
