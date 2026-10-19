@@ -891,9 +891,8 @@ class MainActivity : ComponentActivity() {
         mainHandler.removeCallbacks(
             statePollRunnable,
         )
-        mainHandler.postDelayed(
+        mainHandler.post(
             statePollRunnable,
-            STATE_POLL_RECOVERY_MS,
         )
         mainHandler.removeCallbacks(
             matchmakingPollRunnable,

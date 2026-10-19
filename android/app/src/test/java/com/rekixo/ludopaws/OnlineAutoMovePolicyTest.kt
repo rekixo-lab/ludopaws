@@ -21,14 +21,17 @@ class OnlineAutoMovePolicyTest {
     }
 
     @Test
-    fun oneLegalTokenIsLeftToTheExistingSingleLegalScheduler() {
+    fun oneLegalTokenUsesTheSameAutomaticMoveScheduler() {
         val state = snapshot(
             localSeat = 0,
             tokens = listOf(8, -1, -1, -1),
             roll = 2,
             legal = setOf(0),
         )
-        assertNull(OnlineAutoMovePolicy.resolve(state, "p0", true, true))
+        val decision = OnlineAutoMovePolicy.resolve(state, "p0", true, true)
+        requireNotNull(decision)
+        assertEquals(0, decision.tokenIndex)
+        assertEquals("LPV4JSON23:auto:7:0", decision.eventKey)
     }
 
     @Test
