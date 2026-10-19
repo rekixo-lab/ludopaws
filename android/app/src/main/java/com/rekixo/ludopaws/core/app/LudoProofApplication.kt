@@ -32,11 +32,8 @@ class LudoProofApplication :
         CharacterSelectionStore(this).load()
         friendPresence =
             FriendPresenceController(this)
-        // Create/restore the guest session off the UI thread. If the network is
-        // unavailable, gameplay remains usable; monetized store actions fail closed.
-        accountBootstrapExecutor.execute {
-            runCatching { accountRepository.ensureGuestSession() }
-        }
+        // Never create an online guest identity before age-appropriate access checks.
+        // Eligible services bootstrap lazily when an allowed connected feature opens.
         registerActivityLifecycleCallbacks(this)
     }
 
@@ -53,7 +50,8 @@ class LudoProofApplication :
         if (resumedActivities == 1) {
             if (
                 !friendPresencePausedForAccountSwitch &&
-                accountRepository.canStartFriendPresence()
+                accountRepository.canStartFriendPresence() &&
+                com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()
             ) {
                 friendPresence.start()
             }
@@ -82,7 +80,8 @@ class LudoProofApplication :
 
     fun resumeFriendPresenceAfterAccountSwitch() {
         friendPresencePausedForAccountSwitch = false
-        if (resumedActivities > 0 && !accountRepository.requiresIdentityRecovery()) {
+        if (resumedActivities > 0 && !accountRepository.requiresIdentityRecovery() &&
+            com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
             friendPresence.start()
         }
     }
