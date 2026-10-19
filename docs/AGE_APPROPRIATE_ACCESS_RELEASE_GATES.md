@@ -37,3 +37,9 @@ This branch introduces a **client-only safety prototype**. It is not an independ
 - Backend security contract tests for every covered endpoint; penetration tests including replay and account mismatch.
 - Publisher's policy/legal review and updated public privacy notice, terms, store listing and consent declarations.
 - Deployment intentionally separate from GitHub merge. Do not enable production advertising or billing while unresolved.
+
+## October 19, 2026 continuation: fail-closed backend enforcement
+
+The outermost Cloudflare Worker now has an explicit `LUDOPROOF_AGE_SAFETY_MODE=LOCKDOWN` guard. The production config builder **forces** this value, so no client-supplied age header can unlock online gameplay, friends, chat, voice-signaling through match events, purchases or rewards while a trusted age-proof architecture remains unapproved. Account deletion, Google recovery, health and logout are preserved. The supported safe functionality under this setting is offline Ludo. See `server/src/age-access-guard.js` and `server/test/age-access-guard.test.js`.
+
+**IMPORTANT:** This is a safety lockdown, **not** functioning production adult eligibility authorization. An end-to-end server-verifiable age grant cannot be invented from the client-side Play Age Signals SDK; Play Integrity verifies genuine-app/device signals, not a person's DOB or Play Age Signals result. Therefore do not remove the lockdown or claim production readiness merely because CI is green. Review Google's data-use rules before any transfer of age signals to the backend. Future design must gain an authorized, independent age assertion and bind expiry, account and authenticated sessions without using Play age data for ads or profiling. Google Play Console access and formal publisher decisions remain required.
