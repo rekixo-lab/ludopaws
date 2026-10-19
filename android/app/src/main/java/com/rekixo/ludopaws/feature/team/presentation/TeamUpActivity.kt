@@ -122,6 +122,10 @@ class TeamUpActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
+            finish()
+            return
+        }
         stopped = false
         handler.removeCallbacks(pollRunnable)
         handler.post(pollRunnable)
