@@ -30,6 +30,7 @@ import com.rekixo.ludopaws.feature.leaderboard.data.local.LeaderboardCredential
 import com.rekixo.ludopaws.feature.leaderboard.data.local.LeaderboardIdentityStore
 import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.R
+import com.google.android.gms.games.PlayGamesSdk
 import com.google.android.gms.games.PlayGames
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
@@ -675,6 +676,8 @@ class ProfileActivity : Activity() {
         playGamesSignInInProgress = true
         playGamesStatus = getString(R.string.profile_play_games_sign_in_opening)
         renderProfile()
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) return
+        PlayGamesSdk.initialize(applicationContext)
         PlayGames.getGamesSignInClient(this)
             .signIn()
             .addOnCompleteListener { task ->
