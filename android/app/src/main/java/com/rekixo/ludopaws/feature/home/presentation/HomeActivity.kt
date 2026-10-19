@@ -13,6 +13,8 @@ import com.rekixo.ludopaws.feature.profile.domain.model.ProfileGameMode
 import com.rekixo.ludopaws.feature.profile.domain.model.ProfileMatchSource
 import com.rekixo.ludopaws.feature.online.retryPendingRemoteForfeits
 import com.rekixo.ludopaws.ui.home.*
+import com.rekixo.ludopaws.feature.safety.AgeAccessStore
+import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsGate
 
 class HomeActivity : Activity() {
     internal lateinit var connectivityText:
@@ -224,6 +226,9 @@ class HomeActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        if (!AgeAccessStore(this).hasValidScreening()) {
+            PlayAgeSignalsGate.request(this) { /* Age check is completed in memory. */ }
+        }
 
         recordAbandonedRemoteLossIfNeeded()
 
