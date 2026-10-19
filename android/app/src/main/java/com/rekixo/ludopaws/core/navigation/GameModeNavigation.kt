@@ -5,6 +5,7 @@ import android.content.Intent
 import com.rekixo.ludopaws.feature.mode.presentation.RemoteModeEntryActivity
 import com.rekixo.ludopaws.feature.friends.presentation.FriendsActivity
 import com.rekixo.ludopaws.feature.team.presentation.TeamUpActivity
+import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsGate
 
 fun Activity.openGameMode(
     mode: GameMode,
@@ -30,7 +31,8 @@ fun Activity.openGameMode(
                 OfflineGameActivity::class.java
         }
 
-    startActivity(
+    val launch = {
+        startActivity(
         Intent(
             this,
             target,
@@ -43,5 +45,8 @@ fun Activity.openGameMode(
                 GameModeIntent.EXTRA_RESUME_SAVED_MATCH,
                 resumeSavedMatch,
             ),
-    )
+        )
+    }
+    if (mode.isRemote) PlayAgeSignalsGate.requireConnectedAccess(this, launch)
+    else launch()
 }
