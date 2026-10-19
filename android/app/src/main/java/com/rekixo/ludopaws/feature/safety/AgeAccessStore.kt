@@ -3,59 +3,44 @@ package com.rekixo.ludopaws.feature.safety
 import android.content.Context
 
 /**
- * Minimal data: only an age BAND, source and expiry. Never keep DOB,
- * Google Play's install ID or raw signals. A Play-derived grant is rechecked
- * after every process restart so another device account cannot inherit it.
+ * Age Signals never leave this process: neither DOB, age bounds, age band,
+ * installId nor a Google account identifier are written to disk.
+ * The only persisted preference is the player's choice to use offline mode.
  */
 class AgeAccessStore(context: Context) {
     private val prefs = context.getSharedPreferences("ludopaws_age_access_v1", Context.MODE_PRIVATE)
 
-    fun band(): AgeBand {
-        if (!hasValidScreening()) return AgeBand.UNKNOWN
-        return runCatching {
-            AgeBand.valueOf(prefs.getString("band", "UNKNOWN") ?: "UNKNOWN")
-        }.getOrDefault(AgeBand.UNKNOWN)
-    }
+    fun band(): AgeBand = currentPlayBand ?: AgeBand.UNKNOWN
 
-    fun hasValidScreening(): Boolean {
-        val time = prefs.getLong("screened_at", 0L)
-        val source = prefs.getString("source", null)
-        if (time <= 0L || time > System.currentTimeMillis()) return false
-        if (System.currentTimeMillis() - time > VALID_FOR_MS) return false
-        return source != "PLAY" || playValidatedThisProcess
-    }
+    fun hasValidScreening(): Boolean =
+        currentPlayBand != null || prefs.getBoolean("offline_preferred", false)
 
     fun canUseConnectedFeatures(): Boolean =
-        hasValidScreening() && prefs.getString("source", null) == "PLAY" &&
-            AgeAccessPolicy.canUseConnectedFeatures(band())
+        currentPlayBand == AgeBand.ADULT
 
-    /**
-     * Ads require independently declared adult status, NOT Play age signals:
-     * Play Age Signals terms prohibit advertising uses.
-     */
-    fun canRequestAds(): Boolean = false // Pending independent ad privacy/Families release approval
+    /** Never use Play Age Signals for advertising; no ads until independent compliance. */
+    fun canRequestAds(): Boolean = false
 
     fun saveFromPlay(band: AgeBand) {
-        playValidatedThisProcess = true
-        save(band, "PLAY")
+        // Reset a previous adult classification before applying a new response.
+        currentPlayBand = band
+        // Clear older branch data; no Play-derived ages or identifiers remain on disk.
+        prefs.edit().remove("band").remove("source").remove("screened_at")
+            .remove("offline_preferred").apply()
     }
 
-    fun saveNeutralDeclaration(band: AgeBand) {
-        require(band != AgeBand.UNKNOWN)
-        save(band, "DECLARED")
+    fun saveOfflineOnly() {
+        currentPlayBand = null
+        prefs.edit().remove("band").remove("source").remove("screened_at")
+            .putBoolean("offline_preferred", true).apply()
     }
 
-    fun saveOfflineOnly() = save(AgeBand.UNKNOWN, "OFFLINE")
-
-    private fun save(band: AgeBand, source: String) {
-        check(prefs.edit().putString("band", band.name)
-            .putString("source", source)
-            .putLong("screened_at", System.currentTimeMillis())
-            .commit()) { "Age preference could not be stored securely" }
+    fun invalidate() {
+        currentPlayBand = null
+        prefs.edit().clear().apply()
     }
 
     companion object {
-        private const val VALID_FOR_MS = 30L * 24 * 60 * 60 * 1000
-        @Volatile private var playValidatedThisProcess = false
+        @Volatile private var currentPlayBand: AgeBand? = null
     }
 }
