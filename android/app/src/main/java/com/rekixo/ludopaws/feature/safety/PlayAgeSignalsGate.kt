@@ -50,7 +50,7 @@ object PlayAgeSignalsGate {
                 AgeAccessStore(activity).saveOfflineOnly()
                 completed(false)
             }
-            .setNegativeButton("Try again") { _, _ -> request(activity, completed) }
+            .setNegativeButton("Try again") { _, _ -> request(activity, completed, forceRefresh = true) }
             .setCancelable(false)
             .show()
     }
