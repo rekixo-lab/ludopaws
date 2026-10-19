@@ -1,6 +1,4 @@
 import {
-  createHash,
-  randomBytes,
   randomUUID,
 } from "node:crypto";
 
@@ -11,7 +9,7 @@ const baseUrl =
   ).replace(/\/+$/, "");
 
 const ALGORITHM =
-  "entronex-v4-dual-commit-hkdf-sha256-context-bound";
+  "ludopaws-server-dice-v1";
 
 const legacyUnranked =
   await api(
@@ -99,6 +97,7 @@ const host =
       body: {
         displayName:
           "Production Smoke Host",
+        rulesetKey: "CLASSIC_V4",
         clientRequestId:
           randomUUID(),
       },
@@ -224,64 +223,22 @@ for (
     );
   }
 
-  const clientSeed =
-    randomBytes(32)
-      .toString("hex");
-  const clientCommitment =
-    createHash("sha256")
-      .update(
-        "entronex:v4:client-commit:" +
-          clientSeed,
-        "utf8",
-      )
-      .digest("hex");
-
-  const committed =
-    await api(
-      "POST",
-      "/api/matches/" +
-        encodeURIComponent(
-          matchId,
-        ) +
-        "/roll/commit",
-      {
-        token:
-          identity.token,
-        body: {
-          clientCommitment,
-        },
-      },
-    );
-
-  const eventIndex =
-    committed?.round
-      ?.eventIndex;
-  if (
-    !Number.isSafeInteger(
-      eventIndex,
-    )
-  ) {
-    throw new Error(
-      "Production smoke commitment did not return a safe eventIndex.",
-    );
+  const rollRequestId = randomUUID();
+  const expectedEventIndex = state.randomEventIndex;
+  const rollPath = "/api/matches/" + encodeURIComponent(matchId) + "/roll";
+  const revealed = await api("POST", rollPath, {
+    token: identity.token, body: { clientRequestId: rollRequestId, expectedEventIndex },
+  });
+  const eventIndex = revealed?.state?.pendingRoll?.eventIndex ??
+    revealed?.state?.history?.at(-1)?.eventIndex;
+  if (!Number.isSafeInteger(eventIndex)) throw new Error("Roll did not return its eventIndex");
+  const retry = await api("POST", rollPath, {
+    token: identity.token, body: { clientRequestId: rollRequestId, expectedEventIndex },
+  });
+  if (retry.replayed !== true || retry.outcome !== revealed.outcome ||
+      retry.proofDigest !== revealed.proofDigest || retry.state.revision !== revealed.state.revision) {
+    throw new Error("Roll retry changed the result or revision");
   }
-
-  const revealed =
-    await api(
-      "POST",
-      "/api/matches/" +
-        encodeURIComponent(
-          matchId,
-        ) +
-        "/roll/reveal",
-      {
-        token:
-          identity.token,
-        body: {
-          clientSeed,
-        },
-      },
-    );
 
   if (
     !Number.isInteger(
@@ -297,7 +254,7 @@ for (
 
   if (
     revealed?.proof
-      ?.algorithm !==
+      ?.protocol !==
       ALGORITHM ||
     !/^[0-9a-f]{64}$/i.test(
       String(
@@ -307,7 +264,7 @@ for (
     )
   ) {
     throw new Error(
-      "Production smoke reveal did not return the pinned EntroNex v4 proof contract.",
+      "Production smoke reveal did not return the server dice receipt contract.",
     );
   }
 
@@ -347,6 +304,7 @@ for (
           body: {
             tokenIndex,
             eventIndex,
+            clientRequestId: randomUUID(),
           },
         },
       );
@@ -381,7 +339,7 @@ if (
   verifiedRolls < 1
 ) {
   throw new Error(
-    "Production smoke did not complete a verified EntroNex roll.",
+    "Production smoke did not complete a server dice roll.",
   );
 }
 

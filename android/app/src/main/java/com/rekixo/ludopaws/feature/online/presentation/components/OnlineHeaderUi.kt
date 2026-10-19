@@ -216,9 +216,9 @@ internal fun MainActivity.onlineHero(): FrameLayout =
                     TextView(this@onlineHero).apply {
                         text =
                             if (gameMode == GameMode.TEAM_UP) {
-                                "Remote EntroNex authority • exit forfeits your team"
+                                "Remote server dice authority • exit forfeits your team"
                             } else {
-                                "Remote EntroNex authority • exit abandons this match"
+                                "Remote server dice authority • exit abandons this match"
                             }
                         LudoProofTheme.body(
                             this,

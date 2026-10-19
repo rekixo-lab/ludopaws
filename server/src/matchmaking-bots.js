@@ -79,7 +79,7 @@ export function createBotParticipants({
   count,
   playerCount,
   matchMode,
-  rulesetKey = matchMode === "TEAM_UP" ? "TEAM_UP_V1" : "CLASSIC_V1",
+  rulesetKey = matchMode === "TEAM_UP" ? "TEAM_UP_V4" : "CLASSIC_V4",
   existingNames = [],
   existingCharacterIds = [],
   now = Date.now(),

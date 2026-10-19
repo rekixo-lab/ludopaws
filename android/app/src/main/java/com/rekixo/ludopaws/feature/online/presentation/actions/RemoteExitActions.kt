@@ -76,7 +76,6 @@ internal fun MainActivity.abandonRemoteSessionState(): Boolean {
 
     publicMatchmakingStore.clear()
     secureSessionStore.clear()
-    pendingRollStore.clear()
     cachedMatchStore.clear()
 
     matchId = null
@@ -87,7 +86,6 @@ internal fun MainActivity.abandonRemoteSessionState(): Boolean {
         root = arcadeRootView,
         enabled = false,
     )
-    pendingSecret = null
 
     realtimeConnected = false
     realtimeClient.disconnect()

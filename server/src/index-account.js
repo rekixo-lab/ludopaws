@@ -5,7 +5,6 @@ import baseWorker, {
   FriendRecentRoom,
   LeaderboardRoom,
   MatchmakerQueue,
-  MatchReceiptArchive,
   MatchRoom,
   StorePurchaseLedger,
   TeamMatchmakerQueue,
@@ -26,7 +25,7 @@ import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
 
 export {
   ApiGate, FriendConversation, FriendDirectory, FriendRecentRoom, LeaderboardRoom,
-  MatchmakerQueue, MatchReceiptArchive, MatchRoom, StorePurchaseLedger, StoreCatalogStore, TeamMatchmakerQueue,
+  MatchmakerQueue, MatchRoom, StorePurchaseLedger, StoreCatalogStore, TeamMatchmakerQueue,
   AccountDirectory, PlayerAccount,
 };
 

@@ -149,11 +149,6 @@ internal fun MainActivity.applyResponse(
         }
     }
 
-    reconcilePendingSecret(
-        state = state,
-        source = source,
-    )
-
     boardView.bind(state, playerId)
     val presentationOverride = onlinePresentationRendererOverrideForTests
     if (presentationOverride != null) {
@@ -244,14 +239,12 @@ internal fun MainActivity.applyResponse(
             {
                 if (canRenderUi()) {
                     secureSessionStore.clear()
-                    pendingRollStore.clear()
                     cachedMatchStore.clear()
                     publicMatchmakingStore.clear()
                     matchId = null
                     playerToken = null
                     playerId = null
                     currentState = null
-                    pendingSecret = null
                     realtimeConnected = false
                     realtimeClient.disconnect()
                     LudoProofTheme.setGameplayBackground(root = arcadeRootView, enabled = false)
@@ -262,23 +255,6 @@ internal fun MainActivity.applyResponse(
         )
     }
     scheduleOnlineAutoMove(state)
-}
-
-internal fun MainActivity.reconcilePendingSecret(
-    state: MatchSnapshot,
-    source: OnlineStateSource,
-) {
-    val secret = pendingSecret ?: return
-    if (
-        OnlinePendingRollRecoveryPolicy.action(
-            source = source,
-            secret = secret,
-            state = state,
-        ) == PendingRollSecretAction.CLEAR
-    ) {
-        pendingRollStore.clear()
-        pendingSecret = null
-    }
 }
 
 internal fun MainActivity.updateTurnBanner(
@@ -316,7 +292,7 @@ internal fun MainActivity.updateTurnBanner(
                 resultTitleText.text =
                     if (won) "YOUR TEAM WON" else "TEAM ${winnerTeam ?: "—"} WINS"
                 resultSubtitleText.text =
-                    "$winners • server-authoritative team result • verified history available"
+                    "$winners • server-authoritative team result • match complete"
             } else {
                 val winner = state.players.find { it.playerId == state.winnerPlayerId }
                 val winnerName = winner?.displayName ?: "Player"
@@ -328,9 +304,9 @@ internal fun MainActivity.updateTurnBanner(
                     if (state.players.size == 4 && state.finishOrderPlayerIds.isNotEmpty()) {
                         "Final placements are shown on the board."
                     } else if (winner?.playerId == playerId) {
-                        "$winnerName • server-authoritative result • proof history available"
+                        "$winnerName • server-authoritative result • match complete"
                     } else {
-                        "Server-authoritative result • verified history available"
+                        "Server-authoritative result • match complete"
                     }
             }
         }

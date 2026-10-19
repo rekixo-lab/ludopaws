@@ -49,8 +49,6 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
         ...process.env,
         CLOUDFLARE_API_TOKEN: "test-token-not-used-by-preflight",
         CLOUDFLARE_ACCOUNT_ID: "8f31060fbcfee2b3e9309138cad7f12f",
-        ENTRONEX_TOKEN_MODE: "preserve",
-        ENTRONEX_API_TOKEN: "",
         LUDOPROOF_SESSION_HMAC_KEY: "",
       },
     });

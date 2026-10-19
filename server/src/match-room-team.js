@@ -1,6 +1,6 @@
 import {
-  MatchRoom as SafeMatchRoom,
-} from "./match-room-safe.js";
+  MatchRoom as ForfeitMatchRoom,
+} from "./match-room-forfeit.js";
 import {
   isTeamUp,
   publicState,
@@ -11,9 +11,9 @@ import {
   sha256Hex,
 } from "./crypto.js";
 import {
-  fairnessSummary,
-  sealFairnessEvent,
-} from "./fairness.js";
+  compactRollHistory,
+  recordedRollEvent,
+} from "./match-events.js";
 
 const STATE_KEY = "match-state";
 const PLAYER_TOKEN_HASH_DOMAIN = "ludoproof:player-token:v1:";
@@ -27,7 +27,7 @@ const FINISHED_IDLE_TTL_MS = 24 * 60 * 60 * 1000;
  * only for Team Up lifecycle behavior that is not yet part of the base room,
  * such as team forfeiture.
  */
-export class MatchRoom extends SafeMatchRoom {
+export class MatchRoom extends ForfeitMatchRoom {
   async fetch(request) {
     const url = new URL(request.url);
 
@@ -160,7 +160,7 @@ function closePendingRollForTeamForfeit(state, now) {
       Number(state.randomEventIndex ?? 0),
       Number(pending.eventIndex ?? 0) + 1,
     );
-    const fairnessEvent = sealFairnessEvent(
+    const fairnessEvent = recordedRollEvent(
       history,
       {
         eventIndex: pending.eventIndex,
@@ -184,14 +184,13 @@ function closePendingRollForTeamForfeit(state, now) {
         timedOutAt: null,
       },
     );
-    state.history = [...history, fairnessEvent].slice(-200);
+    state.history = [...history, fairnessEvent].slice(-64);
   }
 
   state.pendingRoll = null;
 }
 
 function decoratedState(state) {
-  const history = (state.history ?? []).slice(-100);
   const base = publicState(state);
   return {
     ...base,
@@ -202,8 +201,7 @@ function decoratedState(state) {
         ? state.players[seat].forfeitedAt
         : null,
     })),
-    history,
-    fairness: fairnessSummary(history),
+    ...compactRollHistory(state),
   };
 }
 
@@ -215,6 +213,7 @@ function broadcastStateChanged(ctx, state) {
     revision: state.revision,
     status: state.status,
     playerCount: state.players?.length ?? 0,
+    state: decoratedState(state),
   });
   for (const socket of ctx.getWebSockets()) {
     try {

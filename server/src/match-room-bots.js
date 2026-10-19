@@ -1,4 +1,4 @@
-import { derivePlayerIdentity, sha256Hex } from "./crypto.js";
+import { derivePlayerIdentity } from "./crypto.js";
 import {
   RULESET,
   actingSeatForTurn,
@@ -15,7 +15,7 @@ const BOT_TURN_RECOVERY_MS = 25_000;
 
 /**
  * Optional server-side bot controller layered above the ordinary MatchRoom.
- * Bot turns use the same authenticated commit/reveal/move handlers as humans;
+ * Bot turns use the same authenticated roll/move handlers as humans;
  * only the server-created bot seat has access to its derived player token.
  */
 export class MatchRoom extends LifecycleMatchRoom {
@@ -116,15 +116,10 @@ export class MatchRoom extends LifecycleMatchRoom {
       turn.playerId !== player.playerId ||
       turn.eventIndex !== eventIndex
     ) {
-      const clientSeed = randomSeedHex();
-      const clientCommitment = await sha256Hex(
-        "entronex:v4:client-commit:" + clientSeed,
-      );
       turn = {
         playerId: player.playerId,
         eventIndex,
-        clientSeed,
-        clientCommitment,
+        clientRequestId: crypto.randomUUID(),
         runAt: Date.now() + botTurnDelayMs(this.env),
         inProgress: false,
       };
@@ -216,31 +211,22 @@ export class MatchRoom extends LifecycleMatchRoom {
         bot.joinRequestId,
       );
 
+      let justRevealedRoll = false;
       if (!state.pendingRoll) {
         await this.#internalPlayerRequest(
-          "/roll/commit",
+          "/roll",
           identity.playerToken,
-          { clientCommitment: turn.clientCommitment },
+          { clientRequestId: turn.clientRequestId, expectedEventIndex: turn.eventIndex },
         );
         state = await this.ctx.storage.get(STATE_KEY);
+        justRevealedRoll = true;
       }
 
       let pending = state?.pendingRoll;
       if (!pending || pending.playerId !== bot.playerId) {
         await this.#clearBotTurn(turn);
+        await this.#withBotMetadata(() => this.#scheduleBotTurn());
         return;
-      }
-
-      let justRevealedRoll = false;
-      if (pending.status !== "RESOLVED") {
-        await this.#internalPlayerRequest(
-          "/roll/reveal",
-          identity.playerToken,
-          { clientSeed: turn.clientSeed },
-        );
-        state = await this.ctx.storage.get(STATE_KEY);
-        pending = state?.pendingRoll;
-        justRevealedRoll = true;
       }
 
       if (justRevealedRoll && pending?.status === "RESOLVED") {
@@ -458,10 +444,4 @@ export function chooseBotMove(state, playerId, legalTokenIndexes) {
 
   ranked.sort((left, right) => right.score - left.score);
   return ranked[0]?.tokenIndex ?? legalTokenIndexes[0];
-}
-
-function randomSeedHex() {
-  const bytes = new Uint8Array(32);
-  crypto.getRandomValues(bytes);
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

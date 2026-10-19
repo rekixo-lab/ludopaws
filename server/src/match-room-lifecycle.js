@@ -5,8 +5,10 @@ import {
   actingSeatForTurn,
   forfeitTimedOutTurn,
   isTeamUp,
+  publicState,
   rulesetForState,
 } from "./game.js";
+import { compactRollHistory } from "./match-events.js";
 
 const STATE_KEY = "match-state";
 const ACTIVE_IDLE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
@@ -309,6 +311,10 @@ function broadcastStateChanged(ctx, state) {
     revision: state.revision,
     status: state.status,
     playerCount: state.players?.length ?? 0,
+    state: {
+      ...publicState(state),
+      ...compactRollHistory(state),
+    },
   });
   for (const socket of ctx.getWebSockets()) {
     try {

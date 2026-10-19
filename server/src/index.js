@@ -1,8 +1,3 @@
-import { hasPinnedEntroNexTrust } from "./entronex-trust.js";
-import {
-  entronexFetch,
-  hasEntroNexServiceBinding,
-} from "./entronex-transport.js";
 import {
   deterministicMatchId,
   hasSessionKey,
@@ -14,6 +9,7 @@ import {
   googlePlayBillingEnabled,
   verifyAndRedeemGooglePlayPurchase,
 } from "./google-play-billing.js";
+import { MATCH_LOCATION_HEADER, matchLocationHint } from "./match-location.js";
 
 export { MatchRoom } from "./match-room.js";
 export { ApiGate } from "./api-gate.js";
@@ -21,7 +17,8 @@ export { LeaderboardRoom } from "./leaderboard-room.js";
 export { MatchmakerQueue } from "./matchmaker-queue.js";
 export { FriendDirectory } from "./friend-directory.js";
 
-const RELEASE_PHASE = "phase6-profile-identity-compatible";
+const RELEASE_PHASE = "online-realtime-v1";
+const DICE_PROTOCOL = "ludopaws-server-dice-v1";
 const MAX_BODY_BYTES = 8 * 1024;
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_POLICIES = Object.freeze({
@@ -47,8 +44,8 @@ export default {
           releasePhase: RELEASE_PHASE,
           production: false,
           game: "LudoProof",
-          ruleset: "ludoproof-standard-v1",
-          entronex: "v4-evaluation",
+          ruleset: "ludoproof-standard-v4",
+          diceProtocol: DICE_PROTOCOL,
         });
       }
 
@@ -59,8 +56,7 @@ export default {
           ok: true,
           service: "ludoproof-game-api",
           releasePhase: RELEASE_PHASE,
-          entronexConfigured:
-            checks.entronexConfigured,
+          diceProtocol: DICE_PROTOCOL,
           checks,
         });
       }
@@ -69,28 +65,21 @@ export default {
         const checks =
           configurationChecks(env);
         const configured =
-          checks.entronexConfigured &&
           checks.matchStoreConfigured &&
           checks.rateGateConfigured &&
           checks.leaderboardConfigured &&
           checks.matchmakerConfigured &&
           checks.friendsConfigured;
-        const entronexReachable =
-          configured
-            ? await probeEntroNex(env)
-            : false;
         const ready =
           configured &&
-          checks.sessionKeyConfigured &&
-          entronexReachable;
+          checks.sessionKeyConfigured;
         return json(ready ? 200 : 503, {
           ok: ready,
           ready,
           service: "ludoproof-game-api",
           releasePhase: RELEASE_PHASE,
-          ruleset: "ludoproof-standard-v1",
-          entronex: "v4-evaluation",
-          entronexReachable,
+          ruleset: "ludoproof-standard-v4",
+          diceProtocol: DICE_PROTOCOL,
           checks,
           productionClaim: false,
         });
@@ -372,6 +361,8 @@ export default {
                       authorization,
                     );
                   }
+                  const locationHint = matchLocationHint(env, request);
+                  if (locationHint) headers.set(MATCH_LOCATION_HEADER, locationHint);
                   return headers;
                 })(),
                 body:
@@ -408,7 +399,7 @@ export default {
               clientRequestId,
               attempt,
             );
-          const target = room(env, matchId);
+          const target = room(env, matchId, request);
           const headers =
             new Headers({
               "content-type":
@@ -472,6 +463,10 @@ export default {
         },
         start: {
           path: "/start",
+          method: "POST",
+        },
+        roll: {
+          path: "/roll",
           method: "POST",
         },
         "roll/commit": {
@@ -562,12 +557,16 @@ export default {
             )
             ? "state"
             : "mutation";
-      await enforceRateLimit(
-        env,
-        request,
-        policyKey + ":" + matchId,
-        RATE_POLICIES[policyKey],
-      );
+      // Authenticated gameplay is rate-limited inside its authoritative room.
+      // Joining and unauthenticated requests retain the public edge gate.
+      if (action === "join" || !/^Bearer\s+\S{1,256}$/i.test(authorization ?? "")) {
+        await enforceRateLimit(
+          env,
+          request,
+          policyKey + ":" + matchId,
+          RATE_POLICIES[policyKey],
+        );
+      }
 
       const response =
         await target.fetch(
@@ -694,7 +693,7 @@ async function enforceRateLimit(
   }
 }
 
-function room(env, matchId) {
+function room(env, matchId, request = null) {
   if (!env.LUDOPROOF_MATCHES) {
     throw httpError(
       503,
@@ -704,7 +703,10 @@ function room(env, matchId) {
   }
   const id =
     env.LUDOPROOF_MATCHES.idFromName(matchId);
-  return env.LUDOPROOF_MATCHES.get(id);
+  const locationHint = matchLocationHint(env, request);
+  return locationHint
+    ? env.LUDOPROOF_MATCHES.get(id, { locationHint })
+    : env.LUDOPROOF_MATCHES.get(id);
 }
 
 function friends(env) {
@@ -768,92 +770,8 @@ function leaderboard(env) {
   return env.LUDOPROOF_LEADERBOARD.get(id);
 }
 
-async function probeEntroNex(env) {
-  const baseUrl =
-    String(
-      env.ENTRONEX_BASE_URL,
-    ).replace(/\/$/, "");
-
-  try {
-    const response =
-      await entronexFetch(
-        env,
-        baseUrl + "/health",
-        {
-          method: "GET",
-          headers: {
-            accept:
-              "application/json",
-          },
-          signal:
-            AbortSignal.timeout(
-              3_000,
-            ),
-        },
-      );
-    if (!response.ok) {
-      return false;
-    }
-
-    const length =
-      Number(
-        response.headers.get(
-          "content-length",
-        ),
-      );
-    if (
-      Number.isFinite(length) &&
-      length > 16 * 1024
-    ) {
-      return false;
-    }
-
-    const text =
-      await response.text();
-    if (
-      new TextEncoder()
-        .encode(text)
-        .byteLength >
-      16 * 1024
-    ) {
-      return false;
-    }
-    const body =
-      JSON.parse(text);
-    return (
-      body?.ok === true &&
-      (
-        body?.protocol ===
-          "v4" ||
-        body?.service ===
-          "entronex-v4-eval"
-      )
-    );
-  } catch {
-    return false;
-  }
-}
-
 function configurationChecks(env) {
-  const entronexBaseUrlConfigured =
-    typeof env.ENTRONEX_BASE_URL === "string" &&
-    env.ENTRONEX_BASE_URL.startsWith("https://");
-  const entronexTokenConfigured =
-    typeof env.ENTRONEX_API_TOKEN === "string" &&
-    env.ENTRONEX_API_TOKEN.length >= 20;
-  const entronexTrustConfigured =
-    hasPinnedEntroNexTrust(env);
-
   return {
-    entronexBaseUrlConfigured,
-    entronexTokenConfigured,
-    entronexTrustConfigured,
-    entronexServiceBindingConfigured:
-      hasEntroNexServiceBinding(env),
-    entronexConfigured:
-      entronexBaseUrlConfigured &&
-      entronexTokenConfigured &&
-      entronexTrustConfigured,
     matchStoreConfigured:
       Boolean(env.LUDOPROOF_MATCHES),
     rateGateConfigured:
@@ -867,16 +785,6 @@ function configurationChecks(env) {
     sessionKeyConfigured:
       hasSessionKey(env),
   };
-}
-
-function hasEntroNexConfig(env) {
-  return (
-    typeof env.ENTRONEX_BASE_URL === "string" &&
-    env.ENTRONEX_BASE_URL.startsWith("https://") &&
-    typeof env.ENTRONEX_API_TOKEN === "string" &&
-    env.ENTRONEX_API_TOKEN.length >= 20 &&
-    hasPinnedEntroNexTrust(env)
-  );
 }
 
 function requireMatchmakingPlayerCount(

@@ -7,6 +7,9 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import org.json.JSONObject
 import com.rekixo.ludopaws.ui.quickchat.QuickChatEmojiCatalog
+import java.io.InterruptedIOException
+import java.util.UUID
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.ThreadLocalRandom
@@ -42,14 +45,7 @@ class MatchRealtimeClient(
         ) -> Unit = { _, _ -> },
     private val onVoiceEnded:
         () -> Unit = {},
-    private val client: OkHttpClient =
-        OkHttpClient
-            .Builder()
-            .pingInterval(
-                20,
-                TimeUnit.SECONDS,
-            )
-            .build(),
+    private val client: OkHttpClient = GameHttpTransport.client,
     private val retryDelayMillis:
         (attempt: Int) -> Long =
         { attempt ->
@@ -62,7 +58,9 @@ class MatchRealtimeClient(
                             .nextDouble(),
                 )
         },
-) {
+    private val commandTimeoutMillis: Long = 1_500L,
+    private val onSnapshot: ((JSONObject) -> Unit)? = null,
+) : MatchCommandChannel {
     private val wsBaseUrl =
         baseUrl
             .trimEnd('/')
@@ -75,6 +73,7 @@ class MatchRealtimeClient(
         AtomicLong(0L)
     private val stateLock =
         Any()
+    private val pendingCommands = mutableMapOf<String, PendingCommand>()
     private val retryExecutor =
         Executors.newSingleThreadScheduledExecutor {
                 runnable ->
@@ -98,6 +97,7 @@ class MatchRealtimeClient(
         false
     private var connected =
         false
+    private var shutDown = false
 
     @Volatile
     private var socket:
@@ -133,10 +133,12 @@ class MatchRealtimeClient(
             synchronized(
                 stateLock,
             ) {
+                if (shutDown) return
                 if (
                     desiredSession !=
                     session
                 ) {
+                    releasePendingCommandsLocked()
                     desiredSession =
                         session
                     reconnectAttempt =
@@ -188,7 +190,7 @@ class MatchRealtimeClient(
                 stateLock,
             ) {
                 if (
-                    desiredSession !=
+                    shutDown || desiredSession !=
                         session ||
                     connected ||
                     connecting
@@ -240,7 +242,7 @@ class MatchRealtimeClient(
             synchronized(
                 stateLock,
             ) {
-                desiredSession ==
+                val keep = desiredSession ==
                     session &&
                     generation.get() ==
                     currentGeneration &&
@@ -248,11 +250,10 @@ class MatchRealtimeClient(
                         connecting ||
                             connected
                     )
+                if (keep) socket = createdSocket
+                keep
             }
-        if (keepSocket) {
-            socket =
-                createdSocket
-        } else {
+        if (!keepSocket) {
             createdSocket.cancel()
         }
     }
@@ -272,13 +273,14 @@ class MatchRealtimeClient(
                         stateLock,
                     ) {
                         if (
-                            generation.get() !=
+                            shutDown || generation.get() !=
                                 connectionGeneration ||
                             desiredSession !=
                                 session
                         ) {
                             false
                         } else {
+                            socket = webSocket
                             connecting =
                                 false
                             connected =
@@ -289,6 +291,9 @@ class MatchRealtimeClient(
                                 ?.cancel(false)
                             retryFuture =
                                 null
+                            // Preserve callback order with disconnect/reconnect:
+                            // the UI must never see an old socket become connected.
+                            onConnectionChanged(true)
                             true
                         }
                     }
@@ -297,10 +302,6 @@ class MatchRealtimeClient(
                     webSocket.cancel()
                     return
                 }
-
-                onConnectionChanged(
-                    true,
-                )
             }
 
             override fun onMessage(
@@ -316,6 +317,8 @@ class MatchRealtimeClient(
                     return
                 }
 
+                if (text.length > MAX_REALTIME_MESSAGE_CHARS) return
+
                 val payload =
                     runCatching {
                         JSONObject(
@@ -330,6 +333,21 @@ class MatchRealtimeClient(
                         .optString(
                             "type",
                         )
+                if (type == "command_result") {
+                    synchronized(stateLock) {
+                        if (!isCurrent(session, connectionGeneration)) return
+                        val pending = pendingCommands.remove(payload.optString("requestId"))
+                        if (pending != null) {
+                            pending.response = payload.optJSONObject("response")
+                            val statusCode = payload.optInt("statusCode", 200)
+                            if (statusCode !in 200..299 && pending.response?.has("error") == false) {
+                                pending.response?.put("error", "HTTP_$statusCode")
+                            }
+                            pending.completed.countDown()
+                        }
+                    }
+                    return
+                }
                 if (type == "VOICE_PEERS") {
                     val peers = payload.optJSONArray("playerIds")
                     val playerIds = buildSet {
@@ -378,6 +396,22 @@ class MatchRealtimeClient(
                     return
                 }
 
+                val incomingMatchId = payload.optString("matchId")
+                if (incomingMatchId.isNotBlank() && incomingMatchId != session.matchId) return
+
+                val snapshot = payload.optJSONObject("state")
+                if (
+                    onSnapshot != null && snapshot != null &&
+                    snapshot.optString("matchId") == session.matchId &&
+                    snapshot.optLong("revision", -1L) >= 0L &&
+                    snapshot.optLong("revision") == payload.optLong("revision", -1L)
+                ) {
+                    synchronized(stateLock) {
+                        if (isCurrent(session, connectionGeneration)) onSnapshot.invoke(payload)
+                    }
+                    return
+                }
+
                 val revision =
                     payload
                         .optInt(
@@ -388,16 +422,14 @@ class MatchRealtimeClient(
                     revision >=
                     0
                 ) {
-                    onRevision(
-                        revision,
-                        payload
-                            .optString(
-                                "status",
+                    synchronized(stateLock) {
+                        if (isCurrent(session, connectionGeneration)) {
+                            onRevision(
+                                revision,
+                                payload.optString("status").takeIf { it.isNotBlank() },
                             )
-                            .takeIf {
-                                it.isNotBlank()
-                            },
-                    )
+                        }
+                    }
                 }
             }
 
@@ -443,38 +475,19 @@ class MatchRealtimeClient(
         session: DesiredSession,
         connectionGeneration: Long,
     ) {
-        val shouldNotify =
-            synchronized(
-                stateLock,
-            ) {
-                if (
-                    generation.get() !=
-                        connectionGeneration ||
-                    desiredSession !=
-                        session
-                ) {
-                    return
-                }
+        synchronized(stateLock) {
+            if (
+                generation.get() != connectionGeneration ||
+                desiredSession != session
+            ) return
 
-                val wasActive =
-                    connected ||
-                        connecting
-                connected =
-                    false
-                connecting =
-                    false
-                socket =
-                    null
-                scheduleRetryLocked(
-                    session,
-                )
-                wasActive
-            }
-
-        if (shouldNotify) {
-            onConnectionChanged(
-                false,
-            )
+            val wasActive = connected || connecting
+            connected = false
+            releasePendingCommandsLocked()
+            connecting = false
+            socket = null
+            scheduleRetryLocked(session)
+            if (wasActive) onConnectionChanged(false)
         }
     }
 
@@ -482,7 +495,7 @@ class MatchRealtimeClient(
         session: DesiredSession,
     ) {
         if (
-            desiredSession !=
+            shutDown || desiredSession !=
                 session ||
             connected ||
             connecting ||
@@ -558,6 +571,59 @@ class MatchRealtimeClient(
                 session
         }
 
+    /** Called from the same worker thread used for REST; never block the UI or socket callback. */
+    override fun executeCommand(
+        matchId: String,
+        playerToken: String,
+        action: String,
+        body: JSONObject,
+    ): JSONObject? {
+        require(action == "ROLL" || action == "MOVE") { "Unsupported match command" }
+        require(body.optString("clientRequestId").isNotBlank()) { "clientRequestId is required" }
+        val requestId = UUID.randomUUID().toString()
+        val pending = PendingCommand()
+        synchronized(stateLock) {
+            val session = desiredSession
+            val activeSocket = socket
+            if (
+                !connected || activeSocket == null || session == null ||
+                session.matchId != matchId.uppercase() || session.playerToken != playerToken ||
+                pendingCommands.size >= MAX_PENDING_COMMANDS
+            ) return null
+            pendingCommands[requestId] = pending
+            val sent = runCatching {
+                activeSocket.send(
+                    JSONObject()
+                        .put("type", "command")
+                        .put("requestId", requestId)
+                        .put("action", action)
+                        .put("body", body)
+                        .toString(),
+                )
+            }.getOrDefault(false)
+            if (!sent) {
+                pendingCommands.remove(requestId)
+                return null
+            }
+        }
+        try {
+            if (!pending.completed.await(commandTimeoutMillis.coerceAtLeast(1L), TimeUnit.MILLISECONDS)) {
+                return null
+            }
+            return pending.response
+        } catch (interrupted: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw InterruptedIOException("Match command interrupted")
+        } finally {
+            synchronized(stateLock) { pendingCommands.remove(requestId) }
+        }
+    }
+
+    private fun releasePendingCommandsLocked() {
+        pendingCommands.values.forEach { it.completed.countDown() }
+        pendingCommands.clear()
+    }
+
     fun sendQuickChat(emoji: String): Boolean {
         if (emoji !in QuickChatEmojiCatalog.EMOJIS) return false
         return sendRealtimeMessage(
@@ -603,6 +669,7 @@ class MatchRealtimeClient(
             synchronized(
                 stateLock,
             ) {
+                releasePendingCommandsLocked()
                 generation
                     .incrementAndGet()
                 desiredSession =
@@ -617,11 +684,10 @@ class MatchRealtimeClient(
                     false
                 connected =
                     false
-                socket
-                    .also {
-                        socket =
-                            null
-                    }
+                val previousSocket = socket
+                socket = null
+                onConnectionChanged(false)
+                previousSocket
             }
 
         staleSocket
@@ -629,24 +695,29 @@ class MatchRealtimeClient(
                 1000,
                 "screen stopped",
             )
-        onConnectionChanged(
-            false,
-        )
     }
 
     fun shutdown() {
+        synchronized(stateLock) { shutDown = true }
         disconnect()
         retryExecutor
             .shutdownNow()
-        client.dispatcher
-            .executorService
-            .shutdown()
-        client.connectionPool
-            .evictAll()
+        // The process-wide client (or injected client) also serves REST and other
+        // screens. Its owner controls its pool and dispatcher lifetime.
     }
 
     private data class DesiredSession(
         val matchId: String,
         val playerToken: String,
     )
+
+    private class PendingCommand {
+        val completed = CountDownLatch(1)
+        @Volatile var response: JSONObject? = null
+    }
+
+    private companion object {
+        const val MAX_PENDING_COMMANDS = 16
+        const val MAX_REALTIME_MESSAGE_CHARS = 512 * 1024
+    }
 }

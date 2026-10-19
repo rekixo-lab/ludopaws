@@ -1,4 +1,5 @@
 import hardenedWorker from "./index-hardening.js";
+import { MATCH_LOCATION_HEADER, matchLocationHint } from "./match-location.js";
 import {
   httpError,
   sha256Hex,
@@ -55,6 +56,8 @@ export default {
       });
       const authorization = request.headers.get("authorization");
       if (authorization) headers.set("authorization", authorization);
+      const locationHint = matchLocationHint(env, request);
+      if (locationHint) headers.set(MATCH_LOCATION_HEADER, locationHint);
 
       const response = await target.fetch(
         new Request("https://team-matchmaker/" + match[1], {

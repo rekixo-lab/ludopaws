@@ -72,7 +72,7 @@ internal fun MainActivity.createMatch() {
                     displayName,
                 clientRequestId =
                     requestId,
-                rulesetKey = "CLASSIC_V3",
+                rulesetKey = "CLASSIC_V4",
             )
         },
         onSuccess = {
@@ -209,8 +209,8 @@ internal fun MainActivity.rollVerifiedDice() {
     if (!decision.enabled) {
         showStatus(
             when (decision.kind) {
-                OnlineRollActionKind.WAIT_FOR_RECOVERY ->
-                    "This committed roll is locked to its original secret • waiting for recovery or server timeout."
+                OnlineRollActionKind.WAIT_FOR_SYNC ->
+                    "Syncing the latest match state."
                 OnlineRollActionKind.MOVE_REQUIRED ->
                     "Move a highlighted token before rolling again."
                 else ->
@@ -229,74 +229,26 @@ internal fun MainActivity.rollVerifiedDice() {
             code,
             token,
         ->
-        var secret =
-            pendingSecret
-                ?.takeIf {
-                    it.matchId == code
-                }
-
-        if (decision.kind == OnlineRollActionKind.NEW_ROLL) {
-            if (secret != null) {
-                pendingRollStore.clear()
-                pendingSecret = null
-            }
-            val prepared = SeedCommitment.prepare()
-            secret =
-                PendingRollSecret(
-                    matchId = code,
-                    clientSeed = prepared.clientSeed,
-                    clientCommitment = prepared.clientCommitment,
-                )
-            pendingRollStore.save(requireNotNull(secret))
-            pendingSecret = secret
+        // Persist identity before sending. Retrying after a lost response must
+        // refer to the same event, including rolls that advance without a move.
+        val operationKey = "$code:${state.randomEventIndex}"
+        val requestId = runCatching {
+            pendingOperationStore.getOrCreate("roll", operationKey)
+        }.getOrElse {
+            showStatus(it.message ?: "Could not prepare roll")
+            return@withSession
         }
-
-        val resumableSecret =
-            secret
-                ?: run {
-                    showStatus("Roll recovery secret is unavailable • waiting for server recovery.")
-                    currentState?.let(::updateControls)
-                    return@withSession
-                }
-
         onlineRollRequestInFlight = true
-        val rollEventIndex = state.pendingRoll?.eventIndex ?: state.randomEventIndex
         diceView.startRolling()
-        OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, rollEventIndex)
-        GameSoundFeedback.roll(this, rollEventIndex)
-        verificationText.text =
-            if (decision.kind == OnlineRollActionKind.NEW_ROLL) {
-                "Verifying committed EntroNex roll…"
-            } else {
-                "Resuming committed EntroNex roll…"
-            }
+        OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, state.randomEventIndex)
+        GameSoundFeedback.roll(this, state.randomEventIndex)
+        verificationText.text = "Rolling…"
 
         runNetwork(
-            action = {
-                when (decision.kind) {
-                    OnlineRollActionKind.NEW_ROLL,
-                    OnlineRollActionKind.RESUME_COMMIT_THEN_REVEAL,
-                    ->
-                        api.commitRoll(
-                            code,
-                            token,
-                            resumableSecret.clientCommitment,
-                        )
-
-                    OnlineRollActionKind.RESUME_REVEAL_ONLY -> Unit
-                    else -> error("Online roll action changed before submission")
-                }
-
-                val revealed =
-                    api.revealRoll(
-                        code,
-                        token,
-                        resumableSecret.clientSeed,
-                    )
-
-                pendingRollStore.clear()
-                pendingSecret = null
-                revealed
+            action = { session.roll(code, token, requestId, state.randomEventIndex) },
+            onSuccess = {
+                pendingOperationStore.clear("roll", operationKey)
+                applyResponse(it)
             },
             reconcileOnError = true,
             prioritizeGameplay = true,
@@ -343,6 +295,13 @@ internal fun MainActivity.moveToken(
             code,
             token,
         ->
+        val operationKey = "$code:$eventIndex:$index"
+        val requestId = runCatching {
+            pendingOperationStore.getOrCreate("move", operationKey)
+        }.getOrElse {
+            showStatus(it.message ?: "Could not prepare move")
+            return@withSession
+        }
         onlineMoveRequestInFlight = true
         val previewRequestedAt = SystemClock.uptimeMillis()
         val previewStarted =
@@ -358,12 +317,11 @@ internal fun MainActivity.moveToken(
         boardFrame.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         runNetwork(
             action = {
-                api.move(
-                    code,
-                    token,
-                    index,
-                    eventIndex,
-                )
+                session.move(code, token, index, eventIndex, requestId)
+            },
+            onSuccess = {
+                pendingOperationStore.clear("move", operationKey)
+                applyResponse(it)
             },
             reconcileOnError = true,
             prioritizeGameplay = true,
@@ -437,14 +395,6 @@ internal fun MainActivity.captureSession(
                 currentStateSource = null,
             )
         }
-    }
-
-    if (
-        pendingSecret != null &&
-        pendingSecret?.matchId != code
-    ) {
-        pendingRollStore.clear()
-        pendingSecret = null
     }
 
     matchId = code

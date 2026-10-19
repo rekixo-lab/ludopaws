@@ -36,7 +36,7 @@ const bom = {
     properties: [
       {
         name:
-          "ludoproof.entronex.sourceCommit",
+          "ludoproof.offline.entronex.sourceCommit",
         value:
           "d219148338b43e961689a7a7ab6f8ce3eb88e8de",
       },
@@ -70,7 +70,7 @@ const bom = {
     {
       type: "library",
       name:
-        "EntroNex v4 vendored verifier",
+        "EntroNex v4 Android offline derivation",
       version:
         "d219148338b43e961689a7a7ab6f8ce3eb88e8de",
       purl:
