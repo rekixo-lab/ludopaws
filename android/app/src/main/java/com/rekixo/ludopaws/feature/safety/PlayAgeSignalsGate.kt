@@ -56,10 +56,6 @@ object PlayAgeSignalsGate {
     }
 
     fun requireConnectedAccess(activity: Activity, onAllowed: () -> Unit) {
-        if (AgeAccessStore(activity).canUseConnectedFeatures()) {
-            onAllowed()
-            return
-        }
         request(activity, { allowed ->
             if (allowed) onAllowed() else if (!activity.isFinishing && !activity.isDestroyed) {
                 AlertDialog.Builder(activity)
