@@ -109,6 +109,10 @@ class FriendsActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
+            finish()
+            return
+        }
         connectivityMonitor.start()
         mainHandler.removeCallbacks(refreshRunnable)
         mainHandler.post(refreshRunnable)
