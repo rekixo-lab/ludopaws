@@ -136,9 +136,11 @@ export class FriendDirectory {
         // Metadata-only reports; never store raw chat content in moderation records.
         sql.exec(`CREATE TABLE IF NOT EXISTS friend_reports (
           request_id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_id TEXT NOT NULL,
-          reason TEXT NOT NULL, created_at INTEGER NOT NULL
+          reason TEXT NOT NULL, created_at INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'OPEN', resolved_at INTEGER, reviewer_id TEXT
         )`);
         sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_author ON friend_reports(reporter_id, created_at)");
+        sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_status ON friend_reports(status, created_at)");
       },
     );
   }
@@ -188,6 +190,9 @@ export class FriendDirectory {
       if (request.method === "POST" && url.pathname === "/block") return await this.#blockFriend(request);
       if (request.method === "POST" && url.pathname === "/unblock") return await this.#unblockFriend(request);
       if (request.method === "POST" && url.pathname === "/report") return await this.#reportFriend(request);
+      // These methods are invoked only through the authenticated Worker admin path.
+      if (request.method === "POST" && url.pathname === "/moderation/list") return this.#listReports();
+      if (request.method === "POST" && url.pathname === "/moderation/resolve") return await this.#resolveReport(request);
       if (
         request.method ===
           "GET" &&
@@ -290,6 +295,41 @@ export class FriendDirectory {
         error,
       );
     }
+  }
+
+  #listReports() {
+    const reports = [...this.ctx.storage.sql.exec(
+      "SELECT request_id, reporter_id, target_id, reason, created_at, status FROM friend_reports WHERE status = 'OPEN' ORDER BY created_at ASC LIMIT 100",
+    )];
+    return json(200, { ok: true, reports });
+  }
+
+  async #resolveReport(request) {
+    const body = await readJson(request);
+    const requestId = requireClientRequestId(body?.reportId);
+    const outcome = body?.outcome;
+    const reviewerId = body?.reviewerId;
+    if (!["REVIEWED", "DISMISSED", "ACTIONED"].includes(outcome)) {
+      throw httpError(400, "REPORT_OUTCOME_INVALID", "invalid moderation decision");
+    }
+    if (typeof reviewerId !== "string" || !/^[0-9a-f-]{36}$/i.test(reviewerId)) {
+      throw httpError(400, "MODERATOR_INVALID", "a moderator account is required");
+    }
+    const records = [...this.ctx.storage.sql.exec(
+      "SELECT status, reviewer_id FROM friend_reports WHERE request_id = ? LIMIT 1", requestId,
+    )];
+    if (!records.length) throw httpError(404, "REPORT_NOT_FOUND", "report was not found");
+    if (records[0].status !== "OPEN") {
+      if (records[0].status !== outcome || records[0].reviewer_id !== reviewerId) {
+        throw httpError(409, "REPORT_ALREADY_RESOLVED", "report has already been reviewed");
+      }
+      return json(200, { ok: true, replayed: true });
+    }
+    this.ctx.storage.sql.exec(
+      "UPDATE friend_reports SET status = ?, resolved_at = ?, reviewer_id = ? WHERE request_id = ? AND status = 'OPEN'",
+      outcome, Date.now(), reviewerId, requestId,
+    );
+    return json(200, { ok: true, replayed: false });
   }
 
   #isBlocked(first, second) {

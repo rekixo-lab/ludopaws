@@ -113,6 +113,22 @@ async function handleAccountRequest(request, env) {
         });
       }
 
+      if (url.pathname === "/api/admin/moderation/reports" && request.method === "GET") {
+        await rateLimit(env, request, "moderation:reports:read", 30);
+        const session = await authenticate(request, env);
+        requireModerationAdmin(session.accountId, env);
+        return json(200, await moderationRequest(env, "/moderation/list", {}));
+      }
+      if (url.pathname === "/api/admin/moderation/reports/resolve" && request.method === "POST") {
+        await rateLimit(env, request, "moderation:reports:resolve", 20);
+        const session = await authenticate(request, env);
+        requireModerationAdmin(session.accountId, env);
+        const body = await readJson(request);
+        return json(200, await moderationRequest(env, "/moderation/resolve", {
+          reportId: body.reportId, outcome: body.outcome, reviewerId: session.accountId,
+        }));
+      }
+
       if (url.pathname === "/api/account/guest" && request.method === "POST") {
         await rateLimit(env, request, "account:guest", ACCOUNT_RATE_LIMITS.guest);
         const body = await readJson(request);
@@ -719,6 +735,26 @@ async function catalogRequest(env, path, body = null) {
     ...(body == null ? {} : { body: JSON.stringify(body) }),
   }));
   return parseInternalResponse(response, "STORE_CATALOG_UNAVAILABLE");
+}
+
+async function moderationRequest(env, path, body) {
+  if (!env?.LUDOPROOF_FRIENDS) throw httpError(503, "FRIENDS_NOT_CONFIGURED", "friend storage unavailable");
+  const ns = env.LUDOPROOF_FRIENDS;
+  const target = ns.get(ns.idFromName("GLOBAL:V1"));
+  return parseInternalResponse(await target.fetch(new Request("https://friends" + path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  })), "MODERATION_UNAVAILABLE");
+}
+
+function requireModerationAdmin(accountId, env) {
+  const allowed = String(env?.LUDOPROOF_MODERATION_ADMIN_ACCOUNT_IDS ?? "")
+    .split(",").map((id) => id.trim().toLowerCase()).filter(Boolean);
+  if (!allowed.length) throw httpError(503, "MODERATION_NOT_CONFIGURED", "moderation access not configured");
+  if (!allowed.includes(String(accountId).toLowerCase())) {
+    throw httpError(403, "MODERATION_FORBIDDEN", "moderator account required");
+  }
 }
 
 function requireCatalogAdmin(accountId, env) {

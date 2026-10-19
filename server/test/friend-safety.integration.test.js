@@ -106,5 +106,18 @@ test("reports are authenticated, bounded, idempotent and accept only enumerated 
     }
     const beyondLimit = { ...report, clientRequestId: "00000000-0000-4000-8000-000000000011" };
     assert.equal((await room.fetch(post("/report", beyondLimit, a.friendToken))).status, 429);
+    const listed = await room.fetch(post("/moderation/list", {}, a.friendToken));
+    assert.equal(listed.status, 200);
+    const reportQueue = (await listed.json()).reports;
+    assert.equal(reportQueue.length, 10);
+    const reviewerId = "00000000-0000-4000-8000-000000000099";
+    const decision = { reportId: id, outcome: "REVIEWED", reviewerId };
+    const resolved = await room.fetch(post("/moderation/resolve", decision, a.friendToken));
+    assert.equal(resolved.status, 200);
+    assert.equal((await resolved.json()).replayed, false);
+    const replayResolution = await room.fetch(post("/moderation/resolve", decision, a.friendToken));
+    assert.equal((await replayResolution.json()).replayed, true);
+    const pending = await (await room.fetch(post("/moderation/list", {}, a.friendToken))).json();
+    assert.equal(pending.reports.length, 9);
   } finally { db.close(); }
 });
