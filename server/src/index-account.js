@@ -1,3 +1,4 @@
+import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
   ApiGate,
   FriendConversation,
@@ -46,6 +47,10 @@ const ACCOUNT_WEB_CORS_PATHS = new Set([
 
 export default {
   async fetch(request, env) {
+    // Lock down direct API/WebSocket access when age eligibility cannot be verified.
+    // This is an operator safety switch, not an age verification mechanism.
+    const safetyResponse = ageSafetyBlockResponse(request, env);
+    if (safetyResponse) return safetyResponse;
     const url = new URL(request.url);
     if (request.method === "OPTIONS" && ACCOUNT_WEB_CORS_PATHS.has(url.pathname)) {
       const expectedOrigin = accountWebOrigin(env);

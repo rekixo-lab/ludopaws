@@ -588,11 +588,9 @@ class FriendsActivity : Activity() {
             }
             .toMap()
         val acceptedFriendIds = allFriends.map { it.optString("friendId") }.toSet()
-        val blockedIds = snapshot?.optJSONArray("blockedFriends").objects()
-            .map { it.optString("friendId") }.filter(String::isNotBlank).toSet() +
-            (0 until (snapshot?.optJSONArray("blockedFriends")?.length() ?: 0))
-                .mapNotNull { snapshot?.optJSONArray("blockedFriends")?.optString(it) }
-                .toSet()
+        val blockedArray = snapshot?.optJSONArray("blockedFriends")
+        val blockedIds = (0 until (blockedArray?.length() ?: 0))
+            .map { blockedArray?.optString(it).orEmpty() }.filter(String::isNotBlank).toSet()
         val recentFriends = recentPlayers.filter { player ->
             val id = player.optString("opponentFriendId")
             id.isNotBlank() && id !in acceptedFriendIds && id !in blockedIds
