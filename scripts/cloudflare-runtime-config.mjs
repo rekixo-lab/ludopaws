@@ -75,8 +75,14 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     }
   }
 
+  const ageSafetyMode = String(environment.LUDOPROOF_AGE_SAFETY_MODE ?? "LOCKDOWN").trim();
+  if (ageSafetyMode !== "LOCKDOWN") {
+    throw new Error("Age-safety protected release requires LUDOPROOF_AGE_SAFETY_MODE=LOCKDOWN until independently verified backend authorization is approved.");
+  }
+
   const vars = {
     ...existingVars,
+    LUDOPROOF_AGE_SAFETY_MODE: "LOCKDOWN",
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: oauthClientId,
     LUDOPROOF_ACCOUNT_WEB_ORIGIN: accountOrigin,
     GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled),
