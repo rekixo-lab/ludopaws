@@ -285,7 +285,10 @@ class HomeActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
-        retryPendingRemoteForfeits(this)
+        // Do not transmit queued match credentials or user data before age screening.
+        if (AgeAccessStore(this).canUseConnectedFeatures()) {
+            retryPendingRemoteForfeits(this)
+        }
         connectivityMonitor.start()
     }
 
