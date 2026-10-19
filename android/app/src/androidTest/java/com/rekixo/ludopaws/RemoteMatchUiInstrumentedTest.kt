@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
+import com.rekixo.ludopaws.feature.safety.AgeAccessStore
+import com.rekixo.ludopaws.feature.safety.AgeBand
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.rekixo.ludopaws.feature.online.applyResponse
 import com.rekixo.ludopaws.feature.online.updateControls
@@ -24,6 +26,8 @@ class RemoteMatchUiInstrumentedTest {
     @Before
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
+        // Fixture grants a test-local age band; production still requires Google Play.
+        AgeAccessStore(context).saveFromPlay(AgeBand.ADULT)
         clearRemoteStores()
     }
 
