@@ -673,10 +673,10 @@ class ProfileActivity : Activity() {
             return
         }
 
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) return
         playGamesSignInInProgress = true
         playGamesStatus = getString(R.string.profile_play_games_sign_in_opening)
         renderProfile()
-        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) return
         PlayGamesSdk.initialize(applicationContext)
         PlayGames.getGamesSignInClient(this)
             .signIn()
