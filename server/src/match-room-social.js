@@ -1,6 +1,6 @@
 import {
-  MatchRoom as ProofMatchRoom,
-} from "./match-room-proof.js";
+  MatchRoom as TeamMatchRoom,
+} from "./match-room-team.js";
 import {
   syncRecentFriends,
 } from "./friend-social.js";
@@ -11,7 +11,7 @@ const STATE_KEY = "match-state";
  * Adds best-effort recent-player recording for finished FRIENDS matches.
  * Gameplay/proof state remains authoritative; social history is an idempotent sink.
  */
-export class MatchRoom extends ProofMatchRoom {
+export class MatchRoom extends TeamMatchRoom {
   async fetch(request) {
     const response = await super.fetch(request);
     if (response.ok) {

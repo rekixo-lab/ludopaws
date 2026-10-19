@@ -68,7 +68,8 @@ class MatchRealtimeClientIntegrationTest {
     fun tearDown() {
         if (::realtimeClient.isInitialized) {
             realtimeClient.shutdown()
-        } else if (::transportClient.isInitialized) {
+        }
+        if (::transportClient.isInitialized) {
             transportClient.dispatcher.executorService.shutdown()
             transportClient.connectionPool.evictAll()
         }

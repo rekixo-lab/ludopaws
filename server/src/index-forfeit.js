@@ -13,9 +13,6 @@ export {
   TeamMatchmakerQueue,
 } from "./team-matchmaker-queue.js";
 
-export {
-  MatchReceiptArchive,
-} from "./match-receipt-archive.js";
 
 export {
   FriendConversation,
@@ -28,4 +25,4 @@ export {
 
 export {
   MatchRoom,
-} from "./match-room-bots.js";
+} from "./match-room-realtime.js";

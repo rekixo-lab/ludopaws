@@ -232,7 +232,6 @@ class HomeActivity : Activity() {
         // cached state must not survive into a future ONLINE/FRIENDS/TEAM_UP
         // entry. Local modes start from their normal Computer/Pass & Play card.
         SecureSessionStore(this).clear()
-        PendingRollStore(this).clear()
         CachedMatchStore(this).clear()
         PublicMatchmakingStore(this).clear()
 

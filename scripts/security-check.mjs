@@ -134,7 +134,6 @@ if (
 }
 
 for (const file of [
-  "android/app/src/main/java/com/rekixo/ludopaws/feature/online/data/local/PendingRollStore.kt",
   "android/app/src/main/java/com/rekixo/ludopaws/feature/online/data/local/SecureSessionStore.kt",
 ]) {
   const content =
@@ -188,13 +187,9 @@ if (
     "CLOUDFLARE_DEPLOY_ENABLED",
     "CLOUDFLARE_API_TOKEN",
     "CLOUDFLARE_ACCOUNT_ID",
-    "ENTRONEX_API_TOKEN",
-    "ENTRONEX_EVAL_CUSTOMER_TOKEN",
-    "ENTRONEX_TOKEN_MODE",
     "LUDOPROOF_SESSION_HMAC_KEY",
     "cloudflare-deploy-preflight.mjs",
     "secret list --format json",
-    "randomBytes(32)",
     "randomBytes(48)",
     "/health",
     "/ready",
@@ -221,55 +216,9 @@ const wrangler =
       "utf8",
     ),
   );
-const serviceBindings =
-  Array.isArray(
-    wrangler?.services,
-  )
-    ? wrangler.services
-    : [];
-if (
-  !serviceBindings.some(
-    (entry) =>
-      entry?.binding ===
-        "ENTRONEX_SERVICE" &&
-      entry?.service ===
-        "entronex-v4-eval",
-  )
-) {
-  findings.push(
-    "server/wrangler.json: missing internal EntroNex service binding",
-  );
-}
-
-const pinnedVars =
-  wrangler?.vars ?? {};
-for (const [name, expected] of [
-  [
-    "ENTRONEX_SIGNING_KEY_ID",
-    "cf-v4-eval-sign-1",
-  ],
-  [
-    "ENTRONEX_TENANT_ID",
-    "cloudflare_v4_eval",
-  ],
-  [
-    "ENTRONEX_SIGNING_KEY_FINGERPRINT",
-    "1fe248e8ee9129fcd13c1ee96c1cd7d162a610e9b1df3037a4ec48935f2d43c4",
-  ],
-  [
-    "ENTRONEX_SIGNING_PUBLIC_KEY_PEM_B64",
-    "LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUNvd0JRWURLMlZ3QXlFQTVlaXhuL3QvV1lYQWhPTEgvOEMybXZTRk8vRHk0Ti93UDhxQ2x4SEtnMUU9Ci0tLS0tRU5EIFBVQkxJQyBLRVktLS0tLQo=",
-  ],
-]) {
-  if (
-    pinnedVars[name] !==
-    expected
-  ) {
-    findings.push(
-      "server/wrangler.json: pinned EntroNex trust drift for " +
-        name,
-    );
-  }
+if ((wrangler.services ?? []).some((entry) => entry.binding?.startsWith("ENTRONEX")) ||
+    Object.keys(wrangler.vars ?? {}).some((key) => key.startsWith("ENTRONEX_"))) {
+  findings.push("server/wrangler.json: obsolete online dice service dependency");
 }
 
 const offlineV4Files = {

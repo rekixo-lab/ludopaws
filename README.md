@@ -6,7 +6,7 @@
 
 **Game website target:** `https://ludopaws.rekixo.com`
 
-**API hostname:** `https://api.ludopaws.rekixo.com` (verified by Cloudflare production deployment run #50 on 13 October 2026; the checks passed with `productionClaim=false` while EntroNex v4 remains an evaluation candidate).
+**API hostname:** `https://api.ludopaws.rekixo.com` (the new online protocol requires a coordinated backend and Android release).
 
 **Publisher / parent brand:** Rekixo  
 **Repository:** `ludopaws`
@@ -18,9 +18,9 @@ Branding/repository names are separate from compatibility-sensitive runtime iden
 
 **Ludo Paws** is the consumer-facing name of this Android Ludo game. The working store title is **Ludo Paws: Talking Animals** and the product tagline is **Roll. Race. Roar!**
 
-The game is built around **verifiable EntroNex dice outcomes**. Current status: **release candidate / evaluation**. The app and game backend are being hardened for production operation, while EntroNex v4 remains pre-independent-audit.
+Online, Friends and Team Up use **server-authoritative cryptographic dice** generated inside the match Durable Object. Robot and Pass & Play keep their existing local EntroNex v4 derivation. Online receipts record the server result and do not independently attest fairness. See [online transport and rollout](docs/ONLINE_REALTIME.md).
 
-> Migration compatibility note: the final Android `applicationId` is `com.rekixo.ludopaws`. The Kotlin `namespace` and source package declarations remain `com.rekixo.ludopaws` temporarily as an internal implementation detail; they are not the Play Store application ID. Cloudflare Worker/Durable Object bindings, persisted storage names, proof/ruleset identifiers, and other protocol-sensitive identifiers remain unchanged to protect deployed infrastructure and proof verification.
+> Migration compatibility note: Android application identity and account/wallet bindings remain stable. The online command protocol and receipt-archive migration are described in [online transport and rollout](docs/ONLINE_REALTIME.md).
 
 The repository contains:
 
@@ -32,36 +32,22 @@ The repository contains:
 
 The Android app does not decide the dice result.
 
-For every roll:
+For every online roll:
 
 ```text
-Android creates fresh client seed
+Android command (request ID + expected event index)
         |
         v
-client commitment
+Authenticated match WebSocket (pooled HTTPS fallback)
         |
         v
-Ludo Paws authoritative match Worker
+Match Durable Object: random seed + rejection sampling + legal rules
         |
         v
-EntroNex v4 commitment
-        |
-        v
-Android reveals original client seed
-        |
-        v
-EntroNex proof
-        |
-        v
-game Worker verifies exact event binding
-+ frozen local v4 mathematics
-+ pinned Ed25519 attestation
-        |
-        v
-legal Ludo move
+One persisted result + receipt and direct authoritative snapshot broadcast
 ```
 
-A network retry reuses the same logical random event. The game never requests a replacement roll because a result is undesirable. The Android dice animation is visual only and cannot change, reroll, weight, or select the authoritative outcome.
+A transport retry keeps the same logical request and returns its recorded result. Dice animations and pawn previews are presentation only; they cannot choose an outcome or commit a move. The old two-call commit/reveal endpoints return an upgrade error. Other players receive the compact board snapshot over their existing socket.
 
 ## Playable v1 rules
 
@@ -94,10 +80,10 @@ The Android MVP now supports:
 - server-authoritative token positions and legal-token highlighting;
 - tap-to-move only for server-returned legal tokens;
 - presentation-only dice animation whose final face is the verified server outcome;
-- turn/winner banners and EntroNex verified-roll status;
-- recent round/proof history;
+- turn/winner banners and authoritative dice results;
+- compact last-roll information;
 - persisted match/player session with the bearer token encrypted by Android Keystore and AAD-bound to its match/player metadata;
-- encrypted pending client-seed recovery with Android Keystore, AAD-bound to its match/commitment metadata, so a reconnect resumes the same logical roll;
+- persisted command IDs for retry-safe rolls and moves;
 - cleartext network traffic blocked and app backup disabled for sensitive local game state;
 - foreground-only automatic state sync so multiplayer turns, moves, verified rolls, and winner state refresh without manual polling;
 - 2–4 player offline pass-and-play using the same Ludo rules and exact v4 outcome/Natural World derivation locally, with a persisted local audit map and explicit no-remote-attestation labeling.
@@ -110,7 +96,7 @@ https://api.ludopaws.rekixo.com
 
 ## Offline v4 engine
 
-Offline play uses the **same frozen EntroNex v4 mathematical derivation** as the online Ludo Paws integration, but runs it entirely on the Android device.
+Offline play preserves the **frozen EntroNex v4 mathematical derivation** entirely on the Android device. Online matches use the separate server dice protocol.
 
 Each offline roll:
 
@@ -131,7 +117,7 @@ Each offline roll:
 
 The Android unit suite includes the frozen cross-language EntroNex v4 conformance vector. The expected outcome, transcript digest, field digest, world digest and proof digest must match exactly.
 
-**Trust boundary:** offline and online use the same v4 math, but they do not have the same authority model. In offline mode both entropy seeds are generated by the same device and there is no remote EntroNex commitment attestation or server authority. The UI therefore labels it as **local v4 derivation / local recomputation**, not as a remotely attested EntroNex roll.
+**Trust boundary:** offline and online have separate randomness and authority models. In offline mode both entropy seeds are generated by the same device and there is no remote EntroNex commitment attestation or server authority. The UI therefore labels it as **local v4 derivation / local recomputation**, not as a remotely attested EntroNex roll.
 
 The last offline roll keeps a local audit record and exposes the derived Natural World map so the selected sample cell and digests can be inspected after the roll.
 
@@ -158,14 +144,6 @@ Existing EntroNex, Rekixo, AR3D, domains, DNS, and Workers are not modified by t
 
 ### Required server configuration
 
-The game Worker needs a server-only EntroNex customer bearer token at runtime:
-
-```text
-ENTRONEX_API_TOKEN
-```
-
-You do **not** need the project on a local PC to create it. The production GitHub workflow inspects both Workers. If neither side has a customer credential yet, it generates a new `ent_cf_eval_...` token inside GitHub Actions, masks it immediately, writes the same value to `ENTRONEX_EVAL_CUSTOMER_TOKEN` on `entronex-v4-eval` and `ENTRONEX_API_TOKEN` on `ludoproof-game-api`, and never prints the value. If both Workers already have the credential, it preserves them. A one-sided mismatch fails closed and requires an explicit synchronized rotation.
-
 The retry-safe session HMAC is also a Cloudflare secret:
 
 ```text
@@ -174,7 +152,7 @@ LUDOPROOF_SESSION_HMAC_KEY
 
 During automated deployment, an operator-supplied HMAC is used when provided. Otherwise the workflow preserves an existing Cloudflare secret and, on the first deployment only, generates a cryptographically random 48-byte value directly in the deployment channel without printing it.
 
-**Never put either runtime secret in Android source, BuildConfig, the repository, or chat.**
+**Never put runtime secrets in Android source, BuildConfig, the repository, or chat.**
 
 The account API also requires the public Google OAuth **Web application client ID** as a Worker variable:
 
@@ -186,19 +164,7 @@ Set it under the Worker’s Variables and Secrets settings. Do not use the numer
 
 The account/store Worker uses SQLite-backed Durable Objects `AccountDirectory` and `PlayerAccount`. Both bindings must be deployed before `/ready` can succeed. Sign-in and server-owned wallet operations fail closed while the account bindings or session HMAC secret are missing.
 
-The EntroNex signing identity is now source-pinned from the verified live public-trust export. The current public fingerprint is:
-
-```text
-1fe248e8ee9129fcd13c1ee96c1cd7d162a610e9b1df3037a4ec48935f2d43c4
-```
-
-The key ID, tenant ID, fingerprint, and base64 SPKI public key are committed as non-secret Worker variables in `server/wrangler.json`. A signing-key rotation requires a new verified EntroNex public-trust export and a reviewed pin update; deployment must not silently learn a new trust root from a proof response.
-
-The non-secret EntroNex base URL remains:
-
-```text
-ENTRONEX_BASE_URL=https://entronex-v4-eval.ai-8f3.workers.dev
-```
+Online gameplay has no external dice service binding, provider token, trust pin or receipt archive. The migration removes the obsolete `MatchReceiptArchive` Durable Object class. Offline Android proof code remains in place.
 
 ## Cloudflare Git deployment
 
@@ -244,43 +210,21 @@ Deployment readiness can be checked with:
 GET /ready
 ```
 
-It returns HTTP 503 until the match and account Durable Object bindings, the retry-safe session HMAC key, Google OAuth web client ID, pinned EntroNex signing identity, EntroNex bearer credential, and a reachable EntroNex health endpoint are all available. Google Play Billing and AdMob SSV are separately reported as unavailable until their own explicit server configuration is enabled.
+It returns HTTP 503 until the match and account Durable Object bindings, the retry-safe session HMAC key and Google OAuth web client ID are all available. Google Play Billing and AdMob SSV are separately reported as unavailable until their own explicit server configuration is enabled.
 
 ## Security boundary
 
 Gameplay match session tokens remain random bearer credentials stored only as hashes in the match Durable Object. Account API access tokens are separate, HMAC-signed, 15-minute tokens bound to an account UUID and session UUID; refresh tokens are random, stored only as hashes in the account Durable Object, and rotated with an idempotent retry key. The Android app stores account tokens and the guest-recovery request ID encrypted with Android Keystore AES-GCM.
 
-The EntroNex bearer credential and Google Play service-account private key exist only on the server. The wallet's authoritative state is server-side; local preferences are a cache and are never used to grant currency or paid inventory.
+The Google Play service-account private key exists only on the server. The wallet's authoritative state is server-side; local preferences are a cache and are never used to grant currency or paid inventory.
 
-The game backend binds every roll to the compatibility-sensitive proof identity:
-
-```text
-applicationId = ludoproof
-matchId
-eventType = DICE_ROLL
-eventIndex
-actorHash
-previousStateHash
-rulesetHash
-```
+Each online receipt binds its request ID, match, player, event index, previous board digest and ruleset digest. Its revealed seed lets diagnostics reproduce the sampled result, but a server-generated receipt cannot prove the server did not choose a different seed.
 
 ## Important status
 
-Ludo Paws is structured as a production release candidate, but it must not be represented as cryptographically production-certified yet.
+This is a release candidate. Online dice receipts and local offline proofs must not be represented as independent certification. The new Worker and Android client must be released together; do not deploy only one side of the protocol change.
 
-EntroNex v4 is still an evaluation candidate pending independent cryptographic review. Ludo Paws must not be described as independently audited, certified, or gambling-certified at this stage.
-
-See [Architecture](docs/ARCHITECTURE.md), [Production release checklist](docs/PRODUCTION_RELEASE.md), and [Ludo Paws migration plan](docs/LUDO_PAWS_MIGRATION.md).
-
-## Production EntroNex transport
-
-Cloudflare production uses an internal Service Binding:
-
-```text
-ENTRONEX_SERVICE -> entronex-v4-eval
-```
-
-The same-account Worker binding is preferred over the public `workers.dev` network path. The public URL remains only as the canonical request URL and local/test fallback.
+See [online transport and rollout](docs/ONLINE_REALTIME.md) for validation and remaining device measurements. Earlier architecture/proof documents describe the previous protocol and are historical until revised.
 
 ## Google Play Games sign-in
 

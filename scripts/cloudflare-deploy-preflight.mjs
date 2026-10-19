@@ -1,8 +1,4 @@
 import fs from "node:fs";
-import {
-  createHash,
-  createPublicKey,
-} from "node:crypto";
 
 const required = [
   "CLOUDFLARE_API_TOKEN",
@@ -34,40 +30,6 @@ if (
 ) {
   console.error(
     "CLOUDFLARE_ACCOUNT_ID must be a 32-character Cloudflare account ID.",
-  );
-  process.exit(2);
-}
-
-const entronexTokenMode =
-  String(
-    process.env.ENTRONEX_TOKEN_MODE ??
-      "",
-  );
-
-if (
-  ![
-    "operator",
-    "bootstrap",
-    "preserve",
-  ].includes(
-    entronexTokenMode,
-  )
-) {
-  console.error(
-    "ENTRONEX_TOKEN_MODE was not prepared by the deployment workflow.",
-  );
-  process.exit(2);
-}
-
-if (
-  entronexTokenMode !==
-    "preserve" &&
-  String(
-    process.env.ENTRONEX_API_TOKEN,
-  ).length < 20
-) {
-  console.error(
-    "ENTRONEX_API_TOKEN is too short to be a valid server credential.",
   );
   process.exit(2);
 }
@@ -140,68 +102,6 @@ if (vars.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
   process.exit(2);
 }
 
-
-const fingerprint =
-  String(
-    vars.ENTRONEX_SIGNING_KEY_FINGERPRINT ??
-      "",
-  ).toLowerCase();
-const publicKeyPemB64 =
-  String(
-    vars.ENTRONEX_SIGNING_PUBLIC_KEY_PEM_B64 ??
-      "",
-  );
-
-if (
-  vars.ENTRONEX_SIGNING_KEY_ID !==
-    "cf-v4-eval-sign-1" ||
-  vars.ENTRONEX_TENANT_ID !==
-    "cloudflare_v4_eval" ||
-  !/^[0-9a-f]{64}$/.test(
-    fingerprint,
-  ) ||
-  !publicKeyPemB64
-) {
-  console.error(
-    "Pinned EntroNex public trust material is incomplete or unexpected.",
-  );
-  process.exit(2);
-}
-
-let publicKey;
-try {
-  const pem =
-    Buffer.from(
-      publicKeyPemB64,
-      "base64",
-    ).toString("utf8");
-  publicKey =
-    createPublicKey(
-      pem,
-    );
-} catch {
-  console.error(
-    "Pinned EntroNex public key is not a valid SPKI PEM.",
-  );
-  process.exit(2);
-}
-
-const recomputed =
-  createHash("sha256")
-    .update(
-      publicKey.export({
-        type: "spki",
-        format: "der",
-      }),
-    )
-    .digest("hex");
-
-if (recomputed !== fingerprint) {
-  console.error(
-    "Pinned EntroNex public key does not match its configured fingerprint.",
-  );
-  process.exit(2);
-}
 
 console.log(
   "Cloudflare production deploy preflight passed.",

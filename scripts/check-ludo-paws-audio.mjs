@@ -226,8 +226,8 @@ for (const marker of ['class LudoPawsFeedbackLedger', 'LinkedHashSet', 'fun once
 }
 
 const onlineRollAnimationIndex = onlineActionsSource.indexOf('diceView.startRolling()');
-const onlineRollLedgerIndex = onlineActionsSource.indexOf('OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, rollEventIndex)');
-const onlineRollSoundIndex = onlineActionsSource.indexOf('GameSoundFeedback.roll(this, rollEventIndex)');
+const onlineRollLedgerIndex = onlineActionsSource.indexOf('OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, state.randomEventIndex)');
+const onlineRollSoundIndex = onlineActionsSource.indexOf('GameSoundFeedback.roll(this, state.randomEventIndex)');
 if (
   onlineRollAnimationIndex < 0 ||
   onlineRollLedgerIndex < onlineRollAnimationIndex ||

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   MatchRoom,
-} from "../src/match-room-safe.js";
+} from "../src/match-room-lifecycle.js";
 
 const SESSION_KEY =
   "lp_test_session_hmac_key_1234567890abcdef";
@@ -232,221 +232,36 @@ async function createStartedMatch(
   };
 }
 
-test(
-  "forfeit persistence keeps another player's reveal deadline as the next alarm",
-  async () => {
-    const {
-      ctx,
-      room,
-      players,
-    } =
-      await createStartedMatch(
-        3,
-      );
+test("another player's forfeit preserves the resolved roll and its move deadline", async () => {
+  const { ctx, room, players } = await createStartedMatch(3);
+  // V4 opening roll has legal yard exits, so a resolved move must survive.
+  const state = await ctx.storage.get("match-state");
+  state.rulesetKey = "CLASSIC_V4";
+  await ctx.storage.put("match-state", state);
+  const rolled = await json(await room.fetch(request("/roll", {
+    method: "POST", token: players[0].playerToken,
+    body: { clientRequestId: crypto.randomUUID(), expectedEventIndex: 0 },
+  })));
+  assert.equal(rolled.response.status, 200, JSON.stringify(rolled.body));
+  assert.equal(rolled.body.awaitingMove, true);
+  const deadline = ctx.storage.alarmAt;
+  const result = await json(await room.fetch(request("/start", {
+    method: "POST", token: players[1].playerToken, body: { forfeit: true },
+  })));
+  assert.equal(result.response.status, 200);
+  assert.equal(result.body.state.status, "ACTIVE");
+  assert.equal(result.body.state.pendingRoll.eventIndex, 0);
+  assert.equal(ctx.storage.alarmAt, deadline);
+});
 
-    const stored =
-      await ctx.storage.get(
-        "match-state",
-      );
-    const revealDeadlineAt =
-      Date.now() +
-      120_000;
-
-    stored.randomEventIndex =
-      1;
-    stored.pendingRoll = {
-      status:
-        "COMMITTED",
-      seat: 0,
-      playerId:
-        players[0]
-          .playerId,
-      clientCommitment:
-        "a".repeat(64),
-      eventIndex: 0,
-      eventId:
-        "roll:0",
-      actorHash:
-        "c".repeat(64),
-      previousStateHash:
-        "d".repeat(64),
-      rulesetHash:
-        "e".repeat(64),
-      roundId:
-        "round-pending",
-      serverCommitment:
-        "b".repeat(64),
-      proofDigest:
-        null,
-      outcome:
-        null,
-      legalTokenIndexes:
-        null,
-      revealDeadlineAt,
-    };
-    await ctx.storage.put(
-      "match-state",
-      stored,
-    );
-    await ctx.storage.setAlarm(
-      revealDeadlineAt,
-    );
-
-    const result =
-      await json(
-        await room.fetch(
-          request(
-            "/start",
-            {
-              method:
-                "POST",
-              token:
-                players[1]
-                  .playerToken,
-              body: {
-                forfeit:
-                  true,
-              },
-            },
-          ),
-        ),
-      );
-
-    assert.equal(
-      result.response.status,
-      200,
-      JSON.stringify(
-        result.body,
-      ),
-    );
-    assert.equal(
-      result.body.state.status,
-      "ACTIVE",
-    );
-    assert.equal(
-      result.body.state.pendingRoll
-        .eventIndex,
-      0,
-    );
-    assert.equal(
-      ctx.storage.alarmAt,
-      revealDeadlineAt,
-    );
-  },
-);
-
-test(
-  "resolved commitment retry is a read-only replay after a lost reveal response",
-  async () => {
-    const {
-      ctx,
-      room,
-      players,
-    } =
-      await createStartedMatch(
-        2,
-      );
-
-    const clientCommitment =
-      "a".repeat(64);
-    const stored =
-      await ctx.storage.get(
-        "match-state",
-      );
-
-    stored.randomEventIndex =
-      1;
-    stored.turnSeat =
-      1;
-    stored.pendingRoll =
-      null;
-    stored.history = [
-      {
-        eventIndex: 0,
-        eventId:
-          "roll:0",
-        playerId:
-          players[0]
-            .playerId,
-        color:
-          "RED",
-        roundId:
-          "round-resolved",
-        serverCommitment:
-          "b".repeat(64),
-        clientCommitment,
-        actorHash:
-          "c".repeat(64),
-        previousStateHash:
-          "d".repeat(64),
-        rulesetHash:
-          "e".repeat(64),
-        proofDigest:
-          "f".repeat(64),
-        outcome: 4,
-        moveTokenIndex:
-          null,
-        captures: 0,
-        status:
-          "RESOLVED",
-      },
-    ];
-    await ctx.storage.put(
-      "match-state",
-      stored,
-    );
-
-    const replay =
-      await json(
-        await room.fetch(
-          request(
-            "/roll/commit",
-            {
-              method:
-                "POST",
-              token:
-                players[0]
-                  .playerToken,
-              body: {
-                clientCommitment,
-              },
-            },
-          ),
-        ),
-      );
-
-    assert.equal(
-      replay.response.status,
-      200,
-      JSON.stringify(
-        replay.body,
-      ),
-    );
-    assert.equal(
-      replay.body.replayed,
-      true,
-    );
-    assert.equal(
-      replay.body.historical,
-      true,
-    );
-    assert.equal(
-      replay.body.round.roundId,
-      "round-resolved",
-    );
-    assert.equal(
-      replay.body.state.pendingRoll,
-      null,
-    );
-
-    const after =
-      await ctx.storage.get(
-        "match-state",
-      );
-    assert.deepEqual(
-      after,
-      stored,
-      "historical commit replay must not mutate authoritative match state",
-    );
-  },
-);
+test("obsolete two-stage roll routes cannot mutate a new match", async () => {
+  const { ctx, room, players } = await createStartedMatch(2);
+  const before = await ctx.storage.get("match-state");
+  for (const path of ["/roll/commit", "/roll/reveal"]) {
+    const result = await room.fetch(request(path, {
+      method: "POST", token: players[0].playerToken, body: {},
+    }));
+    assert.equal(result.status, 410);
+  }
+  assert.deepEqual(await ctx.storage.get("match-state"), before);
+});

@@ -23,13 +23,14 @@ import {
   botRetryDelayMs,
   createBotParticipants,
 } from "./matchmaking-bots.js";
+import { MATCH_LOCATION_HEADER, normalizeMatchLocationHint } from "./match-location.js";
 
 const STATE_KEY = "team-matchmaking-state-v1";
 const QUEUE_TTL_MS = 2 * 60 * 1000;
 const ASSIGNMENT_TTL_MS = 10 * 60 * 1000;
 const PROFILE_ASSERTION_TTL_MS = 15 * 60 * 1000;
 const TARGET_PLAYER_COUNT = 4;
-const DEFAULT_RULESET_KEY = "TEAM_UP_V1";
+const DEFAULT_RULESET_KEY = "TEAM_UP_V4";
 const TEAM_RULESET_KEYS = ["TEAM_UP_V1", "TEAM_UP_V2", "TEAM_UP_V3", "TEAM_UP_V4"];
 
 export class TeamMatchmakerQueue {
@@ -166,6 +167,7 @@ export class TeamMatchmakerQueue {
   async #search(request, body) {
     const profileId = await this.#profileIdentity(request);
     const participant = normalizeParticipant(body, profileId);
+    participant.locationHint = normalizeMatchLocationHint(request.headers.get(MATCH_LOCATION_HEADER));
     const now = Date.now();
     let state = this.#cleanup(await this.#load(), now);
 
@@ -437,7 +439,7 @@ export class TeamMatchmakerQueue {
       // remaining inside deterministicMatchId's reviewed attempt bounds.
       const matchId = reservation.matchId
         ?? await deterministicMatchId(host.clientRequestId, 4 + attempt);
-      const target = room(this.env, matchId);
+      const target = room(this.env, matchId, host.locationHint);
       const createResponse = await target.fetch(
         new Request("https://room/create", {
           method: "POST",
@@ -568,6 +570,7 @@ export class TeamMatchmakerQueue {
           displayName: candidate.displayName,
           characterId: normalizeCharacterId(candidate.characterId),
           profileId: candidate.profileId,
+          rulesetKey: candidate.rulesetKey ?? DEFAULT_RULESET_KEY,
         };
       });
       delete state.pendingMatch;
@@ -591,6 +594,7 @@ export class TeamMatchmakerQueue {
             matchmaking: true,
             targetPlayerCount: TARGET_PLAYER_COUNT,
             matchMode: "TEAM_UP",
+            rulesetKey: assignment.rulesetKey ?? participant.rulesetKey ?? DEFAULT_RULESET_KEY,
           }
         : {}),
     };
@@ -811,7 +815,7 @@ async function issueAssertion(env, matchId, participant) {
   });
 }
 
-function room(env, matchId) {
+function room(env, matchId, preferredLocationHint = null) {
   if (!env.LUDOPROOF_MATCHES) {
     throw httpError(
       503,
@@ -820,7 +824,9 @@ function room(env, matchId) {
     );
   }
   const id = env.LUDOPROOF_MATCHES.idFromName(matchId);
-  return env.LUDOPROOF_MATCHES.get(id);
+  const locationHint = normalizeMatchLocationHint(env.LUDOPROOF_MATCH_LOCATION_HINT)
+    ?? normalizeMatchLocationHint(preferredLocationHint);
+  return locationHint ? env.LUDOPROOF_MATCHES.get(id, { locationHint }) : env.LUDOPROOF_MATCHES.get(id);
 }
 
 async function requireJsonResponse(response) {

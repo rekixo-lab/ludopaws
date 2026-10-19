@@ -1,7 +1,6 @@
 package com.rekixo.ludopaws
 
 import android.content.Context
-import com.rekixo.ludopaws.ui.dialogs.showNaturalWorldAuditDialog
 import com.rekixo.ludopaws.ui.dialogs.showProofHistoryDialog
 import com.rekixo.ludopaws.ui.dialogs.showSettingsDialog
 
@@ -11,10 +10,6 @@ object ArcadeDialogs {
         onChanged: (() -> Unit)? = null,
     ) = showSettingsDialog(context, onChanged)
 
-    fun showNaturalWorldAudit(
-        context: Context,
-        audit: OfflineRandomnessAudit?,
-    ) = showNaturalWorldAuditDialog(context, audit)
 
     fun showProofHistory(
         context: Context,

@@ -19,13 +19,11 @@ class SecureStateRecoveryInstrumentedTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         SecureSessionStore(context).clear()
-        PendingRollStore(context).clear()
     }
 
     @After
     fun tearDown() {
         SecureSessionStore(context).clear()
-        PendingRollStore(context).clear()
     }
 
     @Test
@@ -46,19 +44,12 @@ class SecureStateRecoveryInstrumentedTest {
     }
 
     @Test
-    fun pendingRollSecretSurvivesStoreRecreationThroughAndroidKeystore() {
-        val expected =
-            PendingRollSecret(
-                matchId = MATCH_ID,
-                clientSeed = CLIENT_SEED,
-                clientCommitment = CLIENT_COMMITMENT,
-            )
-
-        PendingRollStore(context).save(expected)
-
-        val restored = PendingRollStore(context).load()
-
-        assertEquals(expected, restored)
+    fun retryIdentitySurvivesStoreRecreation() {
+        val operationKey = "$MATCH_ID:42"
+        val first = PendingOperationStore(context).getOrCreate("roll", operationKey)
+        assertEquals(first, PendingOperationStore(context).getOrCreate("roll", operationKey))
+        PendingOperationStore(context).clear("roll", operationKey)
+        assertFalse(first == PendingOperationStore(context).getOrCreate("roll", operationKey))
     }
 
     @Test
@@ -94,38 +85,6 @@ class SecureStateRecoveryInstrumentedTest {
         assertFalse(prefs.contains("playerTokenCiphertext"))
     }
 
-    @Test
-    fun tamperedPendingSeedCiphertextFailsClosedAndIsCleared() {
-        PendingRollStore(context).save(
-            PendingRollSecret(
-                matchId = MATCH_ID,
-                clientSeed = CLIENT_SEED,
-                clientCommitment = CLIENT_COMMITMENT,
-            ),
-        )
-        val prefs =
-            context.getSharedPreferences(
-                "ludoproof_pending_roll",
-                Context.MODE_PRIVATE,
-            )
-        val ciphertext =
-            requireNotNull(
-                prefs.getString(
-                    "seedCiphertext",
-                    null,
-                ),
-            )
-        prefs.edit()
-            .putString(
-                "seedCiphertext",
-                mutateBase64(ciphertext),
-            )
-            .commit()
-
-        assertNull(PendingRollStore(context).load())
-        assertFalse(prefs.contains("seedCiphertext"))
-    }
-
     private fun mutateBase64(value: String): String {
         val replacement = if (value.last() == 'A') 'B' else 'A'
         return value.dropLast(1) + replacement
@@ -135,9 +94,5 @@ class SecureStateRecoveryInstrumentedTest {
         const val MATCH_ID = "LPABCDEFGH"
         const val PLAYER_TOKEN =
             "lp_abcdefghijklmnopqrstuvwxyzABCDEF"
-        const val CLIENT_SEED =
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-        const val CLIENT_COMMITMENT =
-            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
     }
 }

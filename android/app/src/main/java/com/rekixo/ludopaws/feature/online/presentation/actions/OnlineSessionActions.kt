@@ -210,8 +210,6 @@ internal fun MainActivity.resetInvalidSessionIfNeeded(
     if (code != "MATCH_NOT_FOUND" && code != "AUTH_INVALID") return false
 
     secureSessionStore.clear()
-    pendingRollStore.clear()
-    pendingSecret = null
     matchId = null
     playerToken = null
     playerId = null

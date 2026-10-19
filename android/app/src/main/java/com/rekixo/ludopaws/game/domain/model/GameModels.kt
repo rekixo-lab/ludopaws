@@ -443,8 +443,9 @@ object GameJson {
             schema(pending.requireInt("randomOutcome") in 1..6, "pending roll randomOutcome is outside 1..6")
         }
 
-        schema(pending.has("revealDeadlineAt"), "pending roll is missing revealDeadlineAt")
-        schema(pending.requireLong("revealDeadlineAt") > 0L, "invalid revealDeadlineAt")
+        if (status != "RESOLVED" || pending.has("revealDeadlineAt") && !pending.isNull("revealDeadlineAt")) {
+            schema(pending.requireLong("revealDeadlineAt") > 0L, "invalid revealDeadlineAt")
+        }
     }
 
     private fun pendingRoll(value: JSONObject): PendingRollSnapshot =

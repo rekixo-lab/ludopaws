@@ -29,7 +29,7 @@ class CachedMatchStore(
                 )
         prefs.edit()
             .putString(KEY_JSON, safe.toString())
-            .commit()
+            .apply()
     }
 
     fun load(): JSONObject? =

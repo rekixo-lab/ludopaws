@@ -53,10 +53,10 @@ const verifiedDiceTests = read(
   "android/app/src/test/java/com/rekixo/ludopaws/OnlineVerifiedDicePresentationPolicyTest.kt",
 );
 const pendingRecoveryPolicy = read(
-  "android/app/src/main/java/com/rekixo/ludopaws/feature/online/presentation/state/OnlinePendingRollRecoveryPolicy.kt",
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/online/presentation/state/OnlineStateRestorePolicy.kt",
 );
 const pendingRecoveryTests = read(
-  "android/app/src/test/java/com/rekixo/ludopaws/OnlinePendingRollRecoveryPolicyTest.kt",
+  "android/app/src/test/java/com/rekixo/ludopaws/OnlineStateRestorePolicyTest.kt",
 );
 const rollActionPolicy = read(
   "android/app/src/main/java/com/rekixo/ludopaws/feature/online/presentation/state/OnlineRollActionPolicy.kt",
@@ -130,7 +130,7 @@ for (const marker of [
   "OnlineVerifiedDicePresentationPolicy.resolve(state)",
   "presentedDiceEventKey",
   "animate = shouldAnimate",
-  "Waiting for the complete proof",
+  "Syncing the dice result",
   "onlineRollActionDecision(state)",
   "hasAuthoritativeActionState()",
 ]) {
@@ -157,7 +157,6 @@ for (const marker of [
   "CACHE_SOURCE_MARKER",
   "OnlineStateSource.CACHE",
   "OnlineCachedStateRestorePolicy.shouldApply",
-  "OnlinePendingRollRecoveryPolicy.action",
   "currentStateSource = source",
 ]) {
   const target = marker === "CACHE_SOURCE_MARKER" ? cachedStore : renderer;
@@ -167,79 +166,25 @@ for (const marker of [
     `Cache-safe pending-roll recovery wiring is missing ${marker}.`,
   );
 }
-for (const marker of [
-  "if (source == OnlineStateSource.CACHE)",
-  "PendingRollSecretAction.KEEP",
-  "PendingRollSecretAction.CLEAR",
-  "pending.status == \"RESOLVED\"",
-]) {
-  requireText(
-    pendingRecoveryPolicy,
-    marker,
-    `Pending reveal-secret recovery policy is missing ${marker}.`,
-  );
+requireText(pendingRecoveryPolicy, "sessionMatchId == cachedMatchId", "Cached state must belong to the secure session.");
+requireText(pendingRecoveryTests, "cachedBoardMustBelongToTheActiveSession", "Cache/session mismatch needs regression coverage.");
+for (const marker of ["hasAuthoritativeState", "SYNCING MATCH", "NEW_ROLL", "MOVE_REQUIRED"]) {
+  requireText(rollActionPolicy, marker, `Authoritative action policy is missing ${marker}.`);
 }
-for (const marker of [
-  "cachedStateNeverClearsSecretEvenWhenSnapshotIsBehind",
-  "authoritativeStateWithoutPendingRollClearsStaleSecret",
-  "creatingRollWithoutEchoedCommitmentKeepsSecret",
-  "committedRollWithMatchingCommitmentKeepsSecret",
-  "mismatchedAuthoritativeCommitmentClearsSecret",
-  "cachedRestoreRequiresSameSecureSessionMatch",
-]) {
-  requireText(
-    pendingRecoveryTests,
-    marker,
-    `Pending reveal-secret regression coverage is missing ${marker}.`,
-  );
-}
-
-for (const marker of [
-  "hasAuthoritativeState",
-  "SYNCING MATCH",
-  "NEW_ROLL",
-  "RESUME_COMMIT_THEN_REVEAL",
-  "RESUME_REVEAL_ONLY",
-  "WAIT_FOR_RECOVERY",
-  "MOVE_REQUIRED",
-  "localClientCommitment == remoteClientCommitment",
-]) {
-  requireText(
-    rollActionPolicy,
-    marker,
-    `Online roll recovery action policy is missing ${marker}.`,
-  );
-}
-for (const marker of [
-  "cachedOrStaleStateCannotAuthorizeRoll",
-  "creatingRoundWithMatchingSecretResumesCommitThenReveal",
-  "committedRoundWithMatchingSecretResumesRevealOnly",
-  "resolvingRoundWithMatchingSecretRetriesRevealOnly",
-  "lockedRoundWithoutLocalSecretWaitsInsteadOfStartingAnotherRoll",
-  "commitmentMismatchFailsClosed",
-  "resolvedRoundRequiresMoveNotAnotherRoll",
-]) {
-  requireText(
-    rollActionTests,
-    marker,
-    `Online roll recovery action coverage is missing ${marker}.`,
-  );
+for (const marker of ["cacheOfflineAndOpponentCannotAuthorizeRoll", "resolvedDiceMustBeMovedBeforeAnotherRoll", "unexpectedPendingStatesRequireSync"]) {
+  requireText(rollActionTests, marker, `Authoritative action regression coverage is missing ${marker}.`);
 }
 for (const marker of [
   "val decision = onlineRollActionDecision(state)",
-  "OnlineRollActionKind.RESUME_COMMIT_THEN_REVEAL",
-  "OnlineRollActionKind.RESUME_REVEAL_ONLY",
-  "api.commitRoll",
-  "api.revealRoll",
-  "pendingRollStore.save",
-  "if (!hasAuthoritativeActionState())",
+  "session.roll(", "session.move(", "pendingOperationStore.getOrCreate", "if (!hasAuthoritativeActionState())",
 ]) {
-  requireText(
-    matchActions,
-    marker,
-    `Online roll/move action flow is missing ${marker}.`,
-  );
+  requireText(matchActions, marker, `Single-call online action flow is missing ${marker}.`);
 }
+for (const marker of ["api.commitRoll", "api.revealRoll", "pendingRollStore", "SeedCommitment.prepare"]) {
+  if (matchActions.includes(marker)) throw new Error(`Obsolete two-stage online dice dependency: ${marker}`);
+}
+requireText(gameApi, "commandChannel", "Online commands must use the connected realtime transport.");
+requireText(gameApi, "clientRequestId", "Online fallback must preserve request identity.");
 requireText(
   uiState,
   "val currentStateSource: OnlineStateSource? = null",
@@ -274,6 +219,4 @@ for (const marker of [
   requireText(presentation, marker, `Remote Ludo Paws presentation is missing ${marker}.`);
 }
 
-console.log(
-  "Ludo Paws online integration gate passed: canonical Dog/Goat/Duck/Cat identity, legacy alias compatibility, remote 3D presentation, exactly-once feedback, fail-closed verified-dice presentation, cache-safe pending-secret preservation, authoritative-only online mutations across restart/background/reconnect, reconnect-safe commit/reveal action recovery and proof-state isolation are wired.",
-);
+console.log("Ludo Paws online integration gate passed: character identity, shared presentation, authoritative action gates, cache/session isolation and single-call command transport.");

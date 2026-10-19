@@ -42,7 +42,7 @@ class MainActivitySessionRestoreInstrumentedTest {
     }
 
     @Test
-    fun savedSessionAndPendingRollSurviveRecreateAndColdActivityRelaunch() {
+    fun savedSessionSurvivesRecreateAndColdActivityRelaunch() {
         val expectedSession =
             PlayerSession(
                 matchId = MATCH_ID,
@@ -50,29 +50,20 @@ class MainActivitySessionRestoreInstrumentedTest {
                 playerToken = PLAYER_TOKEN,
                 modeWire = GameMode.ONLINE.wireValue,
             )
-        val expectedPending =
-            PendingRollSecret(
-                matchId = MATCH_ID,
-                clientSeed = CLIENT_SEED,
-                clientCommitment = CLIENT_COMMITMENT,
-            )
-
         SecureSessionStore(context).save(expectedSession)
-        PendingRollStore(context).save(expectedPending)
 
         launchResumeScenario().use { scenario ->
-            assertRestored(scenario, expectedSession, expectedPending)
+            assertRestored(scenario, expectedSession)
 
             scenario.recreate()
 
-            assertRestored(scenario, expectedSession, expectedPending)
+            assertRestored(scenario, expectedSession)
         }
 
         launchResumeScenario().use { coldScenario ->
             assertRestored(
                 coldScenario,
                 expectedSession,
-                expectedPending,
             )
         }
     }
@@ -93,7 +84,6 @@ class MainActivitySessionRestoreInstrumentedTest {
     private fun assertRestored(
         scenario: ActivityScenario<MainActivity>,
         expectedSession: PlayerSession,
-        expectedPending: PendingRollSecret,
     ) {
         assertTrue(
             "the activity must observe the disabled emulator network before validating offline restore",
@@ -104,14 +94,13 @@ class MainActivitySessionRestoreInstrumentedTest {
             assertEquals(expectedSession.matchId, activity.matchId)
             assertEquals(expectedSession.playerId, activity.playerId)
             assertEquals(expectedSession.playerToken, activity.playerToken)
-            assertEquals(expectedPending, activity.pendingSecret)
             assertEquals(GameMode.ONLINE, activity.gameMode)
             assertTrue(
                 "the resume-saved-match intent flag must survive recreate/cold launch",
                 activity.shouldRestoreSavedSession,
             )
             assertEquals(
-                "RESUME VERIFIED ROLL",
+                "ROLL DICE",
                 activity.rollButton.text.toString(),
             )
             assertFalse(
@@ -123,10 +112,6 @@ class MainActivitySessionRestoreInstrumentedTest {
         assertEquals(
             expectedSession,
             SecureSessionStore(context).load(),
-        )
-        assertEquals(
-            expectedPending,
-            PendingRollStore(context).load(),
         )
     }
 
@@ -217,7 +202,6 @@ class MainActivitySessionRestoreInstrumentedTest {
 
     private fun clearRemoteStores() {
         SecureSessionStore(context).clear()
-        PendingRollStore(context).clear()
         CachedMatchStore(context).clear()
         PublicMatchmakingStore(context).clear()
     }
@@ -227,9 +211,5 @@ class MainActivitySessionRestoreInstrumentedTest {
         const val PLAYER_ID = "player-session-restore"
         const val PLAYER_TOKEN =
             "lp_abcdefghijklmnopqrstuvwxyzABCDEF"
-        const val CLIENT_SEED =
-            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-        const val CLIENT_COMMITMENT =
-            "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
     }
 }

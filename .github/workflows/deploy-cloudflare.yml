@@ -23,7 +23,6 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: 8f31060fbcfee2b3e9309138cad7f12f
-      ENTRONEX_API_TOKEN: ${{ secrets.ENTRONEX_API_TOKEN }}
       LUDOPROOF_SESSION_HMAC_KEY: ${{ secrets.LUDOPROOF_SESSION_HMAC_KEY }}
       GOOGLE_SIGN_IN_WEB_CLIENT_ID: ${{ vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID }}
       LUDOPROOF_ACCOUNT_WEB_ORIGIN: ${{ vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN }}
@@ -52,86 +51,6 @@ jobs:
 
       - name: Test Cloudflare runtime configuration
         run: node --test scripts/cloudflare-runtime-config.test.mjs
-
-      - name: Prepare EntroNex customer credential
-        working-directory: server
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -n "${ENTRONEX_API_TOKEN:-}" ]; then
-            echo "::add-mask::$ENTRONEX_API_TOKEN"
-            echo "ENTRONEX_TOKEN_MODE=operator" >> "$GITHUB_ENV"
-            echo "Using operator-supplied EntroNex customer credential."
-            exit 0
-          fi
-
-          upstream_file="$(mktemp)"
-          game_file="$(mktemp)"
-          trap 'rm -f "$upstream_file" "$game_file"' EXIT
-
-          npx --yes wrangler@4.135.0 secret list --name entronex-v4-eval --format json > "$upstream_file"
-
-          upstream_has="$(
-            node -e '
-              const fs = require("node:fs");
-              const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-              const list = Array.isArray(value) ? value : (value.secrets ?? []);
-              process.stdout.write(
-                list.some((entry) => entry?.name === "ENTRONEX_EVAL_CUSTOMER_TOKEN")
-                  ? "yes"
-                  : "no"
-              );
-            ' "$upstream_file"
-          )"
-
-          game_has="no"
-          if npx --yes wrangler@4.135.0 secret list --name ludoproof-game-api --format json > "$game_file" 2>/dev/null; then
-            game_has="$(
-              node -e '
-                const fs = require("node:fs");
-                const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-                const list = Array.isArray(value) ? value : (value.secrets ?? []);
-                process.stdout.write(
-                  list.some((entry) => entry?.name === "ENTRONEX_API_TOKEN")
-                    ? "yes"
-                    : "no"
-                );
-              ' "$game_file"
-            )"
-          fi
-
-          if [ "$upstream_has" = "yes" ] && [ "$game_has" = "yes" ]; then
-            echo "ENTRONEX_TOKEN_MODE=preserve" >> "$GITHUB_ENV"
-            echo "Preserving the existing synchronized EntroNex customer credential."
-            exit 0
-          fi
-
-          if [ "$upstream_has" = "no" ] && [ "$game_has" = "no" ]; then
-            generated_token="$(
-              node -e '
-                const { randomBytes } = require("node:crypto");
-                process.stdout.write(
-                  "ent_cf_eval_" +
-                    randomBytes(4).toString("hex") +
-                    "." +
-                    randomBytes(32).toString("base64url")
-                );
-              '
-            )"
-            echo "::add-mask::$generated_token"
-            {
-              echo "ENTRONEX_API_TOKEN=$generated_token"
-              echo "ENTRONEX_TOKEN_MODE=bootstrap"
-            } >> "$GITHUB_ENV"
-            unset generated_token
-            echo "Prepared a new EntroNex customer credential for post-test bootstrap."
-            exit 0
-          fi
-
-          echo "EntroNex customer credential is present on only one Worker." >&2
-          echo "Set the production ENTRONEX_API_TOKEN secret once to perform an explicit synchronized rotation." >&2
-          exit 2
 
       - name: Validate production configuration
         run: node scripts/cloudflare-deploy-preflight.mjs
@@ -178,37 +97,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
-          if [ "${ENTRONEX_TOKEN_MODE:-}" = "preserve" ]; then
-            secret_file="$(mktemp)"
-            trap 'rm -f "$secret_file"' EXIT
-            npx --yes wrangler@4.135.0 secret list --format json > "$secret_file"
-            node -e '
-              const fs = require("node:fs");
-              const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
-              const list = Array.isArray(value) ? value : (value.secrets ?? []);
-              if (!list.some((entry) => entry?.name === "ENTRONEX_API_TOKEN")) {
-                console.error("Preserved EntroNex token is missing from the deployed LudoProof Worker.");
-                process.exit(2);
-              }
-            ' "$secret_file"
-            echo "Preserved existing synchronized EntroNex customer credential."
-          elif [ -n "${ENTRONEX_API_TOKEN:-}" ]; then
-            printf '%s' "$ENTRONEX_API_TOKEN" | npx --yes wrangler@4.135.0 secret put ENTRONEX_EVAL_CUSTOMER_TOKEN --name entronex-v4-eval
-
-            if ! printf '%s' "$ENTRONEX_API_TOKEN" | npx --yes wrangler@4.135.0 secret put ENTRONEX_API_TOKEN; then
-              if [ "${ENTRONEX_TOKEN_MODE:-}" = "bootstrap" ]; then
-                curl --fail --silent --show-error                   -X DELETE                   -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN"                   "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/entronex-v4-eval/secrets/ENTRONEX_EVAL_CUSTOMER_TOKEN"                   >/dev/null || true
-              fi
-              echo "Failed to synchronize the EntroNex customer credential into LudoProof." >&2
-              exit 2
-            fi
-
-            echo "Synchronized EntroNex customer credential across both Workers."
-          else
-            echo "EntroNex deployment mode requires a customer credential but none is available." >&2
-            exit 2
-          fi
 
           if [ -n "${LUDOPROOF_SESSION_HMAC_KEY:-}" ]; then
             printf '%s' "$LUDOPROOF_SESSION_HMAC_KEY" | npx --yes wrangler@4.135.0 secret put LUDOPROOF_SESSION_HMAC_KEY

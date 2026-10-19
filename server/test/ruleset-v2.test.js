@@ -80,7 +80,7 @@ test("production default stays v1 while explicit classic v2 is fully bindable", 
   const legacyHash = await rulesetHashForState(legacy);
   assert.equal(
     legacyHash,
-    "4bd777ac5ec430c0a70956dd83a6451f4f8f0e91848b09000791e912fe3886cc",
+    "9dabc40bc9652695a308bc476fb6b3d9e4bc567b24ade82359876245e9b66e07",
   );
 
   const current = waitingClassic();
@@ -89,7 +89,7 @@ test("production default stays v1 while explicit classic v2 is fully bindable", 
   assert.equal(publicState(current).rulesetId, "ludoproof-standard-v2");
   assert.equal(
     await rulesetHashForState(current),
-    "7ad14daf100d7e14eea9b0a6da3a68cbd85d35f647052add4433df2efd9eb862",
+    "a2f051ef7a8e2bc467a30a33ecf75b5d9a66c28739d9620799eddc09e85b9949",
   );
   assert.notEqual(await rulesetHashForState(current), legacyHash);
 });
@@ -108,7 +108,7 @@ test("production Team Up stays v1 while explicit team v2 is fully bindable", asy
   assert.equal(publicState(legacy).rulesetId, "ludoproof-team-v1");
   assert.equal(
     await rulesetHashForState(legacy),
-    "75610e6d5908344586e1c0d22d5846bae5312c6e0274a4e613a8c5f8cd8bc426",
+    "f27000c749cb19e5b2e5cb259f1c04610e90be516fe070652bd3ffe2bb98342d",
   );
 
   const current = newMatch({
@@ -125,7 +125,7 @@ test("production Team Up stays v1 while explicit team v2 is fully bindable", asy
   assert.equal(publicState(current).rulesetId, "ludoproof-team-v2");
   assert.equal(
     await rulesetHashForState(current),
-    "a10326d8a631381eba6bd775fe90decf1c3e5788f5862d19e4f23cf08fec57ce",
+    "2df6605c8eb8d5c93a0db09959d11245cc7d018920b30dc36c4fdfeeeea46edf",
   );
 });
 

@@ -183,7 +183,6 @@ class RemoteMatchUiInstrumentedTest {
 
     private fun clearRemoteStores() {
         SecureSessionStore(context).clear()
-        PendingRollStore(context).clear()
         CachedMatchStore(context).clear()
         PublicMatchmakingStore(context).clear()
     }

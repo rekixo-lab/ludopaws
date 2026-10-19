@@ -49,7 +49,7 @@ internal fun MainActivity.updateVerification(
             }
 
             buildString {
-                append("✓ VERIFIED • Dice ")
+                append("Dice ")
                 append(presentation.outcome)
                 if (presentation.openingRollApplied) {
                     append(" • opening bonus")
@@ -58,8 +58,6 @@ internal fun MainActivity.updateVerification(
                     append("\nEvent ")
                     append(eventIndex)
                 }
-                append("  •  Proof ")
-                append(shortDigest(presentation.proofDigest))
             }
         } else {
             if (pending != null) {
@@ -69,13 +67,8 @@ internal fun MainActivity.updateVerification(
             }
 
             when (pending?.status) {
-                "CREATING" -> "COMMITTING • Preparing server commitment…"
-                "COMMITTED" ->
-                    "COMMITTED • Server commitment secured. Reveal can resume safely."
-                "RESOLVING" -> "VERIFYING • Resolving committed EntroNex round…"
-                "RESOLVED" ->
-                    "VERIFYING • Waiting for the complete proof before showing a verified result."
-                else -> "No verified roll yet."
+                "RESOLVED" -> "Syncing the dice result…"
+                else -> "Ready to roll."
             }
         }
 }
@@ -112,7 +105,6 @@ internal fun MainActivity.onlineRollActionDecision(
         state.status == "ACTIVE" &&
             mySeat >= 0 &&
             actionableSeat == mySeat
-    val secret = pendingSecret
 
     return OnlineRollActionPolicy.resolve(
         isOnline = isOnline,
@@ -120,10 +112,6 @@ internal fun MainActivity.onlineRollActionDecision(
         matchStatus = state.status,
         myTurn = myTurn,
         pendingStatus = state.pendingRoll?.status,
-        remoteClientCommitment = state.pendingRoll?.clientCommitment,
-        currentMatchId = state.matchId,
-        localSecretMatchId = secret?.matchId,
-        localClientCommitment = secret?.clientCommitment,
     )
 }
 
@@ -379,19 +367,8 @@ private fun MainActivity.scheduleSingleLegalOnlineMove(
 internal fun MainActivity.updateRollButton() {
     val state = currentState
     if (state == null) {
-        val secret = pendingSecret
-        rollButton.text =
-            if (
-                secret != null &&
-                secret.matchId == matchId
-            ) {
-                "RESUME VERIFIED ROLL"
-            } else {
-                "ROLL VERIFIED DICE"
-            }
-        // A restored local secret can explain what will resume, but it cannot
-        // authorize a mutation. The button becomes actionable only after a
-        // fresh authoritative snapshot passes OnlineRollActionPolicy.
+        rollButton.text = "ROLL DICE"
+        // An authoritative snapshot is required after restoring a session.
         rollButton.isEnabled = false
         return
     }
@@ -404,45 +381,22 @@ internal fun MainActivity.updateRollButton() {
 internal fun MainActivity.proofDetails(
     state: MatchSnapshot,
 ): String {
-    val latest = state.history.takeLast(8).reversed()
-
-    if (latest.isEmpty()) {
-        return "No proof history yet."
-    }
-
+    val latest = state.history.lastOrNull() ?: return "No roll yet."
     return buildString {
-        append("Recent verified events\n")
-        latest.forEach { event ->
-            append("#")
-            append(event.eventIndex)
-            append("  dice=")
-            append(event.effectiveOutcome ?: event.outcome ?: "?")
-            if (event.openingRollApplied) {
-                append("(opening)")
-            }
-            append("  proof=")
-            append(shortDigest(event.proofDigest))
-            append("  round=")
-            append(shortDigest(event.roundId))
-            if (event.moveTokenIndex != null) {
-                append("  token=")
-                append(event.moveTokenIndex + 1)
-            }
-            if (event.captures > 0) {
-                append("  captures=")
-                append(event.captures)
-            }
-            append("\n")
-        }
-    }.trimEnd()
+        append("Last roll: ")
+        append(latest.effectiveOutcome ?: latest.outcome ?: "?")
+        latest.moveTokenIndex?.let { append(" • token ${it + 1}") }
+        if (latest.captures > 0) append(" • captures ${latest.captures}")
+        append("\nServer-authoritative result")
+    }
 }
 
 internal fun MainActivity.toggleProofDetails() {
     ArcadeDialogs.showProofHistory(
         this,
-        "VERIFIED HISTORY",
+        "LAST ROLL",
         proofDetailsText.text.toString().ifBlank {
-            "No proof history yet."
+            "No roll yet."
         },
     )
 }

@@ -14,9 +14,9 @@ import {
   teamIdForSeat,
 } from "./game.js";
 import {
-  fairnessSummary,
-  sealFairnessEvent,
-} from "./fairness.js";
+  compactRollHistory,
+  recordedRollEvent,
+} from "./match-events.js";
 
 const STATE_KEY =
   "match-state";
@@ -510,6 +510,7 @@ function shouldGuard(
       "POST" &&
     [
       "/start",
+      "/roll",
       "/roll/commit",
       "/roll/reveal",
       "/move",
@@ -578,7 +579,7 @@ function closePendingRollForTeamForfeit(state, now) {
           : 0,
         eventIndex + 1,
       );
-      const fairnessEvent = sealFairnessEvent(history, {
+      const fairnessEvent = recordedRollEvent(history, {
         eventIndex,
         eventId: pending.eventId ?? null,
         playerId: pending.playerId,
@@ -599,7 +600,7 @@ function closePendingRollForTeamForfeit(state, now) {
         resolvedAt: pending.resolvedAt ?? null,
         timedOutAt: null,
       });
-      state.history = [...history, fairnessEvent].slice(-200);
+      state.history = [...history, fairnessEvent].slice(-64);
     } else {
       state.history = history;
     }
@@ -781,13 +782,6 @@ function nextActiveSeat(
 function decoratedState(
   state,
 ) {
-  const history =
-    (
-      state.history ??
-      []
-    ).slice(
-      -100,
-    );
   const base =
     publicState(
       state,
@@ -820,11 +814,7 @@ function decoratedState(
               : null,
         }),
       ),
-    history,
-    fairness:
-      fairnessSummary(
-        history,
-      ),
+    ...compactRollHistory(state),
   };
 }
 
@@ -868,6 +858,7 @@ function broadcastStateChanged(
         state.players
           ?.length ??
         0,
+      state: decoratedState(state),
     });
 
   for (

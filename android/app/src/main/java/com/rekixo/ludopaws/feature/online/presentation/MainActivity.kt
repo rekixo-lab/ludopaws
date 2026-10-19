@@ -71,7 +71,7 @@ class MainActivity : ComponentActivity() {
             )
     }
 
-    internal val api = GameApi()
+    internal val api = GameApi(commandChannel = { realtimeClient })
     // Keep room snapshots and background synchronization from queueing ahead of
     // a user's roll/move. Game mutations still serialize on this dedicated lane.
     internal val executor = Executors.newSingleThreadExecutor()
@@ -138,6 +138,7 @@ class MainActivity : ComponentActivity() {
             playerIdProvider = {
                 playerId
             },
+            api = api,
         )
     }
 
@@ -156,10 +157,6 @@ class MainActivity : ComponentActivity() {
     internal var currentState: MatchSnapshot?
         get() = uiStateHolder.value.currentState
         set(value) { uiStateHolder.update { it.copy(currentState = value) } }
-
-    internal var pendingSecret: PendingRollSecret?
-        get() = uiStateHolder.value.pendingSecret
-        set(value) { uiStateHolder.update { it.copy(pendingSecret = value) } }
 
     internal var isOnline: Boolean
         get() = uiStateHolder.value.isOnline
@@ -350,10 +347,6 @@ class MainActivity : ComponentActivity() {
     internal var secureSessionPersistenceFailed =
         false
 
-    internal val pendingRollStore by lazy {
-        PendingRollStore(this)
-    }
-
     internal val pendingOperationStore by lazy {
         PendingOperationStore(this)
     }
@@ -368,6 +361,15 @@ class MainActivity : ComponentActivity() {
 
     internal val realtimeClient: MatchRealtimeClient by lazy {
         MatchRealtimeClient(
+            onSnapshot = { response ->
+                mainHandler.post {
+                    val incomingMatchId = response.optJSONObject("state")?.optString("matchId")
+                    if (canRenderUi() && screenStarted && incomingMatchId == matchId) {
+                        mainHandler.removeCallbacks(realtimeRefreshRunnable)
+                        applyResponse(response, announce = false, silentValidationFailure = false)
+                    }
+                }
+            },
             onRevision = {
                     revision,
                     _,
@@ -538,8 +540,6 @@ class MainActivity : ComponentActivity() {
                     playerId =
                         session.playerId
                 }
-            pendingSecret =
-                pendingRollStore.load()
         } else {
             matchId =
                 null
@@ -548,8 +548,6 @@ class MainActivity : ComponentActivity() {
             playerId =
                 null
             currentState =
-                null
-            pendingSecret =
                 null
         }
 

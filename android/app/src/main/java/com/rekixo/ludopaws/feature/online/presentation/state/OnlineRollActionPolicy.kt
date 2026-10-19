@@ -1,13 +1,6 @@
 package com.rekixo.ludopaws.feature.online
 
-enum class OnlineRollActionKind {
-    NEW_ROLL,
-    RESUME_COMMIT_THEN_REVEAL,
-    RESUME_REVEAL_ONLY,
-    WAIT_FOR_RECOVERY,
-    MOVE_REQUIRED,
-    DISABLED,
-}
+enum class OnlineRollActionKind { NEW_ROLL, MOVE_REQUIRED, WAIT_FOR_SYNC, DISABLED }
 
 data class OnlineRollActionDecision(
     val kind: OnlineRollActionKind,
@@ -15,14 +8,7 @@ data class OnlineRollActionDecision(
     val label: String,
 )
 
-/**
- * Fail-closed presentation/action policy for EntroNex commit/reveal recovery.
- *
- * A server-side pending roll belongs to the exact client commitment that opened
- * it. Android may resume that roll only when the locally protected seed matches
- * the authoritative commitment. Cached/offline snapshots are presentation-only
- * and may never authorize a new or resumed mutation.
- */
+/** Cached snapshots never authorize a command. Resolved dice must be consumed first. */
 object OnlineRollActionPolicy {
     fun resolve(
         isOnline: Boolean,
@@ -30,90 +16,18 @@ object OnlineRollActionPolicy {
         matchStatus: String,
         myTurn: Boolean,
         pendingStatus: String?,
-        remoteClientCommitment: String?,
-        currentMatchId: String?,
-        localSecretMatchId: String?,
-        localClientCommitment: String?,
-    ): OnlineRollActionDecision {
-        if (matchStatus != "ACTIVE" || !myTurn) {
-            return disabled()
-        }
-        if (!isOnline) {
-            return OnlineRollActionDecision(
-                kind = OnlineRollActionKind.DISABLED,
-                enabled = false,
-                label = "OFFLINE • WAITING",
-            )
-        }
-        if (!hasAuthoritativeState) {
-            return OnlineRollActionDecision(
-                kind = OnlineRollActionKind.DISABLED,
-                enabled = false,
-                label = "SYNCING MATCH",
-            )
-        }
-
-        if (pendingStatus == null) {
-            return OnlineRollActionDecision(
-                kind = OnlineRollActionKind.NEW_ROLL,
-                enabled = true,
-                label = "ROLL VERIFIED DICE",
-            )
-        }
-
-        if (pendingStatus == "RESOLVED") {
-            return OnlineRollActionDecision(
-                kind = OnlineRollActionKind.MOVE_REQUIRED,
-                enabled = false,
-                label = "MOVE A TOKEN",
-            )
-        }
-
-        val matchingSecret =
-            currentMatchId != null &&
-                localSecretMatchId == currentMatchId &&
-                !localClientCommitment.isNullOrBlank() &&
-                !remoteClientCommitment.isNullOrBlank() &&
-                localClientCommitment == remoteClientCommitment
-
-        if (!matchingSecret) {
-            return OnlineRollActionDecision(
-                kind = OnlineRollActionKind.WAIT_FOR_RECOVERY,
-                enabled = false,
-                label = "WAITING FOR ROLL RECOVERY",
-            )
-        }
-
-        return when (pendingStatus) {
-            "CREATING" ->
-                OnlineRollActionDecision(
-                    kind = OnlineRollActionKind.RESUME_COMMIT_THEN_REVEAL,
-                    enabled = true,
-                    label = "RESUME VERIFIED ROLL",
-                )
-
-            "COMMITTED",
-            "RESOLVING",
-            ->
-                OnlineRollActionDecision(
-                    kind = OnlineRollActionKind.RESUME_REVEAL_ONLY,
-                    enabled = true,
-                    label = "RESUME VERIFIED ROLL",
-                )
-
-            else ->
-                OnlineRollActionDecision(
-                    kind = OnlineRollActionKind.WAIT_FOR_RECOVERY,
-                    enabled = false,
-                    label = "WAITING FOR ROLL RECOVERY",
-                )
-        }
+    ): OnlineRollActionDecision = when {
+        matchStatus != "ACTIVE" || !myTurn ->
+            OnlineRollActionDecision(OnlineRollActionKind.DISABLED, false, "ROLL DICE")
+        !isOnline ->
+            OnlineRollActionDecision(OnlineRollActionKind.DISABLED, false, "OFFLINE • WAITING")
+        !hasAuthoritativeState ->
+            OnlineRollActionDecision(OnlineRollActionKind.DISABLED, false, "SYNCING MATCH")
+        pendingStatus == "RESOLVED" ->
+            OnlineRollActionDecision(OnlineRollActionKind.MOVE_REQUIRED, false, "MOVE A TOKEN")
+        pendingStatus != null ->
+            OnlineRollActionDecision(OnlineRollActionKind.WAIT_FOR_SYNC, false, "SYNCING MATCH")
+        else ->
+            OnlineRollActionDecision(OnlineRollActionKind.NEW_ROLL, true, "ROLL DICE")
     }
-
-    private fun disabled() =
-        OnlineRollActionDecision(
-            kind = OnlineRollActionKind.DISABLED,
-            enabled = false,
-            label = "ROLL VERIFIED DICE",
-        )
 }

@@ -1,16 +1,23 @@
 package com.rekixo.ludopaws
 
 import com.rekixo.ludopaws.feature.characters.data.local.LudoPawsCharacterRuntime
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.ByteArrayOutputStream
-import java.io.InputStream
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.UUID
 
 class GameApi(
     baseUrl: String = BuildConfig.LUDOPROOF_API_BASE_URL,
+    private val client: OkHttpClient = GameHttpTransport.client,
+    private val commandChannel: (() -> MatchCommandChannel?)? = null,
 ) {
     private val baseUrl = baseUrl.trimEnd('/')
+
+    init {
+        require(this.baseUrl.startsWith("https://")) { "LudoProof API must use HTTPS" }
+    }
 
     fun registerFriend(displayName: String, clientRequestId: String): JSONObject =
         request(
@@ -255,20 +262,20 @@ class GameApi(
             body = JSONObject(),
         )
 
-    fun commitRoll(matchId: String, playerToken: String, clientCommitment: String): JSONObject =
-        request(
-            method = "POST",
-            path = "/api/matches/${matchId.uppercase()}/roll/commit",
+    fun roll(
+        matchId: String,
+        playerToken: String,
+        clientRequestId: String,
+        expectedEventIndex: Int,
+    ): JSONObject =
+        command(
+            matchId = matchId,
             playerToken = playerToken,
-            body = JSONObject().put("clientCommitment", clientCommitment),
-        )
-
-    fun revealRoll(matchId: String, playerToken: String, clientSeed: String): JSONObject =
-        request(
-            method = "POST",
-            path = "/api/matches/${matchId.uppercase()}/roll/reveal",
-            playerToken = playerToken,
-            body = JSONObject().put("clientSeed", clientSeed),
+            action = "ROLL",
+            path = "roll",
+            body = JSONObject()
+                .put("clientRequestId", clientRequestId)
+                .put("expectedEventIndex", expectedEventIndex),
         )
 
     fun move(
@@ -276,15 +283,46 @@ class GameApi(
         playerToken: String,
         tokenIndex: Int,
         eventIndex: Int,
+        clientRequestId: String = UUID.randomUUID().toString(),
     ): JSONObject =
-        request(
-            method = "POST",
-            path = "/api/matches/${matchId.uppercase()}/move",
+        command(
+            matchId = matchId,
             playerToken = playerToken,
+            action = "MOVE",
+            path = "move",
             body = JSONObject()
                 .put("tokenIndex", tokenIndex)
-                .put("eventIndex", eventIndex),
+                .put("eventIndex", eventIndex)
+                .put("clientRequestId", clientRequestId),
         )
+
+    private fun command(
+        matchId: String,
+        playerToken: String,
+        action: String,
+        path: String,
+        body: JSONObject,
+    ): JSONObject {
+        require(body.optString("clientRequestId").isNotBlank()) { "clientRequestId is required" }
+        val response = commandChannel?.invoke()?.executeCommand(matchId, playerToken, action, body)
+        if (response != null) {
+            if (response.has("error")) {
+                throw GameApiException(
+                    code = response.optString("error", "COMMAND_FAILED"),
+                    message = response.optString("message", "Match command failed"),
+                )
+            }
+            return response
+        }
+        // Socket acknowledgement loss is ambiguous: keep the command ID so the
+        // authoritative server can replay its result without taking a second turn.
+        return request(
+            method = "POST",
+            path = "/api/matches/${matchId.uppercase()}/$path",
+            playerToken = playerToken,
+            body = body,
+        )
+    }
 
     private fun request(
         method: String,
@@ -296,69 +334,16 @@ class GameApi(
         friendJoinToken: String? = null,
         body: JSONObject? = null,
     ): JSONObject {
-        require(baseUrl.startsWith("https://")) {
-            "LudoProof API must use HTTPS"
-        }
-        val connection = URL(baseUrl + path).openConnection() as HttpURLConnection
-        try {
-            connection.requestMethod = method
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 25_000
-            connection.instanceFollowRedirects = false
-            connection.setRequestProperty("Accept", "application/json")
-            connection.setRequestProperty(
-                "User-Agent",
-                "LudoProof-Android/" + BuildConfig.VERSION_NAME,
-            )
-            val bearerToken = playerToken ?: friendToken ?: profileToken
-            if (bearerToken != null) {
-                connection.setRequestProperty("Authorization", "Bearer $bearerToken")
-            }
-            if (roomPlayerToken != null) {
-                connection.setRequestProperty("X-LudoProof-Room-Token", roomPlayerToken)
-            }
-            if (friendJoinToken != null) {
-                connection.setRequestProperty("X-LudoProof-Friend-Join-Token", friendJoinToken)
-            }
-            if (body != null) {
-                val bytes = body.toString().toByteArray(Charsets.UTF_8)
-                connection.doOutput = true
-                connection.setRequestProperty("Content-Type", "application/json")
-                connection.outputStream.use { it.write(bytes) }
-            }
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.use { readUtf8Limited(it, MAX_RESPONSE_BYTES) }.orEmpty()
-            val json = if (text.isBlank()) JSONObject() else JSONObject(text)
-            if (status !in 200..299) {
-                throw GameApiException(
-                    code = json.optString("error", "HTTP_$status"),
-                    message = json.optString("message", "Request failed with HTTP $status"),
-                )
-            }
-            return json
-        } finally {
-            connection.disconnect()
-        }
-    }
-
-    private fun readUtf8Limited(stream: InputStream, maxBytes: Int): String {
-        val output = ByteArrayOutputStream()
-        val buffer = ByteArray(8 * 1024)
-        var total = 0
-        while (true) {
-            val count = stream.read(buffer)
-            if (count < 0) break
-            total += count
-            if (total > maxBytes) {
-                throw GameApiException(
-                    code = "RESPONSE_TOO_LARGE",
-                    message = "Server response exceeded the safety limit.",
-                )
-            }
-            output.write(buffer, 0, count)
-        }
-        return output.toByteArray().toString(Charsets.UTF_8)
+        val request = Request.Builder()
+            .url(baseUrl + path)
+            .header("Accept", "application/json")
+            .header("User-Agent", "LudoProof-Android/" + BuildConfig.VERSION_NAME)
+        val bearerToken = playerToken ?: friendToken ?: profileToken
+        if (bearerToken != null) request.header("Authorization", "Bearer $bearerToken")
+        if (roomPlayerToken != null) request.header("X-LudoProof-Room-Token", roomPlayerToken)
+        if (friendJoinToken != null) request.header("X-LudoProof-Friend-Join-Token", friendJoinToken)
+        request.method(method, body?.toString()?.toRequestBody("application/json; charset=utf-8".toMediaType()))
+        return GameHttpTransport.executeJson(client, request.build(), MAX_RESPONSE_BYTES)
     }
 
     private companion object {

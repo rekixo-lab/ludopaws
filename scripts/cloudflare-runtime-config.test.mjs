@@ -9,10 +9,10 @@ const valid = {
 const adUnit = "ca-app-pub-1234567890123456/1234567890";
 
 test("runtime vars require a valid Google Web OAuth client and the account-site origin", () => {
-  const vars = buildCloudflareRuntimeVars({ ENTRONEX_TENANT_ID: "cloudflare_v4_eval" }, valid);
+  const vars = buildCloudflareRuntimeVars({ APP_ENVIRONMENT: "test" }, valid);
   assert.equal(vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID, valid.GOOGLE_SIGN_IN_WEB_CLIENT_ID);
   assert.equal(vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN, ACCOUNT_WEB_ORIGIN);
-  assert.equal(vars.ENTRONEX_TENANT_ID, "cloudflare_v4_eval");
+  assert.equal(vars.APP_ENVIRONMENT, "test");
 });
 
 test("runtime store flags fail closed when GitHub variables are unset", () => {

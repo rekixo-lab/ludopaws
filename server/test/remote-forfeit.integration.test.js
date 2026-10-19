@@ -566,7 +566,7 @@ test(
       await json(
         await room.fetch(
           request(
-            "/roll/commit",
+            "/roll",
             {
               method:
                 "POST",
@@ -574,10 +574,7 @@ test(
                 players[1]
                   .playerToken,
               body: {
-                clientCommitment:
-                  "a".repeat(
-                    64,
-                  ),
+                clientRequestId: crypto.randomUUID(),
               },
             },
           ),
