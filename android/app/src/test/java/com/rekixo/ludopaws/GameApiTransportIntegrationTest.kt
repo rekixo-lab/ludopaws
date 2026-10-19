@@ -251,9 +251,14 @@ class GameApiTransportIntegrationTest {
         onCommand: (WebSocket, JSONObject) -> Unit,
     ) {
         val opened = CountDownLatch(1)
+        val serverOpened = CountDownLatch(1)
+        serverSocket.set(null)
         server.enqueue(
             MockResponse().withWebSocketUpgrade(object : WebSocketListener() {
-                override fun onOpen(webSocket: WebSocket, response: Response) { serverSocket.set(webSocket) }
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    serverSocket.set(webSocket)
+                    serverOpened.countDown()
+                }
                 override fun onMessage(webSocket: WebSocket, text: String) = onCommand(webSocket, JSONObject(text))
                 override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
                     webSocket.close(code, reason)
@@ -270,6 +275,9 @@ class GameApiTransportIntegrationTest {
             onSnapshot = onSnapshot,
         ).also { it.connect(MATCH_ID, PLAYER_TOKEN) }
         assertTrue("WebSocket did not connect", opened.await(5, TimeUnit.SECONDS))
+        // The client and server onOpen callbacks execute on different threads.
+        // Do not return a socket fixture until the server has published its handle.
+        assertTrue("WebSocket server did not open", serverOpened.await(5, TimeUnit.SECONDS))
     }
 
     private companion object {
