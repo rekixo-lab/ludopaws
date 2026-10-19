@@ -25,6 +25,7 @@ function setupDirectory() {
   };
   const storage = {
     sql,
+    async setAlarm() {},
     transactionSync(fn) {
       db.exec("BEGIN");
       try {

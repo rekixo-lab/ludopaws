@@ -20,6 +20,7 @@ const INVITE_TTL_MS =
   24 * 60 * 60 * 1000;
 const JOIN_TOKEN_TTL_MS =
   5 * 60 * 1000;
+const REPORT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 export class FriendDirectory {
   constructor(ctx, env) {
@@ -143,6 +144,24 @@ export class FriendDirectory {
         sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_status ON friend_reports(status, created_at)");
       },
     );
+  }
+
+  async alarm() {
+    this.ctx.storage.sql.exec(
+      "DELETE FROM friend_reports WHERE created_at < ?",
+      Date.now() - REPORT_RETENTION_MS,
+    );
+    await this.#scheduleReportCleanup();
+  }
+
+  async #scheduleReportCleanup() {
+    if (typeof this.ctx.storage.setAlarm !== "function") return;
+    const next = [...this.ctx.storage.sql.exec(
+      "SELECT MIN(created_at) AS oldest FROM friend_reports",
+    )][0]?.oldest;
+    if (next != null) {
+      await this.ctx.storage.setAlarm(Math.max(Date.now() + 1000, Number(next) + REPORT_RETENTION_MS + 1));
+    }
   }
 
   async fetch(request) {
@@ -420,8 +439,9 @@ export class FriendDirectory {
       "INSERT INTO friend_reports (request_id, reporter_id, target_id, reason, created_at) VALUES (?, ?, ?, ?, ?)",
       requestId, me.friendId, target, reason, now,
     );
-    // Retain report metadata for at most 90 days, pending an approved retention policy.
-    this.ctx.storage.sql.exec("DELETE FROM friend_reports WHERE created_at < ?", now - 90 * 24 * 60 * 60 * 1000);
+    // A scheduled Durable Object alarm purges metadata even when no new reports arrive.
+    this.ctx.storage.sql.exec("DELETE FROM friend_reports WHERE created_at < ?", now - REPORT_RETENTION_MS);
+    await this.#scheduleReportCleanup();
     return json(201, { ok: true, reported: true, replayed: false });
   }
 
