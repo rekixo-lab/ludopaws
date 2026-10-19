@@ -32,6 +32,7 @@ internal class RewardedAdsController(
     private var closed = false
 
     fun prepare() {
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(activity).canRequestAds()) return
         if (!enabled || closed || rewardedAd != null || adLoading) return
         if (activity.isFinishing || activity.isDestroyed) return
         Log.d(TAG, "Preparing rewarded ad; sdkInitialized=$sdkInitialized, consentCanRequestAds=${consentInformation.canRequestAds()}")
@@ -146,6 +147,7 @@ internal class RewardedAdsController(
     }
 
     private fun initializeAdsIfAllowed() {
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(activity).canRequestAds()) return
         if (closed || !consentInformation.canRequestAds()) return
         if (sdkInitialized) {
             loadRewardedAd()
