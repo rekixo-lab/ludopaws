@@ -3,7 +3,6 @@ package com.rekixo.ludopaws
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
-import com.google.android.gms.games.PlayGamesSdk
 import com.rekixo.ludopaws.core.audio.UiClickSoundInstaller
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.account.data.AccountRepository
@@ -26,7 +25,6 @@ class LudoProofApplication :
 
     override fun onCreate() {
         super.onCreate()
-        PlayGamesSdk.initialize(this)
         // Prime the process-local cosmetic mirror before any remote create/join
         // request can be sent. Character selection remains presentation-only.
         CharacterSelectionStore(this).load()
