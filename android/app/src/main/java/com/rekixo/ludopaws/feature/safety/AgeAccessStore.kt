@@ -26,15 +26,14 @@ class AgeAccessStore(context: Context) {
     }
 
     fun canUseConnectedFeatures(): Boolean =
-        hasValidScreening() && AgeAccessPolicy.canUseConnectedFeatures(band())
+        hasValidScreening() && prefs.getString("source", null) == "PLAY" &&
+            AgeAccessPolicy.canUseConnectedFeatures(band())
 
     /**
      * Ads require independently declared adult status, NOT Play age signals:
      * Play Age Signals terms prohibit advertising uses.
      */
-    fun canRequestAds(): Boolean =
-        hasValidScreening() && prefs.getString("source", null) == "DECLARED" &&
-            band() == AgeBand.ADULT
+    fun canRequestAds(): Boolean = false // Pending independent ad privacy/Families release approval
 
     fun saveFromPlay(band: AgeBand) {
         playValidatedThisProcess = true
