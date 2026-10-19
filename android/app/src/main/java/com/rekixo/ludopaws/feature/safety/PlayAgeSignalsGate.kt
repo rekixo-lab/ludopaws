@@ -12,9 +12,9 @@ import com.google.android.play.agesignals.model.AgeSignalsStatus
  * Never use this result for ads or analytics. Non-adult/unknown users retain offline play.
  */
 object PlayAgeSignalsGate {
-    fun request(activity: Activity, completed: (Boolean) -> Unit) {
+    fun request(activity: Activity, completed: (Boolean) -> Unit, forceRefresh: Boolean = false) {
         val store = AgeAccessStore(activity)
-        if (store.hasValidScreening()) {
+        if (!forceRefresh && store.hasValidScreening()) {
             completed(store.canUseConnectedFeatures())
             return
         }
@@ -60,7 +60,7 @@ object PlayAgeSignalsGate {
             onAllowed()
             return
         }
-        request(activity) { allowed ->
+        request(activity, { allowed ->
             if (allowed) onAllowed() else if (!activity.isFinishing && !activity.isDestroyed) {
                 AlertDialog.Builder(activity)
                     .setTitle("Available in offline mode")
@@ -68,6 +68,6 @@ object PlayAgeSignalsGate {
                     .setPositiveButton("OK", null)
                     .show()
             }
-        }
+        }, forceRefresh = true)
     }
 }
