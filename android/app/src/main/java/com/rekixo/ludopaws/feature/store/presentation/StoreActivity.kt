@@ -139,6 +139,10 @@ class StoreActivity :
 
     override fun onStart() {
         super.onStart()
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
+            finish()
+            return
+        }
         billingAvailable = false
         billingProductCatalogLoaded = false
 
