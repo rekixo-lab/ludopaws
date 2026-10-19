@@ -28,6 +28,7 @@ object PlayAgeSignalsGate {
         }
         requestInProgress = true
         pendingCallbacks.add(completed)
+        store.invalidate()
         checkPlay(activity)
     }
 
