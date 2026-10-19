@@ -95,8 +95,10 @@ class ProfileActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        refreshPlayGamesSignIn()
-        refreshAccountStatus()
+        if (com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
+            refreshPlayGamesSignIn()
+            refreshAccountStatus()
+        }
     }
 
     override fun onRestart() {
@@ -431,6 +433,12 @@ class ProfileActivity : Activity() {
     }
 
     private fun startGoogleAccountFlow(linkCurrentAccount: Boolean) {
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
+            com.rekixo.ludopaws.feature.safety.PlayAgeSignalsGate.requireConnectedAccess(this) {
+                startGoogleAccountFlow(linkCurrentAccount)
+            }
+            return
+        }
         if (accountAuthInProgress) return
         if (!isAccountSignInConfigured) {
             AlertDialog.Builder(this)
