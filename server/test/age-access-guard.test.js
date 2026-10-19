@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { ageSafetyBlockResponse, isAgeRestrictedEndpoint } from "../src/age-access-guard.js";
+import accountWorker from "../src/index-account.js";
 
 test("all connected game, chat, matchmaking, social and paid routes are locked down", async () => {
   for (const path of [
@@ -50,4 +51,23 @@ test("lockdown uses server-only config, never client age assertions", () => {
     new Request("https://api.ludopaws.rekixo.com/api/friends/register"),
     {},
   ), null);
+});
+
+test("outermost Worker rejects direct requests before downstream account routing", async () => {
+  const env = { LUDOPROOF_AGE_SAFETY_MODE: "LOCKDOWN" };
+  const paths = [
+    "/api/friends/messages/send",
+    "/api/matches/LPABCDEFG/events",
+    "/api/team-matchmaking/search",
+    "/api/store/purchases/verify",
+    "/api/account/guest",
+  ];
+  for (const path of paths) {
+    const response = await accountWorker.fetch(new Request("https://api.example.test" + path, {
+      method: "POST",
+      headers: { "x-age": "adult", authorization: "Bearer forged" },
+    }), env);
+    assert.equal(response.status, 403, path);
+    assert.equal((await response.json()).error, "AGE_ACCESS_NOT_AVAILABLE", path);
+  }
 });
