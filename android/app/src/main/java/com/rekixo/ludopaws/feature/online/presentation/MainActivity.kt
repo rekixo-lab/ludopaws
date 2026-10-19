@@ -884,6 +884,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(this).canUseConnectedFeatures()) {
+            finish()
+            return
+        }
         screenStarted = true
         connectivityMonitor.start()
         scheduleOnlineGameplayUnlock()
