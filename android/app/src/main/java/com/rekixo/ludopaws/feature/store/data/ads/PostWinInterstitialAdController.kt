@@ -35,6 +35,7 @@ internal class PostWinInterstitialAdController(
     private var interstitialAd: InterstitialAd? = null
 
     fun prepare() {
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(activity).canRequestAds()) return
         if (!enabled || closed || interstitialAd != null || adLoading ||
             consentUpdateInProgress || showing
         ) {
@@ -124,6 +125,7 @@ internal class PostWinInterstitialAdController(
     }
 
     private fun initializeAdsIfAllowed() {
+        if (!com.rekixo.ludopaws.feature.safety.AgeAccessStore(activity).canRequestAds()) return
         if (closed || !consentInformation.canRequestAds()) return
         if (sdkInitialized) {
             loadInterstitial()
