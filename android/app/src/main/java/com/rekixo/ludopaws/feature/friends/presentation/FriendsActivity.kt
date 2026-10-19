@@ -1699,7 +1699,15 @@ class FriendsActivity : Activity() {
         quietFailure: Boolean = false,
     ) {
         if (requestInFlight || !isOnline || executor.isShutdown) {
-            if (!isOnline && !quietFailure) showStatus("Internet connection is required.")
+            if (!quietFailure) {
+                showStatus(
+                    when {
+                        !isOnline -> "Internet connection is required."
+                        executor.isShutdown -> "This screen is closing. Reopen Friends to try again."
+                        else -> "Friends is syncing. Please retry your action in a moment."
+                    },
+                )
+            }
             return
         }
         requestInFlight = true
