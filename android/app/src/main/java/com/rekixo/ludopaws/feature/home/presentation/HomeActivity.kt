@@ -227,7 +227,7 @@ class HomeActivity : Activity() {
     override fun onResume() {
         super.onResume()
         if (!AgeAccessStore(this).hasValidScreening()) {
-            PlayAgeSignalsGate.request(this) { /* Age check is completed in memory. */ }
+            PlayAgeSignalsGate.request(this, { /* Age check is completed in memory. */ })
         }
 
         recordAbandonedRemoteLossIfNeeded()
