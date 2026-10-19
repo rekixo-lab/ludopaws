@@ -29,6 +29,19 @@ val ludoProofInterstitialAdsEnabled =
         .get()
         .toBooleanStrictOrNull()
         ?: false
+// Ads are off by default until the publisher explicitly approves the intended
+// Play target audience, ad SDK treatment and independent consent controls.
+// This opt-in is a release review gate, NOT age verification or legal certification.
+val adSafetyReviewApproved =
+    providers.gradleProperty("LUDOPAWS_AD_SAFETY_REVIEW_APPROVED")
+        .orElse("false")
+        .get()
+        .toBooleanStrictOrNull()
+        ?: false
+require(!(ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) || adSafetyReviewApproved) {
+    "Advertising cannot be enabled before explicit target-age, Families, privacy and consent review. " +
+        "After approval set LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true."
+}
 val admobAppId =
     providers.gradleProperty("ADMOB_APP_ID")
         .orElse("ca-app-pub-9987799703505828~1411336271")
