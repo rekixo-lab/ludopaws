@@ -22,7 +22,11 @@ const RESTRICTED_API = Object.freeze([
 ]);
 
 export function isAgeRestrictedEndpoint(pathname) {
-  return typeof pathname === "string" && RESTRICTED_API.some((pattern) => pattern.test(pathname));
+  if (typeof pathname !== "string") return false;
+  // Do not obstruct statutory account deletion, recovery or delete-only codes.
+  if (pathname === "/api/account/guest/delete" ||
+      pathname === "/api/account/guest/deletion-code") return false;
+  return RESTRICTED_API.some((pattern) => pattern.test(pathname));
 }
 
 /**
