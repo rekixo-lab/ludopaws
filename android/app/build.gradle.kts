@@ -258,6 +258,7 @@ tasks.named("preBuild").configure {
 
 dependencies {
     implementation("androidx.activity:activity:1.13.0")
+    implementation("com.google.android.play:age-signals:0.0.4")
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
