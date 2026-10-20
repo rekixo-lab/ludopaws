@@ -222,6 +222,7 @@ export class FriendDirectory {
       if (request.method === "POST" && url.pathname === "/report") return await this.#reportFriend(request);
       // These methods are invoked only through the authenticated Worker admin path.
       if (request.method === "POST" && url.pathname === "/moderation/list") return this.#listReports();
+      if (request.method === "POST" && url.pathname === "/moderation/evidence") return await this.#moderationEvidence(request);
       if (request.method === "POST" && url.pathname === "/moderation/resolve") return await this.#resolveReport(request);
       if (
         request.method ===
@@ -332,6 +333,37 @@ export class FriendDirectory {
       "SELECT r.request_id, r.reporter_id, r.target_id, r.reason, r.created_at, r.status, c.message_id FROM friend_reports AS r LEFT JOIN friend_report_messages AS c ON c.report_id = r.request_id WHERE r.status = 'OPEN' ORDER BY r.created_at ASC LIMIT 100",
     )];
     return json(200, { ok: true, reports });
+  }
+
+  async #moderationEvidence(request) {
+    const body = await readJson(request);
+    const requestId = requireClientRequestId(body?.reportId);
+    const report = [...this.ctx.storage.sql.exec(
+      "SELECT r.reporter_id, r.target_id, c.message_id FROM friend_reports r LEFT JOIN friend_report_messages c ON c.report_id = r.request_id WHERE r.request_id = ? LIMIT 1",
+      requestId,
+    )][0];
+    if (!report) throw httpError(404, "REPORT_NOT_FOUND", "report was not found");
+    if (!report.message_id) return json(200, { ok: true, evidence: null });
+    if (!this.env?.LUDOPROOF_FRIEND_CONVERSATIONS) {
+      throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    }
+    const namespace = this.env.LUDOPROOF_FRIEND_CONVERSATIONS;
+    const pair = [String(report.reporter_id), String(report.target_id)].sort().join(":");
+    const target = namespace.get(namespace.idFromName(pair));
+    const response = await target.fetch(new Request("https://conversation/moderation/lookup", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        senderId: report.target_id, receiverId: report.reporter_id,
+        messageId: report.message_id,
+      }),
+    }));
+    let value;
+    try { value = await response.json(); } catch {
+      throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    }
+    if (response.status === 404) return json(200, { ok: true, evidence: null, expired: true });
+    if (!response.ok) throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    return json(200, { ok: true, evidence: value.evidence });
   }
 
   async #resolveReport(request) {

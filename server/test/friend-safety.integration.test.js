@@ -178,6 +178,10 @@ test("reports about specific private messages validate sender, recipient and mes
     const queue = await (await room.fetch(post("/moderation/list", {}, receiver.friendToken))).json();
     assert.equal(queue.reports.length, 1);
     assert.equal(queue.reports[0].message_id, messageId);
+    const evidence = await (await room.fetch(post("/moderation/evidence",
+      { reportId: report.clientRequestId }, receiver.friendToken))).json();
+    assert.equal(evidence.evidence.text, "This message should be reportable");
+    assert.equal(evidence.evidence.messageId, messageId);
     assert.equal(
       (await room.fetch(post("/report", { ...report, clientRequestId: "00000000-0000-4000-8000-000000000082",
         messageId: "00000000-0000-4000-8000-000000000083" }, receiver.friendToken))).status,

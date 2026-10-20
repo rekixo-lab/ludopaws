@@ -119,6 +119,14 @@ async function handleAccountRequest(request, env) {
         requireModerationAdmin(session.accountId, env);
         return json(200, await moderationRequest(env, "/moderation/list", {}));
       }
+      if (url.pathname === "/api/admin/moderation/reports/evidence" && request.method === "GET") {
+        await rateLimit(env, request, "moderation:reports:evidence", 20);
+        const session = await authenticate(request, env);
+        requireModerationAdmin(session.accountId, env);
+        return json(200, await moderationRequest(env, "/moderation/evidence", {
+          reportId: url.searchParams.get("reportId"),
+        }));
+      }
       if (url.pathname === "/api/admin/moderation/reports/resolve" && request.method === "POST") {
         await rateLimit(env, request, "moderation:reports:resolve", 20);
         const session = await authenticate(request, env);
