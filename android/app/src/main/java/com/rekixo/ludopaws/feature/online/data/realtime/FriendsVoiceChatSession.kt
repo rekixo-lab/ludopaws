@@ -24,11 +24,12 @@ internal class FriendsVoiceChatSession(
 ) {
     private val appContext = context.applicationContext
     private val peers = ConcurrentHashMap<String, PeerConnection>()
+    private val peerStates = ConcurrentHashMap<String, VoicePeerStatus>()
     private val pendingCandidates = ConcurrentHashMap<String, MutableList<IceCandidate>>()
     private var factory: PeerConnectionFactory? = null
     private var audioSource: AudioSource? = null
     private var audioTrack: AudioTrack? = null
-    private var disposed = false
+    @Volatile private var disposed = false
     private var micEnabled = true
 
     init {
@@ -72,12 +73,7 @@ internal class FriendsVoiceChatSession(
             val peer = createPeer(playerId) ?: return@forEach
             if (localPlayerId < playerId) createOffer(playerId, peer)
         }
-        onStatusChanged(
-            when {
-                peers.isEmpty() -> "Waiting for a friend to join voice…"
-                else -> "Voice connected to ${peers.size} friend${if (peers.size == 1) "" else "s"}"
-            },
-        )
+        publishPeerStatus()
     }
 
     fun handleSignal(playerId: String, signal: JSONObject) {
@@ -137,7 +133,10 @@ internal class FriendsVoiceChatSession(
                 if (peer.remoteDescription != null) {
                     peer.addIceCandidate(candidate)
                 } else {
-                    pendingCandidates.computeIfAbsent(playerId) { mutableListOf() }.add(candidate)
+                    val waiting = pendingCandidates.computeIfAbsent(playerId) { mutableListOf() }
+                    synchronized(waiting) {
+                        VoiceCandidateBufferPolicy.enqueue(waiting, candidate)
+                    }
                 }
             }
         }
@@ -180,15 +179,14 @@ internal class FriendsVoiceChatSession(
                     }
 
                     override fun onConnectionChange(newState: PeerConnection.PeerConnectionState) {
-                        when (newState) {
-                            PeerConnection.PeerConnectionState.CONNECTED ->
-                                onStatusChanged("Voice connected")
-                            PeerConnection.PeerConnectionState.FAILED ->
-                                onStatusChanged("Voice connection failed on this network")
-                            PeerConnection.PeerConnectionState.DISCONNECTED ->
-                                onStatusChanged("Voice connection interrupted")
-                            else -> Unit
+                        if (disposed || !peers.containsKey(playerId)) return
+                        peerStates[playerId] = when (newState) {
+                            PeerConnection.PeerConnectionState.CONNECTED -> VoicePeerStatus.CONNECTED
+                            PeerConnection.PeerConnectionState.FAILED -> VoicePeerStatus.FAILED
+                            PeerConnection.PeerConnectionState.DISCONNECTED -> VoicePeerStatus.INTERRUPTED
+                            else -> VoicePeerStatus.CONNECTING
                         }
+                        publishPeerStatus()
                     }
 
                     override fun onSignalingChange(state: PeerConnection.SignalingState) = Unit
@@ -209,6 +207,7 @@ internal class FriendsVoiceChatSession(
             }
         audioTrack?.let { peer.addTrack(it, listOf("friends-voice")) }
         peers[playerId] = peer
+        peerStates[playerId] = VoicePeerStatus.CONNECTING
         return peer
     }
 
@@ -241,10 +240,20 @@ internal class FriendsVoiceChatSession(
     }
 
     private fun drainCandidates(playerId: String, peer: PeerConnection) {
-        pendingCandidates.remove(playerId)?.forEach(peer::addIceCandidate)
+        pendingCandidates.remove(playerId)?.let { waiting ->
+            val pending = synchronized(waiting) { waiting.toList() }
+            pending.forEach(peer::addIceCandidate)
+        }
+    }
+
+    private fun publishPeerStatus() {
+        if (!disposed) onStatusChanged(
+            VoicePeerStatusPolicy.message(peers.keys.mapNotNull(peerStates::get)),
+        )
     }
 
     private fun closePeer(playerId: String) {
+        peerStates.remove(playerId)
         peers.remove(playerId)?.let {
             it.close()
             it.dispose()

@@ -45,6 +45,7 @@ class MatchRealtimeClient(
         ) -> Unit = { _, _ -> },
     private val onVoiceEnded:
         () -> Unit = {},
+    private val onUnavailable: (String) -> Unit = {},
     private val client: OkHttpClient = GameHttpTransport.client,
     private val retryDelayMillis:
         (attempt: Int) -> Long =
@@ -98,6 +99,7 @@ class MatchRealtimeClient(
     private var connected =
         false
     private var shutDown = false
+    private var terminalSession: DesiredSession? = null
 
     @Volatile
     private var socket:
@@ -133,7 +135,7 @@ class MatchRealtimeClient(
             synchronized(
                 stateLock,
             ) {
-                if (shutDown) return
+                if (shutDown || terminalSession == session) return
                 if (
                     desiredSession !=
                     session
@@ -454,6 +456,7 @@ class MatchRealtimeClient(
                         session,
                     connectionGeneration =
                         connectionGeneration,
+                    terminalReason = if (code == 1008) "Match connection is no longer authorized." else null,
                 )
             }
 
@@ -462,11 +465,11 @@ class MatchRealtimeClient(
                 t: Throwable,
                 response: Response?,
             ) {
+                val terminal = response?.code?.takeIf(RealtimeConnectionFailurePolicy::isTerminalHttp)
                 handleTransportClosed(
-                    session =
-                        session,
-                    connectionGeneration =
-                        connectionGeneration,
+                    session = session,
+                    connectionGeneration = connectionGeneration,
+                    terminalReason = terminal?.let(RealtimeConnectionFailurePolicy::userMessage),
                 )
             }
         }
@@ -474,21 +477,28 @@ class MatchRealtimeClient(
     private fun handleTransportClosed(
         session: DesiredSession,
         connectionGeneration: Long,
+        terminalReason: String? = null,
     ) {
-        synchronized(stateLock) {
-            if (
-                generation.get() != connectionGeneration ||
-                desiredSession != session
-            ) return
-
-            val wasActive = connected || connecting
+        val wasActive = synchronized(stateLock) {
+            if (generation.get() != connectionGeneration || desiredSession != session) return
+            val active = connected || connecting
             connected = false
             releasePendingCommandsLocked()
             connecting = false
             socket = null
-            scheduleRetryLocked(session)
-            if (wasActive) onConnectionChanged(false)
+            if (terminalReason != null) {
+                // Repeated Activity polling must not reconnect with credentials already rejected.
+                terminalSession = session
+                desiredSession = null
+                retryFuture?.cancel(false)
+                retryFuture = null
+            } else {
+                scheduleRetryLocked(session)
+            }
+            active
         }
+        if (wasActive) onConnectionChanged(false)
+        if (terminalReason != null) onUnavailable(terminalReason)
     }
 
     private fun scheduleRetryLocked(
@@ -673,6 +683,8 @@ class MatchRealtimeClient(
                 generation
                     .incrementAndGet()
                 desiredSession =
+                    null
+                terminalSession =
                     null
                 retryFuture
                     ?.cancel(false)

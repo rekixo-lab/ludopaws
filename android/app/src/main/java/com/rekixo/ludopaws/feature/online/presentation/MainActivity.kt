@@ -172,6 +172,8 @@ class MainActivity : ComponentActivity() {
     @Volatile
     internal var realtimeConnected =
         false
+    // Stops repeated HTTP polling while the server has explicitly rejected this session.
+    internal var remoteSessionUnavailable = false
 
     internal var friendsVoiceEnabled =
         false
@@ -299,6 +301,7 @@ class MainActivity : ComponentActivity() {
     internal val realtimeReconnectRunnable =
         object : Runnable {
             override fun run() {
+                if (remoteSessionUnavailable) return
                 if (
                     canRenderUi() &&
                     isOnline &&
@@ -317,6 +320,7 @@ class MainActivity : ComponentActivity() {
     internal val statePollRunnable =
         object : Runnable {
             override fun run() {
+                if (remoteSessionUnavailable) return
                 val state = currentState
                 if (
                     isOnline &&
@@ -453,6 +457,15 @@ class MainActivity : ComponentActivity() {
             onVoiceEnded = {
                 mainHandler.post {
                     stopFriendsVoice("Voice ended with the match.")
+                }
+            },
+            onUnavailable = { message ->
+                mainHandler.post {
+                    if (!canRenderUi()) return@post
+                    remoteSessionUnavailable = true
+                    mainHandler.removeCallbacks(statePollRunnable)
+                    mainHandler.removeCallbacks(realtimeReconnectRunnable)
+                    showStatus(message)
                 }
             },
         )
@@ -884,6 +897,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        // A new foreground session may have refreshed permissions or credentials.
+        remoteSessionUnavailable = false
         screenStarted = true
         connectivityMonitor.start()
         scheduleOnlineGameplayUnlock()
