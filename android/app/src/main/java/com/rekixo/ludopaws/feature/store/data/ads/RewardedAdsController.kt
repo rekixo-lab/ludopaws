@@ -44,7 +44,11 @@ internal class RewardedAdsController(
         consentInformation.requestConsentInfoUpdate(
             activity,
             FamilyAdsPrivacy.consentParameters(),
-            {
+            consentReady@{
+                if (closed || activity.isFinishing || activity.isDestroyed) {
+                    consentUpdateInProgress = false
+                    return@consentReady
+                }
                 UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { error ->
                     consentUpdateInProgress = false
                     if (error != null) {
@@ -146,7 +150,7 @@ internal class RewardedAdsController(
     }
 
     private fun initializeAdsIfAllowed() {
-        if (!enabled() || closed || !consentInformation.canRequestAds()) return
+        if (!enabled() || closed || activity.isFinishing || activity.isDestroyed || !consentInformation.canRequestAds()) return
         if (sdkInitialized) {
             loadRewardedAd()
             return

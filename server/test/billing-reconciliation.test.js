@@ -43,8 +43,8 @@ test("Play pagination resumes durably; wallet failures do not advance the cursor
   const ctx=context(), coordinator = new BillingReconciliation(ctx,env), now=Date.now(), requests=[];
   const fetchImpl=async input=>{
     const url=String(input);requests.push(url);
-    if(url.includes("oauth2.googleapis.com"))return Response.json({access_token:"test-only",expires_in:3600});
-    if(url.includes("token=page-2"))return Response.json({voidedPurchases:[]});
+    if(new URL(url).hostname === "oauth2.googleapis.com")return Response.json({access_token:"test-only",expires_in:3600});
+    if(new URL(url).searchParams.get("token") === "page-2")return Response.json({voidedPurchases:[]});
     return Response.json({voidedPurchases:[{purchaseToken:"test-refunded-token"}],tokenPagination:{nextPageToken:"page-2"}});
   };
   await assert.rejects(coordinator.reconcile(fetchImpl,now),/wallet unavailable/);

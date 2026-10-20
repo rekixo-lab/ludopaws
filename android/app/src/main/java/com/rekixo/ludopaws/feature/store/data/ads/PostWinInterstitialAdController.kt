@@ -49,7 +49,11 @@ internal class PostWinInterstitialAdController(
         consentInformation.requestConsentInfoUpdate(
             activity,
             FamilyAdsPrivacy.consentParameters(),
-            {
+            consentReady@{
+                if (closed || activity.isFinishing || activity.isDestroyed) {
+                    consentUpdateInProgress = false
+                    return@consentReady
+                }
                 UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { error ->
                     consentUpdateInProgress = false
                     if (error != null) {
@@ -124,7 +128,7 @@ internal class PostWinInterstitialAdController(
     }
 
     private fun initializeAdsIfAllowed() {
-        if (closed || !consentInformation.canRequestAds()) return
+        if (closed || activity.isFinishing || activity.isDestroyed || !consentInformation.canRequestAds()) return
         if (sdkInitialized) {
             loadInterstitial()
             return
