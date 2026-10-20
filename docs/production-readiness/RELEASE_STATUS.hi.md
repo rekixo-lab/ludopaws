@@ -2,7 +2,7 @@
 
 तारीख: 20 अक्टूबर 2026। आधार: GitHub `main` commit `f7013741d9e88a7cf9476619c085375a0542580c`। सुधार शाखा: `codex/production-readiness`। लक्ष्य: बच्चों और बड़ों सहित worldwide launch।
 
-**वर्तमान निर्णय: Family-mode release candidate तैयार किया जा रहा है; worldwide सार्वजनिक launch अभी NO-GO है जब तक नीचे दिए बाहरी release gates पूरे न हों।** User ने Family mode चुना है। इस शाखा में Android online navigation और Worker `FAMILY_V1` gameplay सक्षम हैं; live production अभी इस शाखा पर deploy नहीं हुआ है। पुराने audit में पास हुए CI को इस शाखा की जाँच का प्रमाण न मानें।
+**वर्तमान निर्णय: Family-mode code/build release candidate तैयार है; worldwide सार्वजनिक launch अभी NO-GO है जब तक नीचे दिए बाहरी release gates पूरे न हों।** User ने Family mode चुना है। इस शाखा में Android online navigation और Worker `FAMILY_V1` gameplay सक्षम हैं; live production अभी इस शाखा पर deploy नहीं हुआ है। पुराने audit में पास हुए CI को इस शाखा की जाँच का प्रमाण न मानें।
 
 ## Family edition का वास्तविक व्यवहार
 
@@ -60,3 +60,5 @@ Ads/paid goods की settings भविष्य के monetization release �
 ## Validation evidence
 
 वर्तमान source के final results के लिए `VALIDATION.json` देखें। Device पर न चले tests को compilation के आधार पर passed नहीं लिखा गया है। Local emulator run अधूरा रहा और user के निर्देश पर emulator/image/AVD हटा दिए गए हैं (लगभग 6.15 GB)। आगे physical phone के लिए `PHONE_TESTING.hi.md` में अलग QA app का तरीका है। Baseline की coverage और limitations `BASELINE_AUDIT.hi.md` में हैं; वह मूल commit का ऐतिहासिक audit है।
+
+Final automated validation: 292 Node tests, 421 Android JVM tests, 23 source gates; remote release APK/AAB/lint और JavaScript/Kotlin CodeQL सफल। जाँचा गया code commit `16ae093fb8480274b0ce5fb05d6af82e7ce20420` है; बाद का follow-up केवल documentation/evidence अपडेट करता है। Physical phone और enabled staging validation अभी बाकी हैं।

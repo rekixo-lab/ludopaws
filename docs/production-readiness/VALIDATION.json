@@ -23,10 +23,10 @@
     "failed": 0
   },
   "syntaxAndParsing": {
-    "trackedAndNewFiles": 692,
+    "trackedAndNewFiles": 693,
     "javascriptSyntaxChecks": 117,
     "xml": 19,
-    "json": 5,
+    "json": 6,
     "failures": []
   },
   "dependencyAdvisories": {
@@ -36,7 +36,7 @@
     "matches": []
   },
   "workerDryRun": "passed",
-  "localReleaseBuild": "cancelled before completion to avoid local resource pressure; remote validation pending",
+  "localReleaseBuild": "cancelled before completion to avoid local resource pressure; full release checks passed in remote CI",
   "localInstrumentation": {
     "status": "incomplete; not a pass",
     "completedBeforeTransportFailure": 22,
@@ -50,20 +50,59 @@
     "taskAvdRemoved": true
   },
   "physicalQa": {
-    "status": "build passed; device not connected/user deferred",
+    "status": "APK/test APK and 421 JVM tests passed; physical phone deferred by user",
     "applicationId": "com.rekixo.ludopaws.qa",
     "apiBase": "https://127.0.0.1",
     "productionDataIsolated": true,
-    "changesPhoneNetworkSettings": false
+    "changesPhoneNetworkSettings": false,
+    "apkSha256": "534efb4153740a5161dfe29ff362da5a83a768cce35b0bb3b3ca9cf2484e33b9",
+    "webRtcNativeLibraryAbsent": true,
+    "sdkAutoInitProvidersRemoved": true
   },
   "remoteCi": {
-    "status": "pending",
-    "emulatorInstrumentation": "must be false"
+    "status": "passed",
+    "run": "https://github.com/rekixo-lab/ludopaws/actions/runs/39435086135",
+    "codeCommit": "16ae093fb8480274b0ce5fb05d6af82e7ce20420",
+    "jobs": {
+      "windows-runner-script": "success",
+      "server": "success",
+      "android": "success",
+      "android-instrumentation": "skipped"
+    },
+    "releaseApk": "passed",
+    "releaseAab": "passed",
+    "releaseLint": "passed",
+    "emulatorInstrumentation": "skipped by explicit run_android_instrumentation=false",
+    "artifacts": [
+      {
+        "name": "ludoproof-sbom",
+        "bytes": 10445,
+        "expired": false
+      },
+      {
+        "name": "ludoproof-release-candidate",
+        "bytes": 31157881,
+        "expired": false
+      },
+      {
+        "name": "ludoproof-debug-apk",
+        "bytes": 20961347,
+        "expired": false
+      }
+    ]
   },
   "scopeLimitations": [
     "No zero-bug or worldwide legal-compliance guarantee",
     "No physical-phone or complete enabled-staging validation",
     "No new signed Play upload/internal-track approval",
     "OSV scope is known advisories for resolved Maven artifacts, not native internals or exploit reachability"
-  ]
+  ],
+  "validatedCodeCommit": "16ae093fb8480274b0ce5fb05d6af82e7ce20420",
+  "remoteCodeQL": {
+    "status": "passed",
+    "run": "https://github.com/rekixo-lab/ludopaws/actions/runs/39435091948",
+    "javascript": "success",
+    "androidKotlin": "success",
+    "openAlertsForBranch": 0
+  }
 }

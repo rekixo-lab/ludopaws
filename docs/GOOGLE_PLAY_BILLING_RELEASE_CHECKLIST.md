@@ -1,5 +1,7 @@
 # Google Play Billing — Production Readiness and Release Checklist
 
+> **Current candidate: Family edition (20 October 2026).** Multiplayer and fixed reactions are enabled in source; free-text chat, voice, ads, purchases and new Google linking are unavailable. Follow [the current release status](production-readiness/RELEASE_STATUS.hi.md) and its manual gates. Monetization instructions below describe reserved/future integrations and cannot enable them in this family build. No public-launch approval is implied.
+
 **Scope:** This checklist validates Google Play **one-time in-app products** only. It does not enable deployment or change feature flags. Keep the one-time `remove_ads` SKU semantics unchanged.
 
 ## 1. Supported product IDs

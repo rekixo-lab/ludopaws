@@ -1,5 +1,7 @@
 # Ludo Paws Production Release Checklist
 
+> **Current candidate: Family edition (20 October 2026).** Multiplayer and fixed reactions are enabled in source; free-text chat, voice, ads, purchases and new Google linking are unavailable. Follow [the current release status](production-readiness/RELEASE_STATUS.hi.md) and its manual gates. Monetization instructions below describe reserved/future integrations and cannot enable them in this family build. No public-launch approval is implied.
+
 LudoProof is a production-oriented release candidate. The game backend is authoritative and the Android client cannot select the dice outcome, event index, legal move, capture result, turn advancement, or winner.
 
 ## Final publisher identity
@@ -107,7 +109,7 @@ The endpoint fails closed with HTTP 503 until the match-storage and rate-gate bi
 
 ## Pre-launch account and store notes
 
-The operator confirms there are no production users and no real purchase transactions today. A historic customer/purchase migration is therefore not a blocker for initial launch. New accounts should begin with server-authoritative empty wallet state. Old device-local gem balances, cosmetics progress, and Remove Ads flags remain unverified test/cache data and must not be automatically imported as paid currency or entitlements.
+Earlier pre-launch notes reported no production users or real purchases. Reconfirm the current state before rollout; do not assume production storage is empty or reset existing entitlements. New accounts should begin with server-authoritative empty wallet state. Old device-local gem balances, cosmetics progress, and Remove Ads flags remain unverified test/cache data and must not be automatically imported as paid currency or entitlements.
 
 The account deletion API has an authenticated `POST /api/account/delete` route and Profile UI confirmation. A guest-only account can also register a separate random 256-bit delete-only code through its active session; only the credential hash is stored server-side. The app stores that code inside its Android Keystore-encrypted session and displays it on request so the owner can save it before uninstalling. The public page source at `docs/account-deletion.html` accepts that code only for deletion of an account that remains unlinked to Google; it cannot create a session or recover account data. Google-linked accounts must use Google identity verification. If a guest has already uninstalled without saving a code, the publisher-support route still needs a monitored contact and an approved ownership-verification process. The GitHub Pages workflow (`.github/workflows/account-deletion-pages.yml`) remains publisher-gated and has not been published. Server-side cleanup covers the account directory, wallet/session/inventory/transaction rows, purchase-ledger references, linked Friend/social records, and leaderboard profile; deletion tombstones prevent account/recovery IDs from being silently recreated. After server confirmation the app clears account-scoped local profile, wallet, identity, and pending Play-purchase caches.
 
@@ -212,11 +214,7 @@ The repository contains a gated production workflow:
 .github/workflows/deploy-cloudflare.yml
 ```
 
-Automatic deployment on a `main` push is disabled unless the GitHub repository/environment variable below is explicitly enabled:
-
-```text
-CLOUDFLARE_DEPLOY_ENABLED=true
-```
+Production deployment requires an explicit `workflow_dispatch` from `main`. Pushes/merges and `CLOUDFLARE_DEPLOY_ENABLED` do not trigger this workflow. Complete the current family release gates before dispatching it.
 
 The production GitHub environment needs only one externally supplied secret for a clean first deployment:
 
@@ -230,7 +228,7 @@ The Cloudflare account ID is non-secret and pinned in the workflow for the exist
 
 The workflow validates configuration without printing secret values, runs the repository security gate and server tests, performs a Wrangler production dry-run, deploys the Worker, synchronizes or preserves the EntroNex credential, preserves or creates the session HMAC, and only completes successfully after both `/health` and `/ready` pass.
 
-A manual `workflow_dispatch` run is also available. Do not enable continuous deployment until the production environment contains all required values and the pinned EntroNex signing identity has been verified independently.
+Only the manual `workflow_dispatch` path is enabled. Keep the existing production Worker unchanged until publisher approval, staging validation and the pinned signing identity have been verified.
 
 
 ### EntroNex signing-key rotation
