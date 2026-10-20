@@ -33,6 +33,8 @@ export class StorePurchaseLedger {
     if (url.pathname === "/delete") {
       return this.#delete(body);
     }
+    if (url.pathname === "/bind-owner") return this.#bindOwner(body);
+    if (url.pathname === "/revoke") return this.#revoke();
     if (url.pathname === "/reserve") {
       return this.#reserve(body);
     }
@@ -80,9 +82,31 @@ export class StorePurchaseLedger {
       gemAmount: body.gemAmount,
       removeAds: body.removeAds,
       state: "RESERVED",
+      ...(isOwner(body?.ownerAccountId) && isAccountId(body?.purchaseTokenHash)
+        ? { ownerAccountId: body.ownerAccountId, purchaseTokenHash: body.purchaseTokenHash } : {}),
     };
     await this.ctx.storage.put("purchase:v1", purchase);
     return json(200, { created: true, purchase });
+  }
+
+  async #bindOwner(body) {
+    if (!isAccountId(body?.accountId) || !isOwner(body?.ownerAccountId) || !isAccountId(body?.purchaseTokenHash))
+      return json(400, { error: "INVALID_PURCHASE" });
+    const existing = await this.ctx.storage.get("purchase:v1");
+    if (!existing || existing.accountId !== body.accountId ||
+        (existing.ownerAccountId && existing.ownerAccountId !== body.ownerAccountId))
+      return json(409, { error: "PURCHASE_ACCOUNT_MISMATCH" });
+    await this.ctx.storage.put("purchase:v1", { ...existing, ownerAccountId: body.ownerAccountId,
+      purchaseTokenHash: body.purchaseTokenHash });
+    return json(200, { ok: true });
+  }
+
+  async #revoke() {
+    const existing = await this.ctx.storage.get("purchase:v1");
+    if (!existing) return json(200, { purchase: null });
+    const purchase = { ...existing, state: "REVOKED" };
+    await this.ctx.storage.put("purchase:v1", purchase);
+    return json(200, { purchase });
   }
 
   async #complete(body) {
@@ -102,10 +126,15 @@ export class StorePurchaseLedger {
       return json(409, { error: "PURCHASE_RESERVATION_NOT_FOUND" });
     }
 
+    if (existing.state === "REVOKED") return json(409, { error: "PLAY_PURCHASE_REVOKED" });
     const purchase = { ...existing, state: "FULFILLED" };
     await this.ctx.storage.put("purchase:v1", purchase);
     return json(200, { purchase });
   }
+}
+
+function isOwner(value) {
+  return typeof value === "string" && /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value);
 }
 
 function isAccountId(value) {

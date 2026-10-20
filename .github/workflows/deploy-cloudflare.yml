@@ -24,17 +24,17 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: 8f31060fbcfee2b3e9309138cad7f12f
       LUDOPROOF_SESSION_HMAC_KEY: ${{ secrets.LUDOPROOF_SESSION_HMAC_KEY }}
+      LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: ${{ vars.LUDOPAWS_AD_SAFETY_REVIEW_APPROVED }}
+      LUDOPAWS_GOOGLE_LINKING_ENABLED: ${{ vars.LUDOPAWS_GOOGLE_LINKING_ENABLED }}
       GOOGLE_SIGN_IN_WEB_CLIENT_ID: ${{ vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID }}
       LUDOPROOF_ACCOUNT_WEB_ORIGIN: ${{ vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN }}
-      # Hard-pin monetization OFF in this release. Historical GitHub production
-      # variables were still true and caused Cloudflare Production #83 to fail.
-      # Family edition keeps monetization disabled until its separate child-safety work is approved.
+      # User-approved internal release: validate matching Android/Worker integration flags.
       GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL }}
-      GOOGLE_PLAY_BILLING_ENABLED: "false"
-      LUDOPROOF_BILLING_ENABLED: "false"
-      LUDOPROOF_ADMOB_SSV_ENABLED: "false"
-      LUDOPROOF_AGE_SAFETY_MODE: FAMILY_V1
-      LUDOPROOF_ADS_ENABLED: "false"
+      GOOGLE_PLAY_BILLING_ENABLED: ${{ vars.GOOGLE_PLAY_BILLING_ENABLED }}
+      LUDOPROOF_BILLING_ENABLED: ${{ vars.LUDOPROOF_BILLING_ENABLED }}
+      LUDOPROOF_ADMOB_SSV_ENABLED: ${{ vars.LUDOPROOF_ADMOB_SSV_ENABLED }}
+      LUDOPROOF_AGE_SAFETY_MODE: FAMILY_V2
+      LUDOPROOF_ADS_ENABLED: ${{ vars.LUDOPROOF_ADS_ENABLED }}
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}
       LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID }}

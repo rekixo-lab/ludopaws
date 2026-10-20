@@ -78,8 +78,8 @@ for (const [productId, product] of Object.entries(serverProducts)) {
 assert.ok(pricing.includes("localized price and currency shown in the app"), "pricing page must direct users to the localized Google Play price");
 assert.ok(pricing.includes("does not take payments or offer a separate web checkout"), "pricing page must not imply web checkout");
 assert.ok(pricing.includes("Google Play order history"), "pricing page must explain the order/refund support boundary");
-assert.ok(pricing.includes("PRICING_RELEASE_REVIEW_REQUIRED"), "pricing page must retain its manual release-review gate until live Play Console validation");
-assert.ok(terms.includes("TERMS_RELEASE_REVIEW_REQUIRED"), "Terms of Service must retain its publisher/legal review gate");
+assert.ok(pricing.includes("child-directed"), "pricing must disclose family advertising treatment");
+assert.ok(terms.includes("AI@rekixo.com"), "terms must provide the publisher support contact");
 assert.doesNotMatch(pricing, /(?:₹|Rs\.?\s*|US\$|USD\s*)\s*\d/i, "public pricing page must not hard-code a regional currency price");
 
 const retiredMonthlyPlanPattern =

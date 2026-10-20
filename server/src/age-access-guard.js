@@ -1,8 +1,9 @@
-import { isFamilyMode } from "./family-safety.js";
+import { familyCapabilities, isFamilyMode } from "./family-safety.js";
 /**
  * LOCKDOWN and unknown configuration deny connected capabilities.
  * FAMILY_V1 opens gameplay after removing free-text messaging, voice and
- * monetization for every player. It never asserts age or parental consent.
+ * personal communications for every player. V2 permits configured commerce.
+ * Neither edition asserts age or parental consent.
  * Recovery/deletion remains available for existing accounts.
  */
 const RESTRICTED_API = Object.freeze([
@@ -38,11 +39,12 @@ export function ageSafetyBlockResponse(request, env) {
   if (isFamilyMode(env)) {
     // The family edition removes these capabilities for EVERY player and client.
     // Headers, age claims, old credentials and monetization flags cannot unlock them.
+    const capabilities = familyCapabilities(env);
     const disabled = /^\/api\/friends\/messages(?:\/|$)/.test(url.pathname) ||
-      /^\/api\/store\/purchases(?:\/|$)/.test(url.pathname) ||
-      url.pathname === "/api/wallet/cosmetics/purchase" ||
-      url.pathname === "/api/admob/ssv" ||
-      url.pathname === "/api/account/google/link";
+      (!capabilities.purchases && /^\/api\/store\/purchases(?:\/|$)/.test(url.pathname)) ||
+      (!capabilities.cosmetics && url.pathname === "/api/wallet/cosmetics/purchase") ||
+      (!capabilities.advertising && url.pathname === "/api/admob/ssv") ||
+      (!capabilities.newGoogleLinking && url.pathname === "/api/account/google/link");
     if (!disabled) return null;
     return new Response(JSON.stringify({ error: "FAMILY_FEATURE_UNAVAILABLE",
       message: "This feature is unavailable in the family edition. Multiplayer and fixed quick-chat remain available." }),

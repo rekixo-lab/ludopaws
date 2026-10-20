@@ -1,6 +1,6 @@
 # Ludo Paws Production Release Checklist
 
-> **Current candidate: Family edition (20 October 2026).** Multiplayer and fixed reactions are enabled in source; free-text chat, voice, ads, purchases and new Google linking are unavailable. Follow [the current release status](production-readiness/RELEASE_STATUS.hi.md) and its manual gates. Monetization instructions below describe reserved/future integrations and cannot enable them in this family build. No public-launch approval is implied.
+> **Current internal candidate: Family V2 / RC3 (20 October 2026).** The publisher authorized configured Play Billing, child-directed ads and optional Google account linking/restore. Voice and free-text remain removed. No startup/gameplay age entry. Follow [current release status](production-readiness/RELEASE_STATUS.hi.md) for build/deploy evidence and physical/Play acceptance; older release instructions below are historical where they conflict.
 
 LudoProof is a production-oriented release candidate. The game backend is authoritative and the Android client cannot select the dice outcome, event index, legal move, capture result, turn advancement, or winner.
 

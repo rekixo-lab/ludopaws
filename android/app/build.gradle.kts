@@ -49,10 +49,8 @@ require(!(ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) || adSafetyRev
     "Advertising cannot be enabled before explicit target-age, Families, privacy and consent review. " +
         "After approval set LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true."
 }
-// Until independently authorized connected-age access is available, an offline-only
-// package must not initialize Billing or Ads regardless of unrelated opt-in flags.
-require(!(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
-    "The family release cannot enable purchases, rewarded ads or interstitials."
+require(!qaBuild || !(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
+    "Isolated QA builds cannot enable purchases or ads. Use the signed internal Play build."
 }
 val admobAppId =
     providers.gradleProperty("ADMOB_APP_ID")
@@ -168,8 +166,8 @@ android {
         applicationId = "com.rekixo.ludopaws"
         minSdk = 28
         targetSdk = 36
-        versionCode = 2
-        versionName = "1.0.0-rc2"
+        versionCode = providers.gradleProperty("LUDOPAWS_VERSION_CODE").orElse("3").get().toInt().also { require(it >= 3) }
+        versionName = providers.gradleProperty("LUDOPAWS_VERSION_NAME").orElse("1.0.0-rc3").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(
@@ -177,7 +175,7 @@ android {
             "LUDOPROOF_API_BASE_URL",
             "\"$escapedApiBaseUrl\"",
         )
-        // Family edition enables gameplay with no free-text chat, voice or monetization.
+        // All players retain family communications; reviewed builds can use Play commerce.
         buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "true")
         buildConfigField("boolean", "LUDOPAWS_FAMILY_MODE", "true")
         buildConfigField("boolean", "LUDOPAWS_QA_BUILD", qaBuild.toString())

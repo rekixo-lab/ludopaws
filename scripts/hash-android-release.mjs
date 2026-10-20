@@ -34,21 +34,20 @@ if (artifacts.length < 2) {
   );
 }
 
-const appBuild =
-  fs.readFileSync(
-    "android/app/build.gradle.kts",
-    "utf8",
-  );
-const versionName =
-  appBuild.match(
-    /versionName\s*=\s*"([^"]+)"/,
-  )?.[1] ?? "unknown";
-const versionCode =
-  Number(
-    appBuild.match(
-      /versionCode\s*=\s*(\d+)/,
-    )?.[1] ?? 0,
-  );
+// AGP output metadata records the values actually used for this built variant,
+// including release-workflow version overrides; source regexes cannot do that.
+const apkMetadata = JSON.parse(fs.readFileSync("android/app/build/outputs/apk/release/output-metadata.json", "utf8"));
+const variant = apkMetadata.elements?.[0];
+const versionName = variant?.versionName;
+const versionCode = variant?.versionCode;
+if (!versionName || !Number.isSafeInteger(versionCode) || versionCode < 1 ||
+    apkMetadata.elements.some(item => item.versionName !== versionName || item.versionCode !== versionCode)) {
+  throw new Error("Release APK version metadata is absent or inconsistent");
+}
+const inventory = JSON.parse(fs.readFileSync("android/build/reports/release-dependencies.json", "utf8"));
+if (inventory.versionName !== versionName || inventory.versionCode !== versionCode) {
+  throw new Error("Release APK and resolved dependency evidence refer to different versions");
+}
 
 const metadata = {
   schemaVersion: 1,

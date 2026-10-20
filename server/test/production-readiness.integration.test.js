@@ -272,3 +272,60 @@ test("family conversation storage cannot send or list messages; deletion remains
   }
   assert.equal((await call(room, "/delete-for-friend", { friendId: "LPF-ABCD-EFGH-JKLM" })).status, 200);
 });
+
+test("Play refunds revoke once, advance wallet revisions and reject a late purchase grant", async () => {
+  const room = new PlayerAccount(context(), secret), accountId = uuid(81);
+  const session = (await call(room, "/session/create", { accountId })).body;
+  const purchase = { accountId, sessionId: session.sessionId, productId: "gems_300",
+    purchaseTokenHash: "a".repeat(64), purchaseLedgerId: "b".repeat(64) };
+  const grant = await call(room, "/wallet/play-purchase", purchase);
+  assert.equal(grant.status, 200, JSON.stringify(grant.body));
+  const revoke = await call(room, "/wallet/play-revoke", {accountId, purchaseLedgerId: purchase.purchaseLedgerId});
+  assert.equal(revoke.status, 200, JSON.stringify(revoke.body));
+  const first = (await call(room, "/wallet/get", {accountId, sessionId:session.sessionId})).body.wallet;
+  assert.equal(first.balance, 0);
+  assert.ok(first.revision > grant.body.wallet.revision);
+  assert.equal((await call(room, "/wallet/play-revoke", {accountId, purchaseLedgerId: purchase.purchaseLedgerId})).body.replay, true);
+  assert.equal((await call(room, "/wallet/play-purchase", purchase)).body.error, "PLAY_PURCHASE_REVOKED");
+  const early = {...purchase, productId: "remove_ads", purchaseLedgerId:"c".repeat(64), purchaseTokenHash:"d".repeat(64)};
+  await call(room, "/wallet/play-revoke", {accountId, purchaseLedgerId:early.purchaseLedgerId});
+  assert.equal((await call(room, "/wallet/play-purchase", early)).body.error, "PLAY_PURCHASE_REVOKED");
+});
+
+test("refunding Remove Ads preserves another valid entitlement and never makes gems negative", async () => {
+  const room = new PlayerAccount(context(), secret), accountId = uuid(82);
+  const session = (await call(room, "/session/create", {accountId})).body;
+  for (const [token, ledger] of [["a","b"],["c","d"]]) {
+    const r = await call(room,"/wallet/play-purchase",{accountId, sessionId:session.sessionId, productId:"remove_ads",
+      purchaseTokenHash:token.repeat(64),purchaseLedgerId:ledger.repeat(64)});
+    assert.equal(r.status,200);
+  }
+  await call(room,"/wallet/play-revoke",{accountId,purchaseLedgerId:"b".repeat(64)});
+  let wallet = (await call(room,"/wallet/get",{accountId,sessionId:session.sessionId})).body.wallet;
+  assert.equal(wallet.adsRemoved,true);
+  assert.equal(wallet.balance,5);
+  await call(room,"/wallet/play-revoke",{accountId,purchaseLedgerId:"d".repeat(64)});
+  wallet = (await call(room,"/wallet/get",{accountId,sessionId:session.sessionId})).body.wallet;
+  assert.equal(wallet.adsRemoved,false);
+  assert.equal(wallet.balance,0);
+});
+
+test("old purchase owners enroll on wallet access and an already-refunded entitlement is removed", async () => {
+  const { StorePurchaseLedger } = await import("../src/store-purchase-ledger.js");
+  const { billingAccountId } = await import("../src/account-security.js");
+  const accountId = uuid(83), ledgerId = "b".repeat(64), ledger = new StorePurchaseLedger(context()), env = {...secret};
+  const room = new PlayerAccount(context(), env);
+  const session = (await call(room,"/session/create",{accountId})).body;
+  await call(ledger,"/reserve",{accountId:await billingAccountId(accountId),productId:"remove_ads",gemAmount:5,removeAds:true});
+  await call(ledger,"/complete",{accountId:await billingAccountId(accountId),productId:"remove_ads"});
+  await call(room,"/wallet/play-purchase",{accountId,sessionId:session.sessionId,productId:"remove_ads",purchaseTokenHash:"a".repeat(64),purchaseLedgerId:ledgerId});
+  await call(ledger,"/revoke",{});
+  env.LUDOPROOF_STORE_PURCHASES = {idFromName:n=>n,get:()=>ledger};
+  const wallet = await call(room,"/wallet/get",{accountId,sessionId:session.sessionId});
+  assert.equal(wallet.status,200,JSON.stringify(wallet.body));
+  assert.equal(wallet.body.wallet.adsRemoved,false);
+  assert.equal(wallet.body.wallet.balance,0);
+  const state = (await call(ledger,"/status")).body.purchase;
+  assert.equal(state.ownerAccountId,accountId);
+  assert.equal(state.state,"REVOKED");
+});

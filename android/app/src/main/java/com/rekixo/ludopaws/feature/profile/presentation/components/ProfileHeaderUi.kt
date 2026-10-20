@@ -241,7 +241,7 @@ internal fun ProfileActivity.profileIdentityPanel(profile: ProfileSnapshot): Lin
                 dp(38),
             ),
         )
-        if (!com.rekixo.ludopaws.BuildConfig.LUDOPAWS_FAMILY_MODE) details.addView(signInRow)
+        details.addView(signInRow)
 
         val profileScreenWidthDp = resources.displayMetrics.widthPixels / resources.displayMetrics.density
         val pageHorizontalPaddingDp =

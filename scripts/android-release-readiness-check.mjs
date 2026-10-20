@@ -94,14 +94,14 @@ for (const relativePath of androidSourceFiles) {
 requirePattern(
   "android/app/build.gradle.kts",
   appBuild,
-  /versionCode\s*=\s*2\b/,
-  "RC2 must use monotonically increasing versionCode 2.",
+  /LUDOPAWS_VERSION_CODE[\s\S]*?orElse\("3"\)/,
+  "Internal releases must use configurable versionCode >= 3.",
 );
 requirePattern(
   "android/app/build.gradle.kts",
   appBuild,
-  /versionName\s*=\s*"1\.0\.0-rc2"/,
-  "RC2 must expose versionName 1.0.0-rc2.",
+  /LUDOPAWS_VERSION_NAME[\s\S]*?orElse\("1\.0\.0-rc3"\)/,
+  "Internal releases must expose their configured RC3 version.",
 );
 
 for (const variable of [

@@ -96,7 +96,7 @@ class StoreActivity :
         rewardedAdsWasCreated = true
         RewardedAdsController(
             activity = this,
-            enabled = adsEnabledForBuild,
+            enabled = { adsEnabledForBuild },
             adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
             onMessage = ::showStoreMessage,
         )
@@ -130,7 +130,7 @@ class StoreActivity :
         selectedTab =
             requestedInitialTab()
                 ?: StoreTab.GEMS
-        if (BuildConfig.LUDOPAWS_FAMILY_MODE && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
+        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
             intent
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
@@ -316,7 +316,7 @@ class StoreActivity :
                 .LUDOPROOF_BILLING_ENABLED
         ) {
             showStoreMessage(
-                "Purchases are unavailable in the family edition.",
+                "Purchases are unavailable in this build.",
             )
             return
         }
@@ -326,17 +326,21 @@ class StoreActivity :
             )
             return
         }
-        billing
-            .launchPurchase(
-                productId,
-            )
+        AlertDialog.Builder(this)
+            .setTitle("Google Play purchase")
+            .setMessage("This purchase costs real money. Google Play will show the local price before payment. Children should ask a parent or guardian. No payment is made by opening this confirmation.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Continue to Google Play") { _, _ ->
+                if (!isFinishing && !isDestroyed) billing.launchPurchase(productId)
+            }
+            .show()
     }
 
     internal fun requestRewardedAd(
         cosmeticId: String? = null,
     ) {
         if (!BuildConfig.LUDOPROOF_ADS_ENABLED) {
-            showStoreMessage("Rewarded ads are unavailable in the family edition.")
+            showStoreMessage("Rewarded ads are unavailable in this build.")
             return
         }
         if (!rewardedAdsStatusLoaded) {
@@ -551,10 +555,6 @@ class StoreActivity :
             return
         }
         val owned = cosmetics.isOwned(cosmetic.id)
-        if (BuildConfig.LUDOPAWS_FAMILY_MODE && !owned) {
-            showStoreMessage("This item is unavailable in the family edition.")
-            return
-        }
         if (!owned && cosmetic.remoteManaged && cosmetic.unlockChannels.size > 1) {
             val channels = cosmetic.unlockChannels
             val labels = channels.map { channel ->
@@ -872,7 +872,7 @@ class StoreActivity :
             },
         )
 
-        if (!BuildConfig.LUDOPAWS_FAMILY_MODE && selectedTab == StoreTab.GEMS) {
+        if (!!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
             fixedHeader.addView(
                 pinnedRemoveAdsContent(),
                 LinearLayout.LayoutParams(

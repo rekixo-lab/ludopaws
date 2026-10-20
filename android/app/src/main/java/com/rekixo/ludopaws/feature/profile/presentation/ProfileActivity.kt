@@ -52,7 +52,7 @@ class ProfileActivity : Activity() {
     internal var playGamesStatus = ""
         private set
     internal val isPlayGamesConfigured: Boolean
-        get() = !BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
+        get() = BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
             BuildConfig.PLAY_GAMES_PROJECT_ID.toLongOrNull()?.let { it > 0 } == true
 
     internal val profileStore by lazy {
@@ -108,7 +108,7 @@ class ProfileActivity : Activity() {
     private var friendPresencePausedForAccountSwitch = false
     private var accountIdentityRecoveryPending = false
     internal val isAccountSignInConfigured: Boolean
-        get() = !BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.GOOGLE_SIGN_IN_WEB_CLIENT_ID.isNotBlank()
+        get() = BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED && BuildConfig.GOOGLE_SIGN_IN_WEB_CLIENT_ID.isNotBlank()
 
     override fun onCreate(
         savedInstanceState: Bundle?,
@@ -275,16 +275,21 @@ class ProfileActivity : Activity() {
     }
 
     internal fun openAccountActions() {
+        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.withOptionalGoogle(this) { showAccountActions() }
+    }
+
+    private fun showAccountActions() {
         if (accountAuthInProgress) return
         AlertDialog.Builder(this)
             .setTitle("Ludo Paws Account")
-            .setMessage(
-                if (accountGoogleLinked) {
+            .setView(TextView(this).apply {
+                text = if (accountGoogleLinked) {
                     "This account is saved to Google. You can restore it on another device, or choose another Google account only after confirming the switch."
                 } else {
                     "Your guest account is currently tied to this installation. Save it to Google so your account and eligible store items can follow you to another device. XP, match statistics and badges stay on this device."
-                },
-            )
+                }
+                setPadding(dp(24), dp(12), dp(24), dp(12))
+            })
             .setItems(arrayOf("Save this account to Google", "Restore an account saved to Google")) { _, which ->
                 if (which == 0) {
                     startGoogleAccountFlow(linkCurrentAccount = true)
@@ -690,6 +695,11 @@ class ProfileActivity : Activity() {
     }
 
     internal fun beginPlayGamesSignIn() {
+        if (!isPlayGamesConfigured) { startPlayGamesSignIn(); return }
+        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.withOptionalGoogle(this) { startPlayGamesSignIn() }
+    }
+
+    private fun startPlayGamesSignIn() {
         if (!isPlayGamesConfigured) {
             playGamesStatus = getString(R.string.profile_play_games_setup_button_message)
             AlertDialog.Builder(this)
@@ -709,6 +719,8 @@ class ProfileActivity : Activity() {
             return
         }
 
+        getSharedPreferences("play_games_opt_in", MODE_PRIVATE).edit().putBoolean("enabled", true).apply()
+        com.google.android.gms.games.PlayGamesSdk.initialize(applicationContext)
         playGamesSignInInProgress = true
         playGamesStatus = getString(R.string.profile_play_games_sign_in_opening)
         renderProfile()
@@ -756,6 +768,11 @@ class ProfileActivity : Activity() {
     }
 
     private fun refreshPlayGamesSignIn() {
+        // Never initialize an optional OAuth SDK on offline/profile startup or for children.
+        if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this) ||
+            !getSharedPreferences("play_games_opt_in", MODE_PRIVATE).getBoolean("enabled", false)) return
+        if (isPlayGamesConfigured) com.google.android.gms.games.PlayGamesSdk.initialize(applicationContext)
+
         if (!isPlayGamesConfigured) {
             playGamesAuthenticated = false
             playGamesDisplayName = null

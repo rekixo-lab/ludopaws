@@ -59,6 +59,10 @@
       {
         "name": "LUDOPROOF_STORE_CATALOG",
         "class_name": "StoreCatalogStore"
+      },
+      {
+        "name": "LUDOPROOF_BILLING_RECONCILIATION",
+        "class_name": "BillingReconciliation"
       }
     ]
   },
@@ -141,10 +145,16 @@
       "deleted_classes": [
         "MatchReceiptArchive"
       ]
+    },
+    {
+      "tag": "v14-billing-reconciliation",
+      "new_sqlite_classes": [
+        "BillingReconciliation"
+      ]
     }
   ],
   "vars": {
-    "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V1"
+    "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V2"
   },
   "observability": {
     "enabled": true,
@@ -155,5 +165,10 @@
       "head_sampling_rate": 1,
       "persist": true
     }
+  },
+  "triggers": {
+    "crons": [
+      "*/5 * * * *"
+    ]
   }
 }

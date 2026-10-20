@@ -75,9 +75,9 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     }
   }
 
-  if (billingEnabled || adsEnabled) {
-    throw new Error("Billing and rewarded ads must be disabled in the family release.");
-  }
+  const adSafetyApproved = readBoolean("LUDOPAWS_AD_SAFETY_REVIEW_APPROVED", environment.LUDOPAWS_AD_SAFETY_REVIEW_APPROVED);
+  if (adsEnabled && !adSafetyApproved) throw new Error("Advertising requires LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true.");
+  const googleLinking = readBoolean("LUDOPAWS_GOOGLE_LINKING_ENABLED", environment.LUDOPAWS_GOOGLE_LINKING_ENABLED);
   const vars = {
     ...existingVars,
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: oauthClientId,
@@ -86,7 +86,9 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled),
     LUDOPROOF_ADMOB_REWARD_ITEM: "gems",
     // Family capabilities are enforced on the server for old and new clients.
-    LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V1",
+    LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V2",
+    LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: String(adSafetyApproved),
+    LUDOPAWS_GOOGLE_LINKING_ENABLED: String(googleLinking),
   };
 
   if (serviceAccountEmail) vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL = serviceAccountEmail;

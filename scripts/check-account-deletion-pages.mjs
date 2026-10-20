@@ -77,7 +77,7 @@ has(landingPage, 'href="./pricing.html"', "landing-page pricing-policy link");
 has(policy, 'href="./pricing.html">Pricing and in-app purchase policy</a>', "privacy-policy pricing link");
 has(policy, 'href="./terms-of-service.html">Terms of Service</a>', "privacy-policy terms link");
 has(policy, 'href="./pricing.html">Pricing & in-app purchases</a>', "privacy footer pricing link");
-has(pricing, "PRICING_RELEASE_REVIEW_REQUIRED", "pricing publisher/legal release-review marker");
+has(pricing, "child-directed", "family monetization disclosure");
 has(pricing, 'href="./privacy-policy.html"', "pricing page privacy-policy link");
 has(pricing, 'href="./account-deletion.html"', "pricing page account-deletion link");
 has(pagesWorkflow, 'test -f docs/pricing.html', "pricing page publication file gate");
@@ -91,7 +91,7 @@ has(inAppPolicy, 'https://ludopaws.rekixo.com/terms-of-service.html', "in-app Te
 
 
 has(terms, "<title>Ludo Paws — Terms of Service</title>", "Terms of Service page title");
-has(terms, "TERMS_RELEASE_REVIEW_REQUIRED", "Terms of Service publisher/legal review marker");
+has(terms, "AI@rekixo.com", "Terms of Service support contact");
 has(terms, 'href="./pricing.html"', "terms page links to pricing policy");
 has(terms, 'href="./privacy-policy.html"', "terms page links to privacy policy");
 has(terms, 'href="./account-deletion.html"', "terms page links to account deletion");

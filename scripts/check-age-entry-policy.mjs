@@ -32,3 +32,23 @@ for (const provider of ["com.google.android.gms.games.provider.PlayGamesInitProv
   if (!manifest.includes('android:name="' + provider + '" tools:node="remove"')) throw Error("SDK auto-init provider remains: " + provider);
 }
 console.log("PASS: DOB-free family multiplayer, no age-sharing prompt, removed free-text UI and guarded SDK initialization");
+
+const adsPrivacy = read(root + "feature/store/data/ads/FamilyAdsPrivacy.kt");
+for (const token of ["AgeRestrictedTreatment.CHILD", "MAX_AD_CONTENT_RATING_G", 'putString("npa", "1")', "setTagForUnderAgeOfConsent(true)"]) {
+  if (!adsPrivacy.includes(token)) throw Error("Family advertising privacy regression: " + token);
+}
+for (const file of ["feature/home/presentation/HomeActivity.kt", "core/app/LudoProofApplication.kt",
+    "core/navigation/GameModeNavigation.kt", "feature/store/data/ads/RewardedAdsController.kt",
+    "feature/store/data/ads/PostWinInterstitialAdController.kt"]) {
+  if (read(root + file).includes("FamilyAgeScreen")) throw Error("Age entry must not interrupt startup or gameplay: " + file);
+}
+for (const file of ["RewardedAdsController.kt", "PostWinInterstitialAdController.kt"]) {
+  const source = read(root + "feature/store/data/ads/" + file);
+  const init = source.slice(source.indexOf("private fun initializeAdsIfAllowed()"));
+  if (init.indexOf("FamilyAdsPrivacy.configureBeforeInitialization()") < 0 ||
+      init.indexOf("FamilyAdsPrivacy.configureBeforeInitialization()") > init.indexOf("MobileAds.initialize(activity)"))
+    throw Error("Child treatment must precede SDK initialization: " + file);
+  if (!source.includes("FamilyAdsPrivacy.request()") || !source.includes("FamilyAdsPrivacy.consentParameters()"))
+    throw Error("Ad request bypasses family privacy: " + file);
+}
+console.log("PASS: no startup/gameplay age prompt; child-directed, G-rated, non-personalized ads before SDK initialization");

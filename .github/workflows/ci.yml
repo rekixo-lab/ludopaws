@@ -13,7 +13,7 @@ on:
         description: Run the slower Android emulator/instrumentation suite
         type: boolean
         required: true
-        default: true
+        default: false
 
 permissions:
   contents: read
@@ -66,6 +66,12 @@ jobs:
         run: npx --yes wrangler@4.135.0 deploy --dry-run --outdir .wrangler-dry-run
 
   android:
+    env:
+      ORG_GRADLE_PROJECT_LUDOPROOF_BILLING_ENABLED: "true"
+      ORG_GRADLE_PROJECT_LUDOPROOF_ADS_ENABLED: "true"
+      ORG_GRADLE_PROJECT_LUDOPROOF_INTERSTITIAL_ADS_ENABLED: "true"
+      ORG_GRADLE_PROJECT_LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true"
+      ORG_GRADLE_PROJECT_ADMOB_INTERSTITIAL_AD_UNIT_ID: ca-app-pub-9987799703505828/5052207546
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -140,7 +146,7 @@ jobs:
           "$AAPT" dump badging android/app/build/outputs/apk/debug/app-debug.apk | tee /tmp/ludoproof-badging.txt
           grep -q "targetSdkVersion:'36'" /tmp/ludoproof-badging.txt
           "$AAPT" dump permissions android/app/build/outputs/apk/debug/app-debug.apk > /tmp/ludopaws-debug-permissions.txt
-          if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)|com.android.vending.BILLING' /tmp/ludopaws-debug-permissions.txt; then
+          if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)' /tmp/ludopaws-debug-permissions.txt; then
             echo "Offline-only debug APK must not request microphone or advertising ID" >&2
             exit 1
           fi
@@ -160,7 +166,7 @@ jobs:
           fi
           for apk in "${release_apks[@]}"; do
             "$AAPT" dump permissions "$apk" > /tmp/ludopaws-release-permissions.txt
-            if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)|com.android.vending.BILLING' /tmp/ludopaws-release-permissions.txt; then
+            if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)' /tmp/ludopaws-release-permissions.txt; then
               echo "Restricted audio, ads, or billing permission in release APK: $apk" >&2
               exit 1
             fi
@@ -212,9 +218,9 @@ jobs:
           retention-days: 3
 
   android-instrumentation:
-    # Full emulator validation is a batch/release checkpoint, not a prerequisite
-    # for each small draft-PR edit. Ready PRs and main pushes still run it.
-    if: ${{ (github.event_name != 'pull_request' || github.event.pull_request.draft == false) && (github.event_name != 'workflow_dispatch' || inputs.run_android_instrumentation) }}
+    # Device testing is deferred to the user's phone. Emulator runs require an
+    # explicit separate opt-in and never execute on PRs or main pushes.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

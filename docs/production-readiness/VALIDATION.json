@@ -1,108 +1,17 @@
 {
   "date": "2026-10-20",
-  "baseCommit": "f7013741d9e88a7cf9476619c085375a0542580c",
-  "branch": "codex/production-readiness",
-  "releaseMode": "FAMILY_V1",
-  "productionDeployment": "not performed",
-  "manualReleaseDecision": "NO-GO pending publisher/privacy/consent review, exact signed release and physical/staging validation",
-  "nodeTests": {
-    "passed": 292,
-    "failed": 0,
-    "serverTests": 273,
-    "runtimeAndPreflightTests": 19,
-    "localNode": "24.22.0"
+  "releaseMode": "FAMILY_V2",
+  "candidateVersion": "1.0.0-rc3",
+  "validationStatus": "final CI pending for this source batch; PR checks and signed artifact evidence are authoritative",
+  "previousFamilyCandidateEvidence": "VALIDATION.family-v1.json",
+  "completedLocalChecks": {
+    "androidEnabledVariant": "421 JVM tests and debug/instrumentation APK compilation succeeded before final privacy/version follow-ups; final exact-source build in CI",
+    "runtimePreflightTests": 20,
+    "refundMigrationTests": "real SQLite, revocation before/after grant, idempotent retry, legacy owner enrollment, pagination retry passed",
+    "workerDryRun": "passed with BillingReconciliation migration/binding",
+    "sourceGates": "23 gates run; final exact-source CI required"
   },
-  "androidJvmTests": {
-    "tests": 421,
-    "failures": 0,
-    "errors": 0,
-    "skipped": 0
-  },
-  "sourceGates": {
-    "passed": 23,
-    "failed": 0
-  },
-  "syntaxAndParsing": {
-    "trackedAndNewFiles": 693,
-    "javascriptSyntaxChecks": 117,
-    "xml": 19,
-    "json": 6,
-    "failures": []
-  },
-  "dependencyAdvisories": {
-    "database": "OSV",
-    "scope": "resolved Android release Maven artifacts; not native internals, server supply chain or exploit reachability",
-    "components": 94,
-    "matches": []
-  },
-  "workerDryRun": "passed",
-  "localReleaseBuild": "cancelled before completion to avoid local resource pressure; full release checks passed in remote CI",
-  "localInstrumentation": {
-    "status": "incomplete; not a pass",
-    "completedBeforeTransportFailure": 22,
-    "expectedAtThatRun": 35,
-    "notes": "emulator transport loss and system-app ANRs; physical phone deferred by user; no emulator rerun/download permitted"
-  },
-  "emulatorCleanup": {
-    "deletedBytes": 6149388892,
-    "emulatorRemoved": true,
-    "systemImageRemoved": true,
-    "taskAvdRemoved": true
-  },
-  "physicalQa": {
-    "status": "APK/test APK and 421 JVM tests passed; physical phone deferred by user",
-    "applicationId": "com.rekixo.ludopaws.qa",
-    "apiBase": "https://127.0.0.1",
-    "productionDataIsolated": true,
-    "changesPhoneNetworkSettings": false,
-    "apkSha256": "534efb4153740a5161dfe29ff362da5a83a768cce35b0bb3b3ca9cf2484e33b9",
-    "webRtcNativeLibraryAbsent": true,
-    "sdkAutoInitProvidersRemoved": true
-  },
-  "remoteCi": {
-    "status": "passed",
-    "run": "https://github.com/rekixo-lab/ludopaws/actions/runs/39435086135",
-    "codeCommit": "16ae093fb8480274b0ce5fb05d6af82e7ce20420",
-    "jobs": {
-      "windows-runner-script": "success",
-      "server": "success",
-      "android": "success",
-      "android-instrumentation": "skipped"
-    },
-    "releaseApk": "passed",
-    "releaseAab": "passed",
-    "releaseLint": "passed",
-    "emulatorInstrumentation": "skipped by explicit run_android_instrumentation=false",
-    "artifacts": [
-      {
-        "name": "ludoproof-sbom",
-        "bytes": 10445,
-        "expired": false
-      },
-      {
-        "name": "ludoproof-release-candidate",
-        "bytes": 31157881,
-        "expired": false
-      },
-      {
-        "name": "ludoproof-debug-apk",
-        "bytes": 20961347,
-        "expired": false
-      }
-    ]
-  },
-  "scopeLimitations": [
-    "No zero-bug or worldwide legal-compliance guarantee",
-    "No physical-phone or complete enabled-staging validation",
-    "No new signed Play upload/internal-track approval",
-    "OSV scope is known advisories for resolved Maven artifacts, not native internals or exploit reachability"
-  ],
-  "validatedCodeCommit": "16ae093fb8480274b0ce5fb05d6af82e7ce20420",
-  "remoteCodeQL": {
-    "status": "passed",
-    "run": "https://github.com/rekixo-lab/ludopaws/actions/runs/39435091948",
-    "javascript": "success",
-    "androidKotlin": "success",
-    "openAlertsForBranch": 0
-  }
+  "deviceTesting": "deferred by user; no emulator execution or download authorized",
+  "consoleReportedByPublisher": "policy declarations completed; product/provider settings and real-device acceptance remain external",
+  "deployment": "not yet performed for this source batch"
 }

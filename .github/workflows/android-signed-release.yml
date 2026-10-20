@@ -2,6 +2,17 @@ name: LudoProof Android Signed Release
 
 on:
   workflow_dispatch:
+    inputs:
+      version_code:
+        description: Unused Play versionCode (must be greater than the highest uploaded code)
+        type: string
+        required: true
+        default: "3"
+      version_name:
+        description: Internal testing release version
+        type: string
+        required: true
+        default: "1.0.0-rc3"
 
 permissions:
   contents: read
@@ -14,17 +25,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE: ${{ inputs.version_code }}
+      ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_NAME: ${{ inputs.version_name }}
       LUDOPROOF_KEYSTORE_BASE64: ${{ secrets.LUDOPROOF_ANDROID_KEYSTORE_BASE64 }}
       LUDOPROOF_RELEASE_STORE_PASSWORD: ${{ secrets.LUDOPROOF_ANDROID_STORE_PASSWORD }}
       LUDOPROOF_RELEASE_KEY_ALIAS: ${{ secrets.LUDOPROOF_ANDROID_KEY_ALIAS }}
       LUDOPROOF_RELEASE_KEY_PASSWORD: ${{ secrets.LUDOPROOF_ANDROID_KEY_PASSWORD }}
       LUDOPROOF_API_BASE_URL: ${{ vars.LUDOPROOF_API_BASE_URL }}
+      LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: ${{ vars.LUDOPAWS_AD_SAFETY_REVIEW_APPROVED }}
+      LUDOPAWS_GOOGLE_LINKING_ENABLED: ${{ vars.LUDOPAWS_GOOGLE_LINKING_ENABLED }}
       GOOGLE_SIGN_IN_WEB_CLIENT_ID: ${{ vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID }}
-      LUDOPROOF_BILLING_ENABLED: "false"
-      GOOGLE_PLAY_BILLING_ENABLED: "false"
-      LUDOPROOF_ADS_ENABLED: "false"
-      LUDOPROOF_INTERSTITIAL_ADS_ENABLED: "false"
-      LUDOPROOF_ADMOB_SSV_ENABLED: "false"
+      LUDOPROOF_BILLING_ENABLED: ${{ vars.LUDOPROOF_BILLING_ENABLED }}
+      GOOGLE_PLAY_BILLING_ENABLED: ${{ vars.GOOGLE_PLAY_BILLING_ENABLED }}
+      LUDOPROOF_ADS_ENABLED: ${{ vars.LUDOPROOF_ADS_ENABLED }}
+      LUDOPROOF_INTERSTITIAL_ADS_ENABLED: ${{ vars.LUDOPROOF_INTERSTITIAL_ADS_ENABLED }}
+      LUDOPROOF_ADMOB_SSV_ENABLED: ${{ vars.LUDOPROOF_ADMOB_SSV_ENABLED }}
       LUDOPROOF_ADMOB_REWARD_ITEM: ${{ vars.LUDOPROOF_ADMOB_REWARD_ITEM }}
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}
@@ -93,6 +108,13 @@ jobs:
           if [ -z "$API_BASE" ]; then API_BASE="https://api.ludopaws.rekixo.com"; fi
           case "$API_BASE" in https://*) ;; *) echo "LUDOPROOF_API_BASE_URL must use HTTPS." >&2; exit 2 ;; esac
 
+          case "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE" in
+            ''|*[!0-9]*) echo "version_code must be a positive integer." >&2; exit 2 ;;
+          esac
+          if [ "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE" -lt 3 ]; then echo "version_code must be at least 3." >&2; exit 2; fi
+          if ! printf '%s' "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_NAME" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$'; then
+            echo "version_name must be a release version." >&2; exit 2
+          fi
           APP_BILLING="$LUDOPROOF_BILLING_ENABLED"
           SERVER_BILLING="$GOOGLE_PLAY_BILLING_ENABLED"
           APP_ADS="$LUDOPROOF_ADS_ENABLED"
@@ -182,6 +204,14 @@ jobs:
             }
             console.log("Worker is operationally ready; productionClaim=false.");
           ' "$ready_json"
+          capabilities_json="$(curl --fail --silent --show-error "$API_BASE/api/capabilities")"
+          node -e '
+            const caps = JSON.parse(process.argv[1]);
+            if (caps.releaseMode !== "FAMILY_V2" || !caps.multiplayer || caps.voice !== false || caps.freeTextChat !== false ||
+                caps.newGoogleLinking !== (process.env.LUDOPAWS_GOOGLE_LINKING_ENABLED === "true")) {
+              throw new Error("Live Worker does not match the reviewed family release capabilities.");
+            }
+          ' "$capabilities_json"
           status_json="$(curl --fail --silent --show-error "$API_BASE/api/store/status")"
           node -e '
             const status = JSON.parse(process.argv[1]);
@@ -216,6 +246,7 @@ jobs:
 
             # Gradle providers.gradleProperty() does not read the plain workflow environment keys.
             # ORG_GRADLE_PROJECT_* maps the validated release config into actual Gradle project properties.
+            printf 'ORG_GRADLE_PROJECT_LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=%s\n' "$LUDOPAWS_AD_SAFETY_REVIEW_APPROVED"
             printf 'ORG_GRADLE_PROJECT_LUDOPROOF_API_BASE_URL=%s\n' "$API_BASE"
             printf 'ORG_GRADLE_PROJECT_LUDOPROOF_BILLING_ENABLED=%s\n' "$APP_BILLING"
             printf 'ORG_GRADLE_PROJECT_LUDOPROOF_ADS_ENABLED=%s\n' "$APP_ADS"
@@ -251,7 +282,7 @@ jobs:
           fi
           for apk in "${release_apks[@]}"; do
             "$AAPT" dump permissions "$apk" > /tmp/ludopaws-signed-permissions.txt
-            if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)|com.android.vending.BILLING' /tmp/ludopaws-signed-permissions.txt; then
+            if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)' /tmp/ludopaws-signed-permissions.txt; then
               echo "Restricted audio, ads, or billing permission in signed APK: $apk" >&2
               exit 1
             fi
@@ -281,7 +312,7 @@ jobs:
       - name: Upload signed release evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: ludoproof-android-1.0.0-rc2-signed
+          name: ludopaws-android-internal-signed
           path: |
             android/app/build/outputs/apk/release/app-release.apk
             android/app/build/outputs/bundle/release/app-release.aab
