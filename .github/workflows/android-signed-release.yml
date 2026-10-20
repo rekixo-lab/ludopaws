@@ -7,12 +7,12 @@ on:
         description: Unused Play versionCode (must be greater than the highest uploaded code)
         type: string
         required: true
-        default: "3"
+        default: "4"
       version_name:
         description: Internal testing release version
         type: string
         required: true
-        default: "1.0.0-rc3"
+        default: "1.0.0-rc4"
 
 permissions:
   contents: read
@@ -111,7 +111,7 @@ jobs:
           case "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE" in
             ''|*[!0-9]*) echo "version_code must be a positive integer." >&2; exit 2 ;;
           esac
-          if [ "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE" -lt 3 ]; then echo "version_code must be at least 3." >&2; exit 2; fi
+          if [ "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE" -lt 4 ]; then echo "version_code must be at least 4." >&2; exit 2; fi
           if ! printf '%s' "$ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_NAME" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?$'; then
             echo "version_name must be a release version." >&2; exit 2
           fi

@@ -166,8 +166,8 @@ android {
         applicationId = "com.rekixo.ludopaws"
         minSdk = 28
         targetSdk = 36
-        versionCode = providers.gradleProperty("LUDOPAWS_VERSION_CODE").orElse("3").get().toInt().also { require(it >= 3) }
-        versionName = providers.gradleProperty("LUDOPAWS_VERSION_NAME").orElse("1.0.0-rc3").get()
+        versionCode = providers.gradleProperty("LUDOPAWS_VERSION_CODE").orElse("4").get().toInt().also { require(it >= 4) }
+        versionName = providers.gradleProperty("LUDOPAWS_VERSION_NAME").orElse("1.0.0-rc4").get()
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField(
