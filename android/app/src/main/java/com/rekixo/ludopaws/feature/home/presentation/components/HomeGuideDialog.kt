@@ -7,6 +7,7 @@ import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.openGameMode
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
+import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsObserver
 
 /**
  * First-run guide is optional, offline-safe, and asks for no personal data.
@@ -36,6 +37,7 @@ internal fun HomeActivity.showFirstRunGuideIfNeeded() {
             onDismissed = {
                 store.markSeen()
                 homeGuideVisible = false
+                if (!isFinishing && !isDestroyed) PlayAgeSignalsObserver.refreshOnce(this)
             },
         )
     }

@@ -54,6 +54,9 @@ jobs:
       - name: Pricing and in-app purchase policy contract gate
         working-directory: .
         run: node scripts/check-pricing-policy.mjs
+      - name: DOB-free Google Play age access contract
+        working-directory: .
+        run: node scripts/check-age-entry-policy.mjs
       - name: Server tests
         run: npm test
       - name: Production smoke syntax check

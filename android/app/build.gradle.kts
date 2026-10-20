@@ -289,6 +289,7 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.github.webrtc-sdk:android:144.7559.15")
     implementation("com.google.android.gms:play-services-games-v2:22.1.0")
+    implementation("com.google.android.play:age-signals:0.0.4")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

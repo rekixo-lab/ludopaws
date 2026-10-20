@@ -6,7 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.time.LocalDate
 
 class AgeAccessPolicyTest {
     @Test fun exactPlayAdultsAllowed() {
@@ -31,11 +30,11 @@ class AgeAccessPolicyTest {
         assertTrue(AgeAccessPolicy.canUseConnectedFeatures(AgeBand.ADULT))
     }
 
-    @Test fun fallbackNeverRetainsBirthDateAndHandlesLeapDays() {
-        val now = LocalDate.of(2026, 10, 19)
-        assertEquals(AgeBand.ADULT, AgeAccessPolicy.fromBirthDate(19, 10, 2008, now))
-        assertEquals(AgeBand.TEEN, AgeAccessPolicy.fromBirthDate(20, 10, 2008, now))
-        assertEquals(AgeBand.UNKNOWN, AgeAccessPolicy.fromBirthDate(31, 2, 2010, now))
-        assertEquals(AgeBand.UNKNOWN, AgeAccessPolicy.fromBirthDate(20, 10, 2026, now))
+    @Test fun openEndedUnderageAndUnknownSignalsNeverCountAsVerifiedAdults() {
+        assertEquals(AgeBand.UNKNOWN, AgeAccessPolicy.fromPlayRange(17, null))
+        assertEquals(AgeBand.UNKNOWN, AgeAccessPolicy.fromPlayRange(null, 18))
+        assertEquals(AgeBand.UNKNOWN, AgeAccessPolicy.fromPlayRange(16, 18))
+        assertEquals(AgeBand.CHILD, AgeAccessPolicy.fromPlayRange(11, 15))
+        assertEquals(AgeBand.TEEN, AgeAccessPolicy.fromPlayRange(15, 16))
     }
 }
