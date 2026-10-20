@@ -1,4 +1,4 @@
-import { rollResponse, publicStateWithHistory } from "./match-room-state.js";
+import { rulesetHashForState, rollResponse, publicStateWithHistory } from "./match-room-state.js";
 import { optionalTargetPlayerCount, normalizeMatchMode, optionalLeaderboardProfileId } from "./match-room-validation.js";
 import { readJson, json, errorResponse } from "./match-room-http.js";
 import { createFastDiceProof, FAST_DICE_PROTOCOL } from "./dice-fast.js";
