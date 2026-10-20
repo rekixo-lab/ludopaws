@@ -1,11 +1,14 @@
 package com.rekixo.ludopaws.feature.store.data.ads
 
 import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.rekixo.ludopaws.feature.account.data.AccountRepository
 import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.store.domain.PostWinInterstitialPolicy
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Coordinates the one non-rewarded ad placement against the current server-owned entitlement.
@@ -24,7 +27,9 @@ internal class PostWinInterstitialExitGate(
         Thread(task, "LudoPawsPostWinAdGate").apply { isDaemon = true }
     }
 
-    private var pending = false
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private var activeDecision: PostWinExitDecisionLatch? = null
+    private var pendingTimeout: Runnable? = null
     private var closed = false
 
     /**
@@ -37,11 +42,26 @@ internal class PostWinInterstitialExitGate(
         onSkipAd: () -> Unit,
     ): Boolean {
         if (!interstitial.isReady() || activity.isFinishing || activity.isDestroyed) return false
-        synchronized(this) {
+        val decision = synchronized(this) {
             if (closed) return false
-            if (pending) return true
-            pending = true
+            if (activeDecision != null) return true
+            PostWinExitDecisionLatch().also { activeDecision = it }
         }
+        // Never hold the winning-screen exit hostage to session refresh or a slow wallet.
+        // The 1.2-second budget is independent of the normal 20s+ network timeouts.
+        val timeout = Runnable {
+            if (decision.complete()) {
+                synchronized(this) {
+                    if (activeDecision === decision) {
+                        activeDecision = null
+                        pendingTimeout = null
+                    }
+                }
+                if (!closed && !activity.isFinishing && !activity.isDestroyed) onSkipAd()
+            }
+        }
+        synchronized(this) { pendingTimeout = timeout }
+        mainHandler.postDelayed(timeout, MAX_EXIT_WAIT_MS)
 
         try {
             executor.execute {
@@ -68,7 +88,14 @@ internal class PostWinInterstitialExitGate(
                 }
 
                 activity.runOnUiThread {
-                    synchronized(this) { pending = false }
+                    if (!decision.complete()) return@runOnUiThread
+                    mainHandler.removeCallbacks(timeout)
+                    synchronized(this) {
+                        if (activeDecision === decision) {
+                            activeDecision = null
+                            pendingTimeout = null
+                        }
+                    }
                     if (closed || activity.isFinishing || activity.isDestroyed) return@runOnUiThread
 
                     if (
@@ -84,7 +111,14 @@ internal class PostWinInterstitialExitGate(
                 }
             }
         } catch (error: Exception) {
-            synchronized(this) { pending = false }
+            mainHandler.removeCallbacks(timeout)
+            decision.cancel()
+            synchronized(this) {
+                if (activeDecision === decision) {
+                    activeDecision = null
+                    pendingTimeout = null
+                }
+            }
             Log.w(TAG, "Could not schedule the post-win entitlement check; skipping interstitial", error)
             return false
         }
@@ -92,11 +126,25 @@ internal class PostWinInterstitialExitGate(
     }
 
     fun close() {
-        synchronized(this) { closed = true }
+        synchronized(this) {
+            closed = true
+            activeDecision?.cancel()
+            activeDecision = null
+            pendingTimeout?.let(mainHandler::removeCallbacks)
+            pendingTimeout = null
+        }
         executor.shutdownNow()
     }
 
     private companion object {
         const val TAG = "LudoPawsPostWinAdGate"
+        const val MAX_EXIT_WAIT_MS = 1_200L
     }
+}
+
+/** One resolution only: wallet completion, timeout, or lifecycle cancellation. */
+internal class PostWinExitDecisionLatch {
+    private val completed = AtomicBoolean(false)
+    fun complete(): Boolean = completed.compareAndSet(false, true)
+    fun cancel() { completed.set(true) }
 }
