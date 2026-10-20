@@ -279,6 +279,46 @@ test("team forfeiture and turn-timeout snapshots contain public state without an
   assert.equal((await ctx.storage.get("match-state")).status, "FINISHED");
 });
 
+test("Friends voice peers recover from a dropped signaling socket without stale connected peers", async () => {
+  const { room, ctx, host, players, sender, receiver } = await setup();
+  // Authorized room state fixture: this test isolates signaling and reconnection;
+  // friend invitation / token validation is covered by its own integration suite.
+  const state = await ctx.storage.get("match-state");
+  state.matchMode = "FRIENDS";
+  await ctx.storage.put("match-state", state);
+  await room.webSocketMessage(sender, JSON.stringify({ type: "VOICE_JOIN" }));
+  await room.webSocketMessage(receiver, JSON.stringify({ type: "VOICE_JOIN" }));
+  assert.deepEqual(sender.messages.findLast((m) => m.type === "VOICE_PEERS").playerIds, [players[1].playerId]);
+  assert.deepEqual(receiver.messages.findLast((m) => m.type === "VOICE_PEERS").playerIds, [host.playerId]);
+
+  await room.webSocketMessage(sender, JSON.stringify({
+    type: "VOICE_SIGNAL", toPlayerId: players[1].playerId,
+    signal: { type: "offer", sdp: "v=0\\n" },
+  }));
+  assert.equal(receiver.messages.findLast((m) => m.type === "VOICE_SIGNAL").fromPlayerId, host.playerId);
+  await room.webSocketClose(receiver, 1000, "backgrounded");
+  assert.deepEqual(sender.messages.findLast((m) => m.type === "VOICE_PEERS").playerIds, []);
+
+  // Rejoined from a newly authenticated connection; the old socket must not rejoin.
+  const recovered = fakeSocket(["player:" + players[1].playerId]);
+  ctx.getWebSockets().push(recovered);
+  await room.webSocketMessage(recovered, JSON.stringify({ type: "VOICE_JOIN" }));
+  assert.deepEqual(sender.messages.findLast((m) => m.type === "VOICE_PEERS").playerIds, [players[1].playerId]);
+  assert.deepEqual(recovered.messages.findLast((m) => m.type === "VOICE_PEERS").playerIds, [host.playerId]);
+});
+
+test("non-Friends matches cannot activate private voice signaling", async () => {
+  const { room, sender, receiver, players } = await setup({ mode: "ONLINE" });
+  await room.webSocketMessage(sender, JSON.stringify({ type: "VOICE_JOIN" }));
+  await room.webSocketMessage(receiver, JSON.stringify({ type: "VOICE_JOIN" }));
+  await room.webSocketMessage(sender, JSON.stringify({
+    type: "VOICE_SIGNAL", toPlayerId: players[1].playerId,
+    signal: { type: "offer", sdp: "v=0\\n" },
+  }));
+  assert.equal(receiver.messages.some((m) => m.type === "VOICE_SIGNAL"), false);
+  assert.equal(sender.attachment.voiceJoined, false);
+});
+
 test("router sends authenticated gameplay directly to room and retains gate for public joins", async () => {
   const calls = [];
   let gateCalls = 0;
