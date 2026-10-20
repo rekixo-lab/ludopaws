@@ -42,6 +42,11 @@ require(!(ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) || adSafetyRev
     "Advertising cannot be enabled before explicit target-age, Families, privacy and consent review. " +
         "After approval set LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true."
 }
+// Until independently authorized connected-age access is available, an offline-only
+// package must not initialize Billing or Ads regardless of unrelated opt-in flags.
+require(!(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
+    "The age-safe offline-only release cannot enable purchases, rewarded ads or interstitials."
+}
 val admobAppId =
     providers.gradleProperty("ADMOB_APP_ID")
         .orElse("ca-app-pub-9987799703505828~1411336271")
