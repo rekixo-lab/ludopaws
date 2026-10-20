@@ -92,7 +92,9 @@ if (vars.LUDOPROOF_AGE_SAFETY_MODE !== "LOCKDOWN") {
   process.exit(2);
 }
 if (vars.GOOGLE_PLAY_BILLING_ENABLED !== "false" ||
-    vars.LUDOPROOF_ADMOB_SSV_ENABLED !== "false") {
+    vars.LUDOPROOF_ADMOB_SSV_ENABLED !== "false" ||
+    String(process.env.LUDOPROOF_BILLING_ENABLED ?? "false") !== "false" ||
+    String(process.env.LUDOPROOF_ADS_ENABLED ?? "false") !== "false") {
   console.error("Billing and rewarded ads must be disabled in age safety lockdown.");
   process.exit(2);
 }

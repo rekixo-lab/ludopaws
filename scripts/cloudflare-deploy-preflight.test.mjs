@@ -12,7 +12,8 @@ const preflightScript = path.join(repoRoot, "scripts", "cloudflare-deploy-prefli
 const adUnit = "ca-app-pub-1234567890123456/1234567890";
 const appId = "ca-app-pub-1234567890123456~1234567890";
 
-function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = true }) {
+function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = true,
+  operatorBilling = billingEnabled, operatorAds = adsEnabled }) {
   const baseConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, "server", "wrangler.json"), "utf8"));
   const runtimeEnvironment = {
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: "1234567890-exampleclient.apps.googleusercontent.com",
@@ -50,6 +51,8 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
         CLOUDFLARE_API_TOKEN: "test-token-not-used-by-preflight",
         CLOUDFLARE_ACCOUNT_ID: "8f31060fbcfee2b3e9309138cad7f12f",
         LUDOPROOF_SESSION_HMAC_KEY: "",
+        LUDOPROOF_BILLING_ENABLED: String(operatorBilling),
+        LUDOPROOF_ADS_ENABLED: String(operatorAds),
       },
     });
   } finally {
@@ -85,7 +88,7 @@ test("deployment workflow checks the Cloudflare private key before enabling Bill
   const workflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "deploy-cloudflare.yml"), "utf8");
   const secretStep = workflow.split("name: Verify Google Play service-account secret when Billing is enabled")[1]?.split("name: Wrangler production dry run")[0] ?? "";
   assert.ok(secretStep.includes("GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY"));
-  assert.ok(secretStep.includes("vars.GOOGLE_PLAY_BILLING_ENABLED == 'true'"));
+  assert.ok(secretStep.includes("env.GOOGLE_PLAY_BILLING_ENABLED == 'true'"));
   const statusStep = workflow.split("name: Verify store status route and feature flags")[1]?.split("name: Verify live production game flow")[0] ?? "";
   assert.ok(statusStep.includes('const expectedBilling = process.env.GOOGLE_PLAY_BILLING_ENABLED === "true";'));
   assert.ok(statusStep.includes("body.billingAvailable !== expectedBilling"));
@@ -108,3 +111,25 @@ test("production readiness verifier reads its response from the explicit READY_F
   assert.equal(inlineNodeScript.includes("'"), false, "single-quoted bash inline script must not contain unescaped apostrophes");
 });
 
+
+test("production preflight refuses stale Android billing/ads operator flags even with Worker flags disabled", () => {
+  for (const override of [{ operatorBilling: true }, { operatorAds: true }]) {
+    const result = runPreflight({ adsEnabled: false, billingEnabled: false, ...override });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
+  }
+});
+
+test("production deployment pins every monetization toggle to false despite stale GitHub vars", () => {
+  const workflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "deploy-cloudflare.yml"), "utf8");
+  for (const key of [
+    "GOOGLE_PLAY_BILLING_ENABLED", "LUDOPROOF_BILLING_ENABLED",
+    "LUDOPROOF_ADMOB_SSV_ENABLED", "LUDOPROOF_ADS_ENABLED",
+  ]) {
+    assert.ok(workflow.includes("      " + key + ': "false"'), key + " must remain off");
+    assert.equal(workflow.includes("      " + key + ": " + "$" + "{{ vars." + key + " }}"), false);
+  }
+  assert.ok(workflow.includes("LUDOPROOF_AGE_SAFETY_MODE: LOCKDOWN"));
+  assert.ok(workflow.includes("environment: production"));
+  assert.ok(workflow.includes("workflow_dispatch:"));
+});

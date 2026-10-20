@@ -26,12 +26,15 @@ jobs:
       LUDOPROOF_SESSION_HMAC_KEY: ${{ secrets.LUDOPROOF_SESSION_HMAC_KEY }}
       GOOGLE_SIGN_IN_WEB_CLIENT_ID: ${{ vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID }}
       LUDOPROOF_ACCOUNT_WEB_ORIGIN: ${{ vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN }}
+      # Hard-pin monetization OFF in this release. Historical GitHub production
+      # variables were still true and caused Cloudflare Production #83 to fail.
+      # Only a reviewed trusted-age release may change these explicit flags.
       GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL }}
-      GOOGLE_PLAY_BILLING_ENABLED: ${{ vars.GOOGLE_PLAY_BILLING_ENABLED }}
-      LUDOPROOF_BILLING_ENABLED: ${{ vars.LUDOPROOF_BILLING_ENABLED }}
-      LUDOPROOF_ADMOB_SSV_ENABLED: ${{ vars.LUDOPROOF_ADMOB_SSV_ENABLED }}
+      GOOGLE_PLAY_BILLING_ENABLED: "false"
+      LUDOPROOF_BILLING_ENABLED: "false"
+      LUDOPROOF_ADMOB_SSV_ENABLED: "false"
       LUDOPROOF_AGE_SAFETY_MODE: LOCKDOWN
-      LUDOPROOF_ADS_ENABLED: ${{ vars.LUDOPROOF_ADS_ENABLED }}
+      LUDOPROOF_ADS_ENABLED: "false"
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}
       LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID }}
@@ -57,7 +60,7 @@ jobs:
         run: node scripts/cloudflare-deploy-preflight.mjs
 
       - name: Verify Google Play service-account secret when Billing is enabled
-        if: ${{ vars.GOOGLE_PLAY_BILLING_ENABLED == 'true' }}
+        if: ${{ env.GOOGLE_PLAY_BILLING_ENABLED == 'true' }}
         working-directory: server
         shell: bash
         run: |
