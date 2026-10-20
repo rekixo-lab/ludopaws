@@ -47,10 +47,13 @@ test("lockdown uses server-only config, never client age assertions", () => {
     new Request("https://api.ludopaws.rekixo.com/api/friends/register?age=adult"),
     { LUDOPROOF_AGE_SAFETY_MODE: "LOCKDOWN" },
   ).status, 403);
-  assert.equal(ageSafetyBlockResponse(
-    new Request("https://api.ludopaws.rekixo.com/api/friends/register"),
-    {},
-  ), null);
+  for (const env of [{}, undefined, { LUDOPROOF_AGE_SAFETY_MODE: "OPEN" },
+    { LUDOPROOF_AGE_SAFETY_MODE: "LOCKD0WN" }]) {
+    assert.equal(ageSafetyBlockResponse(
+      new Request("https://api.ludopaws.rekixo.com/api/friends/register"),
+      env,
+    ).status, 403, "misconfiguration must never allow connected gameplay");
+  }
 });
 
 test("outermost Worker rejects direct requests before downstream account routing", async () => {
@@ -69,5 +72,32 @@ test("outermost Worker rejects direct requests before downstream account routing
     }), env);
     assert.equal(response.status, 403, path);
     assert.equal((await response.json()).error, "AGE_ACCESS_NOT_AVAILABLE", path);
+  }
+});
+
+test("outer Worker remains locked down if vars disappear or are invalid", async () => {
+  for (const env of [{}, { LUDOPROOF_AGE_SAFETY_MODE: "ENABLED" }]) {
+    for (const path of ["/api/matches", "/api/friends/report",
+      "/api/account/guest", "/api/wallet/cosmetics/purchase",
+      "/api/store/purchases/verify", "/api/matches/LPABCDEFG/events"]) {
+      const r = await accountWorker.fetch(new Request("https://api.example.test" + path, {
+        method: "POST",
+        headers: { "x-age": "adult", authorization: "Bearer forged" },
+      }), env);
+      assert.equal(r.status, 403, path);
+      assert.equal((await r.json()).error, "AGE_ACCESS_NOT_AVAILABLE", path);
+    }
+  }
+});
+
+test("fail closed without breaking account deletion and basic operational status", () => {
+  for (const env of [{}, { LUDOPROOF_AGE_SAFETY_MODE: "OPEN" }]) {
+    for (const path of ["/api/account/delete", "/api/account/guest/delete",
+      "/api/account/guest/deletion-code", "/api/account/logout",
+      "/health", "/ready"]) {
+      assert.equal(ageSafetyBlockResponse(
+        new Request("https://api.example.test" + path), env,
+      ), null, path);
+    }
   }
 });

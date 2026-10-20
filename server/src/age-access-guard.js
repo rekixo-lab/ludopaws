@@ -38,7 +38,12 @@ export function isAgeRestrictedEndpoint(pathname) {
  * claim that under-age/parental permission is independently implemented.
  */
 export function ageSafetyBlockResponse(request, env) {
-  if (env?.LUDOPROOF_AGE_SAFETY_MODE !== "LOCKDOWN") return null;
+  // Deliberately fail CLOSED on missing, misspelled, removed or overridden
+  // release flags. There is no server-verifiable age-eligibility issuer yet,
+  // so neither an operator flag nor a client claim may unlock social endpoints.
+  // Keep the parameter for API compatibility; opening gameplay in the future
+  // requires a separate, reviewed per-request trusted-eligibility protocol.
+  void env;
   const url = new URL(request.url);
   if (!isAgeRestrictedEndpoint(url.pathname)) return null;
   return new Response(JSON.stringify({
