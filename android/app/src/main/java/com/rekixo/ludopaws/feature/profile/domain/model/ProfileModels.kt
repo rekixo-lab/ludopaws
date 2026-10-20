@@ -30,6 +30,7 @@ data class ProfileSnapshot(
     val totalXp: Int = 0,
     val onlineGames: Int = 0,
     val localGames: Int = 0,
+    val bestDayStreak: Int = 0,
     val classic: ProfileModeStats = ProfileModeStats(),
     val rush: ProfileModeStats = ProfileModeStats(),
     val snakeLadder: ProfileModeStats = ProfileModeStats(),
@@ -49,4 +50,6 @@ data class ProfileBadge(
     val symbol: String,
     val unlocked: Boolean,
     val requirement: String,
+    val progressCurrent: Int = 0,
+    val progressGoal: Int = 1,
 )
