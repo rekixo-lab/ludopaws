@@ -26,7 +26,9 @@ class LudoProofApplication :
 
     override fun onCreate() {
         super.onCreate()
-        PlayGamesSdk.initialize(this)
+        if (BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
+            PlayGamesSdk.initialize(this)
+        }
         // Prime the process-local cosmetic mirror before any remote create/join
         // request can be sent. Character selection remains presentation-only.
         CharacterSelectionStore(this).load()
@@ -34,8 +36,10 @@ class LudoProofApplication :
             FriendPresenceController(this)
         // Create/restore the guest session off the UI thread. If the network is
         // unavailable, gameplay remains usable; monetized store actions fail closed.
-        accountBootstrapExecutor.execute {
-            runCatching { accountRepository.ensureGuestSession() }
+        if (BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
+            accountBootstrapExecutor.execute {
+                runCatching { accountRepository.ensureGuestSession() }
+            }
         }
         registerActivityLifecycleCallbacks(this)
     }
@@ -52,6 +56,7 @@ class LudoProofApplication :
         resumedActivities += 1
         if (resumedActivities == 1) {
             if (
+                BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
                 !friendPresencePausedForAccountSwitch &&
                 accountRepository.canStartFriendPresence()
             ) {
@@ -82,7 +87,8 @@ class LudoProofApplication :
 
     fun resumeFriendPresenceAfterAccountSwitch() {
         friendPresencePausedForAccountSwitch = false
-        if (resumedActivities > 0 && !accountRepository.requiresIdentityRecovery()) {
+        if (BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
+            resumedActivities > 0 && !accountRepository.requiresIdentityRecovery()) {
             friendPresence.start()
         }
     }

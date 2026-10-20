@@ -214,7 +214,7 @@ export default {
 
       const friendRoute =
         url.pathname.match(
-          /^\/api\/friends\/(register|snapshot|heartbeat|request|request\/respond|remove|invite|invite\/respond)$/,
+          /^\/api\/friends\/(register|snapshot|heartbeat|request|request\/respond|remove|invite|invite\/respond|block|unblock|report)$/,
         );
       if (friendRoute) {
         const action =
@@ -234,7 +234,7 @@ export default {
           request,
           "friends:" +
             action,
-          RATE_POLICIES.friends,
+          action === "report" ? 5 : action === "block" || action === "unblock" ? 15 : RATE_POLICIES.friends,
         );
 
         const headers =

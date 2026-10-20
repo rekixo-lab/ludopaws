@@ -13,6 +13,7 @@ test("runtime vars require a valid Google Web OAuth client and the account-site 
   assert.equal(vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID, valid.GOOGLE_SIGN_IN_WEB_CLIENT_ID);
   assert.equal(vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN, ACCOUNT_WEB_ORIGIN);
   assert.equal(vars.APP_ENVIRONMENT, "test");
+  assert.equal(vars.LUDOPROOF_AGE_SAFETY_MODE, "LOCKDOWN");
 });
 
 test("runtime store flags fail closed when GitHub variables are unset", () => {
@@ -107,3 +108,11 @@ test("feature flags reject ambiguous or non-canonical values instead of interpre
   );
 });
 
+
+test("untrusted environment and existing dashboard vars cannot bypass age lockdown", () => {
+  const vars = buildCloudflareRuntimeVars(
+    { LUDOPROOF_AGE_SAFETY_MODE: "ENABLED" },
+    { ...valid, LUDOPROOF_AGE_SAFETY_MODE: "ENABLED" },
+  );
+  assert.equal(vars.LUDOPROOF_AGE_SAFETY_MODE, "LOCKDOWN");
+});

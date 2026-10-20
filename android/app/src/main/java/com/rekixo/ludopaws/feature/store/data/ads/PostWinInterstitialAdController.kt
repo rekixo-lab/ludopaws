@@ -72,13 +72,14 @@ internal class PostWinInterstitialAdController(
      * immediately when false; there is no wait screen or delayed navigation for ad loading.
      */
     fun isReady(): Boolean =
-        enabled && !closed && !showConsumed && !showing && interstitialAd != null
+        enabled && !closed && !showConsumed && !showing &&
+            consentInformation.canRequestAds() && interstitialAd != null
 
     fun showIfReady(
         onAdDismissed: () -> Unit,
         onFailedToShow: () -> Unit,
     ): Boolean {
-        if (!enabled || closed || showConsumed || showing) return false
+        if (!enabled || closed || showConsumed || showing || !consentInformation.canRequestAds()) return false
         val ad = interstitialAd ?: return false
 
         interstitialAd = null

@@ -20,6 +20,7 @@ const INVITE_TTL_MS =
   24 * 60 * 60 * 1000;
 const JOIN_TOKEN_TTL_MS =
   5 * 60 * 1000;
+const REPORT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
 export class FriendDirectory {
   constructor(ctx, env) {
@@ -127,8 +128,51 @@ export class FriendDirectory {
         )`);
         sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_conversation_index_other ON friend_conversation_index(other_friend_id, friend_id)");
         sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_recent_index_opponent ON friend_recent_index(opponent_friend_id, owner_friend_id)");
+        // A block is directional, but protection works in both directions.
+        sql.exec(`CREATE TABLE IF NOT EXISTS friend_blocks (
+          blocker_id TEXT NOT NULL, blocked_id TEXT NOT NULL, created_at INTEGER NOT NULL,
+          PRIMARY KEY (blocker_id, blocked_id)
+        )`);
+        sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_blocks_target ON friend_blocks(blocked_id)");
+        // Metadata-only reports; never store raw chat content in moderation records.
+        sql.exec(`CREATE TABLE IF NOT EXISTS friend_reports (
+          request_id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL, target_id TEXT NOT NULL,
+          reason TEXT NOT NULL, created_at INTEGER NOT NULL,
+          status TEXT NOT NULL DEFAULT 'OPEN', resolved_at INTEGER, reviewer_id TEXT
+        )`);
+        sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_author ON friend_reports(reporter_id, created_at)");
+        sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_status ON friend_reports(status, created_at)");
+        sql.exec(`CREATE TABLE IF NOT EXISTS friend_suspensions (
+          friend_id TEXT PRIMARY KEY, until_at INTEGER NOT NULL,
+          report_id TEXT NOT NULL, moderator_id TEXT NOT NULL
+        )`);
+        sql.exec(`CREATE TABLE IF NOT EXISTS friend_report_messages (
+          report_id TEXT PRIMARY KEY, message_id TEXT NOT NULL
+        )`);
       },
     );
+  }
+
+  async alarm() {
+    this.ctx.storage.sql.exec(
+      "DELETE FROM friend_report_messages WHERE report_id IN (SELECT request_id FROM friend_reports WHERE created_at < ?)",
+      Date.now() - REPORT_RETENTION_MS,
+    );
+    this.ctx.storage.sql.exec(
+      "DELETE FROM friend_reports WHERE created_at < ?",
+      Date.now() - REPORT_RETENTION_MS,
+    );
+    await this.#scheduleReportCleanup();
+  }
+
+  async #scheduleReportCleanup() {
+    if (typeof this.ctx.storage.setAlarm !== "function") return;
+    const next = [...this.ctx.storage.sql.exec(
+      "SELECT MIN(created_at) AS oldest FROM friend_reports",
+    )][0]?.oldest;
+    if (next != null) {
+      await this.ctx.storage.setAlarm(Math.max(Date.now() + 1000, Number(next) + REPORT_RETENTION_MS + 1));
+    }
   }
 
   async fetch(request) {
@@ -173,6 +217,13 @@ export class FriendDirectory {
       if (request.method === "POST" && url.pathname === "/account/delete-preview") return await this.#previewAccountDeletion(request);
       if (request.method === "POST" && url.pathname === "/account/delete") return await this.#deleteAccount(request);
 
+      if (request.method === "POST" && url.pathname === "/block") return await this.#blockFriend(request);
+      if (request.method === "POST" && url.pathname === "/unblock") return await this.#unblockFriend(request);
+      if (request.method === "POST" && url.pathname === "/report") return await this.#reportFriend(request);
+      // These methods are invoked only through the authenticated Worker admin path.
+      if (request.method === "POST" && url.pathname === "/moderation/list") return this.#listReports();
+      if (request.method === "POST" && url.pathname === "/moderation/evidence") return await this.#moderationEvidence(request);
+      if (request.method === "POST" && url.pathname === "/moderation/resolve") return await this.#resolveReport(request);
       if (
         request.method ===
           "GET" &&
@@ -275,6 +326,233 @@ export class FriendDirectory {
         error,
       );
     }
+  }
+
+  #listReports() {
+    const reports = [...this.ctx.storage.sql.exec(
+      "SELECT r.request_id, r.reporter_id, r.target_id, r.reason, r.created_at, r.status, c.message_id FROM friend_reports AS r LEFT JOIN friend_report_messages AS c ON c.report_id = r.request_id WHERE r.status = 'OPEN' ORDER BY r.created_at ASC LIMIT 100",
+    )];
+    return json(200, { ok: true, reports });
+  }
+
+  async #moderationEvidence(request) {
+    const body = await readJson(request);
+    const requestId = requireClientRequestId(body?.reportId);
+    const report = [...this.ctx.storage.sql.exec(
+      "SELECT r.reporter_id, r.target_id, c.message_id FROM friend_reports r LEFT JOIN friend_report_messages c ON c.report_id = r.request_id WHERE r.request_id = ? LIMIT 1",
+      requestId,
+    )][0];
+    if (!report) throw httpError(404, "REPORT_NOT_FOUND", "report was not found");
+    if (!report.message_id) return json(200, { ok: true, evidence: null });
+    if (!this.env?.LUDOPROOF_FRIEND_CONVERSATIONS) {
+      throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    }
+    const namespace = this.env.LUDOPROOF_FRIEND_CONVERSATIONS;
+    const pair = [String(report.reporter_id), String(report.target_id)].sort().join(":");
+    const target = namespace.get(namespace.idFromName(pair));
+    const response = await target.fetch(new Request("https://conversation/moderation/lookup", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        senderId: report.target_id, receiverId: report.reporter_id,
+        messageId: report.message_id,
+      }),
+    }));
+    let value;
+    try { value = await response.json(); } catch {
+      throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    }
+    if (response.status === 404) return json(200, { ok: true, evidence: null, expired: true });
+    if (!response.ok) throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    return json(200, { ok: true, evidence: value.evidence });
+  }
+
+  async #resolveReport(request) {
+    const body = await readJson(request);
+    const requestId = requireClientRequestId(body?.reportId);
+    const outcome = body?.outcome;
+    const reviewerId = body?.reviewerId;
+    const suspendHours = body?.suspendHours;
+    if (!["REVIEWED", "DISMISSED", "ACTIONED"].includes(outcome)) {
+      throw httpError(400, "REPORT_OUTCOME_INVALID", "invalid moderation decision");
+    }
+    if (typeof reviewerId !== "string" || !/^[0-9a-f-]{36}$/i.test(reviewerId)) {
+      throw httpError(400, "MODERATOR_INVALID", "a moderator account is required");
+    }
+    if (outcome === "ACTIONED" && ![1, 24, 168, 720].includes(suspendHours)) {
+      throw httpError(400, "SUSPENSION_DURATION_INVALID", "choose an approved suspension duration");
+    }
+    if (outcome !== "ACTIONED" && suspendHours != null) {
+      throw httpError(400, "SUSPENSION_DURATION_INVALID", "only enforcement actions can suspend users");
+    }
+    const records = [...this.ctx.storage.sql.exec(
+      "SELECT status, reviewer_id, target_id FROM friend_reports WHERE request_id = ? LIMIT 1", requestId,
+    )];
+    if (!records.length) throw httpError(404, "REPORT_NOT_FOUND", "report was not found");
+    if (records[0].status !== "OPEN") {
+      if (records[0].status !== outcome || records[0].reviewer_id !== reviewerId) {
+        throw httpError(409, "REPORT_ALREADY_RESOLVED", "report has already been reviewed");
+      }
+      return json(200, { ok: true, replayed: true });
+    }
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        "UPDATE friend_reports SET status = ?, resolved_at = ?, reviewer_id = ? WHERE request_id = ? AND status = 'OPEN'",
+        outcome, now, reviewerId, requestId,
+      );
+      if (outcome === "ACTIONED") {
+        const targetId = String(records[0].target_id);
+        const until = now + suspendHours * 60 * 60 * 1000;
+        this.ctx.storage.sql.exec(
+          `INSERT INTO friend_suspensions (friend_id, until_at, report_id, moderator_id)
+           VALUES (?, ?, ?, ?) ON CONFLICT(friend_id) DO UPDATE SET
+           until_at = MAX(friend_suspensions.until_at, excluded.until_at),
+           report_id = excluded.report_id, moderator_id = excluded.moderator_id`,
+          targetId, until, requestId, reviewerId,
+        );
+      }
+    });
+    return json(200, { ok: true, replayed: false });
+  }
+
+  #isBlocked(first, second) {
+    return [...this.ctx.storage.sql.exec(
+      "SELECT 1 FROM friend_blocks WHERE (blocker_id = ? AND blocked_id = ?) OR (blocker_id = ? AND blocked_id = ?) LIMIT 1",
+      first, second, second, first,
+    )].length > 0;
+  }
+
+  #assertNotBlocked(first, second) {
+    if (this.#isBlocked(first, second)) {
+      throw httpError(403, "FRIEND_BLOCKED", "interaction is unavailable between these players");
+    }
+  }
+
+  async #blockFriend(request) {
+    const me = await this.#authorize(request);
+    const body = await readJson(request);
+    const target = normalizeFriendId(body?.friendId);
+    if (target === me.friendId) throw httpError(400, "CANNOT_BLOCK_SELF", "you cannot block yourself");
+    if (!this.#profile(target)) throw httpError(404, "FRIEND_NOT_FOUND", "friend ID was not found");
+    const [first, second] = canonicalPair(me.friendId, target);
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        "INSERT OR IGNORE INTO friend_blocks (blocker_id, blocked_id, created_at) VALUES (?, ?, ?)",
+        me.friendId, target, now,
+      );
+      // A blocked account must not contact the blocker through an old friendship,
+      // pending request or accepted invitation. Unblock never restores friendship.
+      this.ctx.storage.sql.exec("DELETE FROM friendships WHERE friend_a = ? AND friend_b = ?", first, second);
+      this.ctx.storage.sql.exec(
+        "DELETE FROM friend_requests WHERE (sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)",
+        first, second, second, first,
+      );
+      this.ctx.storage.sql.exec(
+        "UPDATE friend_invites SET status = 'REVOKED', updated_at = ? WHERE ((sender_id = ? AND receiver_id = ?) OR (sender_id = ? AND receiver_id = ?)) AND status IN ('PENDING', 'ACCEPTED')",
+        now, first, second, second, first,
+      );
+      this.ctx.storage.sql.exec(
+        "DELETE FROM friend_conversation_index WHERE (friend_id = ? AND other_friend_id = ?) OR (friend_id = ? AND other_friend_id = ?)",
+        first, second, second, first,
+      );
+    });
+    return json(200, { ok: true, blocked: true, friendId: target });
+  }
+
+  async #unblockFriend(request) {
+    const me = await this.#authorize(request);
+    const body = await readJson(request);
+    const target = normalizeFriendId(body?.friendId);
+    this.ctx.storage.sql.exec(
+      "DELETE FROM friend_blocks WHERE blocker_id = ? AND blocked_id = ?",
+      me.friendId, target,
+    );
+    return json(200, { ok: true, blocked: false, friendId: target });
+  }
+
+  async #validateReportedMessage(reporterId, senderId, messageId) {
+    if (!this.env?.LUDOPROOF_FRIEND_CONVERSATIONS) {
+      throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence storage unavailable");
+    }
+    const namespace = this.env.LUDOPROOF_FRIEND_CONVERSATIONS;
+    const pair = [reporterId, senderId].sort().join(":");
+    const target = namespace.get(namespace.idFromName(pair));
+    const response = await target.fetch(new Request("https://conversation/list", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ meId: reporterId, otherId: senderId }),
+    }));
+    let data;
+    try { data = await response.json(); }
+    catch { throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence unavailable"); }
+    if (!response.ok) {
+      // Never disclose whether a third party's conversation exists.
+      const unavailable = response.status >= 500;
+      throw httpError(unavailable ? 503 : 404,
+        unavailable ? "REPORT_EVIDENCE_UNAVAILABLE" : "REPORTED_MESSAGE_NOT_FOUND",
+        unavailable ? "message evidence unavailable" : "reported message was not found");
+    }
+    const found = Array.isArray(data?.messages) && data.messages.some(
+      (message) => message.messageId === messageId &&
+        message.senderId === senderId && message.receiverId === reporterId,
+    );
+    if (!found) throw httpError(404, "REPORTED_MESSAGE_NOT_FOUND", "reported message was not found");
+  }
+
+  async #reportFriend(request) {
+    const me = await this.#authorize(request);
+    const body = await readJson(request);
+    const target = normalizeFriendId(body?.friendId);
+    const reason = body?.reason;
+    const requestId = requireClientRequestId(body?.clientRequestId);
+    const messageId = body?.messageId == null ? null : requireClientRequestId(body.messageId);
+    const reasons = new Set(["HARASSMENT", "SPAM", "HATE", "THREATS", "SEXUAL_CONTENT", "OTHER"]);
+    if (target === me.friendId) throw httpError(400, "CANNOT_REPORT_SELF", "you cannot report yourself");
+    if (!this.#profile(target)) throw httpError(404, "FRIEND_NOT_FOUND", "friend ID was not found");
+    if (!reasons.has(reason)) throw httpError(400, "REPORT_REASON_INVALID", "choose a valid report reason");
+    const existing = [...this.ctx.storage.sql.exec(
+      "SELECT reporter_id, target_id, reason FROM friend_reports WHERE request_id = ? LIMIT 1",
+      requestId,
+    )];
+    if (existing.length) {
+      if (existing[0].reporter_id !== me.friendId || existing[0].target_id !== target || existing[0].reason !== reason) {
+        throw httpError(409, "REPORT_ID_CONFLICT", "report request ID was already used");
+      }
+      const context = [...this.ctx.storage.sql.exec(
+        "SELECT message_id FROM friend_report_messages WHERE report_id = ? LIMIT 1", requestId,
+      )][0]?.message_id ?? null;
+      if (context !== messageId) throw httpError(409, "REPORT_ID_CONFLICT", "report request ID was already used");
+      return json(200, { ok: true, reported: true, replayed: true });
+    }
+    if (messageId != null) await this.#validateReportedMessage(me.friendId, target, messageId);
+    const now = Date.now();
+    const prior = [...this.ctx.storage.sql.exec(
+      "SELECT COUNT(*) AS count FROM friend_reports WHERE reporter_id = ? AND created_at >= ?",
+      me.friendId, now - 24 * 60 * 60 * 1000,
+    )];
+    if (Number(prior[0]?.count ?? 0) >= 10) {
+      throw httpError(429, "REPORT_LIMIT", "too many reports; try again later");
+    }
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        "INSERT INTO friend_reports (request_id, reporter_id, target_id, reason, created_at) VALUES (?, ?, ?, ?, ?)",
+        requestId, me.friendId, target, reason, now,
+      );
+      if (messageId != null) {
+        this.ctx.storage.sql.exec(
+          "INSERT INTO friend_report_messages (report_id, message_id) VALUES (?, ?)", requestId, messageId,
+        );
+      }
+    });
+    // A scheduled Durable Object alarm purges metadata even when no new reports arrive.
+    this.ctx.storage.sql.exec(
+      "DELETE FROM friend_report_messages WHERE report_id IN (SELECT request_id FROM friend_reports WHERE created_at < ?)",
+      now - REPORT_RETENTION_MS,
+    );
+    this.ctx.storage.sql.exec("DELETE FROM friend_reports WHERE created_at < ?", now - REPORT_RETENTION_MS);
+    await this.#scheduleReportCleanup();
+    return json(201, { ok: true, reported: true, replayed: false });
   }
 
   async #register(
@@ -484,6 +762,7 @@ export class FriendDirectory {
     if (friendId === otherFriendId) throw httpError(400, "INVALID_CONVERSATION", "cannot index a conversation with yourself");
     const profiles = [...this.ctx.storage.sql.exec("SELECT friend_id FROM friend_profiles WHERE friend_id IN (?, ?)", friendId, otherFriendId)];
     if (profiles.length !== 2) throw httpError(404, "FRIEND_PROFILE_NOT_FOUND", "conversation participant was not found");
+    this.#assertNotBlocked(friendId, otherFriendId);
     const now = Date.now();
     for (const [owner, other] of [[friendId, otherFriendId], [otherFriendId, friendId]]) this.ctx.storage.sql.exec(
       "INSERT INTO friend_conversation_index (friend_id, other_friend_id, last_message_at) VALUES (?, ?, ?) ON CONFLICT(friend_id, other_friend_id) DO UPDATE SET last_message_at = excluded.last_message_at", owner, other, now,
@@ -495,6 +774,7 @@ export class FriendDirectory {
     const body = await readJson(request);
     const owner = normalizeFriendId(body?.ownerFriendId), opponent = normalizeFriendId(body?.opponentFriendId);
     if (owner === opponent) throw httpError(400, "INVALID_RECENT_PLAYER", "recent opponent must be another player");
+    if (this.#isBlocked(owner, opponent)) return json(200, { ok: true, registered: false });
     this.ctx.storage.sql.exec("INSERT INTO friend_recent_index (owner_friend_id, opponent_friend_id, played_at) VALUES (?, ?, ?) ON CONFLICT(owner_friend_id, opponent_friend_id) DO UPDATE SET played_at = excluded.played_at", owner, opponent, Date.now());
     return json(200, { ok: true, registered: true });
   }
@@ -510,6 +790,7 @@ export class FriendDirectory {
     for (const row of this.ctx.storage.sql.exec("SELECT sender_id, receiver_id FROM friend_invites WHERE sender_id = ? OR receiver_id = ?", friendId, friendId)) add(row.sender_id, row.receiver_id);
     for (const row of this.ctx.storage.sql.exec("SELECT other_friend_id FROM friend_conversation_index WHERE friend_id = ?", friendId)) add(friendId, row.other_friend_id);
     for (const row of this.ctx.storage.sql.exec("SELECT owner_friend_id FROM friend_recent_index WHERE opponent_friend_id = ?", friendId)) add(row.owner_friend_id, friendId);
+    for (const row of this.ctx.storage.sql.exec("SELECT blocker_id, blocked_id FROM friend_blocks WHERE blocker_id = ? OR blocked_id = ?", friendId, friendId)) add(row.blocker_id, row.blocked_id);
     return json(200, { ok: true, found: true, friendId, relatedFriendIds: [...related].sort() });
   }
 
@@ -560,6 +841,13 @@ export class FriendDirectory {
       this.ctx.storage.sql.exec("DELETE FROM friendships WHERE friend_a = ? OR friend_b = ?", friendId, friendId);
       this.ctx.storage.sql.exec("DELETE FROM friend_conversation_index WHERE friend_id = ? OR other_friend_id = ?", friendId, friendId);
       this.ctx.storage.sql.exec("DELETE FROM friend_recent_index WHERE owner_friend_id = ? OR opponent_friend_id = ?", friendId, friendId);
+      this.ctx.storage.sql.exec("DELETE FROM friend_blocks WHERE blocker_id = ? OR blocked_id = ?", friendId, friendId);
+      this.ctx.storage.sql.exec(
+        "DELETE FROM friend_report_messages WHERE report_id IN (SELECT request_id FROM friend_reports WHERE reporter_id = ? OR target_id = ?)",
+        friendId, friendId,
+      );
+      this.ctx.storage.sql.exec("DELETE FROM friend_reports WHERE reporter_id = ? OR target_id = ?", friendId, friendId);
+      this.ctx.storage.sql.exec("DELETE FROM friend_suspensions WHERE friend_id = ?", friendId);
       this.ctx.storage.sql.exec("DELETE FROM friend_profiles WHERE friend_id = ?", friendId);
     });
     return json(200, { ok: true, deleted: preview.found === true, replay: preview.found !== true });
@@ -582,6 +870,10 @@ export class FriendDirectory {
       now,
     );
 
+    const blockedFriends = [...this.ctx.storage.sql.exec(
+      "SELECT blocked_id FROM friend_blocks WHERE blocker_id = ? ORDER BY created_at DESC",
+      me.friendId,
+    )].map((row) => String(row.blocked_id));
     const friends =
       this.#friendRows(
         me.friendId,
@@ -614,6 +906,7 @@ export class FriendDirectory {
           true,
         presenceTtlMs:
           PRESENCE_TTL_MS,
+        blockedFriends,
         friends,
         incomingRequests,
         outgoingRequests,
@@ -705,6 +998,8 @@ export class FriendDirectory {
         "you cannot send a friend request to yourself",
       );
     }
+
+    this.#assertNotBlocked(me.friendId, targetFriendId);
 
     const target =
       this.#profile(
@@ -895,6 +1190,7 @@ export class FriendDirectory {
       String(
         row.sender_id,
       );
+    if (accept) this.#assertNotBlocked(me.friendId, senderId);
     const now =
       Date.now();
 
@@ -1863,6 +2159,14 @@ export class FriendDirectory {
       );
     }
 
+    const friendId = String(rows[0].friend_id);
+    const suspension = [...this.ctx.storage.sql.exec(
+      "SELECT until_at FROM friend_suspensions WHERE friend_id = ? LIMIT 1", friendId,
+    )][0];
+    if (suspension && Number(suspension.until_at) > Date.now()) {
+      throw httpError(403, "FRIEND_SUSPENDED", "social access has been temporarily suspended");
+    }
+
     return {
       friendId:
         String(
@@ -2077,6 +2381,7 @@ export class FriendDirectory {
     first,
     second,
   ) {
+    if (this.#isBlocked(first, second)) return false;
     const [
       friendA,
       friendB,

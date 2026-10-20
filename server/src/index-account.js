@@ -1,3 +1,4 @@
+import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
   ApiGate,
   FriendConversation,
@@ -46,6 +47,10 @@ const ACCOUNT_WEB_CORS_PATHS = new Set([
 
 export default {
   async fetch(request, env) {
+    // Lock down direct API/WebSocket access when age eligibility cannot be verified.
+    // This is an operator safety switch, not an age verification mechanism.
+    const safetyResponse = ageSafetyBlockResponse(request, env);
+    if (safetyResponse) return safetyResponse;
     const url = new URL(request.url);
     if (request.method === "OPTIONS" && ACCOUNT_WEB_CORS_PATHS.has(url.pathname)) {
       const expectedOrigin = accountWebOrigin(env);
@@ -106,6 +111,32 @@ async function handleAccountRequest(request, env) {
               (env?.LUDOPROOF_ADMOB_REWARD_ITEM == null || env.LUDOPROOF_ADMOB_REWARD_ITEM === "gems"),
           },
         });
+      }
+
+      if (url.pathname === "/api/admin/moderation/reports" && request.method === "GET") {
+        await rateLimit(env, request, "moderation:reports:read", 30);
+        const session = await authenticate(request, env);
+        requireModerationAdmin(session.accountId, env);
+        return json(200, await moderationRequest(env, "/moderation/list", {}));
+      }
+      if (url.pathname === "/api/admin/moderation/reports/evidence" && request.method === "GET") {
+        await rateLimit(env, request, "moderation:reports:evidence", 20);
+        const session = await authenticate(request, env);
+        requireModerationAdmin(session.accountId, env);
+        return json(200, await moderationRequest(env, "/moderation/evidence", {
+          reportId: url.searchParams.get("reportId"),
+        }));
+      }
+      if (url.pathname === "/api/admin/moderation/reports/resolve" && request.method === "POST") {
+        await rateLimit(env, request, "moderation:reports:resolve", 20);
+        const session = await authenticate(request, env);
+        requireModerationAdmin(session.accountId, env);
+        const body = await readJson(request);
+        return json(200, await moderationRequest(env, "/moderation/resolve", {
+          reportId: body.reportId, outcome: body.outcome,
+          suspendHours: body.suspendHours,
+          reviewerId: session.accountId,
+        }));
       }
 
       if (url.pathname === "/api/account/guest" && request.method === "POST") {
@@ -714,6 +745,26 @@ async function catalogRequest(env, path, body = null) {
     ...(body == null ? {} : { body: JSON.stringify(body) }),
   }));
   return parseInternalResponse(response, "STORE_CATALOG_UNAVAILABLE");
+}
+
+async function moderationRequest(env, path, body) {
+  if (!env?.LUDOPROOF_FRIENDS) throw httpError(503, "FRIENDS_NOT_CONFIGURED", "friend storage unavailable");
+  const ns = env.LUDOPROOF_FRIENDS;
+  const target = ns.get(ns.idFromName("GLOBAL:V1"));
+  return parseInternalResponse(await target.fetch(new Request("https://friends" + path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  })), "MODERATION_UNAVAILABLE");
+}
+
+function requireModerationAdmin(accountId, env) {
+  const allowed = String(env?.LUDOPROOF_MODERATION_ADMIN_ACCOUNT_IDS ?? "")
+    .split(",").map((id) => id.trim().toLowerCase()).filter(Boolean);
+  if (!allowed.length) throw httpError(503, "MODERATION_NOT_CONFIGURED", "moderation access not configured");
+  if (!allowed.includes(String(accountId).toLowerCase())) {
+    throw httpError(403, "MODERATION_FORBIDDEN", "moderator account required");
+  }
 }
 
 function requireCatalogAdmin(accountId, env) {

@@ -32,11 +32,37 @@ export class FriendConversation {
       const body = await readJson(request);
       if (url.pathname === "/send") return await this.#send(body);
       if (url.pathname === "/list") return await this.#list(body);
+      // Internal-only; no public Worker route to this evidence lookup.
+      if (url.pathname === "/moderation/lookup") return await this.#moderatorLookup(body);
       if (url.pathname === "/delete-for-friend") return await this.#deleteForFriend(body);
       return json(404, { error: "NOT_FOUND", message: "route not found" });
     } catch (error) {
       return errorResponse(error);
     }
+  }
+
+  async #moderatorLookup(body) {
+    const senderId = normalizeFriendId(body?.senderId);
+    const receiverId = normalizeFriendId(body?.receiverId);
+    const messageId = String(body?.messageId ?? "").toLowerCase();
+    if (senderId === receiverId || !REQUEST_ID.test(messageId)) {
+      throw failure(400, "REPORTED_MESSAGE_INVALID", "invalid message evidence request");
+    }
+    const state = await this.ctx.storage.get(CONVERSATION_KEY);
+    const pair = canonicalPair(senderId, receiverId);
+    if (!state || !Array.isArray(state.pair) || state.pair[0] !== pair[0] || state.pair[1] !== pair[1]) {
+      return json(404, { error: "REPORTED_MESSAGE_NOT_FOUND" });
+    }
+    const message = (state.messages ?? []).find((entry) =>
+      entry.messageId === messageId && entry.senderId === senderId && entry.receiverId === receiverId,
+    );
+    if (!message) return json(404, { error: "REPORTED_MESSAGE_NOT_FOUND" });
+    return json(200, { ok: true, evidence: {
+      messageId: message.messageId,
+      text: message.text,
+      createdAt: message.createdAt,
+      senderId, receiverId,
+    } });
   }
 
   async #deleteForFriend(body) {

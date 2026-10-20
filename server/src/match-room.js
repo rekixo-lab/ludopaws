@@ -1,4 +1,5 @@
 import { createFastDiceProof, FAST_DICE_PROTOCOL } from "./dice-fast.js";
+import { requireMoveIndexes } from "./match-command-input.js";
 import {
   actingSeatForTurn,
   addPlayer,
@@ -872,34 +873,7 @@ export class MatchRoom {
         state,
         request,
       );
-    const tokenIndex =
-      Number(body?.tokenIndex);
-    const eventIndex =
-      Number(body?.eventIndex);
-
-    if (
-      !Number.isInteger(tokenIndex) ||
-      tokenIndex < 0 ||
-      tokenIndex > 3
-    ) {
-      throw httpError(
-        400,
-        "INVALID_TOKEN_INDEX",
-        "tokenIndex must be 0 through 3",
-      );
-    }
-    if (
-      !Number.isSafeInteger(
-        eventIndex,
-      ) ||
-      eventIndex < 0
-    ) {
-      throw httpError(
-        400,
-        "INVALID_EVENT_INDEX",
-        "eventIndex must be a non-negative safe integer",
-      );
-    }
+    const { tokenIndex, eventIndex } = requireMoveIndexes(body);
 
     const previous =
       [...(state.history ?? [])]

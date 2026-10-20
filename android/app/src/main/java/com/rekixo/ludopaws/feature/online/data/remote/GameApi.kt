@@ -69,6 +69,40 @@ class GameApi(
             body = JSONObject().put("friendId", friendId),
         )
 
+    fun blockFriend(friendToken: String, friendId: String): JSONObject =
+        request(
+            method = "POST",
+            path = "/api/friends/block",
+            friendToken = friendToken,
+            body = JSONObject().put("friendId", friendId),
+        )
+
+    fun unblockFriend(friendToken: String, friendId: String): JSONObject =
+        request(
+            method = "POST",
+            path = "/api/friends/unblock",
+            friendToken = friendToken,
+            body = JSONObject().put("friendId", friendId),
+        )
+
+    fun reportFriend(
+        friendToken: String,
+        friendId: String,
+        reason: String,
+        clientRequestId: String,
+        messageId: String? = null,
+    ): JSONObject =
+        request(
+            method = "POST",
+            path = "/api/friends/report",
+            friendToken = friendToken,
+            body = JSONObject()
+                .put("friendId", friendId)
+                .put("reason", reason)
+                .put("clientRequestId", clientRequestId)
+                .apply { if (messageId != null) put("messageId", messageId) },
+        )
+
     fun sendFriendInvite(
         friendToken: String,
         friendId: String,

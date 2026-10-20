@@ -143,7 +143,9 @@
       ]
     }
   ],
-  "vars": {},
+  "vars": {
+    "LUDOPROOF_AGE_SAFETY_MODE": "LOCKDOWN"
+  },
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,

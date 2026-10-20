@@ -43,6 +43,8 @@ class FriendSql {
   friendships = new Map();
   conversationIndex = new Map();
   recentIndex = new Map();
+  blocks = new Map();
+  reports = new Map();
 
   exec(statement, ...params) {
     const sql = String(statement).replace(/\s+/g, " ").trim().toLowerCase();
@@ -84,6 +86,9 @@ class FriendSql {
     if (sql.startsWith("select owner_friend_id from friend_recent_index")) {
       return [...this.recentIndex.values()].filter(row => row.opponent_friend_id === params[0]).map(row => ({ owner_friend_id: row.owner_friend_id }));
     }
+    if (sql.startsWith("select blocker_id, blocked_id from friend_blocks")) {
+      return [...this.blocks.values()].filter(row => row.blocker_id === params[0] || row.blocked_id === params[1]);
+    }
     if (sql.startsWith("insert into friend_profiles")) {
       const [friendId, tokenHash, registrationRequestId, displayName, createdAt, lastSeenAt] = params;
       this.profiles.set(friendId, { friend_id: friendId, token_hash: tokenHash, registration_request_id: registrationRequestId, display_name: displayName, created_at: createdAt, last_seen_at: lastSeenAt });
@@ -121,6 +126,20 @@ class FriendSql {
     }
     if (sql.startsWith("delete from friend_recent_index")) {
       for (const [key, row] of this.recentIndex) if (row.owner_friend_id === params[0] || row.opponent_friend_id === params[1]) this.recentIndex.delete(key);
+      return { rowsWritten: 1 };
+    }
+    if (sql.startsWith("delete from friend_suspensions")) return { rowsWritten: 0 };
+    if (sql.startsWith("delete from friend_blocks")) {
+      for (const [key, row] of this.blocks) {
+        if (row.blocker_id === params[0] || row.blocked_id === params[1]) this.blocks.delete(key);
+      }
+      return { rowsWritten: 1 };
+    }
+    if (sql.startsWith("delete from friend_report_messages")) return { rowsWritten: 0 };
+    if (sql.startsWith("delete from friend_reports")) {
+      for (const [key, row] of this.reports) {
+        if (row.reporter_id === params[0] || row.target_id === params[1]) this.reports.delete(key);
+      }
       return { rowsWritten: 1 };
     }
     if (sql.startsWith("delete from friend_profiles")) {

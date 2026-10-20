@@ -588,9 +588,12 @@ class FriendsActivity : Activity() {
             }
             .toMap()
         val acceptedFriendIds = allFriends.map { it.optString("friendId") }.toSet()
+        val blockedArray = snapshot?.optJSONArray("blockedFriends")
+        val blockedIds = (0 until (blockedArray?.length() ?: 0))
+            .map { blockedArray?.optString(it).orEmpty() }.filter(String::isNotBlank).toSet()
         val recentFriends = recentPlayers.filter { player ->
             val id = player.optString("opponentFriendId")
-            id.isNotBlank() && id !in acceptedFriendIds
+            id.isNotBlank() && id !in acceptedFriendIds && id !in blockedIds
         }
         val query = friendQuery.trim().lowercase()
         val friends = allFriends
@@ -682,6 +685,7 @@ class FriendsActivity : Activity() {
                 .apply { marginStart = dp(6) },
         )
         friendsContainer.addView(header)
+        renderBlockedPlayers()
 
         if (friends.isEmpty() && filteredRecent.isEmpty()) {
             friendsContainer.addView(
@@ -741,6 +745,33 @@ class FriendsActivity : Activity() {
                     ).apply { topMargin = dp(5) },
                 )
             }
+        }
+    }
+
+    private fun renderBlockedPlayers() {
+        val blocked = snapshot?.optJSONArray("blockedFriends") ?: return
+        if (blocked.length() == 0) return
+        friendsContainer.addView(FriendsVisualKit.title(this, "BLOCKED PLAYERS", 10f))
+        for (i in 0 until blocked.length()) {
+            val blockedId = blocked.optString(i)
+            if (!FRIEND_ID.matches(blockedId)) continue
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(6), dp(4), dp(6), dp(4))
+                background = FriendsVisualKit.rowSurface(this@FriendsActivity)
+                addView(
+                    FriendsVisualKit.body(this@FriendsActivity, blockedId, 9.5f),
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
+                )
+                addView(
+                    FriendsVisualKit.button(
+                        this@FriendsActivity, "UNBLOCK", FriendsButtonStyle.BLUE, FriendsIcon.MORE,
+                    ) { unblockFriend(blockedId) },
+                    LinearLayout.LayoutParams(dp(95), dp(34)),
+                )
+            }
+            friendsContainer.addView(row)
         }
     }
 
@@ -1021,6 +1052,17 @@ class FriendsActivity : Activity() {
                             LinearLayout.LayoutParams.WRAP_CONTENT,
                         ).apply { topMargin = dp(2) },
                     )
+                    if (!mine) {
+                        val reportedMessageId = message.optString("messageId")
+                        if (reportedMessageId.isNotBlank()) {
+                            bubble.addView(
+                                FriendsVisualKit.button(
+                                    this, "REPORT MESSAGE", FriendsButtonStyle.BLUE, FriendsIcon.MORE,
+                                ) { showReportFriend(friendId, reportedMessageId) },
+                                LinearLayout.LayoutParams(dp(150), dp(30)),
+                            )
+                        }
+                    }
                     bubble.addView(
                         FriendsVisualKit.body(
                             this,
@@ -1104,6 +1146,8 @@ class FriendsActivity : Activity() {
             menu.add("Copy Friend ID")
             menu.add("Message")
             menu.add("Remove Friend")
+            menu.add("Block Player")
+            menu.add("Report Player")
             setOnMenuItemClickListener { item ->
                 when (item.title.toString()) {
                     "Copy Friend ID" -> {
@@ -1120,6 +1164,21 @@ class FriendsActivity : Activity() {
                             friend.optString("friendId"),
                             friend.optString("displayName", "Friend"),
                         )
+                        true
+                    }
+                    "Block Player" -> {
+                        val friendId = friend.optString("friendId")
+                        val name = friend.optString("displayName", "this player")
+                        AlertDialog.Builder(this@FriendsActivity)
+                            .setTitle("Block $name?")
+                            .setMessage("Blocking removes the friendship and stops future friend requests, invites, and messages. You can unblock later.")
+                            .setNegativeButton("CANCEL", null)
+                            .setPositiveButton("BLOCK") { _, _ -> blockFriend(friendId) }
+                            .show()
+                        true
+                    }
+                    "Report Player" -> {
+                        showReportFriend(friend.optString("friendId"))
                         true
                     }
                     else -> false
@@ -1588,6 +1647,55 @@ class FriendsActivity : Activity() {
             .setMessage("Remove $displayName ($friendId) from your friends?")
             .setNegativeButton("CANCEL", null)
             .setPositiveButton("REMOVE") { _, _ -> removeFriend(friendId) }
+            .show()
+    }
+
+    private fun blockFriend(friendId: String) {
+        val auth = credential ?: return
+        runRequest(
+            working = "Blocking player…",
+            action = { api.blockFriend(auth.friendToken, friendId) },
+            onSuccess = {
+                showStatus("Player blocked. They cannot message or invite you.")
+                syncFriends(announce = false)
+            },
+        )
+    }
+
+    private fun unblockFriend(friendId: String) {
+        val auth = credential ?: return
+        runRequest(
+            working = "Unblocking player…",
+            action = { api.unblockFriend(auth.friendToken, friendId) },
+            onSuccess = {
+                showStatus("Player unblocked. Friendship is not restored automatically.")
+                syncFriends(announce = false)
+            },
+        )
+    }
+
+    private fun showReportFriend(friendId: String, messageId: String? = null) {
+        if (!FRIEND_ID.matches(friendId)) return
+        val labels = arrayOf("Harassment", "Spam", "Hate", "Threats", "Sexual content", "Other")
+        val reasons = arrayOf("HARASSMENT", "SPAM", "HATE", "THREATS", "SEXUAL_CONTENT", "OTHER")
+        AlertDialog.Builder(this)
+            .setTitle("Report player")
+            .setItems(labels) { _, selected ->
+                val auth = credential ?: return@setItems
+                runRequest(
+                    working = "Submitting report…",
+                    action = {
+                        api.reportFriend(
+                            auth.friendToken, friendId, reasons[selected],
+                            UUID.randomUUID().toString(), messageId,
+                        )
+                    },
+                    onSuccess = {
+                        showStatus("Report submitted. You can also block this player from the menu.")
+                    },
+                )
+            }
+            .setNegativeButton("CANCEL", null)
             .show()
     }
 

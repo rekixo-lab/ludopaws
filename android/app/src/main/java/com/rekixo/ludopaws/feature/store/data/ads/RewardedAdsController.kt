@@ -68,8 +68,9 @@ internal class RewardedAdsController(
         customData: String,
         onRewardEarned: () -> Unit,
     ): Boolean {
-        if (!enabled || closed) {
-            onMessage("Rewarded ads are temporarily unavailable. Please try again shortly.")
+        // Recheck UMP consent at display time; a previously loaded ad is not authorization.
+        if (!enabled || closed || !consentInformation.canRequestAds()) {
+            onMessage("Rewarded ads are unavailable until ad privacy choices allow them.")
             return false
         }
         if (
