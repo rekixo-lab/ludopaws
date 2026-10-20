@@ -10,6 +10,7 @@ import android.widget.ScrollView
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.ui.game.addGameTopActions
 import com.rekixo.ludopaws.ui.online.*
+import com.rekixo.ludopaws.feature.online.*
 
 /**
  * Online / Team Up / Friends Android view composition.
