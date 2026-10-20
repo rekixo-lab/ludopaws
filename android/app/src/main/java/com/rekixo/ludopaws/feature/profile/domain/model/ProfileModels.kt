@@ -49,4 +49,6 @@ data class ProfileBadge(
     val symbol: String,
     val unlocked: Boolean,
     val requirement: String,
+    val progressCurrent: Int = 0,
+    val progressGoal: Int = 1,
 )

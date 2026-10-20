@@ -33,7 +33,7 @@ internal fun ProfileActivity.profileBadgesPanel(
             }
         heading.addView(
             profileTitle(
-                "Unlocked Badges",
+                "Badges ${badges.count { it.unlocked }}/${badges.size}",
             ),
             LinearLayout.LayoutParams(
                 0,
@@ -86,7 +86,10 @@ internal fun ProfileActivity.profileBadgesPanel(
                 )
             }
 
-        badges.forEach {
+        // The Home/Profile preview must stay readable as the catalog grows.
+        badges.sortedWith(compareByDescending<com.rekixo.ludopaws.feature.profile.domain.model.ProfileBadge> { it.unlocked }
+            .thenByDescending { it.progressCurrent.toFloat() / it.progressGoal.coerceAtLeast(1) })
+            .take(4).forEach {
                 badge ->
             row.addView(
                 LinearLayout(
@@ -97,13 +100,10 @@ internal fun ProfileActivity.profileBadgesPanel(
                     gravity =
                         Gravity.CENTER
                     alpha =
-                        if (
-                            badge.unlocked
-                        ) {
-                            1f
-                        } else {
-                            .36f
-                        }
+                        if (badge.unlocked) 1f else .75f
+                    contentDescription = "${badge.title}, " +
+                        if (badge.unlocked) "unlocked" else
+                            "${badge.progressCurrent} of ${badge.progressGoal} completed"
 
                     addView(
                         TextView(

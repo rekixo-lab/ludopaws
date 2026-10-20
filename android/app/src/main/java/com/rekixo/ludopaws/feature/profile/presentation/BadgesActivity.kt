@@ -253,6 +253,7 @@ class BadgesActivity : Activity() {
                 append(if (badge.unlocked) ", unlocked" else ", locked")
                 append(". ")
                 append(badge.requirement)
+                append(". Progress ").append(badge.progressCurrent).append(" of ").append(badge.progressGoal)
             }
 
             val accent = badgeAccent(badge)
@@ -296,6 +297,16 @@ class BadgesActivity : Activity() {
                         text = badge.requirement
                         textSize = if (compact) 10.5f else 12f
                         setTextColor(0xFFD7E9FF.toInt())
+                        setPadding(0, dp(4), 0, 0)
+                    },
+                )
+                addView(
+                    TextView(this@BadgesActivity).apply {
+                        text = if (badge.unlocked) "Completed" else
+                            "${badge.progressCurrent} / ${badge.progressGoal} progress"
+                        textSize = if (compact) 10f else 11f
+                        setTypeface(Typeface.DEFAULT_BOLD)
+                        setTextColor(if (badge.unlocked) 0xFFBDF8B8.toInt() else 0xFFFFD45E.toInt())
                         setPadding(0, dp(4), 0, 0)
                     },
                 )

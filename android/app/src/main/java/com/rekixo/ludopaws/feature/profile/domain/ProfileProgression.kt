@@ -64,71 +64,37 @@ object ProfileProgression {
         )
     }
 
-    fun badges(
-        profile: ProfileSnapshot,
-    ): List<ProfileBadge> =
-        listOf(
-            ProfileBadge(
-                id = "first-win",
-                title = "First Win",
-                symbol = "★",
-                unlocked =
-                    profile.totalWins >=
-                        1,
-                requirement =
-                    "Win your first game",
-            ),
-            ProfileBadge(
-                id = "strategist",
-                title = "Strategist",
-                symbol = "◆",
-                unlocked =
-                    profile.totalWins >=
-                        5,
-                requirement =
-                    "Win 5 games",
-            ),
-            ProfileBadge(
-                id = "unstoppable",
-                title = "Unstoppable",
-                symbol = "✦",
-                unlocked =
-                    profile.bestWinStreak >=
-                        3,
-                requirement =
-                    "Win 3 games in a row",
-            ),
-            ProfileBadge(
-                id = "friendship",
-                title = "Friendship",
-                symbol = "♢",
-                unlocked =
-                    profile.onlineGames >=
-                        3,
-                requirement =
-                    "Complete 3 online games",
-            ),
-            ProfileBadge(
-                id = "social-gamer",
-                title = "Social Gamer",
-                symbol = "♛",
-                unlocked =
-                    profile.onlineGames >=
-                        10,
-                requirement =
-                    "Complete 10 online games",
-            ),
-            ProfileBadge(
-                id = "ludo-novice",
-                title = "Ludo Novice",
-                symbol = "✪",
-                unlocked =
-                    profile.totalGames >=
-                        1,
-                requirement =
-                    "Complete a Ludo game",
-            ),
+    /**
+     * Cosmetic-only achievements, derived from already persisted completed-match statistics.
+     * No currency awards, streak pressure, daily login gates, server requests or new identifiers.
+     */
+    fun badges(profile: ProfileSnapshot): List<ProfileBadge> = listOf(
+        badge("first-win", "First Win", "★", "Win your first game", profile.totalWins, 1),
+        badge("strategist", "Strategist", "◆", "Win 5 games", profile.totalWins, 5),
+        badge("unstoppable", "Unstoppable", "✦", "Win 3 games in a row", profile.bestWinStreak, 3),
+        badge("friendship", "Friendship", "♢", "Complete 3 online games", profile.onlineGames, 3),
+        badge("social-gamer", "Social Gamer", "♛", "Complete 10 online games", profile.onlineGames, 10),
+        badge("ludo-novice", "Ludo Novice", "✪", "Complete a Ludo game", profile.totalGames, 1),
+        badge("couch-champion", "Couch Champion", "♟", "Complete 3 local Pass & Play games", profile.localGames, 3),
+        badge("returning-paws", "Returning Paws", "❖", "Play on 3 consecutive days", profile.bestDayStreak, 3),
+        badge("game-night", "Game Night", "✧", "Complete 20 games", profile.totalGames, 20),
+    )
+
+    private fun badge(
+        id: String,
+        title: String,
+        symbol: String,
+        requirement: String,
+        current: Int,
+        goal: Int,
+    ): ProfileBadge {
+        val progress = current.coerceAtLeast(0).coerceAtMost(goal)
+        return ProfileBadge(
+            id = id, title = title, symbol = symbol,
+            unlocked = progress >= goal, requirement = requirement,
+            progressCurrent = progress, progressGoal = goal,
         )
+    }
 
     private fun xpRequirement(
         level: Int,

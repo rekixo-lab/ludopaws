@@ -257,6 +257,37 @@ internal fun showSettingsDialog(
             ),
         )
 
+        val motionControl = SettingsBooleanControl(
+            context = context,
+            initialValue = settings.reduceMotionEnabled,
+        ) { enabled ->
+            settingsStore.setReduceMotionEnabled(enabled)
+            settings = settingsStore.snapshot()
+            notifyChanged()
+        }
+        panel.addView(settingsDivider(context))
+        panel.addView(
+            settingsCompactRow(
+                context = context,
+                label = "Reduce motion",
+                control = motionControl,
+            ),
+        )
+
+        val guideField = settingsDropdownField(context, "HOW TO PLAY")
+        guideField.contentDescription = "How to play Ludo Paws"
+        guideField.setOnClickListener {
+            com.rekixo.ludopaws.ui.home.showLudoPawsGuide(activity)
+        }
+        panel.addView(settingsDivider(context))
+        panel.addView(
+            settingsCompactRow(
+                context = context,
+                label = "How to play",
+                control = guideField,
+            ),
+        )
+
         val speedField =
             settingsDropdownField(
                 context,
