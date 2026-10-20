@@ -455,6 +455,11 @@ class MainActivity : ComponentActivity() {
                     stopFriendsVoice("Voice ended with the match.")
                 }
             },
+            onUnavailable = { message ->
+                mainHandler.post {
+                    if (canRenderUi()) showStatus(message)
+                }
+            },
         )
     }
 
