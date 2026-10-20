@@ -1052,6 +1052,17 @@ class FriendsActivity : Activity() {
                             LinearLayout.LayoutParams.WRAP_CONTENT,
                         ).apply { topMargin = dp(2) },
                     )
+                    if (!mine) {
+                        val reportedMessageId = message.optString("messageId")
+                        if (reportedMessageId.isNotBlank()) {
+                            bubble.addView(
+                                FriendsVisualKit.button(
+                                    this, "REPORT MESSAGE", FriendsButtonStyle.BLUE, FriendsIcon.MORE,
+                                ) { showReportFriend(friendId, reportedMessageId) },
+                                LinearLayout.LayoutParams(dp(150), dp(30)),
+                            )
+                        }
+                    }
                     bubble.addView(
                         FriendsVisualKit.body(
                             this,
@@ -1663,7 +1674,7 @@ class FriendsActivity : Activity() {
         )
     }
 
-    private fun showReportFriend(friendId: String) {
+    private fun showReportFriend(friendId: String, messageId: String? = null) {
         if (!FRIEND_ID.matches(friendId)) return
         val labels = arrayOf("Harassment", "Spam", "Hate", "Threats", "Sexual content", "Other")
         val reasons = arrayOf("HARASSMENT", "SPAM", "HATE", "THREATS", "SEXUAL_CONTENT", "OTHER")
@@ -1674,7 +1685,10 @@ class FriendsActivity : Activity() {
                 runRequest(
                     working = "Submitting report…",
                     action = {
-                        api.reportFriend(auth.friendToken, friendId, reasons[selected], UUID.randomUUID().toString())
+                        api.reportFriend(
+                            auth.friendToken, friendId, reasons[selected],
+                            UUID.randomUUID().toString(), messageId,
+                        )
                     },
                     onSuccess = {
                         showStatus("Report submitted. You can also block this player from the menu.")

@@ -134,6 +134,7 @@ class FriendSql {
       }
       return { rowsWritten: 1 };
     }
+    if (sql.startsWith("delete from friend_report_messages")) return { rowsWritten: 0 };
     if (sql.startsWith("delete from friend_reports")) {
       for (const [key, row] of this.reports) {
         if (row.reporter_id === params[0] || row.target_id === params[1]) this.reports.delete(key);

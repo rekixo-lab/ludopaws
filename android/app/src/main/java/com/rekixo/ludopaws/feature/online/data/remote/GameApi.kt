@@ -90,6 +90,7 @@ class GameApi(
         friendId: String,
         reason: String,
         clientRequestId: String,
+        messageId: String? = null,
     ): JSONObject =
         request(
             method = "POST",
@@ -98,7 +99,8 @@ class GameApi(
             body = JSONObject()
                 .put("friendId", friendId)
                 .put("reason", reason)
-                .put("clientRequestId", clientRequestId),
+                .put("clientRequestId", clientRequestId)
+                .apply { if (messageId != null) put("messageId", messageId) },
         )
 
     fun sendFriendInvite(
