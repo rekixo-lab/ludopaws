@@ -125,7 +125,9 @@ async function handleAccountRequest(request, env) {
         requireModerationAdmin(session.accountId, env);
         const body = await readJson(request);
         return json(200, await moderationRequest(env, "/moderation/resolve", {
-          reportId: body.reportId, outcome: body.outcome, reviewerId: session.accountId,
+          reportId: body.reportId, outcome: body.outcome,
+          suspendHours: body.suspendHours,
+          reviewerId: session.accountId,
         }));
       }
 

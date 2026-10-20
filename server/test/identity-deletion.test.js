@@ -128,6 +128,7 @@ class FriendSql {
       for (const [key, row] of this.recentIndex) if (row.owner_friend_id === params[0] || row.opponent_friend_id === params[1]) this.recentIndex.delete(key);
       return { rowsWritten: 1 };
     }
+    if (sql.startsWith("delete from friend_suspensions")) return { rowsWritten: 0 };
     if (sql.startsWith("delete from friend_blocks")) {
       for (const [key, row] of this.blocks) {
         if (row.blocker_id === params[0] || row.blocked_id === params[1]) this.blocks.delete(key);

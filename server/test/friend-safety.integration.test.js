@@ -121,6 +121,19 @@ test("reports are authenticated, bounded, idempotent and accept only enumerated 
     assert.equal((await replayResolution.json()).replayed, true);
     const pending = await (await room.fetch(post("/moderation/list", {}, a.friendToken))).json();
     assert.equal(pending.reports.length, 9);
+    const another = await register(sql, ID3, "Eve");
+    const suspendingReport = { friendId: another.friendId, reason: "THREATS",
+      clientRequestId: "00000000-0000-4000-8000-000000000098" };
+    // Reports from a different reporter remain permitted while the first is rate limited.
+    assert.equal((await room.fetch(post("/report", { ...suspendingReport, friendId: a.friendId },
+      another.friendToken))).status, 201);
+    const suspend = await room.fetch(post("/moderation/resolve", {
+      reportId: suspendingReport.clientRequestId, outcome: "ACTIONED",
+      reviewerId, suspendHours: 24,
+    }, a.friendToken));
+    assert.equal(suspend.status, 200);
+    assert.equal((await room.fetch(get("/snapshot", a.friendToken))).status, 403);
+    assert.equal((await room.fetch(get("/snapshot", b.friendToken))).status, 200);
   } finally { db.close(); }
 });
 

@@ -142,6 +142,10 @@ export class FriendDirectory {
         )`);
         sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_author ON friend_reports(reporter_id, created_at)");
         sql.exec("CREATE INDEX IF NOT EXISTS idx_friend_reports_status ON friend_reports(status, created_at)");
+        sql.exec(`CREATE TABLE IF NOT EXISTS friend_suspensions (
+          friend_id TEXT PRIMARY KEY, until_at INTEGER NOT NULL,
+          report_id TEXT NOT NULL, moderator_id TEXT NOT NULL
+        )`);
         sql.exec(`CREATE TABLE IF NOT EXISTS friend_report_messages (
           report_id TEXT PRIMARY KEY, message_id TEXT NOT NULL
         )`);
@@ -335,14 +339,21 @@ export class FriendDirectory {
     const requestId = requireClientRequestId(body?.reportId);
     const outcome = body?.outcome;
     const reviewerId = body?.reviewerId;
+    const suspendHours = body?.suspendHours;
     if (!["REVIEWED", "DISMISSED", "ACTIONED"].includes(outcome)) {
       throw httpError(400, "REPORT_OUTCOME_INVALID", "invalid moderation decision");
     }
     if (typeof reviewerId !== "string" || !/^[0-9a-f-]{36}$/i.test(reviewerId)) {
       throw httpError(400, "MODERATOR_INVALID", "a moderator account is required");
     }
+    if (outcome === "ACTIONED" && ![1, 24, 168, 720].includes(suspendHours)) {
+      throw httpError(400, "SUSPENSION_DURATION_INVALID", "choose an approved suspension duration");
+    }
+    if (outcome !== "ACTIONED" && suspendHours != null) {
+      throw httpError(400, "SUSPENSION_DURATION_INVALID", "only enforcement actions can suspend users");
+    }
     const records = [...this.ctx.storage.sql.exec(
-      "SELECT status, reviewer_id FROM friend_reports WHERE request_id = ? LIMIT 1", requestId,
+      "SELECT status, reviewer_id, target_id FROM friend_reports WHERE request_id = ? LIMIT 1", requestId,
     )];
     if (!records.length) throw httpError(404, "REPORT_NOT_FOUND", "report was not found");
     if (records[0].status !== "OPEN") {
@@ -351,10 +362,24 @@ export class FriendDirectory {
       }
       return json(200, { ok: true, replayed: true });
     }
-    this.ctx.storage.sql.exec(
-      "UPDATE friend_reports SET status = ?, resolved_at = ?, reviewer_id = ? WHERE request_id = ? AND status = 'OPEN'",
-      outcome, Date.now(), reviewerId, requestId,
-    );
+    const now = Date.now();
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        "UPDATE friend_reports SET status = ?, resolved_at = ?, reviewer_id = ? WHERE request_id = ? AND status = 'OPEN'",
+        outcome, now, reviewerId, requestId,
+      );
+      if (outcome === "ACTIONED") {
+        const targetId = String(records[0].target_id);
+        const until = now + suspendHours * 60 * 60 * 1000;
+        this.ctx.storage.sql.exec(
+          `INSERT INTO friend_suspensions (friend_id, until_at, report_id, moderator_id)
+           VALUES (?, ?, ?, ?) ON CONFLICT(friend_id) DO UPDATE SET
+           until_at = MAX(friend_suspensions.until_at, excluded.until_at),
+           report_id = excluded.report_id, moderator_id = excluded.moderator_id`,
+          targetId, until, requestId, reviewerId,
+        );
+      }
+    });
     return json(200, { ok: true, replayed: false });
   }
 
@@ -790,6 +815,7 @@ export class FriendDirectory {
         friendId, friendId,
       );
       this.ctx.storage.sql.exec("DELETE FROM friend_reports WHERE reporter_id = ? OR target_id = ?", friendId, friendId);
+      this.ctx.storage.sql.exec("DELETE FROM friend_suspensions WHERE friend_id = ?", friendId);
       this.ctx.storage.sql.exec("DELETE FROM friend_profiles WHERE friend_id = ?", friendId);
     });
     return json(200, { ok: true, deleted: preview.found === true, replay: preview.found !== true });
@@ -2099,6 +2125,14 @@ export class FriendDirectory {
         "FRIEND_AUTH_INVALID",
         "friend credential is invalid",
       );
+    }
+
+    const friendId = String(rows[0].friend_id);
+    const suspension = [...this.ctx.storage.sql.exec(
+      "SELECT until_at FROM friend_suspensions WHERE friend_id = ? LIMIT 1", friendId,
+    )][0];
+    if (suspension && Number(suspension.until_at) > Date.now()) {
+      throw httpError(403, "FRIEND_SUSPENDED", "social access has been temporarily suspended");
     }
 
     return {
