@@ -200,10 +200,6 @@ android {
             admobInterstitialAdUnitId.let { "\"$it\"" },
         )
         manifestPlaceholders["ADMOB_APP_ID"] = admobAppId
-        // Privacy-first offline release: never package unneeded microphone or AD_ID.
-        manifestPlaceholders["AD_ID_PERMISSION_RULE"] =
-            if (ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) "merge" else "remove"
-        manifestPlaceholders["VOICE_PERMISSION_RULE"] = "remove"
         buildConfigField(
             "String",
             "GOOGLE_SIGN_IN_WEB_CLIENT_ID",
