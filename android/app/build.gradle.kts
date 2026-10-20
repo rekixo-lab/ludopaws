@@ -165,6 +165,10 @@ android {
             "LUDOPROOF_API_BASE_URL",
             "\"$escapedApiBaseUrl\"",
         )
+        // Connected gameplay is disabled in the age-safety release until server-side
+        // eligibility, target-audience and regional protections are approved.
+        // Do not expose a build-flag override as if it were age verification.
+        buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "false")
         buildConfigField(
             "boolean",
             "LUDOPROOF_BILLING_ENABLED",
