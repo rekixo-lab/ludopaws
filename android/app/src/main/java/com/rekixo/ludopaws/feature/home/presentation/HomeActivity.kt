@@ -13,6 +13,7 @@ import com.rekixo.ludopaws.feature.profile.domain.model.ProfileGameMode
 import com.rekixo.ludopaws.feature.profile.domain.model.ProfileMatchSource
 import com.rekixo.ludopaws.feature.online.retryPendingRemoteForfeits
 import com.rekixo.ludopaws.ui.home.*
+import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsObserver
 
 class HomeActivity : Activity() {
     internal lateinit var connectivityText:
@@ -239,6 +240,9 @@ class HomeActivity : Activity() {
         refreshHomeProfileSummary()
         refreshHomeGemBalance()
         showFirstRunGuideIfNeeded()
+        // Never show an in-app DOB screen. Google Play may request age-range sharing.
+        // First-run tutorial is dismissed before any Play-managed prompt may appear.
+        if (!homeGuideVisible) PlayAgeSignalsObserver.refreshOnce(this)
     }
 
     private fun recordAbandonedRemoteLossIfNeeded() {

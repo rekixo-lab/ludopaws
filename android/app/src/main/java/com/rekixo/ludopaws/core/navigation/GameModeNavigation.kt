@@ -6,6 +6,7 @@ import android.content.Intent
 import com.rekixo.ludopaws.feature.mode.presentation.RemoteModeEntryActivity
 import com.rekixo.ludopaws.feature.friends.presentation.FriendsActivity
 import com.rekixo.ludopaws.feature.team.presentation.TeamUpActivity
+import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsObserver
 
 fun Activity.openGameMode(
     mode: GameMode,
@@ -14,7 +15,7 @@ fun Activity.openGameMode(
     if (mode.isRemote && !BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
         AlertDialog.Builder(this)
             .setTitle("Online play is temporarily unavailable")
-            .setMessage("Ludo Paws is finishing age-appropriate safety checks. You can play offline without sharing a birthday.")
+            .setMessage(PlayAgeSignalsObserver.offlineExplanation())
             .setNegativeButton("CLOSE", null)
             .setPositiveButton("PLAY OFFLINE") { _, _ ->
                 openGameMode(GameMode.COMPUTER)
