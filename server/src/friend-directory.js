@@ -451,7 +451,6 @@ export class FriendDirectory {
     if (target === me.friendId) throw httpError(400, "CANNOT_REPORT_SELF", "you cannot report yourself");
     if (!this.#profile(target)) throw httpError(404, "FRIEND_NOT_FOUND", "friend ID was not found");
     if (!reasons.has(reason)) throw httpError(400, "REPORT_REASON_INVALID", "choose a valid report reason");
-    if (messageId != null) await this.#validateReportedMessage(me.friendId, target, messageId);
     const existing = [...this.ctx.storage.sql.exec(
       "SELECT reporter_id, target_id, reason FROM friend_reports WHERE request_id = ? LIMIT 1",
       requestId,
@@ -466,6 +465,7 @@ export class FriendDirectory {
       if (context !== messageId) throw httpError(409, "REPORT_ID_CONFLICT", "report request ID was already used");
       return json(200, { ok: true, reported: true, replayed: true });
     }
+    if (messageId != null) await this.#validateReportedMessage(me.friendId, target, messageId);
     const now = Date.now();
     const prior = [...this.ctx.storage.sql.exec(
       "SELECT COUNT(*) AS count FROM friend_reports WHERE reporter_id = ? AND created_at >= ?",

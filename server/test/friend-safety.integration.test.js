@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { FriendDirectory } from "../src/friend-directory.js";
+import { FriendConversation } from "../src/friend-social.js";
 import { deriveFriendIdentity, sha256Hex } from "../src/crypto.js";
 
 const ENV = { LUDOPROOF_SESSION_HMAC_KEY: "lp_test_session_hmac_key_1234567890abcdef" };
@@ -9,7 +10,7 @@ const ID1 = "00000000-0000-4000-8000-000000000001";
 const ID2 = "00000000-0000-4000-8000-000000000002";
 const ID3 = "00000000-0000-4000-8000-000000000003";
 
-function setupDirectory() {
+function setupDirectory(overrides = {}) {
   const db = new DatabaseSync(":memory:");
   const sql = {
     exec(query, ...values) {
@@ -39,7 +40,7 @@ function setupDirectory() {
     },
   };
   const context = { storage, blockConcurrencyWhile(fn) { this.ready = fn(); return this.ready; } };
-  const room = new FriendDirectory(context, ENV);
+  const room = new FriendDirectory(context, { ...ENV, ...overrides });
   return { room, context, sql, db };
 }
 
@@ -120,5 +121,65 @@ test("reports are authenticated, bounded, idempotent and accept only enumerated 
     assert.equal((await replayResolution.json()).replayed, true);
     const pending = await (await room.fetch(post("/moderation/list", {}, a.friendToken))).json();
     assert.equal(pending.reports.length, 9);
+  } finally { db.close(); }
+});
+
+
+function jsonRequest(path, body) {
+  return new Request("https://unit.test" + path, { method: "POST",
+    headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+}
+
+test("reports about specific private messages validate sender, recipient and message ID", async () => {
+  class MemoryStorage {
+    constructor() { this.values = new Map(); }
+    async get(key) { return this.values.get(key) ?? null; }
+    async put(key, value) { this.values.set(key, structuredClone(value)); }
+    async delete(key) { this.values.delete(key); }
+  }
+  const conversation = new FriendConversation({ storage: new MemoryStorage() });
+  const namespace = {
+    idFromName(value) { return value; },
+    get() { return conversation; },
+  };
+  const { room, context, sql, db } = setupDirectory({
+    LUDOPROOF_FRIEND_CONVERSATIONS: namespace,
+  });
+  try {
+    await context.ready;
+    const receiver = await register(sql, ID1, "Alice");
+    const sender = await register(sql, ID2, "Bob");
+    const messageId = "00000000-0000-4000-8000-000000000080";
+    assert.equal((await conversation.fetch(jsonRequest("/send", {
+      senderId: sender.friendId, receiverId: receiver.friendId,
+      text: "This message should be reportable", clientRequestId: messageId,
+    }))).status, 201);
+    const report = {
+      friendId: sender.friendId, reason: "HARASSMENT",
+      clientRequestId: "00000000-0000-4000-8000-000000000081", messageId,
+    };
+    assert.equal((await room.fetch(post("/report", report, receiver.friendToken))).status, 201);
+    const replay = await room.fetch(post("/report", report, receiver.friendToken));
+    assert.equal(replay.status, 200);
+    assert.equal((await replay.json()).replayed, true);
+    const queue = await (await room.fetch(post("/moderation/list", {}, receiver.friendToken))).json();
+    assert.equal(queue.reports.length, 1);
+    assert.equal(queue.reports[0].message_id, messageId);
+    assert.equal(
+      (await room.fetch(post("/report", { ...report, clientRequestId: "00000000-0000-4000-8000-000000000082",
+        messageId: "00000000-0000-4000-8000-000000000083" }, receiver.friendToken))).status,
+      404,
+    );
+    assert.equal(
+      (await room.fetch(post("/report", { ...report, clientRequestId: "00000000-0000-4000-8000-000000000084" }, sender.friendToken))).status,
+      400,
+      "sender cannot report themselves",
+    );
+    const alternate = await register(sql, ID3, "Eve");
+    assert.equal(
+      (await room.fetch(post("/report", { ...report, clientRequestId: "00000000-0000-4000-8000-000000000085" }, alternate.friendToken))).status,
+      404,
+      "a third party cannot claim a conversation's private message as their own",
+    );
   } finally { db.close(); }
 });
