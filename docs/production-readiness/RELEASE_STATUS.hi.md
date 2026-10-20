@@ -22,6 +22,10 @@ Publisher के बताए अनुसार policy declarations भरे �
 5. **Play Games:** GitHub में `PLAY_GAMES_PROJECT_ID` अभी अनुपस्थित मिला। इसे अनुमान से नहीं भरा गया। Play Console में संबंधित Play Games project/Android credential/tester configuration पूरा करके वास्तविक numeric ID भरें और signed build फिर बनाएँ। Google account linking/recovery का Web OAuth ID अलग है और मौजूद है। Play Games sign-in game-account backup नहीं है।
 6. Physical phone पर recreation/process death, Board/Dice equip, दो-device online games/rematch/Team Up/reconnect, Google save/restore/switch/deletion और Play purchase/refund/reinstall flows जाँचें। XP/statistics/badges device-local हैं; सभी guest data का reinstall recovery वादा नहीं किया गया है।
 
+## Public website deployment
+
+Actual website repository: `rekixo-lab/ludopaws-website`, existing separate Cloudflare Worker `ludopaws-website`। पुराने public pages में voice/monthly product/365-day archive और गलत Gem quantities थीं; उन्हें Family V2 से align किया गया है और वास्तविक nonce-bound Google तथा guest delete-only-code form दिया गया है। Game repository का `deploy-ludopaws-website.yml` reviewed website-main SHA को explicit production dispatch से publish/verify करता है; इसकी main-ancestry और hostname isolation checks हैं। पुराना GitHub Pages migration workflow इस existing Cloudflare hostname के लिए उपयोग न करें। Connected Cloudflare Builds की preview failure का dashboard access/builds permission publisher के पास अलग है; उसे game API का deployed होना न मानें।
+
 ## Machine/deployment evidence
 
 वर्तमान run के परिणाम यहाँ finalize होंगे। Emulator न चलाएँ या डाउनलोड करें। पिछला emulator/image/AVD हटाया जा चुका है; user phone testing बाद में करेगा। `BASELINE_AUDIT.hi.md` और पुराना V1 evidence ऐतिहासिक संदर्भ हैं।
