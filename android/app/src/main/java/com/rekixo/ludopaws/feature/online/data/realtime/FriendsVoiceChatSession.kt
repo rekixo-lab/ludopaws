@@ -133,7 +133,10 @@ internal class FriendsVoiceChatSession(
                 if (peer.remoteDescription != null) {
                     peer.addIceCandidate(candidate)
                 } else {
-                    pendingCandidates.computeIfAbsent(playerId) { mutableListOf() }.add(candidate)
+                    val waiting = pendingCandidates.computeIfAbsent(playerId) { mutableListOf() }
+                    synchronized(waiting) {
+                        VoiceCandidateBufferPolicy.enqueue(waiting, candidate)
+                    }
                 }
             }
         }
@@ -237,7 +240,10 @@ internal class FriendsVoiceChatSession(
     }
 
     private fun drainCandidates(playerId: String, peer: PeerConnection) {
-        pendingCandidates.remove(playerId)?.forEach(peer::addIceCandidate)
+        pendingCandidates.remove(playerId)?.let { waiting ->
+            val pending = synchronized(waiting) { waiting.toList() }
+            pending.forEach(peer::addIceCandidate)
+        }
     }
 
     private fun publishPeerStatus() {
