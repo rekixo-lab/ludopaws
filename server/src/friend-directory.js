@@ -430,8 +430,11 @@ export class FriendDirectory {
     try { data = await response.json(); }
     catch { throw httpError(503, "REPORT_EVIDENCE_UNAVAILABLE", "message evidence unavailable"); }
     if (!response.ok) {
-      throw httpError(response.status === 404 ? 404 : 503,
-        "REPORT_EVIDENCE_UNAVAILABLE", "message evidence unavailable");
+      // Never disclose whether a third party's conversation exists.
+      const unavailable = response.status >= 500;
+      throw httpError(unavailable ? 503 : 404,
+        unavailable ? "REPORT_EVIDENCE_UNAVAILABLE" : "REPORTED_MESSAGE_NOT_FOUND",
+        unavailable ? "message evidence unavailable" : "reported message was not found");
     }
     const found = Array.isArray(data?.messages) && data.messages.some(
       (message) => message.messageId === messageId &&
