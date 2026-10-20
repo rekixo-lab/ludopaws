@@ -395,32 +395,18 @@ internal fun showSettingsDialog(
                                 selected
                         }
                         ?: return@showSettingsChoiceDialog
-                cosmetics.acquireOrSelect(
-                    cosmetic = cosmetic,
-                    currentLevel =
-                        profileLevel,
-                )
-                val applied =
-                    StoreCosmeticCatalog
-                        .find(
-                            cosmetics.selectedId(
-                                CosmeticCategory.BOARD,
-                            ),
-                        )
-                        ?.title
-                        ?.uppercase()
-                        ?: "CLASSIC"
-                boardField.text =
-                    settingsDropdownLabel(
-                        applied,
+                boardField.isEnabled = false
+                selectSettingsCosmetic(activity, cosmetic, onApplied = {
+                    boardField.isEnabled = true
+                    boardField.text = settingsDropdownLabel(
+                        StoreCosmeticCatalog.find(cosmetics.selectedId(CosmeticCategory.BOARD))
+                            ?.title?.uppercase() ?: "CLASSIC",
                     )
-                GameSoundFeedback.click(
-                    context,
-                )
-                notifyChanged(
-                    refreshCosmetics =
-                        true,
-                )
+                    GameSoundFeedback.click(context)
+                    notifyChanged(refreshCosmetics = true)
+                }, onFailure = {
+                    boardField.isEnabled = true
+                })
             }
         }
         panel.addView(
@@ -483,32 +469,18 @@ internal fun showSettingsDialog(
                                 selected
                         }
                         ?: return@showSettingsChoiceDialog
-                cosmetics.acquireOrSelect(
-                    cosmetic = cosmetic,
-                    currentLevel =
-                        profileLevel,
-                )
-                val applied =
-                    StoreCosmeticCatalog
-                        .find(
-                            cosmetics.selectedId(
-                                CosmeticCategory.DICE,
-                            ),
-                        )
-                        ?.title
-                        ?.uppercase()
-                        ?: "CLASSIC"
-                diceField.text =
-                    settingsDropdownLabel(
-                        applied,
+                diceField.isEnabled = false
+                selectSettingsCosmetic(activity, cosmetic, onApplied = {
+                    diceField.isEnabled = true
+                    diceField.text = settingsDropdownLabel(
+                        StoreCosmeticCatalog.find(cosmetics.selectedId(CosmeticCategory.DICE))
+                            ?.title?.uppercase() ?: "CLASSIC",
                     )
-                GameSoundFeedback.click(
-                    context,
-                )
-                notifyChanged(
-                    refreshCosmetics =
-                        true,
-                )
+                    GameSoundFeedback.click(context)
+                    notifyChanged(refreshCosmetics = true)
+                }, onFailure = {
+                    diceField.isEnabled = true
+                })
             }
         }
         panel.addView(
@@ -565,6 +537,45 @@ private fun reloadVisibleCosmetics(
                     index,
                 ),
             )
+        }
+    }
+}
+
+private val settingsCosmeticExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { work ->
+    Thread(work, "LudoPawsSettingsCosmetics").apply { isDaemon = true }
+}
+
+private fun selectSettingsCosmetic(
+    activity: Activity,
+    cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+    onApplied: () -> Unit,
+    onFailure: () -> Unit,
+) {
+    val app = activity.application as com.rekixo.ludopaws.LudoProofApplication
+    val inventory = CosmeticInventoryStore(activity.applicationContext)
+    if (inventory.selectOfflineFreeCosmetic(cosmetic)) {
+        onApplied()
+        return
+    }
+    settingsCosmeticExecutor.execute {
+        val result = runCatching {
+            val session = app.accountRepository.ensureGuestSession()
+            val response = app.accountRepository.selectCosmetic(cosmetic.id)
+            val wallet = response.getJSONObject("wallet")
+            check(inventory.applyServerSnapshot(wallet, session.accountId)) {
+                "The selected account or wallet changed. Please try again."
+            }
+            inventory.clearOfflineSelection(cosmetic.category)
+        }
+        activity.runOnUiThread {
+            if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
+            result.fold(onSuccess = { onApplied() }, onFailure = { error ->
+                onFailure()
+                android.app.AlertDialog.Builder(activity)
+                    .setTitle("Could not change appearance")
+                    .setMessage(error.message ?: "Please check your connection and try again.")
+                    .setPositiveButton("OK", null).show()
+            })
         }
     }
 }

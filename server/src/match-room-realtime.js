@@ -1,3 +1,4 @@
+import { familyResponse } from "./family-safety.js";
 import { MatchRoom as BotMatchRoom } from "./match-room-bots.js";
 import { bearerToken, httpError, sha256Hex } from "./crypto.js";
 
@@ -34,7 +35,7 @@ export class MatchRoom extends BotMatchRoom {
         return errorResponse(error);
       }
     }
-    return super.fetch(request);
+    return familyResponse(await super.fetch(request), this.env);
   }
 
   async #checkGameplayRate(request, path) {

@@ -87,7 +87,7 @@ export function googlePlayBillingEnabled(env) {
 
 export async function verifyAndRedeemGooglePlayPurchase(
   env,
-  { productId, purchaseToken, accountId },
+  { productId, purchaseToken, accountId, ownerAccountId },
   fetchImpl = fetch,
 ) {
   const product = GOOGLE_PLAY_PRODUCTS[productId];
@@ -120,6 +120,11 @@ export async function verifyAndRedeemGooglePlayPurchase(
   const priorPurchase = previous.purchase;
   if (priorPurchase) {
     assertSamePurchase(priorPurchase, productId, accountId, product);
+    if (priorPurchase.state === "REVOKED") throw httpError(409, "PLAY_PURCHASE_REVOKED", "this purchase has been revoked");
+    if (OWNER_ACCOUNT_ID_REGEX.test(String(ownerAccountId ?? ""))) {
+      await ledgerRequest(ledger, "/bind-owner", "POST", { accountId, ownerAccountId,
+        purchaseTokenHash: await sha256Hex("ludoproof:google-play-wallet-token:v1:" + purchaseToken) });
+    }
     if (priorPurchase.state === "FULFILLED") {
       return fulfillment(productId, product, true, tokenDigest);
     }
@@ -167,9 +172,12 @@ export async function verifyAndRedeemGooglePlayPurchase(
     accountId,
     gemAmount: product.gemAmount,
     removeAds: product.removeAds,
+    ...(OWNER_ACCOUNT_ID_REGEX.test(String(ownerAccountId ?? "")) ? { ownerAccountId,
+      purchaseTokenHash: await sha256Hex("ludoproof:google-play-wallet-token:v1:" + purchaseToken) } : {}),
   });
   const reservedPurchase = reservation.purchase;
   assertSamePurchase(reservedPurchase, productId, accountId, product);
+  if (reservedPurchase.state === "REVOKED") throw httpError(409, "PLAY_PURCHASE_REVOKED", "this purchase has been revoked");
   if (reservedPurchase.state === "FULFILLED") {
     return fulfillment(productId, product, true, tokenDigest);
   }
@@ -356,7 +364,7 @@ async function runPublisherAction(
   }
 }
 
-async function googleAccessToken(env, fetchImpl) {
+export async function googleAccessToken(env, fetchImpl) {
   const keyId =
     await sha256Hex(env.GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY);
   if (

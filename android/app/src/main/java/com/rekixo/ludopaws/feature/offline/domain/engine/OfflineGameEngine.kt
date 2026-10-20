@@ -136,6 +136,9 @@ class OfflineGameEngine(
 
         val result =
             OfflineLudoV3Binding.deriveRoll(
+                rulesetId = current.rulesetId,
+                opponentStackCapture = if (current.rulesetId == OfflineLudoV5Binding.RULESET_ID)
+                    OfflineLudoV5Binding.OPPONENT_STACK_CAPTURE else "CAPTURE_ALL_ON_UNSAFE_CELL",
                 matchId = current.matchId,
                 status = current.status,
                 players =
@@ -507,6 +510,7 @@ class OfflineGameEngine(
         val current = state ?: return
         val json =
             JSONObject()
+                .put("rulesetId", current.rulesetId)
                 .put("matchId", current.matchId)
                 .put("status", current.status)
                 .put("turnSeat", current.turnSeat)
@@ -731,6 +735,7 @@ class OfflineGameEngine(
                         .toMutableList()
 
             LocalState(
+                rulesetId = json.optString("rulesetId", OfflineLudoV3Binding.RULESET_ID),
                 matchId =
                     json.optString("matchId")
                         .takeIf { it.isNotBlank() }
@@ -786,6 +791,8 @@ class OfflineGameEngine(
     }
 
     private fun validateRestoredState(restored: LocalState) {
+        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID))
+
         check(restored.players.size in 2..4) {
             "Offline save has an invalid player count"
         }
@@ -935,7 +942,7 @@ class OfflineGameEngine(
                     )
                 },
             winnerPlayerId = winnerPlayerId,
-            rulesetId = OfflineLudoV3Binding.RULESET_ID,
+            rulesetId = rulesetId,
             history = history.map { it.toSnapshot() },
             finishOrderPlayerIds = finishedPlayerIds.toList(),
         )
@@ -1009,6 +1016,7 @@ class OfflineGameEngine(
     }
 
     private data class LocalState(
+        val rulesetId: String = OfflineLudoV5Binding.RULESET_ID,
         val matchId: String,
         var status: String,
         val players: MutableList<LocalPlayer>,

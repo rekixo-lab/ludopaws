@@ -35,6 +35,25 @@ if (process.env.LUDOPROOF_AGE_SAFETY_MODE === "LOCKDOWN") {
   process.exit(0);
 }
 
+if (["FAMILY_V1", "FAMILY_V2"].includes(process.env.LUDOPROOF_AGE_SAFETY_MODE)) {
+  const capabilities = await fetch(baseUrl + "/api/capabilities").then(response => response.json());
+  const commerce = process.env.LUDOPROOF_AGE_SAFETY_MODE === "FAMILY_V2";
+  if (capabilities.releaseMode !== process.env.LUDOPROOF_AGE_SAFETY_MODE || capabilities.multiplayer !== true ||
+      capabilities.fixedQuickChat !== true || capabilities.freeTextChat !== false || capabilities.voice !== false ||
+      capabilities.advertising !== (commerce && process.env.LUDOPROOF_ADMOB_SSV_ENABLED === "true") ||
+      capabilities.purchases !== (commerce && process.env.GOOGLE_PLAY_BILLING_ENABLED === "true") ||
+      capabilities.newGoogleLinking !== (commerce && process.env.LUDOPAWS_GOOGLE_LINKING_ENABLED === "true"))
+    throw new Error("Family capabilities mismatch");
+  const disabled = ["/api/friends/messages/send", "/api/friends/messages/list"];
+  if (!commerce) disabled.push("/api/store/purchases/verify", "/api/wallet/cosmetics/purchase", "/api/admob/ssv", "/api/account/google/link");
+  for (const path of disabled) {
+    const response = await fetch(baseUrl + path, { method: "POST", headers: { "content-type": "application/json", "x-age": "adult" }, body: "{}" });
+    if (response.status !== 403 || (await response.json()).error !== "FAMILY_FEATURE_UNAVAILABLE")
+      throw new Error("Family capability bypass: " + path);
+  }
+  // Continue into real roll/move and Friends flows; a denial-only probe is not gameplay evidence.
+}
+
 const ALGORITHM =
   "ludopaws-server-dice-v1";
 
@@ -124,7 +143,7 @@ const host =
       body: {
         displayName:
           "Production Smoke Host",
-        rulesetKey: "CLASSIC_V4",
+        rulesetKey: "CLASSIC_V5",
         clientRequestId:
           randomUUID(),
       },

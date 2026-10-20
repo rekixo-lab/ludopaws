@@ -122,7 +122,7 @@ const androidBuild =
 const androidVersion =
   androidBuild.match(
     /versionName\s*=\s*"([^"]+)"/,
-  )?.[1] ?? null;
+  )?.[1] ?? androidBuild.match(/gradleProperty\("LUDOPAWS_VERSION_NAME"\)\.orElse\("([^"]+)"\)/)?.[1] ?? null;
 if (
   !androidVersion ||
   serverPackage.version !==

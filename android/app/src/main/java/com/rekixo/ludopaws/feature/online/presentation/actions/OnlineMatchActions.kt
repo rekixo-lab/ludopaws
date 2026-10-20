@@ -72,7 +72,7 @@ internal fun MainActivity.createMatch() {
                     displayName,
                 clientRequestId =
                     requestId,
-                rulesetKey = "CLASSIC_V4",
+                rulesetKey = "CLASSIC_V5",
             )
         },
         onSuccess = {
@@ -388,8 +388,8 @@ internal fun MainActivity.captureSession(
         matchId !=
         code
     ) {
-        lastRealtimeRevision =
-            -1
+        lastRealtimeRevision = -1
+        lastAppliedAuthoritativeRevision = -1L
         uiStateHolder.update {
             it.copy(
                 currentStateSource = null,

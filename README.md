@@ -1,5 +1,7 @@
 # Ludo Paws
 
+> **Current candidate: Family edition (20 October 2026).** Multiplayer and fixed reactions are enabled in source; free-text chat, voice, configured ads, purchases and optional Google linking are supported. Follow [the current release status](docs/production-readiness/RELEASE_STATUS.hi.md) and its manual gates. Monetization instructions below describe reserved/future integrations and cannot enable them in this family build. No public-launch approval is implied.
+
 **Publisher / parent brand:** Rekixo (`https://rekixo.com`)
 
 **Final Android application ID:** `com.rekixo.ludopaws`
@@ -11,7 +13,7 @@
 **Publisher / parent brand:** Rekixo  
 **Repository:** `ludopaws`
 
-Rekixo is the publisher/parent brand for Ludo Paws. The intended public-domain layout is `rekixo.com` for the company site, `ludopaws.rekixo.com` for the game site, and `api.ludopaws.rekixo.com` for the game API. The dedicated API hostname has passed the production workflow health, readiness, store-status and game-flow checks. The game website/account host is a separate publisher-gated static-site cutover: it is not considered published until policy approval, Pages/DNS/TLS checks, and public deletion/privacy flows have passed. Do not attach or alter unrelated Rekixo/AR3D Workers or routes.
+Rekixo is the publisher/parent brand for Ludo Paws. The intended public-domain layout is `rekixo.com` for the company site, `ludopaws.rekixo.com` for the game site, and `api.ludopaws.rekixo.com` for the game API. The dedicated API hostname has historical deployment checks, but the previous lockdown smoke only verified denied routes. It is not evidence that this family candidate has passed enabled live gameplay. The game website/account host is a separate publisher-gated static-site cutover: it is not considered published until policy approval, Pages/DNS/TLS checks, and public deletion/privacy flows have passed. Do not attach or alter unrelated Rekixo/AR3D Workers or routes.
 
 Branding/repository names are separate from compatibility-sensitive runtime identifiers. Keep the existing Android application ID, Cloudflare Worker and Durable Object names, persisted storage names, proof/ruleset identifiers, and protocol values unchanged until a separately tested migration plan explicitly authorizes changes. Repository rename does not require renaming those runtime identifiers.
 
@@ -256,7 +258,7 @@ To enable this sign-in flow:
 
 The account Worker owns profile display name, gem balance, Remove Ads entitlement, cosmetic inventory, selected cosmetics, and verified rewarded-ad progress. Wallet reads come from the authenticated backend and the local SharedPreferences values are only a display cache. Client-side callbacks cannot add gems, increment ad progress, or subtract gems for a cosmetic purchase. Store operations use idempotency keys and server-side transactions. Restoring a Google-linked account recovers account-linked Friend and leaderboard credentials without merging a different local guest identity.
 
-**Pre-launch migration note:** there are currently no production users or real purchase transactions to migrate. Old device-only gem balances, cosmetic progress, and local Remove Ads flags are still treated as unverified local/test data: before the first server wallet snapshot, the app archives and warns about them but does not import them into the server wallet. Old Play purchase records from development/testing are not automatically rebound to a new account. Given the current pre-launch state, a historic-customer migration is not a launch blocker; begin with fresh server-authoritative accounts and wallets. If test purchases are created later, verify and clear them under Google Play test procedures rather than carrying them into production. Never restore paid currency from the untrusted archive.
+**Pre-launch migration note:** earlier notes reported no production users or real purchase transactions; reconfirm the actual current state before rollout and preserve existing entitlements. Old device-only gem balances, cosmetic progress, and local Remove Ads flags are still treated as unverified local/test data: before the first server wallet snapshot, the app archives and warns about them but does not import them into the server wallet. Old Play purchase records from development/testing are not automatically rebound to a new account. Do not reset existing customer data based on these historical notes; create fresh server-authoritative state only for genuinely new accounts. If test purchases are created later, verify and clear them under Google Play test procedures rather than carrying them into production. Never restore paid currency from the untrusted archive.
 
 Local match history and profile progression statistics remain device-local and are scoped to the active account; this does **not** automatically upload all historical stats. Play Games Services sign-in remains a separate feature from the Ludo Paws account identity.
 
@@ -316,7 +318,7 @@ Before enabling ads:
 
 1. Register `com.rekixo.ludopaws` in AdMob and create a rewarded ad unit. Add the real App ID and rewarded ad-unit ID above (these IDs are not secrets).
 2. Publish the applicable privacy/consent messages in the AdMob Privacy & messaging settings. Verify the UMP consent and privacy-options flow in the internal test track.
-3. For debug-only SDK integration tests before receiving real IDs, build with Google's sample IDs using `-PLUDOPROOF_ADS_ENABLED=true -PLUDOPROOF_ADS_USE_TEST_IDS=true`. This test-ID mode is automatically disabled in release builds.
+3. The family edition rejects ads enablement even in debug builds. A future reviewed SDK-integration build is required before testing ad providers; keep all current ads flags false.
 4. Only enable production ads with your real IDs and `LUDOPROOF_ADS_USE_TEST_IDS=false`; the build rejects enabling ads with the default sample IDs in this mode.
 5. In the AdMob rewarded ad unit's server-side verification/reward settings, set the reward amount to **5** and reward item to **gems**. In Cloudflare, set `LUDOPROOF_ADMOB_SSV_ENABLED=true`, `LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID` to the exact real rewarded ad unit, and `LUDOPROOF_ADMOB_REWARD_ITEM=gems`. Keep SSV disabled until the public HTTPS callback `https://api.ludopaws.rekixo.com/api/admob/ssv` is configured in AdMob and an end-to-end test confirms that signed callbacks reach the matching account. The Worker independently requires amount `5`, item `gems`, the expected ad unit, a recent timestamp, and a valid AdMob signature before crediting anything.
 

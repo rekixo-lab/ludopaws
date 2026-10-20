@@ -191,6 +191,9 @@ internal fun ProfileActivity.showProfileMenu(anchor: View) {
     }
 
     addSection("ACCOUNT & DATA")
+    addItem("Age and privacy", "Manage the age group stored on this device") {
+        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.show(this@showProfileMenu)
+    }
     addItem(
         "Save / Restore Account",
         if (accountGoogleLinked) "Manage or restore your Google-linked account" else "Link this Guest account or restore a saved account",

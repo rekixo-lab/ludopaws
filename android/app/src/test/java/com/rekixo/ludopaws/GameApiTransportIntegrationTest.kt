@@ -55,6 +55,17 @@ class GameApiTransportIntegrationTest {
     }
 
     @Test
+    fun familyRemotePayloadNeverSendsThePrivateDeviceNickname() {
+        server.enqueue(MockResponse().setBody("{}"))
+        val privateName = "phone-1234567890"
+        GameApi(baseUrl, client).registerFriend(privateName, java.util.UUID.randomUUID().toString())
+        val sent = server.takeRequest(2, TimeUnit.SECONDS)!!
+        val raw = sent.body.readUtf8()
+        assertFalse(raw.contains(privateName))
+        assertEquals("Player", JSONObject(raw).getString("displayName"))
+    }
+
+    @Test
     fun restUsesAuthenticatedJsonAndReusesConnection() {
         repeat(2) { server.enqueue(MockResponse().setBody("""{"state":{"revision":8}}""")) }
         val api = GameApi(baseUrl, client)

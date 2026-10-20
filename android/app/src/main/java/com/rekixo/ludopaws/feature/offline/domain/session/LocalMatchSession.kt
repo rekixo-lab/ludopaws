@@ -22,9 +22,8 @@ class LocalMatchSession(
                 mode,
         )
 
-    override val rulesetId:
-        String =
-        OfflineLudoV3Binding.RULESET_ID
+    override val rulesetId: String
+        get() = engine.snapshot()?.rulesetId ?: OfflineLudoV5Binding.RULESET_ID
 
     override fun snapshot():
         MatchSnapshot? =

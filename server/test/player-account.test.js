@@ -13,11 +13,14 @@ class FakeAccountSql {
     this.selectedCosmetics = new Map();
     this.adProgress = new Map();
     this.walletTransactions = new Map();
+    this.revokedPurchases = new Map();
   }
 
   exec(statement, ...params) {
     const sql = String(statement).replace(/\s+/g, " ").trim();
-    if (/^(CREATE TABLE|CREATE INDEX)/i.test(sql)) return { rowsWritten: 0 };
+    if (sql.startsWith("INSERT OR IGNORE INTO wallet_revision")) return { rowsWritten: 0 };
+    if (sql.startsWith("SELECT revision FROM wallet_revision")) return [{ revision: 0 }];
+    if (/^(CREATE TABLE|CREATE INDEX|CREATE TRIGGER)/i.test(sql)) return { rowsWritten: 0 };
     if (/^DROP TABLE IF EXISTS paws_plus_subscriptions$/i.test(sql)) return { rowsWritten: 0 };
 
     if (sql.startsWith("SELECT account_id FROM account_deletions WHERE account_id = ?")) {
@@ -38,6 +41,9 @@ class FakeAccountSql {
       return [...this.walletTransactions.values()].filter(row => ["PLAY_GEM_PURCHASE", "PLAY_REMOVE_ADS"].includes(row.kind) && row.source_ref_hash).map(row => ({ source_ref_hash: row.source_ref_hash }));
     }
     if (/^DELETE FROM account_sessions$/.test(sql)) { this.sessions.clear(); return { rowsWritten: 1 }; }
+    if (sql.startsWith("SELECT ledger_id FROM revoked_play_purchases")) return this.revokedPurchases.has(params[0]) ? [{ledger_id:params[0]}] : [];
+    if (/^DELETE FROM purchase_ledger_ownership$/.test(sql)) return { rowsWritten: 0 };
+    if (/^DELETE FROM revoked_play_purchases$/.test(sql)) { this.revokedPurchases.clear(); return { rowsWritten: 1 }; }
     if (/^DELETE FROM wallet_transactions$/.test(sql)) { this.walletTransactions.clear(); return { rowsWritten: 1 }; }
     if (/^DELETE FROM cosmetic_ad_progress$/.test(sql)) { this.adProgress.clear(); return { rowsWritten: 1 }; }
     if (/^DELETE FROM selected_cosmetics$/.test(sql)) { this.selectedCosmetics.clear(); return { rowsWritten: 1 }; }

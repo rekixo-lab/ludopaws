@@ -37,7 +37,7 @@ internal fun HomeActivity.showFirstRunGuideIfNeeded() {
             onDismissed = {
                 store.markSeen()
                 homeGuideVisible = false
-                if (!isFinishing && !isDestroyed) PlayAgeSignalsObserver.refreshOnce(this)
+
             },
         )
     }
@@ -57,7 +57,7 @@ internal fun showLudoPawsGuide(
                 "2. Roll the dice, choose a highlighted pawn and race all four paws home.\n\n" +
                 "3. Earn XP and badges by completing games. You can see your progress in Profile.\n\n" +
                 "4. Change sound, game speed and Reduce motion in Settings.\n\n" +
-                "Online modes are available only when account safety requirements are met.",
+                "Online games use automatic animal names and fixed reactions. Free-text chat and voice are unavailable.",
         )
         .setPositiveButton("GOT IT", null)
         .setNegativeButton("NOT NOW", null)

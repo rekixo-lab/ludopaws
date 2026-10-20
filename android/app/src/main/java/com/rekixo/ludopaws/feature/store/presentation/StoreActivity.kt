@@ -96,7 +96,7 @@ class StoreActivity :
         rewardedAdsWasCreated = true
         RewardedAdsController(
             activity = this,
-            enabled = adsEnabledForBuild,
+            enabled = { adsEnabledForBuild },
             adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
             onMessage = ::showStoreMessage,
         )
@@ -130,6 +130,7 @@ class StoreActivity :
         selectedTab =
             requestedInitialTab()
                 ?: StoreTab.GEMS
+        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
             intent
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
@@ -315,27 +316,31 @@ class StoreActivity :
                 .LUDOPROOF_BILLING_ENABLED
         ) {
             showStoreMessage(
-                "Purchases are prepared but intentionally disabled in this build. Enable them only after the Play Console products and secure purchase-verification backend are configured.",
+                "Purchases are unavailable in this build.",
             )
             return
         }
         if (!billingAvailable) {
             showStoreMessage(
-                "Google Play payments are unavailable until purchase verification is configured.",
+                "Google Play payments are currently unavailable.",
             )
             return
         }
-        billing
-            .launchPurchase(
-                productId,
-            )
+        AlertDialog.Builder(this)
+            .setTitle("Google Play purchase")
+            .setMessage("This purchase costs real money. Google Play will show the local price before payment. Children should ask a parent or guardian. No payment is made by opening this confirmation.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Continue to Google Play") { _, _ ->
+                if (!isFinishing && !isDestroyed) billing.launchPurchase(productId)
+            }
+            .show()
     }
 
     internal fun requestRewardedAd(
         cosmeticId: String? = null,
     ) {
         if (!BuildConfig.LUDOPROOF_ADS_ENABLED) {
-            showStoreMessage("Rewarded ads are not enabled in this installation.")
+            showStoreMessage("Rewarded ads are unavailable in this build.")
             return
         }
         if (!rewardedAdsStatusLoaded) {
@@ -545,6 +550,10 @@ class StoreActivity :
     }
 
     internal fun purchaseOrSelectCosmetic(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic) {
+        if (BuildConfig.LUDOPAWS_FAMILY_MODE && cosmetics.selectOfflineFreeCosmetic(cosmetic)) {
+            renderStore()
+            return
+        }
         val owned = cosmetics.isOwned(cosmetic.id)
         if (!owned && cosmetic.remoteManaged && cosmetic.unlockChannels.size > 1) {
             val channels = cosmetic.unlockChannels
@@ -621,6 +630,7 @@ class StoreActivity :
                     "Server returned a wallet for a different account."
                 }
                 cosmetics.applyServerSnapshot(serverWallet, session.accountId)
+                cosmetics.clearOfflineSelection(cosmetic.category)
                 runOnUiThread {
                     if (!canRenderStoreUi()) return@runOnUiThread
                     renderStore()
@@ -862,7 +872,7 @@ class StoreActivity :
             },
         )
 
-        if (selectedTab == StoreTab.GEMS) {
+        if (!!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
             fixedHeader.addView(
                 pinnedRemoveAdsContent(),
                 LinearLayout.LayoutParams(

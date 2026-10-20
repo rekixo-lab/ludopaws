@@ -1,5 +1,7 @@
 # Google Play Billing — Production Readiness and Release Checklist
 
+> **Current internal candidate: Family V2 / RC3 (20 October 2026).** The publisher authorized configured Play Billing, child-directed ads and optional Google account linking/restore. Voice and free-text remain removed. No startup/gameplay age entry. Follow [current release status](production-readiness/RELEASE_STATUS.hi.md) for build/deploy evidence and physical/Play acceptance; older release instructions below are historical where they conflict.
+
 **Scope:** This checklist validates Google Play **one-time in-app products** only. It does not enable deployment or change feature flags. Keep the one-time `remove_ads` SKU semantics unchanged.
 
 ## 1. Supported product IDs

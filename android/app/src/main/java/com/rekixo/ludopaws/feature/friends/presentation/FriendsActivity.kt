@@ -82,7 +82,7 @@ class FriendsActivity : Activity() {
                 val changed = isOnline != online
                 isOnline = online
                 if (!online) {
-                    showStatus("Offline — friends, messages and invites will refresh when internet returns.")
+                    showStatus("Offline — friends and invites will refresh when internet returns.")
                 } else if (changed) {
                     syncFriends(announce = false)
                 }
@@ -573,7 +573,7 @@ class FriendsActivity : Activity() {
     }
 
     private fun renderFriends() {
-        friendsContainer.removeAllViews()
+        while (friendsContainer.childCount > 1) friendsContainer.removeViewAt(friendsContainer.childCount - 1)
         val allFriends = snapshot?.optJSONArray("friends").objects()
         val recentPlayers = snapshot
             ?.optJSONObject("_recent")
@@ -612,6 +612,7 @@ class FriendsActivity : Activity() {
                 player.optString("opponentFriendId").lowercase().contains(query)
         }
 
+        if (friendsContainer.childCount == 0) {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -627,7 +628,7 @@ class FriendsActivity : Activity() {
         heading.addView(
             FriendsVisualKit.title(
                 this,
-                "FRIENDS ${friends.size}  •  RECENT ${filteredRecent.size}",
+                "FRIENDS • RECENT",
                 if (isCompact()) 9.5f else 12f,
             ),
             LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
@@ -685,6 +686,7 @@ class FriendsActivity : Activity() {
                 .apply { marginStart = dp(6) },
         )
         friendsContainer.addView(header)
+        }
         renderBlockedPlayers()
 
         if (friends.isEmpty() && filteredRecent.isEmpty()) {
@@ -837,18 +839,6 @@ class FriendsActivity : Activity() {
                 marginEnd = dp(2)
             },
         )
-        actions.addView(
-            FriendsVisualKit.button(
-                this,
-                "CHAT",
-                FriendsButtonStyle.BLUE,
-                FriendsIcon.MESSAGE,
-            ) { openChat(friend) }.apply { textSize = 9f },
-            LinearLayout.LayoutParams(0, dp(34), 0.85f).apply {
-                marginStart = dp(2)
-                marginEnd = dp(2)
-            },
-        )
         val more = FriendsVisualKit.iconView(this, FriendsIcon.MORE, FriendsVisualKit.TEXT).apply {
             isClickable = true
             isFocusable = true
@@ -940,211 +930,9 @@ class FriendsActivity : Activity() {
             .show()
     }
 
-    private fun openChat(friend: JSONObject) {
-        val auth = credential ?: run {
-            showStatus("Friend identity is not ready yet.")
-            return
-        }
-        val friendId = friend.optString("friendId")
-        val friendName = friend.optString("displayName", "Friend")
-        if (!FRIEND_ID.matches(friendId)) {
-            showStatus("This friend identity is invalid.")
-            return
-        }
-
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(8), dp(8), dp(4))
-        }
-        val messageList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val scroll = ScrollView(this).apply {
-            isFillViewport = true
-            addView(
-                messageList,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                ),
-            )
-        }
-        root.addView(
-            scroll,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(if (isCompact()) 310 else 360),
-            ),
-        )
-
-        val composer = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val input = FriendsVisualKit.input(this, "Write a message…").apply {
-            maxLines = 3
-        }
-        composer.addView(
-            input,
-            LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(6) },
-        )
-        val send = FriendsVisualKit.button(
-            this,
-            "SEND",
-            FriendsButtonStyle.GREEN,
-            FriendsIcon.MESSAGE,
-        ) {}
-        composer.addView(send, LinearLayout.LayoutParams(dp(96), dp(50)))
-        root.addView(
-            composer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(8) },
-        )
-        val chatStatus = FriendsVisualKit.body(this, "Loading conversation…", 10f, muted = true).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(6), 0, 0)
-        }
-        root.addView(chatStatus)
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Message $friendName")
-            .setView(root)
-            .setNegativeButton("CLOSE", null)
-            .create()
-
-        fun renderMessages(response: JSONObject) {
-            if (!dialog.isShowing) return
-            messageList.removeAllViews()
-            val messages = response.optJSONArray("messages").objects()
-            if (messages.isEmpty()) {
-                messageList.addView(
-                    FriendsVisualKit.body(
-                        this,
-                        "No messages yet. Say hello or invite them to play.",
-                        11f,
-                        muted = true,
-                    ).apply { gravity = Gravity.CENTER },
-                    LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        dp(76),
-                    ),
-                )
-            } else {
-                messages.forEach { message ->
-                    val mine = message.optString("senderId") == auth.friendId
-                    val bubble = LinearLayout(this).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(dp(10), dp(7), dp(10), dp(7))
-                        background = FriendsVisualKit.rowSurface(this@FriendsActivity)
-                    }
-                    bubble.addView(
-                        FriendsVisualKit.body(
-                            this,
-                            if (mine) "You" else friendName,
-                            10f,
-                            muted = true,
-                        ),
-                    )
-                    bubble.addView(
-                        FriendsVisualKit.body(this, message.optString("text"), 13f),
-                        LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = dp(2) },
-                    )
-                    if (!mine) {
-                        val reportedMessageId = message.optString("messageId")
-                        if (reportedMessageId.isNotBlank()) {
-                            bubble.addView(
-                                FriendsVisualKit.button(
-                                    this, "REPORT MESSAGE", FriendsButtonStyle.BLUE, FriendsIcon.MORE,
-                                ) { showReportFriend(friendId, reportedMessageId) },
-                                LinearLayout.LayoutParams(dp(150), dp(30)),
-                            )
-                        }
-                    }
-                    bubble.addView(
-                        FriendsVisualKit.body(
-                            this,
-                            formatMessageTime(message.optLong("createdAt", 0L)),
-                            9f,
-                            muted = true,
-                        ),
-                    )
-                    messageList.addView(
-                        bubble,
-                        LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.MATCH_PARENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                        ).apply {
-                            topMargin = dp(5)
-                            if (mine) marginStart = dp(30) else marginEnd = dp(30)
-                        },
-                    )
-                }
-            }
-            chatStatus.text = "Messages are private to this friend pair."
-            scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
-        }
-
-        fun loadMessages(quiet: Boolean) {
-            if (!dialog.isShowing) return
-            runRequest(
-                working = if (quiet) null else "Loading messages…",
-                action = { api.friendMessages(auth.friendToken, friendId) },
-                onSuccess = { response -> renderMessages(response) },
-                quietFailure = quiet,
-            )
-        }
-
-        send.setOnClickListener {
-            val text = input.text.toString().trim()
-            if (text.isBlank()) {
-                chatStatus.text = "Type a message first."
-                return@setOnClickListener
-            }
-            if (text.length > MAX_MESSAGE_CHARS) {
-                chatStatus.text = "Messages can be up to $MAX_MESSAGE_CHARS characters."
-                return@setOnClickListener
-            }
-            runRequest(
-                working = null,
-                action = {
-                    api.sendFriendMessage(
-                        friendToken = auth.friendToken,
-                        friendId = friendId,
-                        text = text,
-                        clientRequestId = UUID.randomUUID().toString(),
-                    )
-                },
-                onSuccess = {
-                    input.setText("")
-                    chatStatus.text = "Sent."
-                    loadMessages(quiet = true)
-                },
-            )
-        }
-
-        lateinit var chatRefresh: Runnable
-        chatRefresh = Runnable {
-            if (!dialog.isShowing) return@Runnable
-            loadMessages(quiet = true)
-            mainHandler.postDelayed(chatRefresh, CHAT_REFRESH_MS)
-        }
-        dialog.setOnShowListener {
-            loadMessages(quiet = false)
-            mainHandler.postDelayed(chatRefresh, CHAT_REFRESH_MS)
-        }
-        dialog.setOnDismissListener {
-            mainHandler.removeCallbacks(chatRefresh)
-        }
-        dialog.show()
-    }
-
     private fun showFriendMenu(anchor: View, friend: JSONObject) {
         PopupMenu(this, anchor).apply {
             menu.add("Copy Friend ID")
-            menu.add("Message")
             menu.add("Remove Friend")
             menu.add("Block Player")
             menu.add("Report Player")
@@ -1153,10 +941,6 @@ class FriendsActivity : Activity() {
                     "Copy Friend ID" -> {
                         copyText("Ludo Paws Friend ID", friend.optString("friendId"))
                         showStatus("Friend ID copied.")
-                        true
-                    }
-                    "Message" -> {
-                        openChat(friend)
                         true
                     }
                     "Remove Friend" -> {

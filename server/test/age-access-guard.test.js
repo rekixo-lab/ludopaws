@@ -101,3 +101,52 @@ test("fail closed without breaking account deletion and basic operational status
     }
   }
 });
+
+
+test("family capabilities open gameplay but do not restore messaging or monetization", async () => {
+  const env = { LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V1",
+    GOOGLE_PLAY_BILLING_ENABLED: "true", LUDOPROOF_ADMOB_SSV_ENABLED: "true" };
+  for (const path of ["/api/matches", "/api/matches/LPABCDEFGH/events", "/api/matchmaking/search",
+    "/api/team-matchmaking/search", "/api/friends/register", "/api/friends/block", "/api/friends/report",
+    "/api/account/guest", "/api/wallet", "/api/wallet/cosmetics/select", "/api/account/guest/delete"]) {
+    assert.equal(ageSafetyBlockResponse(new Request("https://test.local" + path), env), null, path);
+  }
+  for (const path of ["/api/friends/messages/send", "/api/friends/messages/list",
+    "/api/store/purchases/verify", "/api/wallet/cosmetics/purchase", "/api/admob/ssv", "/api/account/google/link"]) {
+    const response = await accountWorker.fetch(new Request("https://test.local" + path, {
+      method: "POST", headers: { "x-age": "adult", authorization: "Bearer previous-release-token" },
+    }), env);
+    assert.equal(response.status, 403, path);
+    assert.equal((await response.json()).error, "FAMILY_FEATURE_UNAVAILABLE", path);
+  }
+  const capabilities = await (await accountWorker.fetch(new Request("https://test.local/api/capabilities"), env)).json();
+  assert.equal(capabilities.releaseMode, "FAMILY_V1");
+  assert.equal(capabilities.multiplayer, true);
+  assert.equal(capabilities.voice, false);
+  const status = await accountWorker.fetch(new Request("https://test.local/api/store/status"), env);
+  const body = await status.json();
+  assert.equal(body.billingAvailable, false);
+  assert.equal(body.rewardedAdsAvailable, false);
+});
+
+
+test("Family V2 enables reviewed integrations without opening communications or trusting age headers", async () => {
+  const env = { LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V2", GOOGLE_PLAY_BILLING_ENABLED: "true",
+    LUDOPROOF_ADMOB_SSV_ENABLED: "true", LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true",
+    LUDOPAWS_GOOGLE_LINKING_ENABLED: "true" };
+  for (const path of ["/api/store/purchases/verify", "/api/admob/ssv", "/api/wallet/cosmetics/purchase", "/api/account/google/link"]) {
+    assert.equal(ageSafetyBlockResponse(new Request("https://test.local" + path), env), null);
+  }
+  const capabilities = await (await accountWorker.fetch(new Request("https://test.local/api/capabilities"), env)).json();
+  assert.equal(capabilities.purchases, true);
+  assert.equal(capabilities.advertising, true);
+  assert.equal(capabilities.newGoogleLinking, true);
+  assert.equal(capabilities.voice, false);
+  for (const path of ["/api/friends/messages/send", "/api/friends/messages/list"]) {
+    assert.equal(ageSafetyBlockResponse(new Request("https://test.local" + path, {headers:{"x-age":"adult"}}), env).status, 403);
+  }
+  for (const [key, path] of [["GOOGLE_PLAY_BILLING_ENABLED", "/api/store/purchases/verify"],
+      ["LUDOPAWS_AD_SAFETY_REVIEW_APPROVED", "/api/admob/ssv"], ["LUDOPAWS_GOOGLE_LINKING_ENABLED", "/api/account/google/link"]]) {
+    assert.equal(ageSafetyBlockResponse(new Request("https://test.local" + path), {...env, [key]:"false"}).status, 403);
+  }
+});

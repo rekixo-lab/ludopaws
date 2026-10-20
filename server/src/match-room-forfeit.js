@@ -1,3 +1,4 @@
+import { familyProjection } from "./family-safety.js";
 import {
   MatchRoom as BaseMatchRoom,
 } from "./match-room.js";
@@ -464,6 +465,7 @@ export class MatchRoom extends BaseMatchRoom {
     broadcastStateChanged(
       this.ctx,
       state,
+      this.env,
     );
   }
 }
@@ -835,6 +837,7 @@ function touch(
 function broadcastStateChanged(
   ctx,
   state,
+  env,
 ) {
   if (
     typeof ctx
@@ -858,7 +861,7 @@ function broadcastStateChanged(
         state.players
           ?.length ??
         0,
-      state: decoratedState(state),
+      state: familyProjection(decoratedState(state), env),
     });
 
   for (

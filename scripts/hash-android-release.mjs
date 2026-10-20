@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
 
 const roots = [
   "android/app/build/outputs/apk/release",
@@ -24,6 +25,7 @@ const artifacts =
         fs.statSync(file).size,
       sha256:
         sha256File(file),
+      uploadSignature: verifyUploadSignature(file),
     }));
 
 if (artifacts.length < 2) {
@@ -32,21 +34,20 @@ if (artifacts.length < 2) {
   );
 }
 
-const appBuild =
-  fs.readFileSync(
-    "android/app/build.gradle.kts",
-    "utf8",
-  );
-const versionName =
-  appBuild.match(
-    /versionName\s*=\s*"([^"]+)"/,
-  )?.[1] ?? "unknown";
-const versionCode =
-  Number(
-    appBuild.match(
-      /versionCode\s*=\s*(\d+)/,
-    )?.[1] ?? 0,
-  );
+// AGP output metadata records the values actually used for this built variant,
+// including release-workflow version overrides; source regexes cannot do that.
+const apkMetadata = JSON.parse(fs.readFileSync("android/app/build/outputs/apk/release/output-metadata.json", "utf8"));
+const variant = apkMetadata.elements?.[0];
+const versionName = variant?.versionName;
+const versionCode = variant?.versionCode;
+if (!versionName || !Number.isSafeInteger(versionCode) || versionCode < 1 ||
+    apkMetadata.elements.some(item => item.versionName !== versionName || item.versionCode !== versionCode)) {
+  throw new Error("Release APK version metadata is absent or inconsistent");
+}
+const inventory = JSON.parse(fs.readFileSync("android/build/reports/release-dependencies.json", "utf8"));
+if (inventory.versionName !== versionName || inventory.versionCode !== versionCode) {
+  throw new Error("Release APK and resolved dependency evidence refer to different versions");
+}
 
 const metadata = {
   schemaVersion: 1,
@@ -62,12 +63,10 @@ const metadata = {
     new Date()
       .toISOString(),
   signing: {
-    repositoryContainsSigningKey:
-      false,
-    ciArtifactIsStoreSigned:
-      false,
-    note:
-      "Store/upload signing remains external to the repository and CI artifact.",
+    repositoryContainsSigningKey: false,
+    ciArtifactIsStoreSigned: false,
+    uploadSignaturesVerified: artifacts.every(artifact => artifact.uploadSignature.verified),
+    note: "Upload signatures are checked per artifact. Google Play distribution signing is separate and is not asserted by this metadata.",
   },
   artifacts,
 };
@@ -135,4 +134,24 @@ function sha256File(file) {
       fs.readFileSync(file),
     )
     .digest("hex");
+}
+
+function verifyUploadSignature(file) {
+  try {
+    if (file.toLowerCase().endsWith(".apk")) {
+      const sdkRoot = process.env.ANDROID_SDK_ROOT ?? process.env.ANDROID_HOME;
+      if (!sdkRoot) return { verified: false, reason: "android-sdk-not-configured" };
+      const toolsRoot = path.join(sdkRoot, "build-tools");
+      const version = fs.readdirSync(toolsRoot).filter(v => fs.existsSync(path.join(toolsRoot, v, "apksigner")))
+        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true })).at(-1);
+      if (!version) return { verified: false, reason: "apksigner-unavailable" };
+      const result = execFileSync(path.join(toolsRoot, version, "apksigner"), ["verify", "--print-certs", file], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+      const certificateSha256 = result.match(/Signer #1 certificate SHA-256 digest:\s*([a-fA-F0-9]+)/)?.[1]?.toLowerCase();
+      return { verified: true, ...(certificateSha256 ? { certificateSha256 } : {}) };
+    }
+    const result = execFileSync("jarsigner", ["-verify", file], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    return { verified: /jar verified\./i.test(result) && !/jar is unsigned/i.test(result) };
+  } catch {
+    return { verified: false, reason: "unsigned-or-verification-failed" };
+  }
 }

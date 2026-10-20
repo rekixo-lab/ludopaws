@@ -10,11 +10,15 @@ object ClassicRuleset {
     const val V3_KEY = "CLASSIC_V3"
     const val V3_ID = "ludoproof-standard-v3"
 
+    const val V5_ID = "ludoproof-standard-v5"
+    const val V5_KEY = "CLASSIC_V5"
+
     val SUPPORTED_IDS =
         setOf(
             ID,
             V2_ID,
             V3_ID,
+            V5_ID,
         )
 
     const val BOARD_TRACK_CELLS = 52

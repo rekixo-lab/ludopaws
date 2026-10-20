@@ -1,3 +1,4 @@
+import { familyResponse, isFamilyMode, familyPlayerName } from "./family-safety.js";
 import { rulesetHashForState, rollResponse, publicStateWithHistory } from "./match-room-state.js";
 import { optionalTargetPlayerCount, normalizeMatchMode, optionalLeaderboardProfileId } from "./match-room-validation.js";
 import { readJson, json, errorResponse } from "./match-room-http.js";
@@ -46,9 +47,11 @@ import {
   RULESET_KEY,
   RULESET_V3_KEY,
   RULESET_V4_KEY,
+  RULESET_V5_KEY,
   TEAM_RULESET_KEY,
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4_KEY,
+  TEAM_RULESET_V5_KEY,
   rulesetKeyForState,
 } from "./rulesets.js";
 
@@ -74,6 +77,12 @@ export class MatchRoom {
   }
 
   async fetch(request) {
+    return familyResponse(await this.#fetch(request), this.env);
+  }
+
+  #publicState(state) { return publicStateWithHistory(state, this.env); }
+
+  async #fetch(request) {
     try {
       const url = new URL(request.url);
       const body =
@@ -205,7 +214,7 @@ export class MatchRoom {
           state.matchId,
         revision:
           state.revision,
-        state: publicStateWithHistory(state),
+        state: this.#publicState(state),
         status:
           state.status,
         playerCount:
@@ -269,7 +278,7 @@ export class MatchRoom {
   ) {
     const displayName =
       normalizeDisplayName(
-        body?.displayName,
+        body?.displayName, this.env
       );
     const characterId =
       normalizeCharacterId(
@@ -299,8 +308,8 @@ export class MatchRoom {
     if (requestedRulesetKey != null) {
       const acceptedRulesets =
         matchMode === "TEAM_UP"
-          ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY]
-          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY];
+          ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY]
+          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY];
       if (!acceptedRulesets.includes(requestedRulesetKey)) {
         throw httpError(
           400,
@@ -377,7 +386,7 @@ export class MatchRoom {
           playerToken:
             identity.playerToken,
           state:
-            publicStateWithHistory(
+            this.#publicState(
               existing,
             ),
         });
@@ -447,7 +456,7 @@ export class MatchRoom {
       playerToken:
         identity.playerToken,
       state:
-        publicStateWithHistory(
+        this.#publicState(
           state,
         ),
     });
@@ -461,7 +470,7 @@ export class MatchRoom {
       await this.#requireState();
     const displayName =
       normalizeDisplayName(
-        body?.displayName,
+        body?.displayName, this.env
       );
     const characterId =
       normalizeCharacterId(
@@ -554,7 +563,7 @@ export class MatchRoom {
           playerToken:
             replayIdentity.playerToken,
           state:
-            publicStateWithHistory(
+            this.#publicState(
               state,
             ),
         });
@@ -613,7 +622,7 @@ export class MatchRoom {
         playerToken:
           identity.playerToken,
         state:
-          publicStateWithHistory(
+          this.#publicState(
             state,
           ),
       });
@@ -685,7 +694,7 @@ export class MatchRoom {
       playerToken:
         identity.playerToken,
       state:
-        publicStateWithHistory(
+        this.#publicState(
           next,
         ),
     });
@@ -700,7 +709,7 @@ export class MatchRoom {
       );
     return json(200, {
       playerId: player.playerId,
-      state: publicStateWithHistory(state),
+      state: this.#publicState(state),
     });
   }
 
@@ -721,7 +730,7 @@ export class MatchRoom {
       return json(200, {
         replayed: true,
         state:
-          publicStateWithHistory(
+          this.#publicState(
             state,
           ),
       });
@@ -739,7 +748,7 @@ export class MatchRoom {
     return json(200, {
       replayed: false,
       state:
-        publicStateWithHistory(
+        this.#publicState(
           next,
         ),
     });
@@ -918,7 +927,7 @@ export class MatchRoom {
           previous.winnerPlayerId ??
           null,
         state:
-          publicStateWithHistory(
+          this.#publicState(
             state,
           ),
       });
@@ -1002,7 +1011,7 @@ export class MatchRoom {
       winnerPlayerId:
         moved.winnerPlayerId,
       state:
-        publicStateWithHistory(
+        this.#publicState(
           state,
         ),
     });
@@ -1193,7 +1202,7 @@ export class MatchRoom {
           state.matchId,
         revision:
           state.revision,
-        state: publicStateWithHistory(state),
+        state: this.#publicState(state),
         status:
           state.status,
         playerCount:
@@ -1245,6 +1254,10 @@ export class MatchRoom {
       payload?.type === "VOICE_LEAVE" ||
       payload?.type === "VOICE_SIGNAL"
     ) {
+      if (isFamilyMode(this.env)) {
+        socket.send(JSON.stringify({ type: "VOICE_ENDED", error: "FAMILY_FEATURE_UNAVAILABLE" }));
+        return;
+      }
       await this.#mutate(() => this.#handleVoiceMessage(socket, payload));
     }
   }
@@ -1256,6 +1269,7 @@ export class MatchRoom {
     const state = await this.ctx.storage.get(STATE_KEY);
     if (
       !state ||
+      isFamilyMode(this.env) ||
       state.matchMode !== "FRIENDS" ||
       state.status !== "ACTIVE" ||
       !Array.isArray(state.players)
@@ -1393,6 +1407,7 @@ export class MatchRoom {
     if (typeof this.ctx.getWebSockets !== "function") return;
     const sockets = this.ctx.getWebSockets();
     if (
+      isFamilyMode(this.env) ||
       state.matchMode !== "FRIENDS" ||
       state.status !== "ACTIVE" ||
       !Array.isArray(state.players)
@@ -1472,7 +1487,7 @@ export class MatchRoom {
       type: "QUICK_CHAT",
       matchId: state.matchId,
       playerId: player.playerId,
-      displayName: player.displayName,
+      displayName: isFamilyMode(this.env) ? familyPlayerName(player.playerId) : player.displayName,
       emoji,
       sentAt: now,
     });

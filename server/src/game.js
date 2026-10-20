@@ -11,6 +11,8 @@ import {
   RULESET_V3_KEY,
   RULESET_V4,
   RULESET_V4_KEY,
+  RULESET_V5,
+  RULESET_V5_KEY,
   TEAM_ASSIGNMENTS,
   TEAM_RULESET,
   TEAM_RULESET_KEY,
@@ -18,6 +20,8 @@ import {
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4,
   TEAM_RULESET_V4_KEY,
+  TEAM_RULESET_V5,
+  TEAM_RULESET_V5_KEY,
   rulesetForKey,
   rulesetKeyForState,
 } from "./rulesets.js";
@@ -40,6 +44,8 @@ export {
   RULESET_V3_KEY,
   RULESET_V4,
   RULESET_V4_KEY,
+  RULESET_V5,
+  RULESET_V5_KEY,
   TEAM_ASSIGNMENTS,
   TEAM_RULESET,
   TEAM_RULESET_KEY,
@@ -47,6 +53,8 @@ export {
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4,
   TEAM_RULESET_V4_KEY,
+  TEAM_RULESET_V5,
+  TEAM_RULESET_V5_KEY,
 };
 
 export function isTeamUp(state) {
@@ -62,12 +70,14 @@ export function rulesetForState(state) {
         TEAM_RULESET_KEY,
         TEAM_RULESET_V3_KEY,
         TEAM_RULESET_V4_KEY,
+        TEAM_RULESET_V5_KEY,
       ])
     : new Set([
         LEGACY_RULESET_KEY,
         RULESET_KEY,
         RULESET_V3_KEY,
         RULESET_V4_KEY,
+        RULESET_V5_KEY,
       ]);
 
   if (!allowed.has(key)) {
@@ -269,7 +279,7 @@ function isV3State(state) {
   return key === RULESET_V3_KEY ||
     key === TEAM_RULESET_V3_KEY ||
     key === RULESET_V4_KEY ||
-    key === TEAM_RULESET_V4_KEY;
+    key === TEAM_RULESET_V4_KEY || key === RULESET_V5_KEY || key === TEAM_RULESET_V5_KEY;
 }
 
 function openingRollState(state) {

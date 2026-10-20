@@ -224,6 +224,7 @@ internal fun MainActivity.resetInvalidSessionIfNeeded(
         )
     }
     lastRealtimeRevision = -1
+    lastAppliedAuthoritativeRevision = -1L
     cachedMatchStore.clear()
     realtimeClient.disconnect()
     realtimeConnected = false

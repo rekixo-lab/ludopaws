@@ -3,7 +3,6 @@ package com.rekixo.ludopaws.feature.store.data.ads
 import android.app.Activity
 import android.util.Log
 import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
@@ -11,12 +10,11 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.gms.ads.rewarded.ServerSideVerificationOptions
 import com.google.android.ump.ConsentInformation
-import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
 internal class RewardedAdsController(
     private val activity: Activity,
-    private val enabled: Boolean,
+    private val enabled: () -> Boolean,
     private val adUnitId: String,
     private val onMessage: (String) -> Unit,
 ) {
@@ -32,7 +30,7 @@ internal class RewardedAdsController(
     private var closed = false
 
     fun prepare() {
-        if (!enabled || closed || rewardedAd != null || adLoading) return
+        if (!enabled() || closed || rewardedAd != null || adLoading) return
         if (activity.isFinishing || activity.isDestroyed) return
         Log.d(TAG, "Preparing rewarded ad; sdkInitialized=$sdkInitialized, consentCanRequestAds=${consentInformation.canRequestAds()}")
         if (sdkInitialized) {
@@ -41,11 +39,16 @@ internal class RewardedAdsController(
         }
         if (sdkInitializationInProgress || consentUpdateInProgress) return
 
+        FamilyAdsPrivacy.configureBeforeInitialization()
         consentUpdateInProgress = true
         consentInformation.requestConsentInfoUpdate(
             activity,
-            ConsentRequestParameters.Builder().build(),
-            {
+            FamilyAdsPrivacy.consentParameters(),
+            consentReady@{
+                if (closed || activity.isFinishing || activity.isDestroyed) {
+                    consentUpdateInProgress = false
+                    return@consentReady
+                }
                 UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { error ->
                     consentUpdateInProgress = false
                     if (error != null) {
@@ -69,7 +72,7 @@ internal class RewardedAdsController(
         onRewardEarned: () -> Unit,
     ): Boolean {
         // Recheck UMP consent at display time; a previously loaded ad is not authorization.
-        if (!enabled || closed || !consentInformation.canRequestAds()) {
+        if (!enabled() || closed || !consentInformation.canRequestAds()) {
             onMessage("Rewarded ads are unavailable until ad privacy choices allow them.")
             return false
         }
@@ -128,7 +131,7 @@ internal class RewardedAdsController(
     }
 
     fun showPrivacyOptions() {
-        if (!enabled || closed) return
+        if (!enabled() || closed) return
         UserMessagingPlatform.showPrivacyOptionsForm(activity) { error ->
             if (error != null) {
                 Log.e(TAG, "Ad privacy options form failed: ${error.message}")
@@ -147,7 +150,7 @@ internal class RewardedAdsController(
     }
 
     private fun initializeAdsIfAllowed() {
-        if (closed || !consentInformation.canRequestAds()) return
+        if (!enabled() || closed || activity.isFinishing || activity.isDestroyed || !consentInformation.canRequestAds()) return
         if (sdkInitialized) {
             loadRewardedAd()
             return
@@ -156,6 +159,7 @@ internal class RewardedAdsController(
 
         sdkInitializationInProgress = true
         Log.d(TAG, "Initializing Google Mobile Ads SDK")
+        FamilyAdsPrivacy.configureBeforeInitialization()
         MobileAds.initialize(activity) {
             if (closed) return@initialize
             sdkInitializationInProgress = false
@@ -168,7 +172,7 @@ internal class RewardedAdsController(
     private fun loadRewardedAd() {
         if (
             closed ||
-            !enabled ||
+            !enabled() ||
             !consentInformation.canRequestAds() ||
             !sdkInitialized ||
             adLoading ||
@@ -181,7 +185,7 @@ internal class RewardedAdsController(
         RewardedAd.load(
             activity,
             adUnitId,
-            AdRequest.Builder().build(),
+            FamilyAdsPrivacy.request(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
                     adLoading = false

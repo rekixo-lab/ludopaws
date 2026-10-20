@@ -9,6 +9,9 @@ export const TEAM_RULESET_V3_KEY = "TEAM_UP_V3";
 export const RULESET_V4_KEY = "CLASSIC_V4";
 export const TEAM_RULESET_V4_KEY = "TEAM_UP_V4";
 
+export const RULESET_V5_KEY = "CLASSIC_V5";
+export const TEAM_RULESET_V5_KEY = "TEAM_UP_V5";
+
 export const TURN_ROLL_TIMEOUT_MS = 15_000;
 export const MAX_MISSED_ROLLS_BEFORE_FORFEIT = 4;
 
@@ -124,6 +127,15 @@ export const TEAM_RULESET_V4 = Object.freeze({
   turnTimeoutPolicy: "ADVANCE_TURN_AND_FORFEIT_AFTER_LIMIT",
 });
 
+// V5 corrects the declared contract to match stack protection already enforced by the engine.
+// Older version/hash objects remain immutable for existing receipts and saved matches.
+export const RULESET_V5 = Object.freeze({
+  ...RULESET_V4, id: "ludoproof-standard-v5", opponentStackCapture: "OPPONENT_STACK_PROTECTED",
+});
+export const TEAM_RULESET_V5 = Object.freeze({
+  ...TEAM_RULESET_V4, id: "ludoproof-team-v5", opponentStackCapture: "OPPONENT_STACK_PROTECTED",
+});
+
 export function rulesetKeyForState(state, { teamUp = false } = {}) {
   const key = state?.rulesetKey;
   if (key == null) {
@@ -150,6 +162,8 @@ export function rulesetForKey(key) {
       return RULESET_V4;
     case TEAM_RULESET_V4_KEY:
       return TEAM_RULESET_V4;
+    case RULESET_V5_KEY: return RULESET_V5;
+    case TEAM_RULESET_V5_KEY: return TEAM_RULESET_V5;
     default: {
       const error = new Error(`unsupported ruleset key: ${String(key)}`);
       error.code = "UNSUPPORTED_RULESET";

@@ -1,3 +1,4 @@
+import { isFamilyMode } from "./family-safety.js";
 import { httpError, readJsonObject, requireClientRequestId } from "./crypto.js";
 import {
   billingAccountId, deriveRotatedRefreshToken, hashRefreshToken, isAccountId, isSessionId,
@@ -61,12 +62,27 @@ export class PlayerAccount {
       sql.exec("CREATE TABLE IF NOT EXISTS account_deletion_claims (account_id TEXT PRIMARY KEY, claimed_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS account_sessions (session_id TEXT PRIMARY KEY, refresh_token_hash TEXT NOT NULL, previous_refresh_hash TEXT, last_refresh_request_id TEXT, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER, last_seen_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS wallet (account_id TEXT PRIMARY KEY, balance INTEGER NOT NULL DEFAULT 0 CHECK(balance >= 0), ads_removed INTEGER NOT NULL DEFAULT 0 CHECK(ads_removed IN (0, 1)), updated_at INTEGER NOT NULL)");
+      sql.exec("CREATE TABLE IF NOT EXISTS purchase_ledger_ownership (ledger_id TEXT PRIMARY KEY)");
+      sql.exec("CREATE TABLE IF NOT EXISTS revoked_play_purchases (ledger_id TEXT PRIMARY KEY, revoked_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS wallet_transactions (transaction_id TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE, payload_hash TEXT NOT NULL, kind TEXT NOT NULL, delta INTEGER NOT NULL, balance_after INTEGER NOT NULL, source_ref_hash TEXT, created_at INTEGER NOT NULL)");
       sql.exec("DROP TABLE IF EXISTS paws_plus_subscriptions");
       sql.exec("CREATE TABLE IF NOT EXISTS owned_cosmetics (cosmetic_id TEXT PRIMARY KEY, category TEXT NOT NULL, source TEXT NOT NULL, acquired_at INTEGER NOT NULL, source_ref_hash TEXT)");
       sql.exec("CREATE TABLE IF NOT EXISTS selected_cosmetics (category TEXT PRIMARY KEY, cosmetic_id TEXT NOT NULL, updated_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_ad_progress (cosmetic_id TEXT PRIMARY KEY, progress INTEGER NOT NULL DEFAULT 0 CHECK(progress >= 0), updated_at INTEGER NOT NULL)");
       sql.exec("CREATE INDEX IF NOT EXISTS idx_wallet_tx_created ON wallet_transactions(created_at DESC)");
+      sql.exec("CREATE TABLE IF NOT EXISTS wallet_revision (id INTEGER PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL)");
+      sql.exec("INSERT OR IGNORE INTO wallet_revision (id, revision) VALUES (1, 0)");
+      for (const [table, operations] of [
+        ["wallet", ["INSERT", "UPDATE"]], ["owned_cosmetics", ["INSERT", "DELETE"]],
+        ["selected_cosmetics", ["INSERT", "UPDATE", "DELETE"]],
+        ["cosmetic_ad_progress", ["INSERT", "UPDATE", "DELETE"]],
+      ]) {
+        for (const operation of operations) {
+          sql.exec(`CREATE TRIGGER IF NOT EXISTS revision_${table}_${operation}
+            AFTER ${operation} ON ${table} BEGIN
+            UPDATE wallet_revision SET revision = revision + 1 WHERE id = 1; END`);
+        }
+      }
     });
   }
 
@@ -82,6 +98,7 @@ export class PlayerAccount {
       if (request.method === "POST" && url.pathname === "/profile/get") return await this.#getProfile(request);
       if (request.method === "POST" && url.pathname === "/profile/update") return await this.#updateProfile(request);
       if (request.method === "POST" && url.pathname === "/wallet/get") return await this.#getWallet(request);
+      if (request.method === "POST" && url.pathname === "/wallet/play-revoke") return await this.#revokePlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-purchase") return await this.#grantPlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/reward-ad") return await this.#grantAdReward(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/purchase") return await this.#purchaseCosmetic(request);
@@ -165,6 +182,8 @@ export class PlayerAccount {
       );
       this.#profileSnapshot(accountId);
       this.ctx.storage.sql.exec("DELETE FROM account_sessions");
+      this.ctx.storage.sql.exec("DELETE FROM purchase_ledger_ownership");
+      this.ctx.storage.sql.exec("DELETE FROM revoked_play_purchases");
       this.ctx.storage.sql.exec("DELETE FROM wallet_transactions");
       this.ctx.storage.sql.exec("DELETE FROM cosmetic_ad_progress");
       this.ctx.storage.sql.exec("DELETE FROM selected_cosmetics");
@@ -192,6 +211,7 @@ export class PlayerAccount {
       this.#requireAccountNotDeleting(accountId);
       this.ctx.storage.sql.exec("INSERT INTO account_sessions (session_id, refresh_token_hash, previous_refresh_hash, last_refresh_request_id, created_at, expires_at, revoked_at, last_seen_at) VALUES (?, ?, NULL, NULL, ?, ?, NULL, ?)", sessionId, refreshHash, now, expiresAt, now);
     });
+    await this.#enrollLegacyPurchases(accountId);
     return json(200, { ok: true, accountId, sessionId, billingAccountId: billingId, accessToken, refreshToken, accessExpiresAt: Math.floor(now / 1000) + 900, sessionExpiresAt: expiresAt, profile: this.#profileSnapshot(accountId), wallet: this.#walletSnapshot(accountId) });
   }
 
@@ -270,18 +290,47 @@ export class PlayerAccount {
   async #getProfile(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId), sessionId = requireSessionId(body?.sessionId);
     this.#requireActiveSession(accountId, sessionId);
+    await this.#enrollLegacyPurchases(accountId);
     return json(200, { ok: true, profile: this.#profileSnapshot(accountId), wallet: this.#walletSnapshot(accountId) });
   }
   async #updateProfile(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId), sessionId = requireSessionId(body?.sessionId);
     this.#requireActiveSession(accountId, sessionId);
-    this.ctx.storage.sql.exec("UPDATE account_meta SET display_name = ?, updated_at = ? WHERE account_id = ?", normalizeDisplayName(body?.displayName), Date.now(), accountId);
+    this.ctx.storage.sql.exec("UPDATE account_meta SET display_name = ?, updated_at = ? WHERE account_id = ?", normalizeDisplayName(body?.displayName, this.env), Date.now(), accountId);
     return json(200, { ok: true, profile: this.#profileSnapshot(accountId) });
   }
   async #getWallet(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId), sessionId = requireSessionId(body?.sessionId);
     this.#requireActiveSession(accountId, sessionId);
+    await this.#enrollLegacyPurchases(accountId);
     return json(200, { ok: true, wallet: this.#walletSnapshot(accountId) });
+  }
+
+  async #enrollLegacyPurchases(accountId) {
+    if (!this.env?.LUDOPROOF_STORE_PURCHASES) return;
+    const pendingSql = "SELECT t.source_ref_hash, t.idempotency_key FROM wallet_transactions t LEFT JOIN purchase_ledger_ownership o ON o.ledger_id = t.source_ref_hash WHERE t.kind IN ('PLAY_GEM_PURCHASE', 'PLAY_REMOVE_ADS') AND o.ledger_id IS NULL";
+    const pending = [...this.ctx.storage.sql.exec(pendingSql + " LIMIT 10")];
+    if (!pending.length) return;
+    const billingId = await billingAccountId(accountId);
+    for (const row of pending) {
+      const ledgerId = requireHash(row.source_ref_hash, "purchaseLedgerId");
+      const target = this.env.LUDOPROOF_STORE_PURCHASES.get(this.env.LUDOPROOF_STORE_PURCHASES.idFromName(ledgerId));
+      const bound = await target.fetch(new Request("https://purchase-ledger/bind-owner", { method: "POST", headers: {"content-type":"application/json"},
+        body: JSON.stringify({ accountId: billingId, ownerAccountId: accountId,
+          purchaseTokenHash: String(row.idempotency_key).slice("play-purchase:".length) }) }));
+      if (!bound.ok) throw httpError(503, "PURCHASE_MIGRATION_PENDING", "purchase history could not be synchronized; retry shortly");
+      const status = await target.fetch(new Request("https://purchase-ledger/status"));
+      if (!status.ok) throw httpError(503, "PURCHASE_MIGRATION_PENDING", "purchase history could not be synchronized; retry shortly");
+      if ((await status.json()).purchase?.state === "REVOKED") {
+        const revoked = await this.#revokePlayPurchase(new Request("https://player-account/wallet/play-revoke", { method:"POST", headers:{"content-type":"application/json"}, body:JSON.stringify({accountId,purchaseLedgerId:ledgerId}) }));
+        if (!revoked.ok) throw httpError(503, "PURCHASE_MIGRATION_PENDING", "purchase history could not be synchronized; retry shortly");
+      }
+      this.#requireAccountNotDeleting(accountId);
+      this.ctx.storage.sql.exec("INSERT OR IGNORE INTO purchase_ledger_ownership (ledger_id) VALUES (?)", ledgerId);
+    }
+    // Bounded DO subrequests; another retry continues migration instead of exposing stale paid value.
+    if ([...this.ctx.storage.sql.exec(pendingSql + " LIMIT 1")].length)
+      throw httpError(503, "PURCHASE_MIGRATION_PENDING", "purchase history is being synchronized; retry shortly");
   }
 
   async #grantPlayPurchase(request) {
@@ -294,6 +343,27 @@ export class PlayerAccount {
     const payloadHash = await sha256Hex(JSON.stringify({ productId, gems: product.gemAmount, removeAds: product.removeAds }));
     const result = this.#applyWalletTransaction({ accountId, idempotencyKey: "play-purchase:" + tokenHash, payloadHash, kind: product.removeAds ? "PLAY_REMOVE_ADS" : "PLAY_GEM_PURCHASE", delta: product.gemAmount, sourceRefHash: purchaseLedgerId, removeAds: product.removeAds });
     return json(200, { ok: true, ...result, productId, gemAmount: product.gemAmount, removeAds: product.removeAds, wallet: this.#walletSnapshot(accountId) });
+  }
+
+  // Internal binding only: no HTTP account route exposes this operation.
+  async #revokePlayPurchase(request) {
+    const body = await readJson(request), accountId = requireAccountId(body?.accountId);
+    const ledgerId = requireHash(body?.purchaseLedgerId, "purchaseLedgerId");
+    let replay = false;
+    this.ctx.storage.transactionSync(() => {
+      this.#requireAccountNotDeleting(accountId);
+      this.#profileSnapshot(accountId);
+      if ([...this.ctx.storage.sql.exec("SELECT ledger_id FROM revoked_play_purchases WHERE ledger_id = ?", ledgerId)].length) { replay = true; return; }
+      const now = Date.now();
+      const granted = [...this.ctx.storage.sql.exec("SELECT delta, kind FROM wallet_transactions WHERE source_ref_hash = ? AND kind IN ('PLAY_GEM_PURCHASE', 'PLAY_REMOVE_ADS')", ledgerId)];
+      const balance = Number([...this.ctx.storage.sql.exec("SELECT balance FROM wallet WHERE account_id = ?", accountId)][0]?.balance ?? 0);
+      const deduction = Math.min(balance, granted.reduce((sum, row) => sum + Math.max(0, Number(row.delta)), 0));
+      this.ctx.storage.sql.exec("INSERT INTO revoked_play_purchases (ledger_id, revoked_at) VALUES (?, ?)", ledgerId, now);
+      const activeRemoveAds = [...this.ctx.storage.sql.exec("SELECT t.transaction_id FROM wallet_transactions t LEFT JOIN revoked_play_purchases r ON r.ledger_id = t.source_ref_hash WHERE t.kind = 'PLAY_REMOVE_ADS' AND r.ledger_id IS NULL LIMIT 1")].length > 0;
+      this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, ads_removed = ?, updated_at = ? WHERE account_id = ?", balance - deduction, activeRemoveAds ? 1 : 0, now, accountId);
+      this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, 'PLAY_REFUND', ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), "play-refund:" + ledgerId, ledgerId, -deduction, balance - deduction, ledgerId, now);
+    });
+    return json(200, { ok: true, replay });
   }
 
   async #resolveCosmetic(cosmeticId, country = "ZZ") {
@@ -539,6 +609,8 @@ export class PlayerAccount {
     let result;
     this.ctx.storage.transactionSync(() => {
       this.#requireAccountNotDeleting(accountId);
+      if (kind.startsWith("PLAY_") && [...this.ctx.storage.sql.exec("SELECT ledger_id FROM revoked_play_purchases WHERE ledger_id = ? LIMIT 1", sourceRefHash)].length)
+        throw httpError(409, "PLAY_PURCHASE_REVOKED", "this purchase has been revoked");
       const prior = [...this.ctx.storage.sql.exec("SELECT payload_hash, balance_after FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
       if (prior.length) {
         if (String(prior[0].payload_hash) !== payloadHash) throw httpError(409, "WALLET_IDEMPOTENCY_CONFLICT", "wallet transaction key was reused with different details");
@@ -566,7 +638,7 @@ export class PlayerAccount {
       if ([...this.ctx.storage.sql.exec("SELECT account_id FROM account_deletions WHERE account_id = ? LIMIT 1", accountId)].length) throw httpError(410, "ACCOUNT_DELETED", "this account has been deleted");
       this.#requireAccountNotDeleting(accountId);
       const exists = [...this.ctx.storage.sql.exec("SELECT account_id FROM account_meta WHERE account_id = ? LIMIT 1", accountId)];
-      if (!exists.length) this.ctx.storage.sql.exec("INSERT INTO account_meta (account_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)", accountId, normalizeDisplayName(displayName), now, now);
+      if (!exists.length) this.ctx.storage.sql.exec("INSERT INTO account_meta (account_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)", accountId, normalizeDisplayName(displayName, this.env), now, now);
       this.ctx.storage.sql.exec("INSERT OR IGNORE INTO wallet (account_id, balance, ads_removed, updated_at) VALUES (?, 0, 0, ?)", accountId, now);
       for (const [id, category] of DEFAULT_COSMETICS) this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'DEFAULT', ?, NULL)", id, category, now);
       for (const [category, id] of Object.entries(DEFAULT_SELECTIONS)) this.ctx.storage.sql.exec("INSERT OR IGNORE INTO selected_cosmetics (category, cosmetic_id, updated_at) VALUES (?, ?, ?)", category, id, now);
@@ -614,6 +686,7 @@ export class PlayerAccount {
 
     return {
       accountId,
+      revision: Number([...this.ctx.storage.sql.exec("SELECT revision FROM wallet_revision WHERE id = 1")][0]?.revision ?? 0),
       balance: Number(rows[0].balance),
       adsRemoved: Number(rows[0].ads_removed) === 1,
       updatedAt: Number(rows[0].updated_at),
@@ -636,7 +709,8 @@ function requireHash(value, name) {
   if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) throw httpError(400, "INVALID_" + name.toUpperCase(), name + " is invalid");
   return value;
 }
-function normalizeDisplayName(value) {
+function normalizeDisplayName(value, env) {
+  if (isFamilyMode(env)) return "Player";
   return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().replace(/\s+/g, " ").slice(0, NAME_LENGTH) || "Guest User";
 }
 async function readJson(request) {

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 
 function read(path) {
   return readFileSync(new URL(path, import.meta.url), "utf8");
@@ -20,7 +20,7 @@ const terms = read("../docs/terms-of-service.html");
 const worker = read("../server/src/index-account.js");
 const directory = read("../server/src/account-directory.js");
 const player = read("../server/src/player-account.js");
-const voiceSession = read("../android/app/src/main/java/com/rekixo/ludopaws/feature/online/data/realtime/FriendsVoiceChatSession.kt");
+const appBuild = read("../android/app/build.gradle.kts");
 const manifest = read("../android/app/src/main/AndroidManifest.xml");
 const inAppPolicy = read("../android/app/src/main/java/com/rekixo/ludopaws/feature/settings/presentation/PrivacyPolicyDialogUi.kt");
 const pagesWorkflow = read("../.github/workflows/account-deletion-pages.yml");
@@ -53,11 +53,11 @@ has(policy, "No separate long-term match-proof archive", "privacy policy reflect
 has(policy, "AI@rekixo.com", "privacy support contact");
 has(page, "No separate long-term match-proof archive", "deletion page reflects removal of proof archival");
 has(page, "AI@rekixo.com", "deletion page support contact");
-has(policy, "Optional Friends voice chat", "published microphone and voice-chat disclosure");
-has(inAppPolicy, "Optional voice chat", "in-app microphone and voice-chat disclosure");
-has(manifest, "android.permission.RECORD_AUDIO", "declared microphone permission");
-has(voiceSession, "stun:stun.l.google.com:19302", "configured WebRTC STUN provider");
-has(voiceSession, "audioTrack?.setEnabled(micEnabled)", "microphone track behavior");
+has(policy, "does not capture microphone audio", "published family voice restriction");
+has(inAppPolicy, "Free-text chat and voice are unavailable", "in-app family communication disclosure");
+matches(manifest, /android:name="android.permission.RECORD_AUDIO" tools:node="remove"/, "removed microphone permission");
+assert.equal(existsSync(new URL("../android/app/src/main/java/com/rekixo/ludopaws/feature/online/data/realtime/FriendsVoiceChatSession.kt", import.meta.url)), false, "voice implementation must remain removed");
+assert.doesNotMatch(appBuild, /implementation\("io\.github\.webrtc-sdk:/, "family package must not include WebRTC");
 
 has(pagesWorkflow, "LUDOPROOF_POLICY_RELEASE_APPROVED", "publisher approval gate");
 has(pagesWorkflow, "GOOGLE_SIGN_IN_WEB_CLIENT_ID", "Google OAuth Web Client ID release gate");
@@ -77,7 +77,7 @@ has(landingPage, 'href="./pricing.html"', "landing-page pricing-policy link");
 has(policy, 'href="./pricing.html">Pricing and in-app purchase policy</a>', "privacy-policy pricing link");
 has(policy, 'href="./terms-of-service.html">Terms of Service</a>', "privacy-policy terms link");
 has(policy, 'href="./pricing.html">Pricing & in-app purchases</a>', "privacy footer pricing link");
-has(pricing, "PRICING_RELEASE_REVIEW_REQUIRED", "pricing publisher/legal release-review marker");
+has(pricing, "child-directed", "family monetization disclosure");
 has(pricing, 'href="./privacy-policy.html"', "pricing page privacy-policy link");
 has(pricing, 'href="./account-deletion.html"', "pricing page account-deletion link");
 has(pagesWorkflow, 'test -f docs/pricing.html', "pricing page publication file gate");
@@ -91,7 +91,7 @@ has(inAppPolicy, 'https://ludopaws.rekixo.com/terms-of-service.html', "in-app Te
 
 
 has(terms, "<title>Ludo Paws — Terms of Service</title>", "Terms of Service page title");
-has(terms, "TERMS_RELEASE_REVIEW_REQUIRED", "Terms of Service publisher/legal review marker");
+has(terms, "AI@rekixo.com", "Terms of Service support contact");
 has(terms, 'href="./pricing.html"', "terms page links to pricing policy");
 has(terms, 'href="./privacy-policy.html"', "terms page links to privacy policy");
 has(terms, 'href="./account-deletion.html"', "terms page links to account deletion");

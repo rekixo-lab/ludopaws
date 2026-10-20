@@ -23,10 +23,10 @@ class TeamMatchmakingApi(
             path = "/api/team-matchmaking/search",
             profileToken = profileToken,
             body = JSONObject()
-                .put("displayName", displayName)
+                .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
                 .put("characterId", characterId)
-                .put("rulesetKey", "TEAM_UP_V4"),
+                .put("rulesetKey", "TEAM_UP_V5"),
         )
 
     fun status(

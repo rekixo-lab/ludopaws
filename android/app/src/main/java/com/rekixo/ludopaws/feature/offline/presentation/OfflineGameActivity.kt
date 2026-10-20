@@ -137,6 +137,9 @@ class OfflineGameActivity : ComponentActivity() {
             },
         )
 
+        if (savedInstanceState != null) {
+            intent.putExtra(GameModeIntent.EXTRA_RESUME_SAVED_MATCH, true)
+        }
         initializeCharacterSetup()
 
         if (

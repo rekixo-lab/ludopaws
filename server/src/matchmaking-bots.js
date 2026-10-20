@@ -97,8 +97,8 @@ export function createBotParticipants({
     throw new RangeError("Team Up bots require four seats");
   }
   const allowedRulesets = matchMode === "TEAM_UP"
-    ? ["TEAM_UP_V1", "TEAM_UP_V2", "TEAM_UP_V3", "TEAM_UP_V4"]
-    : ["CLASSIC_V1", "CLASSIC_V2", "CLASSIC_V3", "CLASSIC_V4"];
+    ? ["TEAM_UP_V1", "TEAM_UP_V2", "TEAM_UP_V3", "TEAM_UP_V4", "TEAM_UP_V5"]
+    : ["CLASSIC_V1", "CLASSIC_V2", "CLASSIC_V3", "CLASSIC_V4", "CLASSIC_V5"];
   if (!allowedRulesets.includes(rulesetKey)) {
     throw new RangeError("bot ruleset does not match the selected match mode");
   }

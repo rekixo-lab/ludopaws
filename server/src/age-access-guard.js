@@ -1,13 +1,10 @@
+import { familyCapabilities, isFamilyMode } from "./family-safety.js";
 /**
- * Explicit server-side safety lockdown for the age-aware release.
- *
- * A client-provided "adult" flag, Google profile, guest session, or a previous
- * Play Age Signals result is NOT trusted age authorization. Until a Google Play
- * Integrity-bound, session-scoped adult proof has been independently validated,
- * the server must not make restricted online or monetized endpoints accessible.
- *
- * Protect the outermost Worker entrypoint so old APKs and direct HTTP / WebSocket
- * clients cannot bypass Android navigation restrictions.
+ * LOCKDOWN and unknown configuration deny connected capabilities.
+ * FAMILY_V1 opens gameplay after removing free-text messaging, voice and
+ * personal communications for every player. V2 permits configured commerce.
+ * Neither edition asserts age or parental consent.
+ * Recovery/deletion remains available for existing accounts.
  */
 const RESTRICTED_API = Object.freeze([
   /^\/api\/matches(?:\/|$)/,
@@ -38,13 +35,22 @@ export function isAgeRestrictedEndpoint(pathname) {
  * claim that under-age/parental permission is independently implemented.
  */
 export function ageSafetyBlockResponse(request, env) {
-  // Deliberately fail CLOSED on missing, misspelled, removed or overridden
-  // release flags. There is no server-verifiable age-eligibility issuer yet,
-  // so neither an operator flag nor a client claim may unlock social endpoints.
-  // Keep the parameter for API compatibility; opening gameplay in the future
-  // requires a separate, reviewed per-request trusted-eligibility protocol.
-  void env;
   const url = new URL(request.url);
+  if (isFamilyMode(env)) {
+    // The family edition removes these capabilities for EVERY player and client.
+    // Headers, age claims, old credentials and monetization flags cannot unlock them.
+    const capabilities = familyCapabilities(env);
+    const disabled = /^\/api\/friends\/messages(?:\/|$)/.test(url.pathname) ||
+      (!capabilities.purchases && /^\/api\/store\/purchases(?:\/|$)/.test(url.pathname)) ||
+      (!capabilities.cosmetics && url.pathname === "/api/wallet/cosmetics/purchase") ||
+      (!capabilities.advertising && url.pathname === "/api/admob/ssv") ||
+      (!capabilities.newGoogleLinking && url.pathname === "/api/account/google/link");
+    if (!disabled) return null;
+    return new Response(JSON.stringify({ error: "FAMILY_FEATURE_UNAVAILABLE",
+      message: "This feature is unavailable in the family edition. Multiplayer and fixed quick-chat remain available." }),
+      { status: 403, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" } });
+  }
+  // Missing/unknown edition remains a lockdown; a client cannot select an edition.
   if (!isAgeRestrictedEndpoint(url.pathname)) return null;
   return new Response(JSON.stringify({
     error: "AGE_ACCESS_NOT_AVAILABLE",

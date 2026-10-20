@@ -1,5 +1,8 @@
 package com.rekixo.ludopaws
 
+import android.content.Intent
+import androidx.test.core.app.ActivityScenario
+import com.rekixo.ludopaws.ui.offline.gameplay.showGame
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -14,6 +17,46 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class OfflineFullMatchInstrumentedTest {
+    @Test
+    fun normalOfflineLaunchRecreationReturnsToTheActiveBoard() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        ActivityScenario.launch<OfflineGameActivity>(Intent(context, OfflineGameActivity::class.java)
+            .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.PASS_AND_PLAY.wireValue)).use { scenario ->
+            var matchId: String? = null
+            scenario.onActivity { activity ->
+                activity.session.clear()
+                val state = activity.session.start(2, "RED")
+                matchId = state.matchId
+                activity.showGame(state)
+            }
+            scenario.recreate()
+            scenario.onActivity { activity ->
+                assertEquals(matchId, activity.session.snapshot()?.matchId)
+                assertNotNull("recreation must render the board instead of setup", activity.boardView)
+                assertTrue(requireNotNull(activity.boardView).isAttachedToWindow)
+                activity.session.clear()
+            }
+        }
+    }
+
+    @Test
+    fun newMatchesUseV5AndUnversionedSavesKeepTheirOriginalV3Contract() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val engine = OfflineGameEngine(context, GameMode.PASS_AND_PLAY)
+        engine.clear()
+        try {
+            assertEquals(OfflineLudoV5Binding.RULESET_ID,
+                engine.start(playerCount = 2, preferredColor = "RED").rulesetId)
+            val prefs = context.getSharedPreferences("ludoproof_offline_game", Context.MODE_PRIVATE)
+            val saved = JSONObject(requireNotNull(prefs.getString("state", null)))
+            saved.remove("rulesetId")
+            prefs.edit().putString("state", saved.toString()).commit()
+            val restored = OfflineGameEngine(context, GameMode.PASS_AND_PLAY)
+            assertEquals(OfflineLudoV3Binding.RULESET_ID, restored.snapshot()?.rulesetId)
+            assertEquals(OfflineLudoV3Binding.RULESET_ID, restored.roll().rulesetId)
+        } finally { engine.clear() }
+    }
+
     @Test
     fun opponentStacksAreNotCapturedAsAGroup() {
         val context =

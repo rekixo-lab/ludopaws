@@ -16,6 +16,7 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
   operatorBilling = billingEnabled, operatorAds = adsEnabled }) {
   const baseConfig = JSON.parse(fs.readFileSync(path.join(repoRoot, "server", "wrangler.json"), "utf8"));
   const runtimeEnvironment = {
+    LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true",
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: "1234567890-exampleclient.apps.googleusercontent.com",
     LUDOPROOF_ACCOUNT_WEB_ORIGIN: ACCOUNT_WEB_ORIGIN,
     GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled),
@@ -32,7 +33,10 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
   };
   const preparedConfig = {
     ...baseConfig,
-    vars: buildCloudflareRuntimeVars(baseConfig.vars ?? {}, runtimeEnvironment),
+    vars: { ...buildCloudflareRuntimeVars(baseConfig.vars ?? {}, {
+      ...runtimeEnvironment, GOOGLE_PLAY_BILLING_ENABLED: "false", LUDOPROOF_BILLING_ENABLED: "false",
+      LUDOPROOF_ADMOB_SSV_ENABLED: "false", LUDOPROOF_ADS_ENABLED: "false",
+    }), GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled), LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled) },
   };
   if (!routeConfigured) delete preparedConfig.routes;
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ludopaws-cloudflare-preflight-"));
@@ -60,19 +64,17 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
   }
 }
 
-test("production preflight refuses advertising until age safety lockdown ends", () => {
+test("production preflight permits reviewed advertising in family V2", () => {
   const result = runPreflight({ adsEnabled: true, billingEnabled: false });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
+  assert.equal(result.status, 0, result.stderr);
 });
 
-test("production preflight refuses billing while independent age eligibility is unavailable", () => {
+test("production preflight permits configured billing in family V2", () => {
   const result = runPreflight({ adsEnabled: false, billingEnabled: true });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
+  assert.equal(result.status, 0, result.stderr);
 });
 
-test("production preflight passes offline-only lockdown after validation", () => {
+test("production preflight passes family multiplayer configuration after validation", () => {
   const result = runPreflight({ adsEnabled: false, billingEnabled: false });
   assert.equal(result.status, 0, "stdout: " + result.stdout + " stderr: " + result.stderr);
 });
@@ -116,20 +118,19 @@ test("production preflight refuses stale Android billing/ads operator flags even
   for (const override of [{ operatorBilling: true }, { operatorAds: true }]) {
     const result = runPreflight({ adsEnabled: false, billingEnabled: false, ...override });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
+    assert.match(result.stderr, /flags must match/);
   }
 });
 
-test("production deployment pins every monetization toggle to false despite stale GitHub vars", () => {
+test("production deployment reads matching reviewed integration flags for family V2", () => {
   const workflow = fs.readFileSync(path.join(repoRoot, ".github", "workflows", "deploy-cloudflare.yml"), "utf8");
   for (const key of [
     "GOOGLE_PLAY_BILLING_ENABLED", "LUDOPROOF_BILLING_ENABLED",
     "LUDOPROOF_ADMOB_SSV_ENABLED", "LUDOPROOF_ADS_ENABLED",
   ]) {
-    assert.ok(workflow.includes("      " + key + ': "false"'), key + " must remain off");
-    assert.equal(workflow.includes("      " + key + ": " + "$" + "{{ vars." + key + " }}"), false);
+    assert.ok(workflow.includes("      " + key + ": " + "$" + "{{ vars." + key + " }}"), key + " must use configured values");
   }
-  assert.ok(workflow.includes("LUDOPROOF_AGE_SAFETY_MODE: LOCKDOWN"));
+  assert.ok(workflow.includes("LUDOPROOF_AGE_SAFETY_MODE: FAMILY_V2"));
   assert.ok(workflow.includes("environment: production"));
   assert.ok(workflow.includes("workflow_dispatch:"));
 });

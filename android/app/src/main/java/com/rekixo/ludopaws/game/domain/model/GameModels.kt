@@ -92,6 +92,7 @@ object GameJson {
             "ludoproof-standard-v2",
             "ludoproof-standard-v3",
             "ludoproof-standard-v4",
+        "ludoproof-standard-v5",
         )
     private val teamRulesetIds =
         setOf(
@@ -99,6 +100,7 @@ object GameJson {
             "ludoproof-team-v2",
             "ludoproof-team-v3",
             "ludoproof-team-v4",
+        "ludoproof-team-v5",
         )
     private val colors = listOf("RED", "GREEN", "YELLOW", "BLUE")
     private val teamAssignments = listOf("A", "B", "A", "B")

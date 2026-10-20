@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.online
 
+import com.rekixo.ludopaws.BuildConfig
 import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
@@ -334,7 +335,7 @@ internal object OnlineLudoPawsPresentation {
 
     fun refreshVoiceControls(activity: MainActivity, state: MatchSnapshot) {
         val host = host(activity) ?: return
-        val visible = activity.gameMode == GameMode.FRIENDS &&
+        val visible = !BuildConfig.LUDOPAWS_FAMILY_MODE && activity.gameMode == GameMode.FRIENDS &&
             state.matchMode == "FRIENDS" &&
             state.status == "ACTIVE"
         host.voiceControls.visibility = if (visible) View.VISIBLE else View.GONE
@@ -642,7 +643,8 @@ internal object OnlineLudoPawsPresentation {
     private fun bindTurnCountdown(activity: MainActivity, state: MatchSnapshot) {
         val versionSupportsTimer =
             state.rulesetId == "ludoproof-standard-v4" ||
-                state.rulesetId == "ludoproof-team-v4"
+                state.rulesetId == "ludoproof-team-v4" ||
+                state.rulesetId == "ludoproof-standard-v5" || state.rulesetId == "ludoproof-team-v5"
         val hasTrustedTimerContract =
             state.serverTimeAtSnapshot != null &&
                 state.turnRollTimeoutMillis?.let { it > 0L } == true

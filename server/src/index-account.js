@@ -1,3 +1,4 @@
+import { familyResponse, familyCapabilities } from "./family-safety.js";
 import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
   ApiGate,
@@ -24,6 +25,8 @@ import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
 
+export { BillingReconciliation } from "./billing-reconciliation.js";
+
 export {
   ApiGate, FriendConversation, FriendDirectory, FriendRecentRoom, LeaderboardRoom,
   MatchmakerQueue, MatchRoom, StorePurchaseLedger, StoreCatalogStore, TeamMatchmakerQueue,
@@ -46,12 +49,23 @@ const ACCOUNT_WEB_CORS_PATHS = new Set([
 ]);
 
 export default {
+  async scheduled(_event, env, ctx) {
+    if (!googlePlayBillingEnabled(env)) return;
+    const task = env.LUDOPROOF_BILLING_RECONCILIATION.get(
+      env.LUDOPROOF_BILLING_RECONCILIATION.idFromName("GOOGLE_PLAY:V1"),
+    ).fetch(new Request("https://billing-reconciliation/run", { method: "POST" })).then(response => {
+      if (!response.ok) throw new Error("Billing reconciliation failed: HTTP " + response.status);
+    });
+    ctx.waitUntil(task);
+  },
   async fetch(request, env) {
-    // Lock down direct API/WebSocket access when age eligibility cannot be verified.
-    // This is an operator safety switch, not an age verification mechanism.
+    // Enforce the selected product capabilities before routing old or new clients.
     const safetyResponse = ageSafetyBlockResponse(request, env);
     if (safetyResponse) return safetyResponse;
     const url = new URL(request.url);
+    if (url.pathname === "/api/capabilities" && request.method === "GET") {
+      return json(200, familyCapabilities(env));
+    }
     if (request.method === "OPTIONS" && ACCOUNT_WEB_CORS_PATHS.has(url.pathname)) {
       const expectedOrigin = accountWebOrigin(env);
       const origin = request.headers.get("origin");
@@ -73,7 +87,7 @@ export default {
       );
     }
     const response = await handleAccountRequest(request, env);
-    return withAccountWebCors(request, response, env);
+    return withAccountWebCors(request, await familyResponse(response, env), env);
   },
 };
 
@@ -98,7 +112,14 @@ export async function handleAccountRequest(request, env) {
           env.GOOGLE_SIGN_IN_WEB_CLIENT_ID.trim().length > 0;
         const sessionHmacConfigured = typeof env?.LUDOPROOF_SESSION_HMAC_KEY === "string" &&
           new TextEncoder().encode(env.LUDOPROOF_SESSION_HMAC_KEY).byteLength >= 32;
-        const ready = base.ok && body?.ready === true && accountDirectoryConfigured &&
+        const billingReconciliationConfigured = Boolean(env?.LUDOPROOF_BILLING_RECONCILIATION);
+        let billingReconciliationStatus = null;
+        if (billingReconciliationConfigured && googlePlayBillingEnabled(env)) {
+          const coordinator = env.LUDOPROOF_BILLING_RECONCILIATION.get(env.LUDOPROOF_BILLING_RECONCILIATION.idFromName("GOOGLE_PLAY:V1"));
+          const response = await coordinator.fetch(new Request("https://billing-reconciliation/status"));
+          if (response.ok) billingReconciliationStatus = await response.json();
+        }
+        const ready = (!googlePlayBillingEnabled(env) || billingReconciliationConfigured) && base.ok && body?.ready === true && accountDirectoryConfigured &&
           playerAccountsConfigured && googleSignInClientIdConfigured && sessionHmacConfigured;
         return json(ready ? 200 : 503, {
           ...body,
@@ -111,6 +132,8 @@ export async function handleAccountRequest(request, env) {
             playerAccountsConfigured,
             googleSignInClientIdConfigured,
             sessionHmacConfigured,
+            billingReconciliationConfigured,
+            billingReconciliationStatus,
             playBillingEnabled: googlePlayBillingEnabled(env),
             playBillingConfiguration: googlePlayBillingChecks(env),
                 admobSsvEnabled: env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
@@ -539,8 +562,9 @@ export async function handleAccountRequest(request, env) {
             Boolean(env?.LUDOPROOF_ACCOUNT_DIRECTORY) &&
             Boolean(env?.LUDOPROOF_PLAYER_ACCOUNTS),
         };
-        const billingReady = billingChecks.available;
-        const adsReady = env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
+        const capabilities = familyCapabilities(env);
+        const billingReady = capabilities.purchases && billingChecks.available;
+        const adsReady = capabilities.advertising && env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
           Boolean(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID) &&
           (env?.LUDOPROOF_ADMOB_REWARD_ITEM == null || env.LUDOPROOF_ADMOB_REWARD_ITEM === "gems");
         return json(200, {
@@ -565,6 +589,7 @@ export async function handleAccountRequest(request, env) {
           productId,
           purchaseToken,
           accountId: obfuscatedAccountId,
+          ownerAccountId: session.accountId,
         });
         const purchaseTokenHash = await sha256Hex("ludoproof:google-play-wallet-token:v1:" + purchaseToken);
         let grant;

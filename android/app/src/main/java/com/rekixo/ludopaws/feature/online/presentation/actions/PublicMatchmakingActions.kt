@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.online
 
 import android.view.View
+import com.rekixo.ludopaws.ui.online.requestRemoteExit
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
@@ -22,8 +23,7 @@ internal fun MainActivity.selectPublicPlayerCount(
     if (
         publicMatchmakingStore.load() !=
             null ||
-        matchId !=
-            null
+        (matchId != null && currentState?.status != "FINISHED")
     ) {
         return
     }
@@ -143,7 +143,7 @@ internal fun MainActivity.beginPublicMatchmaking() {
                     ticket.requestId,
                 playerCount =
                     ticket.playerCount,
-                rulesetKey = "CLASSIC_V4",
+                rulesetKey = "CLASSIC_V5",
             )
         },
         onSuccess = {
@@ -196,7 +196,7 @@ internal fun MainActivity.pollPublicMatchmaking() {
     )
 }
 
-internal fun MainActivity.cancelPublicMatchmaking() {
+internal fun MainActivity.cancelPublicMatchmaking(exitAfterCancellation: Boolean = false) {
     val ticket =
         publicMatchmakingStore
             .load()
@@ -244,9 +244,8 @@ internal fun MainActivity.cancelPublicMatchmaking() {
                     setPublicSearchUi(
                         searching = false,
                     )
-                    showStatus(
-                        "Matchmaking cancelled.",
-                    )
+                    showStatus("Matchmaking cancelled.")
+                    if (exitAfterCancellation) requestRemoteExit()
                 }
             }
         },

@@ -28,7 +28,7 @@ const ASSIGNMENT_TTL_MS = 10 * 60 * 1000;
 const PROFILE_ASSERTION_TTL_MS = 15 * 60 * 1000;
 const ALLOWED_PLAYER_COUNTS = new Set([2, 4]);
 const DEFAULT_RULESET_KEY = "CLASSIC_V4";
-const CLASSIC_RULESET_KEYS = ["CLASSIC_V1", "CLASSIC_V2", "CLASSIC_V3", "CLASSIC_V4"];
+const CLASSIC_RULESET_KEYS = ["CLASSIC_V1", "CLASSIC_V2", "CLASSIC_V3", "CLASSIC_V4", "CLASSIC_V5"];
 
 export class MatchmakerQueue {
   constructor(ctx, env) {
@@ -165,7 +165,7 @@ export class MatchmakerQueue {
 
   async #search(request, body) {
     const profile = await this.#profileIdentity(request);
-    const participant = normalizeParticipant(body, profile.profileId);
+    const participant = normalizeParticipant(body, profile.profileId, this.env);
     participant.locationHint = normalizeMatchLocationHint(request.headers.get(MATCH_LOCATION_HEADER));
     const now = Date.now();
     let state = this.#cleanup(await this.#load(), now);
@@ -830,10 +830,10 @@ export class MatchmakerQueue {
   }
 }
 
-function normalizeParticipant(body, profileId) {
+function normalizeParticipant(body, profileId, env) {
   return {
     clientRequestId: requireClientRequestId(body?.clientRequestId),
-    displayName: normalizeDisplayName(body?.displayName),
+    displayName: normalizeDisplayName(body?.displayName, env),
     characterId: normalizeCharacterId(body?.characterId),
     profileId,
     playerCount: requirePlayerCount(body?.playerCount),

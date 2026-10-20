@@ -75,6 +75,9 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     }
   }
 
+  const adSafetyApproved = readBoolean("LUDOPAWS_AD_SAFETY_REVIEW_APPROVED", environment.LUDOPAWS_AD_SAFETY_REVIEW_APPROVED);
+  if (adsEnabled && !adSafetyApproved) throw new Error("Advertising requires LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true.");
+  const googleLinking = readBoolean("LUDOPAWS_GOOGLE_LINKING_ENABLED", environment.LUDOPAWS_GOOGLE_LINKING_ENABLED);
   const vars = {
     ...existingVars,
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: oauthClientId,
@@ -82,9 +85,10 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled),
     LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled),
     LUDOPROOF_ADMOB_REWARD_ITEM: "gems",
-    // There is not yet a server-verifiable adult authorization protocol.
-    // Deployments must fail closed until an independently reviewed implementation replaces this gate.
-    LUDOPROOF_AGE_SAFETY_MODE: "LOCKDOWN",
+    // Family capabilities are enforced on the server for old and new clients.
+    LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V2",
+    LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: String(adSafetyApproved),
+    LUDOPAWS_GOOGLE_LINKING_ENABLED: String(googleLinking),
   };
 
   if (serviceAccountEmail) vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL = serviceAccountEmail;

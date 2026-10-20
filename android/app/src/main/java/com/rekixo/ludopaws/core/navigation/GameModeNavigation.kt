@@ -23,6 +23,9 @@ fun Activity.openGameMode(
             .show()
         return
     }
+    if (mode.isRemote && com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.showNoticeIfNeeded(this) {
+            openGameMode(mode, resumeSavedMatch)
+        }) return
     val target =
         when (
             GameModeRouting

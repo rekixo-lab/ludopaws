@@ -1,3 +1,4 @@
+import { isFamilyMode } from "./family-safety.js";
 import {
   deriveLeaderboardIdentity,
   httpError,
@@ -407,6 +408,13 @@ export class LeaderboardRoom {
         profileRows.length !==
         1
       ) {
+        const deleted = [...this.ctx.storage.sql.exec(
+          "SELECT profile_id FROM deleted_leaderboard_profiles WHERE profile_id = ? LIMIT 1", profileId,
+        )];
+        if (deleted.length === 1) {
+          seen.add(profileId);
+          continue;
+        }
         throw httpError(
           403,
           "PROFILE_NOT_AUTHENTICATED",
@@ -418,7 +426,7 @@ export class LeaderboardRoom {
 
       const displayName =
         normalizeDisplayName(
-          raw?.displayName,
+          raw?.displayName, this.env,
         );
       const won =
         raw?.won === true;
@@ -500,7 +508,7 @@ export class LeaderboardRoom {
   ) {
     const requestedLimit =
       Number(
-        url.searchParams.get("limit"),
+        url.searchParams.get("limit") ?? DEFAULT_LEADERBOARD_LIMIT,
       );
     const limit =
       Number.isSafeInteger(requestedLimit)
@@ -731,7 +739,8 @@ async function profileTokenHash(
   );
 }
 
-function normalizeDisplayName(value) {
+function normalizeDisplayName(value, env) {
+  if (isFamilyMode(env)) return "Player";
   const normalized =
     String(value ?? "")
       .trim()

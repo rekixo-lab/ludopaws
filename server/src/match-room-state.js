@@ -1,3 +1,4 @@
+import { familyProjection } from "./family-safety.js";
 // Match state projection and public roll receipt formatting.
 import { sha256Hex, canonicalJson } from "./crypto.js";
 import { rulesetForState, publicState } from "./game.js";
@@ -25,6 +26,6 @@ export function rollResponse(state, receipt, replayed) {
   };
 }
 
-export function publicStateWithHistory(state) {
-  return { ...publicState(state), ...compactRollHistory(state) };
+export function publicStateWithHistory(state, env) {
+  return familyProjection({ ...publicState(state), ...compactRollHistory(state) }, env);
 }

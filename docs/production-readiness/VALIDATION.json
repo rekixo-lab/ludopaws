@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-20",
+  "releaseMode": "FAMILY_V2",
+  "candidateVersion": "1.0.0-rc3",
+  "validationStatus": "final CI pending for this source batch; PR checks and signed artifact evidence are authoritative",
+  "previousFamilyCandidateEvidence": "VALIDATION.family-v1.json",
+  "completedLocalChecks": {
+    "androidEnabledVariant": "421 JVM tests and debug/instrumentation APK compilation succeeded before final privacy/version follow-ups; final exact-source build in CI",
+    "runtimePreflightTests": 20,
+    "refundMigrationTests": "real SQLite, revocation before/after grant, idempotent retry, legacy owner enrollment, pagination retry passed",
+    "workerDryRun": "passed with BillingReconciliation migration/binding",
+    "sourceGates": "23 gates run; final exact-source CI required"
+  },
+  "deviceTesting": "deferred by user; no emulator execution or download authorized",
+  "consoleReportedByPublisher": "policy declarations completed; product/provider settings and real-device acceptance remain external",
+  "deployment": "not yet performed for this source batch"
+}

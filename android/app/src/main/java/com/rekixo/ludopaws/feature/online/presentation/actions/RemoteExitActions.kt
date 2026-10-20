@@ -78,6 +78,8 @@ internal fun MainActivity.abandonRemoteSessionState(): Boolean {
     secureSessionStore.clear()
     cachedMatchStore.clear()
 
+    lastAppliedAuthoritativeRevision = -1L
+    lastRealtimeRevision = -1
     matchId = null
     playerToken = null
     playerId = null

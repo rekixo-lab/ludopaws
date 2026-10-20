@@ -56,11 +56,6 @@ internal fun MainActivity.createRealtimeClient(
                     }
                     realtimeConnected =
                         connected
-                    if (connected && friendsVoiceEnabled) {
-                        if (!realtimeClient.sendVoiceJoin()) {
-                            updateFriendsVoiceStatus("Voice signaling is reconnecting…")
-                        }
-                    }
                     updateConnectionLabel()
                     if (screenStarted && playerToken != null) {
                         mainHandler.removeCallbacks(statePollRunnable)
@@ -88,23 +83,6 @@ internal fun MainActivity.createRealtimeClient(
                         displayName = displayName,
                         emoji = emoji,
                     )
-                }
-            },
-            onVoicePeers = { playerIds ->
-                mainHandler.post {
-                    if (friendsVoiceEnabled) friendsVoiceSession?.updatePeers(playerIds)
-                }
-            },
-            onVoiceSignal = { senderPlayerId, signal ->
-                mainHandler.post {
-                    if (friendsVoiceEnabled) {
-                        friendsVoiceSession?.handleSignal(senderPlayerId, signal)
-                    }
-                }
-            },
-            onVoiceEnded = {
-                mainHandler.post {
-                    stopFriendsVoice("Voice ended with the match.")
                 }
             },
             onUnavailable = { message ->

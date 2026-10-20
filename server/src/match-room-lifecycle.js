@@ -1,3 +1,4 @@
+import { familyProjection } from "./family-safety.js";
 import {
   MatchRoom as SocialMatchRoom,
 } from "./match-room-social.js";
@@ -107,7 +108,7 @@ export class MatchRoom extends SocialMatchRoom {
         deadlineState.revision =
           (Number.isSafeInteger(deadlineState.revision) ? deadlineState.revision : 0) + 1;
         await this.ctx.storage.put(STATE_KEY, deadlineState);
-        broadcastStateChanged(this.ctx, deadlineState);
+        broadcastStateChanged(this.ctx, deadlineState, this.env);
         return false;
       }
     }
@@ -116,7 +117,7 @@ export class MatchRoom extends SocialMatchRoom {
 
     const result = forfeitTimedOutTurn(deadlineState, { now });
     await this.ctx.storage.put(STATE_KEY, result.state);
-    broadcastStateChanged(this.ctx, result.state);
+    broadcastStateChanged(this.ctx, result.state, this.env);
     if (result.state.status === "FINISHED") {
       await this.recordFinishedMatchForLifecycle(result.state);
     }
@@ -244,7 +245,7 @@ export class MatchRoom extends SocialMatchRoom {
     if (typeof this.ctx.storage.setAlarm === "function") {
       await this.ctx.storage.setAlarm(now + ACTIVE_IDLE_TTL_MS);
     }
-    broadcastStateChanged(this.ctx, next);
+    broadcastStateChanged(this.ctx, next, this.env);
     return true;
   }
 
@@ -303,7 +304,7 @@ function nextActiveSeat(state, currentSeat) {
   return start >= 0 && start < count ? start : 0;
 }
 
-function broadcastStateChanged(ctx, state) {
+function broadcastStateChanged(ctx, state, env) {
   if (typeof ctx.getWebSockets !== "function") return;
   const payload = JSON.stringify({
     type: "STATE_CHANGED",
@@ -311,10 +312,10 @@ function broadcastStateChanged(ctx, state) {
     revision: state.revision,
     status: state.status,
     playerCount: state.players?.length ?? 0,
-    state: {
+    state: familyProjection({
       ...publicState(state),
       ...compactRollHistory(state),
-    },
+    }, env),
   });
   for (const socket of ctx.getWebSockets()) {
     try {

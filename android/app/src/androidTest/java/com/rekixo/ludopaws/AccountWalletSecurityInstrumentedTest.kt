@@ -156,6 +156,32 @@ class AccountWalletSecurityInstrumentedTest {
         assertTrue(store.hasLegacyUnverifiedSnapshot())
     }
 
+    @Test
+    fun olderRepliesFromAnotherStoreInstanceCannotRegressWalletOrSelection() {
+        saveTestSession()
+        val newer = JSONObject().put("accountId", ACCOUNT_ID).put("revision", 12)
+            .put("balance", 50).put("selectedCosmetics", JSONObject().put("DICE", "dice_pumpkin"))
+        assertTrue(GemWalletStore(context).applyServerSnapshot(newer, ACCOUNT_ID))
+        val delayed = JSONObject().put("accountId", ACCOUNT_ID).put("revision", 11).put("balance", 5)
+        assertFalse(GemWalletStore(context).applyServerSnapshot(delayed, ACCOUNT_ID))
+        assertEquals(50, GemWalletStore(context).balance())
+        assertEquals("dice_pumpkin", walletPreferences.getString("selected_dice", null))
+    }
+
+    @Test
+    fun lateLeaderboardReplyCannotBeCachedForTheNextAccount() {
+        saveTestSession()
+        val cache = com.rekixo.ludopaws.feature.leaderboard.data.local.LeaderboardCacheStore(context)
+        cache.clear()
+        cache.save(JSONObject().put("viewer", "first account"), ACCOUNT_ID)
+        assertEquals("first account", cache.load()?.payload?.getString("viewer"))
+        val sessions = AccountSessionStore(context)
+        sessions.save(requireNotNull(sessions.load()).copy(accountId = UUID.randomUUID().toString()))
+        cache.save(JSONObject().put("viewer", "late first account"), ACCOUNT_ID)
+        assertEquals(null, cache.load())
+        cache.clear()
+    }
+
     private fun pendingPurchase() = PendingStorePurchase(
         productId = "gems_300",
         purchaseToken = "secure-purchase-token-1234567890",

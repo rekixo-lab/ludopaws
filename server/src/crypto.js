@@ -1,3 +1,4 @@
+import { isFamilyMode } from "./family-safety.js";
 const HEX_32 = /^[0-9a-f]{64}$/i;
 const REQUEST_ID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -572,7 +573,8 @@ export function requireDigest(value, name) {
   return value.toLowerCase();
 }
 
-export function normalizeDisplayName(value) {
+export function normalizeDisplayName(value, env) {
+  if (isFamilyMode(env)) return "Player";
   if (typeof value !== "string") {
     throw httpError(400, "INVALID_DISPLAY_NAME", "displayName is required");
   }

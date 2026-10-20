@@ -43,14 +43,26 @@ class CosmeticInventoryStore(
      * credentials and the owned set once per catalog item.
      */
     fun ownedCosmeticIds(): Set<String> =
-        if (!hasCurrentAccountSnapshot()) {
-            emptySet()
+        if (!com.rekixo.ludopaws.BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED || !hasCurrentAccountSnapshot()) {
+            StoreCosmeticCatalog.all.filter {
+                it.contentAvailable && it.unlockKind == CosmeticUnlockKind.FREE && it.requiredLevel == 0
+            }.map { it.id }.toSet()
         } else {
             prefs.getStringSet(
                 StorePreferences.KEY_OWNED_COSMETICS,
                 emptySet(),
             )?.toSet() ?: emptySet()
         }
+
+    fun selectOfflineFreeCosmetic(cosmetic: StoreCosmetic): Boolean {
+        if (!cosmetic.contentAvailable ||
+            cosmetic.unlockKind != CosmeticUnlockKind.FREE || cosmetic.requiredLevel != 0) return false
+        return prefs.edit().putString("offline_selection_" + cosmetic.category.name, cosmetic.id).commit()
+    }
+
+    fun clearOfflineSelection(category: CosmeticCategory) {
+        check(prefs.edit().remove("offline_selection_" + category.name).commit())
+    }
 
     fun isOwned(
         cosmeticId: String,
@@ -60,6 +72,11 @@ class CosmeticInventoryStore(
     fun selectedId(
         category: CosmeticCategory,
     ): String {
+        prefs.getString("offline_selection_" + category.name, null)
+            ?.takeIf { id -> StoreCosmeticCatalog.find(id)?.let {
+                it.category == category && it.contentAvailable &&
+                    it.unlockKind == CosmeticUnlockKind.FREE && it.requiredLevel == 0
+            } == true }?.let { return it }
         if (!hasCurrentAccountSnapshot()) return StoreCosmeticCatalog.defaultId(category)
         return prefs.getString(
             selectedKey(
@@ -217,7 +234,7 @@ class CosmeticInventoryStore(
     }
 
     private fun ownedIds(): MutableSet<String> =
-        if (!hasCurrentAccountSnapshot()) {
+        if (!com.rekixo.ludopaws.BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED || !hasCurrentAccountSnapshot()) {
             mutableSetOf()
         } else {
             prefs.getStringSet(

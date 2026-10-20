@@ -3,14 +3,12 @@ package com.rekixo.ludopaws.feature.store.data.ads
 import android.app.Activity
 import android.util.Log
 import com.google.android.gms.ads.AdError
-import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.LoadAdError
 import com.google.android.gms.ads.MobileAds
 import com.google.android.ump.ConsentInformation
-import com.google.android.ump.ConsentRequestParameters
 import com.google.android.ump.UserMessagingPlatform
 
 /**
@@ -46,11 +44,16 @@ internal class PostWinInterstitialAdController(
             return
         }
 
+        FamilyAdsPrivacy.configureBeforeInitialization()
         consentUpdateInProgress = true
         consentInformation.requestConsentInfoUpdate(
             activity,
-            ConsentRequestParameters.Builder().build(),
-            {
+            FamilyAdsPrivacy.consentParameters(),
+            consentReady@{
+                if (closed || activity.isFinishing || activity.isDestroyed) {
+                    consentUpdateInProgress = false
+                    return@consentReady
+                }
                 UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { error ->
                     consentUpdateInProgress = false
                     if (error != null) {
@@ -125,7 +128,7 @@ internal class PostWinInterstitialAdController(
     }
 
     private fun initializeAdsIfAllowed() {
-        if (closed || !consentInformation.canRequestAds()) return
+        if (closed || activity.isFinishing || activity.isDestroyed || !consentInformation.canRequestAds()) return
         if (sdkInitialized) {
             loadInterstitial()
             return
@@ -133,6 +136,7 @@ internal class PostWinInterstitialAdController(
         if (sdkInitializationInProgress) return
 
         sdkInitializationInProgress = true
+        FamilyAdsPrivacy.configureBeforeInitialization()
         MobileAds.initialize(activity) {
             sdkInitializationInProgress = false
             if (closed) return@initialize
@@ -152,7 +156,7 @@ internal class PostWinInterstitialAdController(
         InterstitialAd.load(
             activity,
             adUnitId,
-            AdRequest.Builder().build(),
+            FamilyAdsPrivacy.request(),
             object : InterstitialAdLoadCallback() {
                 override fun onAdLoaded(ad: InterstitialAd) {
                     adLoading = false
