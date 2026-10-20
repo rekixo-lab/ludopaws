@@ -122,6 +122,10 @@ class ProfileActivity : Activity() {
             )
         playGamesStatus = getString(R.string.profile_play_games_sign_in_prompt)
         renderProfile()
+        if (savedInstanceState == null && intent.getBooleanExtra("open_account_actions", false)) {
+            intent.removeExtra("open_account_actions")
+            openAccountActions()
+        }
     }
 
     override fun onResume() {

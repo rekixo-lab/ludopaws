@@ -15,7 +15,7 @@
 
 Publisher के बताए अनुसार policy declarations भरे जा चुके हैं। Code/disclosures उसी व्यवहार से align किए गए हैं; उन्हें Google approval का प्रमाण न मानें।
 
-1. Internal Play track पर signed AAB upload करें; versionCode default 3 है, workflow में कोई अधिक unused code चुन सकते हैं। Play signing certificate SHA-1/SHA-256 सही Android OAuth client में दर्ज करें; internal/license testers को app और products का access दें।
+1. Internal Play track पर signed AAB upload करें; versionCode default 4 है, workflow में कोई अधिक unused code चुन सकते हैं। Play signing certificate SHA-1/SHA-256 सही Android OAuth client में दर्ज करें; internal/license testers को app और products का access दें।
 2. `remove_ads`, `gems_300`, `gems_1500`, `gems_3500`, `gems_20000`, `gems_40000`, `gems_200000` active purchase options, regional pricing/availability और licenses से जाँचें। SKU suffix को Gem quantity न मानें; exact grants pricing policy में हैं। Test purchase/refund/restore अभी physical Play install पर करना है।
 3. Billing service account को purchase management के साथ **View financial reports** access चाहिए, ताकि voided purchases API काम करे। Worker `/ready` में reconciliation status देखें; credential का मौजूद होना permissions का प्रमाण नहीं है।
 4. AdMob rewarded SSV callback `https://api.ludopaws.rekixo.com/api/admob/ssv`, configured unit और `gems` reward मिलाएँ। Test device/AdMob test mode में ads देखें; real paid ads पर test clicks न करें। AdMob approval/fill और dismissibility का phone पर परीक्षण बाकी है।
@@ -29,3 +29,7 @@ Actual website repository: `rekixo-lab/ludopaws-website`, existing separate Clou
 ## Machine/deployment evidence
 
 वर्तमान run के परिणाम यहाँ finalize होंगे। Emulator न चलाएँ या डाउनलोड करें। पिछला emulator/image/AVD हटाया जा चुका है; user phone testing बाद में करेगा। `BASELINE_AUDIT.hi.md` और पुराना V1 evidence ऐतिहासिक संदर्भ हैं।
+
+## Purchase recovery safeguard (RC4)
+
+A new checkout requires the active game account to be saved to an eligible Google identity before the Play payment sheet opens. Without this, an unlinked guest's account-bound purchase could not follow a reinstall. Parent/guardian management is supported through the explicit account action; there is still no startup/gameplay age prompt. The account ID is rechecked at confirmation, and completion of an already paid transaction remains independent of the new-checkout guard. RC3 is superseded; use the final RC4 artifact.

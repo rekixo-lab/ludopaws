@@ -52,6 +52,7 @@ class StoreActivity :
             StoreBillingProduct,
             > =
         emptyMap()
+    private var purchaseEligibilityInProgress = false
     private var billingAvailable = false
     private var billingProductCatalogLoaded = false
     private var pendingAutoPurchaseProductId: String? = null
@@ -326,12 +327,62 @@ class StoreActivity :
             )
             return
         }
+        if (purchaseEligibilityInProgress || !canRenderStoreUi()) return
+        val expectedAccountId = accountRepository.currentSession()?.accountId ?: run {
+            showStoreMessage("Reconnect to your game account before purchasing.")
+            return
+        }
+        purchaseEligibilityInProgress = true
+        billingExecutor.execute {
+            var googleLinked = false
+            var errorMessage: String? = null
+            try {
+                check(accountRepository.ensureGuestSession().accountId == expectedAccountId) { "The active account changed. Please try again." }
+                val links = accountRepository.linkedIdentities()
+                check(links.optString("accountId") == expectedAccountId) { "The account response changed. Please try again." }
+                googleLinked = links.optBoolean("googleLinked", false)
+            } catch (error: Exception) {
+                errorMessage = "Your saved account could not be checked. Reconnect and try again."
+            }
+            runOnUiThread {
+                purchaseEligibilityInProgress = false
+                if (!canRenderStoreUi()) return@runOnUiThread
+                val failure = errorMessage
+                if (failure != null) { showStoreMessage(failure); return@runOnUiThread }
+                if (accountRepository.currentSession()?.accountId != expectedAccountId) {
+                    showStoreMessage("The active account changed. Please try again.")
+                    return@runOnUiThread
+                }
+                if (!googleLinked) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Save your account before purchasing")
+                        .setMessage("Save this game account to an eligible Google account so you can recover its wallet and purchases after reinstalling or changing phones. A parent or guardian can manage this. Playing and rewarded ads do not require Google sign-in.")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Save account") { _, _ ->
+                            startActivity(Intent(this, com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity::class.java)
+                                .putExtra("open_account_actions", true))
+                        }
+                        .show()
+                    return@runOnUiThread
+                }
+                confirmSavedAccountPurchase(productId, expectedAccountId)
+            }
+        }
+    }
+
+    private fun confirmSavedAccountPurchase(productId: String, expectedAccountId: String) {
         AlertDialog.Builder(this)
             .setTitle("Google Play purchase")
             .setMessage("This purchase costs real money. Google Play will show the local price before payment. Children should ask a parent or guardian. No payment is made by opening this confirmation.")
             .setNegativeButton("Cancel", null)
             .setPositiveButton("Continue to Google Play") { _, _ ->
-                if (!isFinishing && !isDestroyed) billing.launchPurchase(productId)
+                if (canRenderStoreUi() && com.rekixo.ludopaws.feature.store.domain.PurchaseAccountSafety.canLaunch(
+                        expectedAccountId, accountRepository.currentSession()?.accountId, googleLinked = true)) {
+                    billing.updateAccountId(accountRepository.requireSession().billingAccountId)
+                    billing.launchPurchase(productId)
+                } else if (canRenderStoreUi()) {
+                    showStoreMessage("The active account changed. Please try again.")
+                }
             }
             .show()
     }
@@ -872,7 +923,7 @@ class StoreActivity :
             },
         )
 
-        if (!!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
+        if (BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
             fixedHeader.addView(
                 pinnedRemoveAdsContent(),
                 LinearLayout.LayoutParams(

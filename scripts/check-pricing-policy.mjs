@@ -133,3 +133,7 @@ assert.ok(pagesWorkflow.includes("fetch_public_page /terms-of-service.html"), "P
 assert.ok(pagesWorkflow.includes("PRICING_RELEASE_REVIEW_REQUIRED"), "Pages workflow must block on the pricing review marker");
 
 console.log("One-time purchase policy contract passed: Android, server and public disclosures match.");
+
+assert.ok(storeActivity.includes('googleLinked = links.optBoolean("googleLinked", false)'), "new checkout must verify a recoverable account");
+assert.ok(storeActivity.includes('links.optString("accountId") == expectedAccountId'), "account-link response must belong to the requesting account");
+assert.ok(storeActivity.includes("PurchaseAccountSafety.canLaunch"), "checkout must reject an account switch after confirmation");
