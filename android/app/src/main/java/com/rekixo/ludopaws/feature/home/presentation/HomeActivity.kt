@@ -242,7 +242,7 @@ class HomeActivity : Activity() {
         showFirstRunGuideIfNeeded()
         // Never show an in-app DOB screen. Google Play may request age-range sharing.
         // First-run tutorial is dismissed before any Play-managed prompt may appear.
-        if (!homeGuideVisible) PlayAgeSignalsObserver.refreshOnce(this)
+        // Family gameplay does not request or depend on age-range sharing.
     }
 
     private fun recordAbandonedRemoteLossIfNeeded() {

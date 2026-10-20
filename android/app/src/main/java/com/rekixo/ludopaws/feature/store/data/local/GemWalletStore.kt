@@ -26,101 +26,112 @@ class GemWalletStore(context: Context) {
      * Saves only a snapshot returned by the authenticated server. This cache is for rendering;
      * no purchase/reward/spend is allowed to originate in local preferences.
      */
-    @Synchronized
     fun applyServerSnapshot(snapshot: JSONObject, expectedAccountId: String): Boolean {
-        if (
-            snapshot.optString("accountId") != expectedAccountId ||
-            AccountSessionStore(appContext).load()?.accountId != expectedAccountId
-        ) {
-            return false
-        }
-        val balance = snapshot.optLong("balance", -1L)
-        if (balance !in 0..MAX_BALANCE.toLong()) return false
+        synchronized(WALLET_LOCK) {
+            if (
+                snapshot.optString("accountId") != expectedAccountId ||
+                AccountSessionStore(appContext).load()?.accountId != expectedAccountId
+            ) {
+                return false
+            }
+            val balance = snapshot.optLong("balance", -1L)
+            if (balance !in 0..MAX_BALANCE.toLong()) return false
 
-        val priorAccountId = prefs.getString(StorePreferences.KEY_WALLET_ACCOUNT_ID, null)
-        val editor = prefs.edit()
-        val hasLegacyProgress = prefs.all.keys.any {
-            it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX)
-        }
-        val hasLegacyWalletData =
-            prefs.contains(StorePreferences.KEY_BALANCE) ||
-                prefs.contains(StorePreferences.KEY_ADS_REMOVED) ||
-                prefs.contains(StorePreferences.KEY_OWNED_COSMETICS) ||
-                prefs.contains(StorePreferences.KEY_EVENT_ENTITLEMENTS) ||
-                prefs.contains(StorePreferences.KEY_SELECTED_BOARD) ||
-                prefs.contains(StorePreferences.KEY_SELECTED_DICE) ||
-                prefs.contains(StorePreferences.KEY_SELECTED_AVATAR) ||
-                prefs.contains(StorePreferences.KEY_SELECTED_CHARACTER_PACK) ||
-                prefs.contains(StorePreferences.KEY_APPLIED_TOKENS) ||
-                hasLegacyProgress
-        if (
-            priorAccountId == null &&
-            hasLegacyWalletData &&
-            !prefs.contains(StorePreferences.KEY_LEGACY_WALLET_ARCHIVE)
-        ) {
-            // Preserve pre-account device data for a future verified migration/support workflow.
-            // This archive is explicitly untrusted and is never read to grant currency or inventory.
-            editor.putString(
-                StorePreferences.KEY_LEGACY_WALLET_ARCHIVE,
-                legacyUnverifiedSnapshot().toString(),
-            )
-        }
-        if (priorAccountId != expectedAccountId) {
-            // Do not leak cached inventory or cosmetic progress between accounts.
-            editor.remove(StorePreferences.KEY_APPLIED_TOKENS)
-            editor.remove(StorePreferences.KEY_OWNED_COSMETICS)
-            editor.remove(StorePreferences.KEY_EVENT_ENTITLEMENTS)
-            editor.remove(StorePreferences.KEY_ADS_REMOVED)
-            editor.remove(StorePreferences.KEY_SELECTED_BOARD)
-            editor.remove(StorePreferences.KEY_SELECTED_DICE)
-            editor.remove(StorePreferences.KEY_SELECTED_AVATAR)
-            editor.remove(StorePreferences.KEY_SELECTED_CHARACTER_PACK)
-            prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) }
+            val priorAccountId = prefs.getString(StorePreferences.KEY_WALLET_ACCOUNT_ID, null)
+            val revision = snapshot.optLong("revision", 0L)
+            if (revision < 0L || (priorAccountId == expectedAccountId &&
+                    revision < prefs.getLong("wallet_revision_v1", 0L))) return false
+            val editor = prefs.edit()
+            val hasLegacyProgress = prefs.all.keys.any {
+                it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX)
+            }
+            val hasLegacyWalletData =
+                prefs.contains(StorePreferences.KEY_BALANCE) ||
+                    prefs.contains(StorePreferences.KEY_ADS_REMOVED) ||
+                    prefs.contains(StorePreferences.KEY_OWNED_COSMETICS) ||
+                    prefs.contains(StorePreferences.KEY_EVENT_ENTITLEMENTS) ||
+                    prefs.contains(StorePreferences.KEY_SELECTED_BOARD) ||
+                    prefs.contains(StorePreferences.KEY_SELECTED_DICE) ||
+                    prefs.contains(StorePreferences.KEY_SELECTED_AVATAR) ||
+                    prefs.contains(StorePreferences.KEY_SELECTED_CHARACTER_PACK) ||
+                    prefs.contains(StorePreferences.KEY_APPLIED_TOKENS) ||
+                    hasLegacyProgress
+            if (
+                priorAccountId == null &&
+                hasLegacyWalletData &&
+                !prefs.contains(StorePreferences.KEY_LEGACY_WALLET_ARCHIVE)
+            ) {
+                // Preserve pre-account device data for a future verified migration/support workflow.
+                // This archive is explicitly untrusted and is never read to grant currency or inventory.
+                editor.putString(
+                    StorePreferences.KEY_LEGACY_WALLET_ARCHIVE,
+                    legacyUnverifiedSnapshot().toString(),
+                )
+            }
+            if (priorAccountId != expectedAccountId) {
+                // Do not leak cached inventory or cosmetic progress between accounts.
+                editor.remove(StorePreferences.KEY_APPLIED_TOKENS)
+                editor.remove(StorePreferences.KEY_OWNED_COSMETICS)
+                editor.remove(StorePreferences.KEY_EVENT_ENTITLEMENTS)
+                editor.remove(StorePreferences.KEY_ADS_REMOVED)
+                editor.remove(StorePreferences.KEY_SELECTED_BOARD)
+                editor.remove(StorePreferences.KEY_SELECTED_DICE)
+                editor.remove(StorePreferences.KEY_SELECTED_AVATAR)
+                editor.remove(StorePreferences.KEY_SELECTED_CHARACTER_PACK)
+                prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) }
+                    .forEach(editor::remove)
+            }
+
+            editor.putString(StorePreferences.KEY_WALLET_ACCOUNT_ID, expectedAccountId)
+                .putLong("wallet_revision_v1", revision)
+                .putInt(StorePreferences.KEY_BALANCE, balance.toInt())
+                .putBoolean(StorePreferences.KEY_ADS_REMOVED, snapshot.optBoolean("adsRemoved", false))
+                .putStringSet(
+                    StorePreferences.KEY_OWNED_COSMETICS,
+                    snapshot.optJSONArray("ownedCosmetics").toStringSet(),
+                )
+
+            listOf(StorePreferences.KEY_SELECTED_BOARD, StorePreferences.KEY_SELECTED_DICE,
+                StorePreferences.KEY_SELECTED_AVATAR, StorePreferences.KEY_SELECTED_CHARACTER_PACK)
                 .forEach(editor::remove)
+            prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) }.forEach(editor::remove)
+            val selected = snapshot.optJSONObject("selectedCosmetics") ?: JSONObject()
+            selected.optString("BOARD").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_BOARD, it) }
+            selected.optString("DICE").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_DICE, it) }
+            selected.optString("AVATAR").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_AVATAR, it) }
+            selected.optString("CHARACTER_PACK").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_CHARACTER_PACK, it) }
+
+            val progress = snapshot.optJSONObject("rewardedAdProgress") ?: JSONObject()
+            progress.keys().forEach { cosmeticId ->
+                val value = progress.optInt(cosmeticId, 0).coerceAtLeast(0)
+                editor.putInt(StorePreferences.KEY_AD_PROGRESS_PREFIX + cosmeticId, value)
+            }
+
+            check(editor.commit()) { "Server wallet snapshot could not be cached safely." }
+            return true
         }
-
-        editor.putString(StorePreferences.KEY_WALLET_ACCOUNT_ID, expectedAccountId)
-            .putInt(StorePreferences.KEY_BALANCE, balance.toInt())
-            .putBoolean(StorePreferences.KEY_ADS_REMOVED, snapshot.optBoolean("adsRemoved", false))
-            .putStringSet(
-                StorePreferences.KEY_OWNED_COSMETICS,
-                snapshot.optJSONArray("ownedCosmetics").toStringSet(),
-            )
-
-        val selected = snapshot.optJSONObject("selectedCosmetics") ?: JSONObject()
-        selected.optString("BOARD").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_BOARD, it) }
-        selected.optString("DICE").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_DICE, it) }
-        selected.optString("AVATAR").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_AVATAR, it) }
-        selected.optString("CHARACTER_PACK").takeIf(String::isNotBlank)?.let { editor.putString(StorePreferences.KEY_SELECTED_CHARACTER_PACK, it) }
-
-        val progress = snapshot.optJSONObject("rewardedAdProgress") ?: JSONObject()
-        progress.keys().forEach { cosmeticId ->
-            val value = progress.optInt(cosmeticId, 0).coerceAtLeast(0)
-            editor.putInt(StorePreferences.KEY_AD_PROGRESS_PREFIX + cosmeticId, value)
-        }
-
-        check(editor.commit()) { "Server wallet snapshot could not be cached safely." }
-        return true
     }
 
-    @Synchronized
     fun clearAccountData(accountId: String) {
-        if (prefs.getString(StorePreferences.KEY_WALLET_ACCOUNT_ID, null) != accountId) return
-        val editor = prefs.edit()
-            .remove(StorePreferences.KEY_WALLET_ACCOUNT_ID)
-            .remove(StorePreferences.KEY_BALANCE)
-            .remove(StorePreferences.KEY_ADS_REMOVED)
-            .remove(StorePreferences.KEY_APPLIED_TOKENS)
-            .remove(StorePreferences.KEY_OWNED_COSMETICS)
-            .remove(StorePreferences.KEY_EVENT_ENTITLEMENTS)
-            .remove(StorePreferences.KEY_SELECTED_BOARD)
-            .remove(StorePreferences.KEY_SELECTED_DICE)
-            .remove(StorePreferences.KEY_SELECTED_AVATAR)
-            .remove(StorePreferences.KEY_SELECTED_CHARACTER_PACK)
-            .remove(StorePreferences.KEY_LEGACY_WALLET_ARCHIVE)
-            .remove(StorePreferences.KEY_LEGACY_WALLET_NOTICE_SHOWN)
-        prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) }.forEach(editor::remove)
-        check(editor.commit()) { "Local wallet data could not be cleared after account deletion." }
+        synchronized(WALLET_LOCK) {
+            if (prefs.getString(StorePreferences.KEY_WALLET_ACCOUNT_ID, null) != accountId) return
+            val editor = prefs.edit()
+                .remove(StorePreferences.KEY_WALLET_ACCOUNT_ID)
+                .remove("wallet_revision_v1")
+                .remove(StorePreferences.KEY_BALANCE)
+                .remove(StorePreferences.KEY_ADS_REMOVED)
+                .remove(StorePreferences.KEY_APPLIED_TOKENS)
+                .remove(StorePreferences.KEY_OWNED_COSMETICS)
+                .remove(StorePreferences.KEY_EVENT_ENTITLEMENTS)
+                .remove(StorePreferences.KEY_SELECTED_BOARD)
+                .remove(StorePreferences.KEY_SELECTED_DICE)
+                .remove(StorePreferences.KEY_SELECTED_AVATAR)
+                .remove(StorePreferences.KEY_SELECTED_CHARACTER_PACK)
+                .remove(StorePreferences.KEY_LEGACY_WALLET_ARCHIVE)
+                .remove(StorePreferences.KEY_LEGACY_WALLET_NOTICE_SHOWN)
+            prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) }.forEach(editor::remove)
+            check(editor.commit()) { "Local wallet data could not be cleared after account deletion." }
+        }
     }
 
     fun hasLegacyUnverifiedSnapshot(): Boolean =
@@ -184,6 +195,7 @@ class GemWalletStore(context: Context) {
     }
 
     private companion object {
+        val WALLET_LOCK = Any()
         const val MAX_BALANCE = 2_000_000_000
     }
 }

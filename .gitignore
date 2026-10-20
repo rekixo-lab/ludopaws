@@ -33,3 +33,10 @@ keystore.properties
 .DS_Store
 Thumbs.db
 .tools/
+
+# Generated release evidence and local Worker bundle
+/ludoproof-sbom.cdx.json
+/ludoproof-sbom.sha256
+/ludoproof-android-release.json
+/ludoproof-android-release.sha256
+/server/.wrangler-family-dry-run/

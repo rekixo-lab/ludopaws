@@ -35,6 +35,20 @@ if (process.env.LUDOPROOF_AGE_SAFETY_MODE === "LOCKDOWN") {
   process.exit(0);
 }
 
+if (process.env.LUDOPROOF_AGE_SAFETY_MODE === "FAMILY_V1") {
+  const capabilities = await fetch(baseUrl + "/api/capabilities").then(response => response.json());
+  if (capabilities.releaseMode !== "FAMILY_V1" || capabilities.multiplayer !== true ||
+      capabilities.fixedQuickChat !== true || ["freeTextChat", "voice", "advertising", "purchases", "newGoogleLinking"]
+        .some(key => capabilities[key] !== false)) throw new Error("Family capabilities mismatch");
+  for (const path of ["/api/friends/messages/send", "/api/friends/messages/list", "/api/store/purchases/verify",
+    "/api/wallet/cosmetics/purchase", "/api/admob/ssv", "/api/account/google/link"]) {
+    const response = await fetch(baseUrl + path, { method: "POST", headers: { "content-type": "application/json", "x-age": "adult" }, body: "{}" });
+    if (response.status !== 403 || (await response.json()).error !== "FAMILY_FEATURE_UNAVAILABLE")
+      throw new Error("Family capability bypass: " + path);
+  }
+  // Continue into real roll/move and Friends flows; a denial-only probe is not gameplay evidence.
+}
+
 const ALGORITHM =
   "ludopaws-server-dice-v1";
 
@@ -124,7 +138,7 @@ const host =
       body: {
         displayName:
           "Production Smoke Host",
-        rulesetKey: "CLASSIC_V4",
+        rulesetKey: "CLASSIC_V5",
         clientRequestId:
           randomUUID(),
       },

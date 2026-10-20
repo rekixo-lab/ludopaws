@@ -64,21 +64,6 @@ jobs:
         run: node --check scripts/production-game-smoke.mjs
       - name: Cloudflare Worker dry run
         run: npx --yes wrangler@4.135.0 deploy --dry-run --outdir .wrangler-dry-run
-      - name: Generate CycloneDX SBOM
-        working-directory: .
-        run: node scripts/generate-sbom.mjs
-      - name: Upload SBOM evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        # Keep build/test CI status independent of GitHub's shared artifact quota.
-        # Official release workflows remain responsible for publishing release evidence.
-        continue-on-error: true
-        with:
-          name: ludoproof-sbom
-          path: |
-            ludoproof-sbom.cdx.json
-            ludoproof-sbom.sha256
-          if-no-files-found: error
-          retention-days: 7
 
   android:
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
@@ -161,7 +146,7 @@ jobs:
           fi
       - name: Assemble release APK
         run: gradle -p android :app:assembleRelease --stacktrace
-      - name: Verify offline-only release permissions
+      - name: Verify family release permissions
         shell: bash
         run: |
           set -euo pipefail
@@ -182,6 +167,23 @@ jobs:
           done
       - name: Bundle release AAB
         run: gradle -p android :app:bundleRelease --stacktrace
+      - name: Resolve release dependency inventory
+        run: gradle -p android :app:writeReleaseDependencyInventory --console=plain
+      - name: Generate CycloneDX SBOM
+        run: node scripts/generate-sbom.mjs
+      - name: Upload SBOM evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        # Keep build/test CI status independent of GitHub's shared artifact quota.
+        # Official release workflows remain responsible for publishing release evidence.
+        continue-on-error: true
+        with:
+          name: ludoproof-sbom
+          path: |
+            ludoproof-sbom.cdx.json
+            ludoproof-sbom.sha256
+          if-no-files-found: error
+          retention-days: 7
+
       - name: Hash Android release evidence
         run: node scripts/hash-android-release.mjs
       - name: Upload release candidate evidence
@@ -217,6 +219,8 @@ jobs:
     timeout-minutes: 30
     env:
       ANDROID_AVD_HOME: /tmp/ludopaws-avd
+      # UI/device tests must never mutate real production accounts or matches.
+      ORG_GRADLE_PROJECT_LUDOPROOF_API_BASE_URL: https://127.0.0.1
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
@@ -399,7 +403,7 @@ jobs:
           adb shell settings put global transition_animation_scale 0
           adb shell settings put global animator_duration_scale 0
           adb devices -l
-      - name: Android real-device contract tests
+      - name: Android emulator contract tests
         shell: bash
         run: bash scripts/run-android-instrumentation-with-retry.sh
       - name: Collect emulator diagnostics

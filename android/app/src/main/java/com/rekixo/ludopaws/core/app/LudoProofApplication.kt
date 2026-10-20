@@ -7,7 +7,6 @@ import com.google.android.gms.games.PlayGamesSdk
 import com.rekixo.ludopaws.core.audio.UiClickSoundInstaller
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.account.data.AccountRepository
-import java.util.concurrent.Executors
 import com.rekixo.ludopaws.feature.friends.data.FriendPresenceController
 import com.rekixo.ludopaws.feature.settings.data.local.GameMusicController
 
@@ -17,16 +16,13 @@ class LudoProofApplication :
     private lateinit var friendPresence:
         FriendPresenceController
     val accountRepository: AccountRepository by lazy { AccountRepository(this) }
-    private val accountBootstrapExecutor = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "LudoPawsAccountBootstrap")
-    }
     private var resumedActivities = 0
     @Volatile
     private var friendPresencePausedForAccountSwitch = false
 
     override fun onCreate() {
         super.onCreate()
-        if (BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
+        if (!BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
             PlayGamesSdk.initialize(this)
         }
         // Prime the process-local cosmetic mirror before any remote create/join
@@ -34,13 +30,8 @@ class LudoProofApplication :
         CharacterSelectionStore(this).load()
         friendPresence =
             FriendPresenceController(this)
-        // Create/restore the guest session off the UI thread. If the network is
-        // unavailable, gameplay remains usable; monetized store actions fail closed.
-        if (BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
-            accountBootstrapExecutor.execute {
-                runCatching { accountRepository.ensureGuestSession() }
-            }
-        }
+        // Online entry creates a guest only when needed. Offline play does not
+        // bootstrap an account or initialize a third-party sign-in SDK.
         registerActivityLifecycleCallbacks(this)
     }
 

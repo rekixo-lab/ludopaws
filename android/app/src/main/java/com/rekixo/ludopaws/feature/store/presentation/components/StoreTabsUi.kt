@@ -21,6 +21,7 @@ internal fun StoreActivity.storeTabs():
 
         StoreTab
             .entries
+            .filter { !com.rekixo.ludopaws.BuildConfig.LUDOPAWS_FAMILY_MODE || it != StoreTab.GEMS }
             .forEach {
                     tab ->
                 val selected =

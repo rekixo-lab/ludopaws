@@ -131,6 +131,14 @@ class LeaderboardActivity :
             null
         render()
 
+        val expectedAccountId = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this).load()?.accountId
+        if (expectedAccountId == null) {
+            refreshing = false
+            loading = false
+            statusMessage = "Sign in to view the leaderboard."
+            render()
+            return
+        }
         executor.execute {
             try {
                 val credential =
@@ -150,12 +158,14 @@ class LeaderboardActivity :
                 cacheStore
                     .save(
                         payload,
+                        expectedAccountId,
                     )
 
                 mainHandler.post {
                     if (
                         isDestroyed ||
-                        isFinishing
+                        isFinishing ||
+                        com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this).load()?.accountId != expectedAccountId
                     ) {
                         return@post
                     }

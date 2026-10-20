@@ -27,6 +27,10 @@ internal fun MainActivity.registerOnlineBackCallback() {
 }
 
 internal fun MainActivity.requestRemoteExit() {
+    if (matchId == null && publicMatchmakingStore.load() != null) {
+        cancelPublicMatchmaking(exitAfterCancellation = true)
+        return
+    }
     val hasUnfinishedMatch =
         !matchId.isNullOrBlank() &&
             currentState?.status != "FINISHED"

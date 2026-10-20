@@ -14,18 +14,21 @@ for (const prohibited of [/DatePickerDialog/, /DatePicker\(/, /fromBirthDate\(/,
   /putBoolean\(\s*"adult"/, /sendAgeSignalsToServer/]) {
   if (prohibited.test(all)) throw Error("DOB/unsafe-age-entry contract regression: " + prohibited);
 }
-const observer = read(files[4]);
 const gradle = read("android/app/build.gradle.kts");
 const server = read("server/src/age-access-guard.js");
-if (!observer.includes("AgeSignalsStatus.SHARED") ||
-    !observer.includes("AgeAccessPolicy.fromPlayRange") ||
-    !observer.includes("AgeSignalsManagerFactory.create") ||
-    !observer.includes("requestAgeSignalsAccess") ||
-    !observer.includes("checkAgeSignals")) throw Error("Google Play access/check contract missing");
-if (!gradle.includes('com.google.android.play:age-signals:0.0.4')) throw Error("Expected vetted Play SDK");
-if (!gradle.includes('buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "false")'))
-  throw Error("No independently approved multiplayer eligibility");
-if (!server.includes("AGE_ACCESS_NOT_AVAILABLE")) throw Error("Server fail-closed lockdown missing");
-if (!read(files[0]).includes("PlayAgeSignalsObserver.refreshOnce(this)"))
-  throw Error("Home no longer checks Google Play age-sharing at entry");
-console.log("PASS: no DOB UI, Google-managed age sharing, safe offline lockdown");
+if (!gradle.includes('buildConfigField("boolean", "LUDOPAWS_FAMILY_MODE", "true")') ||
+    !gradle.includes('buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "true")'))
+  throw Error("Expected restricted family multiplayer edition");
+for (const file of files.slice(0, 2)) {
+  if (read(file).includes("PlayAgeSignalsObserver.refreshOnce(")) throw Error("Family entry must not request age-sharing");
+}
+if (!server.includes("AGE_ACCESS_NOT_AVAILABLE") || !server.includes("FAMILY_FEATURE_UNAVAILABLE"))
+  throw Error("Server capability boundary missing");
+const friends = read(root + "feature/friends/presentation/FriendsActivity.kt");
+if (friends.includes("private fun openChat(") || friends.includes('menu.add("Message")'))
+  throw Error("Free-text chat UI must be removed from the family edition");
+const manifest = read("android/app/src/main/AndroidManifest.xml");
+for (const provider of ["com.google.android.gms.games.provider.PlayGamesInitProvider", "com.google.android.gms.ads.MobileAdsInitProvider"]) {
+  if (!manifest.includes('android:name="' + provider + '" tools:node="remove"')) throw Error("SDK auto-init provider remains: " + provider);
+}
+console.log("PASS: DOB-free family multiplayer, no age-sharing prompt, removed free-text UI and guarded SDK initialization");

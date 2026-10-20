@@ -75,6 +75,9 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     }
   }
 
+  if (billingEnabled || adsEnabled) {
+    throw new Error("Billing and rewarded ads must be disabled in the family release.");
+  }
   const vars = {
     ...existingVars,
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: oauthClientId,
@@ -82,9 +85,8 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled),
     LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled),
     LUDOPROOF_ADMOB_REWARD_ITEM: "gems",
-    // There is not yet a server-verifiable adult authorization protocol.
-    // Deployments must fail closed until an independently reviewed implementation replaces this gate.
-    LUDOPROOF_AGE_SAFETY_MODE: "LOCKDOWN",
+    // Family capabilities are enforced on the server for old and new clients.
+    LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V1",
   };
 
   if (serviceAccountEmail) vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL = serviceAccountEmail;

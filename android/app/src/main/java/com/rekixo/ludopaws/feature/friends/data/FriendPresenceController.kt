@@ -88,7 +88,7 @@ class FriendPresenceController(
                                     "FRIEND_AUTH_INVALID"
                                 ) {
                                     identityStore
-                                        .clearCredentialOnly()
+                                        .clearCredentialIfMatches(credential)
                                 }
                             } catch (
                                 _: Exception,

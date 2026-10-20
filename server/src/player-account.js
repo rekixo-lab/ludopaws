@@ -1,3 +1,4 @@
+import { isFamilyMode } from "./family-safety.js";
 import { httpError, readJsonObject, requireClientRequestId } from "./crypto.js";
 import {
   billingAccountId, deriveRotatedRefreshToken, hashRefreshToken, isAccountId, isSessionId,
@@ -67,6 +68,19 @@ export class PlayerAccount {
       sql.exec("CREATE TABLE IF NOT EXISTS selected_cosmetics (category TEXT PRIMARY KEY, cosmetic_id TEXT NOT NULL, updated_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_ad_progress (cosmetic_id TEXT PRIMARY KEY, progress INTEGER NOT NULL DEFAULT 0 CHECK(progress >= 0), updated_at INTEGER NOT NULL)");
       sql.exec("CREATE INDEX IF NOT EXISTS idx_wallet_tx_created ON wallet_transactions(created_at DESC)");
+      sql.exec("CREATE TABLE IF NOT EXISTS wallet_revision (id INTEGER PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL)");
+      sql.exec("INSERT OR IGNORE INTO wallet_revision (id, revision) VALUES (1, 0)");
+      for (const [table, operations] of [
+        ["wallet", ["INSERT", "UPDATE"]], ["owned_cosmetics", ["INSERT", "DELETE"]],
+        ["selected_cosmetics", ["INSERT", "UPDATE", "DELETE"]],
+        ["cosmetic_ad_progress", ["INSERT", "UPDATE", "DELETE"]],
+      ]) {
+        for (const operation of operations) {
+          sql.exec(`CREATE TRIGGER IF NOT EXISTS revision_${table}_${operation}
+            AFTER ${operation} ON ${table} BEGIN
+            UPDATE wallet_revision SET revision = revision + 1 WHERE id = 1; END`);
+        }
+      }
     });
   }
 
@@ -275,7 +289,7 @@ export class PlayerAccount {
   async #updateProfile(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId), sessionId = requireSessionId(body?.sessionId);
     this.#requireActiveSession(accountId, sessionId);
-    this.ctx.storage.sql.exec("UPDATE account_meta SET display_name = ?, updated_at = ? WHERE account_id = ?", normalizeDisplayName(body?.displayName), Date.now(), accountId);
+    this.ctx.storage.sql.exec("UPDATE account_meta SET display_name = ?, updated_at = ? WHERE account_id = ?", normalizeDisplayName(body?.displayName, this.env), Date.now(), accountId);
     return json(200, { ok: true, profile: this.#profileSnapshot(accountId) });
   }
   async #getWallet(request) {
@@ -566,7 +580,7 @@ export class PlayerAccount {
       if ([...this.ctx.storage.sql.exec("SELECT account_id FROM account_deletions WHERE account_id = ? LIMIT 1", accountId)].length) throw httpError(410, "ACCOUNT_DELETED", "this account has been deleted");
       this.#requireAccountNotDeleting(accountId);
       const exists = [...this.ctx.storage.sql.exec("SELECT account_id FROM account_meta WHERE account_id = ? LIMIT 1", accountId)];
-      if (!exists.length) this.ctx.storage.sql.exec("INSERT INTO account_meta (account_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)", accountId, normalizeDisplayName(displayName), now, now);
+      if (!exists.length) this.ctx.storage.sql.exec("INSERT INTO account_meta (account_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)", accountId, normalizeDisplayName(displayName, this.env), now, now);
       this.ctx.storage.sql.exec("INSERT OR IGNORE INTO wallet (account_id, balance, ads_removed, updated_at) VALUES (?, 0, 0, ?)", accountId, now);
       for (const [id, category] of DEFAULT_COSMETICS) this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'DEFAULT', ?, NULL)", id, category, now);
       for (const [category, id] of Object.entries(DEFAULT_SELECTIONS)) this.ctx.storage.sql.exec("INSERT OR IGNORE INTO selected_cosmetics (category, cosmetic_id, updated_at) VALUES (?, ?, ?)", category, id, now);
@@ -614,6 +628,7 @@ export class PlayerAccount {
 
     return {
       accountId,
+      revision: Number([...this.ctx.storage.sql.exec("SELECT revision FROM wallet_revision WHERE id = 1")][0]?.revision ?? 0),
       balance: Number(rows[0].balance),
       adsRemoved: Number(rows[0].ads_removed) === 1,
       updatedAt: Number(rows[0].updated_at),
@@ -636,7 +651,8 @@ function requireHash(value, name) {
   if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) throw httpError(400, "INVALID_" + name.toUpperCase(), name + " is invalid");
   return value;
 }
-function normalizeDisplayName(value) {
+function normalizeDisplayName(value, env) {
+  if (isFamilyMode(env)) return "Player";
   return String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().replace(/\s+/g, " ").slice(0, NAME_LENGTH) || "Guest User";
 }
 async function readJson(request) {

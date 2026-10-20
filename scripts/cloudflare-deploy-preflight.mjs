@@ -87,15 +87,15 @@ if (!["true", "false"].includes(String(vars.LUDOPROOF_ADMOB_SSV_ENABLED))) {
   console.error("LUDOPROOF_ADMOB_SSV_ENABLED must be explicitly set to true or false.");
   process.exit(2);
 }
-if (vars.LUDOPROOF_AGE_SAFETY_MODE !== "LOCKDOWN") {
-  console.error("An unverified age release must keep LUDOPROOF_AGE_SAFETY_MODE=LOCKDOWN.");
+if (!["LOCKDOWN", "FAMILY_V1"].includes(vars.LUDOPROOF_AGE_SAFETY_MODE)) {
+  console.error("The release must use explicit FAMILY_V1 or LOCKDOWN capabilities.");
   process.exit(2);
 }
 if (vars.GOOGLE_PLAY_BILLING_ENABLED !== "false" ||
     vars.LUDOPROOF_ADMOB_SSV_ENABLED !== "false" ||
     String(process.env.LUDOPROOF_BILLING_ENABLED ?? "false") !== "false" ||
     String(process.env.LUDOPROOF_ADS_ENABLED ?? "false") !== "false") {
-  console.error("Billing and rewarded ads must be disabled in age safety lockdown.");
+  console.error("Billing and rewarded ads must be disabled in the family release or lockdown.");
   process.exit(2);
 }
 if (vars.LUDOPROOF_ADMOB_REWARD_ITEM !== "gems") {

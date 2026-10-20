@@ -191,7 +191,7 @@ internal fun ProfileActivity.showProfileMenu(anchor: View) {
     }
 
     addSection("ACCOUNT & DATA")
-    addItem(
+    if (!com.rekixo.ludopaws.BuildConfig.LUDOPAWS_FAMILY_MODE) addItem(
         "Save / Restore Account",
         if (accountGoogleLinked) "Manage or restore your Google-linked account" else "Link this Guest account or restore a saved account",
     ) { openAccountActions() }

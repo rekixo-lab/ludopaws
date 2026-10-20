@@ -32,7 +32,10 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
   };
   const preparedConfig = {
     ...baseConfig,
-    vars: buildCloudflareRuntimeVars(baseConfig.vars ?? {}, runtimeEnvironment),
+    vars: { ...buildCloudflareRuntimeVars(baseConfig.vars ?? {}, {
+      ...runtimeEnvironment, GOOGLE_PLAY_BILLING_ENABLED: "false", LUDOPROOF_BILLING_ENABLED: "false",
+      LUDOPROOF_ADMOB_SSV_ENABLED: "false", LUDOPROOF_ADS_ENABLED: "false",
+    }), GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled), LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled) },
   };
   if (!routeConfigured) delete preparedConfig.routes;
   const temporaryRoot = fs.mkdtempSync(path.join(os.tmpdir(), "ludopaws-cloudflare-preflight-"));
@@ -60,19 +63,19 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
   }
 }
 
-test("production preflight refuses advertising until age safety lockdown ends", () => {
+test("production preflight refuses advertising in the family release", () => {
   const result = runPreflight({ adsEnabled: true, billingEnabled: false });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
 });
 
-test("production preflight refuses billing while independent age eligibility is unavailable", () => {
+test("production preflight refuses billing in the family release", () => {
   const result = runPreflight({ adsEnabled: false, billingEnabled: true });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
 });
 
-test("production preflight passes offline-only lockdown after validation", () => {
+test("production preflight passes family multiplayer configuration after validation", () => {
   const result = runPreflight({ adsEnabled: false, billingEnabled: false });
   assert.equal(result.status, 0, "stdout: " + result.stdout + " stderr: " + result.stderr);
 });
@@ -129,7 +132,7 @@ test("production deployment pins every monetization toggle to false despite stal
     assert.ok(workflow.includes("      " + key + ': "false"'), key + " must remain off");
     assert.equal(workflow.includes("      " + key + ": " + "$" + "{{ vars." + key + " }}"), false);
   }
-  assert.ok(workflow.includes("LUDOPROOF_AGE_SAFETY_MODE: LOCKDOWN"));
+  assert.ok(workflow.includes("LUDOPROOF_AGE_SAFETY_MODE: FAMILY_V1"));
   assert.ok(workflow.includes("environment: production"));
   assert.ok(workflow.includes("workflow_dispatch:"));
 });

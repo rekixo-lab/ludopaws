@@ -20,11 +20,11 @@ jobs:
       LUDOPROOF_RELEASE_KEY_PASSWORD: ${{ secrets.LUDOPROOF_ANDROID_KEY_PASSWORD }}
       LUDOPROOF_API_BASE_URL: ${{ vars.LUDOPROOF_API_BASE_URL }}
       GOOGLE_SIGN_IN_WEB_CLIENT_ID: ${{ vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID }}
-      LUDOPROOF_BILLING_ENABLED: ${{ vars.LUDOPROOF_BILLING_ENABLED }}
-      GOOGLE_PLAY_BILLING_ENABLED: ${{ vars.GOOGLE_PLAY_BILLING_ENABLED }}
-      LUDOPROOF_ADS_ENABLED: ${{ vars.LUDOPROOF_ADS_ENABLED }}
-      LUDOPROOF_INTERSTITIAL_ADS_ENABLED: ${{ vars.LUDOPROOF_INTERSTITIAL_ADS_ENABLED }}
-      LUDOPROOF_ADMOB_SSV_ENABLED: ${{ vars.LUDOPROOF_ADMOB_SSV_ENABLED }}
+      LUDOPROOF_BILLING_ENABLED: "false"
+      GOOGLE_PLAY_BILLING_ENABLED: "false"
+      LUDOPROOF_ADS_ENABLED: "false"
+      LUDOPROOF_INTERSTITIAL_ADS_ENABLED: "false"
+      LUDOPROOF_ADMOB_SSV_ENABLED: "false"
       LUDOPROOF_ADMOB_REWARD_ITEM: ${{ vars.LUDOPROOF_ADMOB_REWARD_ITEM }}
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}
@@ -237,7 +237,7 @@ jobs:
         run: |
           gradle -p android :app:assembleRelease :app:bundleRelease --stacktrace
 
-      - name: Verify offline-only signed release permissions
+      - name: Verify family signed release permissions
         shell: bash
         run: |
           set -euo pipefail
@@ -256,6 +256,11 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Resolve and record signed release dependencies
+        run: |
+          gradle -p android :app:writeReleaseDependencyInventory --console=plain
+          node scripts/generate-sbom.mjs
 
       - name: Verify APK and AAB signatures
         shell: bash
@@ -282,5 +287,8 @@ jobs:
             android/app/build/outputs/bundle/release/app-release.aab
             ludoproof-android-release.json
             ludoproof-android-release.sha256
+            ludoproof-sbom.cdx.json
+            ludoproof-sbom.sha256
+            android/build/reports/release-dependencies.json
           if-no-files-found: error
           retention-days: 90

@@ -1,6 +1,13 @@
+import java.security.MessageDigest
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+}
+
+val qaBuild = providers.gradleProperty("LUDOPAWS_QA_BUILD").orElse("false").get().toBooleanStrict()
+require(!qaBuild || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "QA isolation is for debug device tests only; release tasks require LUDOPAWS_QA_BUILD=false."
 }
 
 val ludoProofApiBaseUrl =
@@ -45,7 +52,7 @@ require(!(ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) || adSafetyRev
 // Until independently authorized connected-age access is available, an offline-only
 // package must not initialize Billing or Ads regardless of unrelated opt-in flags.
 require(!(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
-    "The age-safe offline-only release cannot enable purchases, rewarded ads or interstitials."
+    "The family release cannot enable purchases, rewarded ads or interstitials."
 }
 val admobAppId =
     providers.gradleProperty("ADMOB_APP_ID")
@@ -170,10 +177,10 @@ android {
             "LUDOPROOF_API_BASE_URL",
             "\"$escapedApiBaseUrl\"",
         )
-        // Connected gameplay is disabled in the age-safety release until server-side
-        // eligibility, target-audience and regional protections are approved.
-        // Do not expose a build-flag override as if it were age verification.
-        buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "false")
+        // Family edition enables gameplay with no free-text chat, voice or monetization.
+        buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "true")
+        buildConfigField("boolean", "LUDOPAWS_FAMILY_MODE", "true")
+        buildConfigField("boolean", "LUDOPAWS_QA_BUILD", qaBuild.toString())
         buildConfigField(
             "boolean",
             "LUDOPROOF_BILLING_ENABLED",
@@ -231,6 +238,11 @@ android {
     buildTypes {
         getByName("debug") {
             isMinifyEnabled = false
+            if (qaBuild) {
+                applicationIdSuffix = ".qa"
+                versionNameSuffix = "-qa"
+                buildConfigField("String", "LUDOPROOF_API_BASE_URL", "\"https://127.0.0.1\"")
+            }
         }
         getByName("release") {
             isMinifyEnabled = true
@@ -246,6 +258,8 @@ android {
             )
         }
     }
+
+    if (qaBuild) sourceSets.getByName("debug").res.srcDir("src/qa/res")
 
     buildFeatures {
         buildConfig = true
@@ -279,6 +293,11 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
+    constraints {
+        implementation("com.google.guava:guava:33.4.8-android") {
+            because("Avoid vulnerable temporary-file implementations in transitive Ads dependencies")
+        }
+    }
     implementation("androidx.activity:activity:1.13.0")
     implementation("androidx.credentials:credentials:1.6.0")
     implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
@@ -287,7 +306,6 @@ dependencies {
     implementation("com.google.android.gms:play-services-ads:25.5.0")
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("io.github.webrtc-sdk:android:144.7559.15")
     implementation("com.google.android.gms:play-services-games-v2:22.1.0")
     implementation("com.google.android.play:age-signals:0.0.4")
 
@@ -299,4 +317,47 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+}
+
+// Resolve the exact shipped variant for release evidence; a source-only list is not an SBOM.
+tasks.register("writeReleaseDependencyInventory") {
+    val inventory = rootProject.layout.buildDirectory.file("reports/release-dependencies.json")
+    outputs.file(inventory)
+    inputs.property("versionName", android.defaultConfig.versionName.orEmpty())
+    inputs.property("versionCode", android.defaultConfig.versionCode ?: 0)
+    val runtime = configurations.named("releaseRuntimeClasspath")
+    inputs.files(runtime)
+    doLast {
+        fun digest(file: java.io.File): String {
+            val md = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(65536)
+                while (true) { val n = input.read(buffer); if (n < 0) break; md.update(buffer, 0, n) }
+            }
+            return md.digest().joinToString("") { "%02x".format(it) }
+        }
+        val configuration = runtime.get()
+        val artifacts = configuration.resolvedConfiguration.resolvedArtifacts
+        val components = artifacts.groupBy { it.moduleVersion.id }.map { (id, files) ->
+            mapOf("group" to id.group, "name" to id.name, "version" to id.version,
+                "artifacts" to files.map { mapOf("name" to it.file.name, "sha256" to digest(it.file)) })
+        }.sortedBy { it["group"].toString() + ":" + it["name"] }
+        fun reference(id: org.gradle.api.artifacts.ModuleVersionIdentifier) = "${id.group}:${id.name}:${id.version}"
+        val graph = configuration.incoming.resolutionResult.allComponents.mapNotNull { component ->
+            val id = component.moduleVersion ?: return@mapNotNull null
+            mapOf("ref" to reference(id), "dependsOn" to component.dependencies.mapNotNull {
+                (it as? org.gradle.api.artifacts.result.ResolvedDependencyResult)?.selected?.moduleVersion?.let(::reference)
+            }.distinct().sorted())
+        }
+        val direct = configuration.incoming.resolutionResult.root.dependencies.mapNotNull {
+            (it as? org.gradle.api.artifacts.result.ResolvedDependencyResult)?.selected?.moduleVersion?.let(::reference)
+        }.distinct().sorted()
+        val data = mapOf("schemaVersion" to 1, "configuration" to "releaseRuntimeClasspath",
+            "versionName" to android.defaultConfig.versionName, "versionCode" to android.defaultConfig.versionCode,
+            "components" to components, "dependencies" to graph, "directDependencies" to direct)
+        inventory.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(data)) + "\n")
+        }
+    }
 }

@@ -2,7 +2,6 @@ package com.rekixo.ludopaws
 
 import android.os.Build
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -26,7 +25,6 @@ import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.ui.online.*
 import com.rekixo.ludopaws.feature.online.*
 import com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback
-import com.rekixo.ludopaws.feature.online.FriendsVoiceChatSession
 import com.rekixo.ludopaws.feature.store.data.ads.PostWinInterstitialAdController
 import com.rekixo.ludopaws.feature.store.data.ads.PostWinInterstitialExitGate
 import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
@@ -184,7 +182,6 @@ class MainActivity : ComponentActivity() {
     internal var friendsVoiceStatus =
         "Voice is off"
 
-    internal var friendsVoiceSession: FriendsVoiceChatSession? = null
     internal var remoteExitConfirmationDialog: android.app.Dialog? = null
     private var postWinInterstitialAd: PostWinInterstitialAdController? = null
     private var postWinInterstitialExitGate: PostWinInterstitialExitGate? = null
@@ -433,6 +430,9 @@ class MainActivity : ComponentActivity() {
         LudoProofTheme.configureWindow(
             this,
         )
+        if (savedInstanceState != null) {
+            intent.putExtra(GameModeIntent.EXTRA_RESUME_SAVED_MATCH, true)
+        }
         GameSoundFeedback.preloadDiceFeedback(this)
 
         if (
@@ -621,102 +621,19 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun toggleFriendsVoice() {
-        val state = currentState
-        if (gameMode != GameMode.FRIENDS || state?.status != "ACTIVE") {
-            showStatus("Voice chat is available during an active Friends match.")
-            return
-        }
-        if (friendsVoiceEnabled) {
-            stopFriendsVoice("Voice is off")
-            return
-        }
-        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                arrayOf(android.Manifest.permission.RECORD_AUDIO),
-                FRIENDS_VOICE_PERMISSION_REQUEST,
-            )
-            updateFriendsVoiceStatus("Allow microphone access to use voice.")
-            return
-        }
-        startFriendsVoice()
+        showStatus("Voice is unavailable in the family edition. Use fixed quick-chat reactions.")
     }
 
-    internal fun toggleFriendsMic() {
-        if (!friendsVoiceEnabled) return
-        friendsMicEnabled = !friendsMicEnabled
-        friendsVoiceSession?.setMicEnabled(friendsMicEnabled)
-        updateFriendsVoiceStatus(if (friendsMicEnabled) "Microphone is on" else "Microphone muted")
-        currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
-    }
+    internal fun toggleFriendsMic() = Unit
 
-    private fun startFriendsVoice() {
-        if (friendsVoiceEnabled) return
-        val localPlayerId = playerId
-        if (localPlayerId.isNullOrBlank()) {
-            updateFriendsVoiceStatus("Your player identity is not ready yet.")
-            return
-        }
-        try {
-            friendsVoiceSession =
-                FriendsVoiceChatSession(
-                    context = this,
-                    localPlayerId = localPlayerId,
-                    sendSignal = { peerId, signal ->
-                        realtimeClient.sendVoiceSignal(peerId, signal)
-                    },
-                    onStatusChanged = { status ->
-                        mainHandler.post {
-                            if (friendsVoiceEnabled && canRenderUi()) {
-                                updateFriendsVoiceStatus(status)
-                            }
-                        }
-                    },
-                ).also { it.setMicEnabled(friendsMicEnabled) }
-            friendsVoiceEnabled = true
-            friendsVoiceStatus = "Connecting to Friends voice…"
-            if (realtimeConnected) {
-                if (!realtimeClient.sendVoiceJoin()) {
-                    friendsVoiceStatus = "Voice signaling is reconnecting…"
-                }
-            } else {
-                connectRealtimeIfPossible()
-                friendsVoiceStatus = "Waiting for a secure match connection…"
-            }
-        } catch (error: Exception) {
-            friendsVoiceSession?.close()
-            friendsVoiceSession = null
-            friendsVoiceEnabled = false
-            friendsVoiceStatus = "Could not start voice: ${error.message ?: "audio setup failed"}"
-        }
-        currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
-    }
-
-    internal fun stopFriendsVoice(status: String = "Voice is off") {
-        if (friendsVoiceEnabled) realtimeClient.sendVoiceLeave()
+    internal fun stopFriendsVoice(status: String = "Voice is unavailable") {
         friendsVoiceEnabled = false
-        friendsVoiceSession?.close()
-        friendsVoiceSession = null
         updateFriendsVoiceStatus(status)
     }
 
     internal fun updateFriendsVoiceStatus(status: String) {
         friendsVoiceStatus = status
         currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
-    }
-
-    @Deprecated("Use the activity result API for new permission requests")
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<String>,
-        grantResults: IntArray,
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != FRIENDS_VOICE_PERMISSION_REQUEST) return
-        if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-            startFriendsVoice()
-        } else {
-            updateFriendsVoiceStatus("Microphone permission denied. Voice chat is off.")
-        }
     }
 
     internal fun isMatchmakingUiReady(): Boolean =
@@ -750,7 +667,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private companion object {
-        const val FRIENDS_VOICE_PERMISSION_REQUEST = 731
         const val STATE_POLL_RECOVERY_MS =
             3_000L
         const val STATE_POLL_LIVE_MS =

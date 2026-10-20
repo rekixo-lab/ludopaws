@@ -23,8 +23,8 @@ export class FriendDirectory {
   constructor(ctx, env) {
     this.ctx =
       ctx;
-    this.env =
-      env;
+    this.env = env;
+    this.requestTail = Promise.resolve();
 
     ctx.blockConcurrencyWhile(
       async () => {
@@ -55,7 +55,13 @@ export class FriendDirectory {
     }
   }
 
-  async fetch(request) {
+  fetch(request) {
+    const run = this.requestTail.then(() => this.#handle(request), () => this.#handle(request));
+    this.requestTail = run.catch(() => {});
+    return run;
+  }
+
+  async #handle(request) {
     try {
       const url =
         new URL(
@@ -450,7 +456,7 @@ export class FriendDirectory {
     const displayName =
       normalizeDisplayName(
         body
-          ?.displayName,
+          ?.displayName, this.env
       );
     const identity =
       await deriveFriendIdentity(
@@ -654,7 +660,15 @@ export class FriendDirectory {
     const body = await readJson(request);
     const owner = normalizeFriendId(body?.ownerFriendId), opponent = normalizeFriendId(body?.opponentFriendId);
     if (owner === opponent) throw httpError(400, "INVALID_RECENT_PLAYER", "recent opponent must be another player");
-    if (this.#isBlocked(owner, opponent)) return json(200, { ok: true, registered: false });
+    const profiles = [...this.ctx.storage.sql.exec(
+      "SELECT friend_id FROM friend_profiles WHERE friend_id IN (?, ?)", owner, opponent,
+    )];
+    const deleted = [...this.ctx.storage.sql.exec(
+      "SELECT friend_id FROM deleted_friend_profiles WHERE friend_id IN (?, ?)", owner, opponent,
+    )];
+    if (deleted.length || profiles.length !== 2 || this.#isBlocked(owner, opponent)) {
+      return json(200, { ok: true, registered: false });
+    }
     this.ctx.storage.sql.exec("INSERT INTO friend_recent_index (owner_friend_id, opponent_friend_id, played_at) VALUES (?, ?, ?) ON CONFLICT(owner_friend_id, opponent_friend_id) DO UPDATE SET played_at = excluded.played_at", owner, opponent, Date.now());
     return json(200, { ok: true, registered: true });
   }
@@ -819,7 +833,7 @@ export class FriendDirectory {
       displayName =
         normalizeDisplayName(
           body
-            .displayName,
+            .displayName, this.env
         );
     }
 
@@ -1135,10 +1149,9 @@ export class FriendDirectory {
       200,
       {
         ok: true,
-        status:
-          accept
-            ? "ACCEPTED"
-            : "DECLINED",
+        status: String(row.status) === "PENDING"
+          ? (accept ? "ACCEPTED" : "DECLINED")
+          : String(row.status),
         friend:
           sender
             ? publicProfile(

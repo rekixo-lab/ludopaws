@@ -27,6 +27,10 @@ class MainActivitySessionRestoreInstrumentedTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         clearRemoteStores()
+        if (BuildConfig.LUDOPAWS_QA_BUILD) {
+            assertEquals("https://127.0.0.1", BuildConfig.LUDOPROOF_API_BASE_URL)
+            return
+        }
         setDeviceNetworkEnabled(false)
         assertTrue(
             "test requires an offline device so restored credentials cannot hit production",
@@ -37,8 +41,10 @@ class MainActivitySessionRestoreInstrumentedTest {
     @After
     fun tearDown() {
         clearRemoteStores()
-        setDeviceNetworkEnabled(true)
-        waitForValidatedNetwork(expected = true)
+        if (!BuildConfig.LUDOPAWS_QA_BUILD) {
+            setDeviceNetworkEnabled(true)
+            waitForValidatedNetwork(expected = true)
+        }
     }
 
     @Test
@@ -68,6 +74,23 @@ class MainActivitySessionRestoreInstrumentedTest {
         }
     }
 
+    @Test
+    fun normalLaunchRestoresTheMatchStartedBeforeActivityRecreation() {
+        val expected = PlayerSession(MATCH_ID, PLAYER_ID, PLAYER_TOKEN, GameMode.ONLINE.wireValue)
+        ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java)
+            .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.ONLINE.wireValue)).use { scenario ->
+            scenario.onActivity { activity ->
+                // Simulate credentials received after normal navigation (no resume intent).
+                SecureSessionStore(context).save(expected)
+                activity.matchId = expected.matchId
+                activity.playerId = expected.playerId
+                activity.playerToken = expected.playerToken
+            }
+            scenario.recreate()
+            assertRestored(scenario, expected)
+        }
+    }
+
     private fun launchResumeScenario(): ActivityScenario<MainActivity> =
         ActivityScenario.launch(
             Intent(context, MainActivity::class.java)
@@ -85,10 +108,12 @@ class MainActivitySessionRestoreInstrumentedTest {
         scenario: ActivityScenario<MainActivity>,
         expectedSession: PlayerSession,
     ) {
-        assertTrue(
-            "the activity must observe the disabled emulator network before validating offline restore",
-            waitForActivityOnline(scenario, expected = false),
-        )
+        if (!BuildConfig.LUDOPAWS_QA_BUILD) {
+            assertTrue(
+                "the activity must observe the disabled emulator network before validating offline restore",
+                waitForActivityOnline(scenario, expected = false),
+            )
+        }
 
         scenario.onActivity { activity ->
             assertEquals(expectedSession.matchId, activity.matchId)
@@ -103,7 +128,7 @@ class MainActivitySessionRestoreInstrumentedTest {
                 "ROLL DICE",
                 activity.rollButton.text.toString(),
             )
-            assertFalse(
+            if (!BuildConfig.LUDOPAWS_QA_BUILD) assertFalse(
                 "restoring saved online credentials while the emulator is offline must not mark the activity online",
                 activity.isOnline,
             )

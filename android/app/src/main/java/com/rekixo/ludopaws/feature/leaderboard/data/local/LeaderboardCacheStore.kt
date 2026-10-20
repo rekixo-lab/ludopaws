@@ -6,6 +6,7 @@ import org.json.JSONObject
 class LeaderboardCacheStore(
     context: Context,
 ) {
+    private val accountSessions = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(context.applicationContext)
     private val prefs =
         context.getSharedPreferences(
             PREFS_NAME,
@@ -14,9 +15,11 @@ class LeaderboardCacheStore(
 
     fun save(
         payload: JSONObject,
+        expectedAccountId: String,
     ) {
-        val raw =
-            payload.toString()
+        val accountId = accountSessions.load()?.accountId ?: return
+        if (accountId != expectedAccountId) return
+        val raw = payload.toString()
         if (
             raw.length >
             MAX_CACHE_CHARS
@@ -25,6 +28,7 @@ class LeaderboardCacheStore(
         }
 
         prefs.edit()
+            .putString("viewer_account_id", accountId)
             .putString(
                 KEY_PAYLOAD,
                 raw,
@@ -38,6 +42,11 @@ class LeaderboardCacheStore(
 
     fun load():
         CachedLeaderboard? {
+        val accountId = accountSessions.load()?.accountId
+        if (accountId == null || prefs.getString("viewer_account_id", null) != accountId) {
+            clear()
+            return null
+        }
         val raw =
             prefs.getString(
                 KEY_PAYLOAD,
@@ -61,6 +70,8 @@ class LeaderboardCacheStore(
             )
         }.getOrNull()
     }
+
+    fun clear() { prefs.edit().clear().apply() }
 
     data class CachedLeaderboard(
         val payload: JSONObject,

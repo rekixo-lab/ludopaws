@@ -31,7 +31,7 @@ const ASSIGNMENT_TTL_MS = 10 * 60 * 1000;
 const PROFILE_ASSERTION_TTL_MS = 15 * 60 * 1000;
 const TARGET_PLAYER_COUNT = 4;
 const DEFAULT_RULESET_KEY = "TEAM_UP_V4";
-const TEAM_RULESET_KEYS = ["TEAM_UP_V1", "TEAM_UP_V2", "TEAM_UP_V3", "TEAM_UP_V4"];
+const TEAM_RULESET_KEYS = ["TEAM_UP_V1", "TEAM_UP_V2", "TEAM_UP_V3", "TEAM_UP_V4", "TEAM_UP_V5"];
 
 export class TeamMatchmakerQueue {
   constructor(ctx, env) {
@@ -166,7 +166,7 @@ export class TeamMatchmakerQueue {
 
   async #search(request, body) {
     const profileId = await this.#profileIdentity(request);
-    const participant = normalizeParticipant(body, profileId);
+    const participant = normalizeParticipant(body, profileId, this.env);
     participant.locationHint = normalizeMatchLocationHint(request.headers.get(MATCH_LOCATION_HEADER));
     const now = Date.now();
     let state = this.#cleanup(await this.#load(), now);
@@ -744,10 +744,10 @@ export class TeamMatchmakerQueue {
   }
 }
 
-function normalizeParticipant(body, profileId) {
+function normalizeParticipant(body, profileId, env) {
   return {
     clientRequestId: requireClientRequestId(body?.clientRequestId),
-    displayName: normalizeDisplayName(body?.displayName),
+    displayName: normalizeDisplayName(body?.displayName, env),
     characterId: normalizeCharacterId(body?.characterId),
     profileId,
     rulesetKey: normalizeTeamRulesetKey(body?.rulesetKey),

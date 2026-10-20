@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   RULESET,
+  rulesetForState,
   addPlayer,
   applyMove,
   attachHostAuth,
@@ -17,9 +18,10 @@ import {
   startMatch,
 } from "../src/game.js";
 
-function activeMatch() {
+function activeMatch(rulesetKey) {
   let state = newMatch({
     matchId: "ABC12345",
+    rulesetKey,
     hostPlayerId: "p1",
     hostDisplayName: "One",
     now: 1,
@@ -159,9 +161,15 @@ test("capture returns opponent token to yard and grants extra turn", () => {
   assert.equal(moved.state.turnSeat, 0);
 });
 
-test("opponent stacks are never captured as a group", () => {
+for (const rulesetKey of [undefined, "CLASSIC_V5"]) {
+test(`opponent stacks are protected for ${rulesetKey ?? "legacy"}`, () => {
   for (const stackSize of [2, 3, 4]) {
-    let state = activeMatch();
+    let state = activeMatch(rulesetKey);
+    if (rulesetKey) {
+      assert.equal(rulesetForState(state).opponentStackCapture, "OPPONENT_STACK_PROTECTED");
+      assert.equal(rulesetForState(state).turnRollTimeoutMs, 15_000);
+      state.openingRollConsumed[0] = true;
+    }
     state.players[0].tokens[0] = 1;
     state.players[1].tokens =
       [41, 41, 41, 41].map((position, index) =>
@@ -205,6 +213,8 @@ test("opponent stacks are never captured as a group", () => {
     assert.equal(moved.state.turnSeat, 1);
   }
 });
+
+}
 
 test("third consecutive six forfeits the roll and passes turn", () => {
   let state = activeMatch();

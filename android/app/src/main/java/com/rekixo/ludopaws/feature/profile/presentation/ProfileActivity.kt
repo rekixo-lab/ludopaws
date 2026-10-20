@@ -52,7 +52,8 @@ class ProfileActivity : Activity() {
     internal var playGamesStatus = ""
         private set
     internal val isPlayGamesConfigured: Boolean
-        get() = BuildConfig.PLAY_GAMES_PROJECT_ID.toLongOrNull()?.let { it > 0 } == true
+        get() = !BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
+            BuildConfig.PLAY_GAMES_PROJECT_ID.toLongOrNull()?.let { it > 0 } == true
 
     internal val profileStore by lazy {
         ProfileStore(this)
@@ -73,11 +74,41 @@ class ProfileActivity : Activity() {
     private val accountMainExecutor = Executor { command ->
         runOnUiThread { command.run() }
     }
+    private val accountWorkCount = java.util.concurrent.atomic.AtomicInteger(0)
+    private val credentialCancellation = android.os.CancellationSignal()
+
+    private fun runAccountWork(action: () -> Unit) {
+        accountWorkCount.incrementAndGet()
+        accountAuthExecutor.execute {
+            try { action() } finally {
+                accountWorkCount.decrementAndGet()
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) releasePresencePauseIfIdle()
+                }
+            }
+        }
+    }
+
+    private fun releasePresencePauseIfIdle() {
+        if (friendPresencePausedForAccountSwitch && accountWorkCount.get() == 0) {
+            friendPresencePausedForAccountSwitch = false
+            // The Application also checks repository.requiresIdentityRecovery().
+            (application as LudoProofApplication).resumeFriendPresenceAfterAccountSwitch()
+        }
+    }
+
+    override fun onDestroy() {
+        credentialCancellation.cancel()
+        releasePresencePauseIfIdle()
+        accountAuthExecutor.shutdown()
+        super.onDestroy()
+    }
+
     private var accountSwitchFromId: String? = null
     private var friendPresencePausedForAccountSwitch = false
     private var accountIdentityRecoveryPending = false
     internal val isAccountSignInConfigured: Boolean
-        get() = BuildConfig.GOOGLE_SIGN_IN_WEB_CLIENT_ID.isNotBlank()
+        get() = !BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.GOOGLE_SIGN_IN_WEB_CLIENT_ID.isNotBlank()
 
     override fun onCreate(
         savedInstanceState: Bundle?,
@@ -251,7 +282,7 @@ class ProfileActivity : Activity() {
                 if (accountGoogleLinked) {
                     "This account is saved to Google. You can restore it on another device, or choose another Google account only after confirming the switch."
                 } else {
-                    "Your guest account is currently tied to this installation. Save it to Google so your progress and eligible store items can follow you to another device."
+                    "Your guest account is currently tied to this installation. Save it to Google so your account and eligible store items can follow you to another device. XP, match statistics and badges stay on this device."
                 },
             )
             .setItems(arrayOf("Save this account to Google", "Restore an account saved to Google")) { _, which ->
@@ -270,7 +301,7 @@ class ProfileActivity : Activity() {
         accountAuthInProgress = true
         accountStatus = "Preparing guest deletion code…"
         renderProfile()
-        accountAuthExecutor.execute {
+        runAccountWork {
             try {
                 val code = accountRepository.ensureGuestDeletionCredential(rotateExisting)
                 runOnUiThread {
@@ -338,7 +369,7 @@ class ProfileActivity : Activity() {
         accountAuthInProgress = true
         accountStatus = "Deleting account…"
         renderProfile()
-        accountAuthExecutor.execute {
+        runAccountWork {
             try {
                 val session = accountRepository.requireSession()
                 accountRepository.deleteCurrentAccount()
@@ -351,6 +382,8 @@ class ProfileActivity : Activity() {
                     .onFailure { cleanupErrors += "pending Play purchase cache" }
                 runCatching { FriendIdentityStore(this@ProfileActivity).clearAllForAccountSwitch() }
                     .onFailure { cleanupErrors += "Friend ID cache" }
+                runCatching { com.rekixo.ludopaws.feature.leaderboard.data.local.LeaderboardCacheStore(this@ProfileActivity).clear() }
+                    .onFailure { cleanupErrors += "personalized leaderboard cache" }
                 runCatching { LeaderboardIdentityStore(this@ProfileActivity).clearAllForAccountSwitch() }
                     .onFailure { cleanupErrors += "leaderboard cache" }
                 runOnUiThread {
@@ -404,7 +437,12 @@ class ProfileActivity : Activity() {
 
     private fun refreshAccountStatus() {
         if (accountAuthInProgress) return
-        accountAuthExecutor.execute {
+        if (BuildConfig.LUDOPAWS_FAMILY_MODE && accountRepository.currentSession() == null) {
+            accountStatus = "Offline profile · online play creates a private game account"
+            renderProfile()
+            return
+        }
+        runAccountWork {
             try {
                 val session = accountRepository.ensureGuestSession()
                 val links = accountRepository.linkedIdentities()
@@ -448,11 +486,10 @@ class ProfileActivity : Activity() {
         }
         accountStatus = "Preparing secure sign-in…"
         renderProfile()
-        accountAuthExecutor.execute {
+        runAccountWork {
             try {
-                // A restore must not depend on the old access/refresh token still being valid.
-                // Create a guest first only when this install has no encrypted session at all.
-                if (linkCurrentAccount || accountRepository.currentSession() == null) {
+                // Linking needs the current account. Restore authenticates independently.
+                if (linkCurrentAccount) {
                     accountRepository.ensureGuestSession()
                 }
                 if (!linkCurrentAccount && accountSwitchFromId == null) {
@@ -485,10 +522,14 @@ class ProfileActivity : Activity() {
         CredentialManager.create(this).getCredentialAsync(
             this,
             request,
-            null,
+            credentialCancellation,
             accountMainExecutor,
             object : CredentialManagerCallback<GetCredentialResponse, GetCredentialException> {
                 override fun onResult(result: GetCredentialResponse) {
+                    if (isFinishing || isDestroyed) {
+                        releasePresencePauseIfIdle()
+                        return
+                    }
                     val credential = result.credential
                     if (
                         credential !is CustomCredential ||
@@ -503,7 +544,7 @@ class ProfileActivity : Activity() {
                         finishAccountFlow(false, "Google sign-in returned an invalid credential. Please try again.")
                         return
                     }
-                    accountAuthExecutor.execute {
+                    runAccountWork {
                         var restoreSessionChanged = false
                         var identityRecoveryCompleted = false
                         try {
@@ -519,6 +560,7 @@ class ProfileActivity : Activity() {
                                 // Scope the existing local profile to the guest account before the
                                 // active session is replaced; another account must not inherit its stats.
                                 profileStore.prepareForAccountRestore()
+                                com.rekixo.ludopaws.feature.leaderboard.data.local.LeaderboardCacheStore(this@ProfileActivity).clear()
                                 accountRepository.restoreGoogleAccount(idToken, nonce)
                                 restoreSessionChanged = true
                                 val recovered = accountRepository.recoverLinkedIdentities()
@@ -625,7 +667,10 @@ class ProfileActivity : Activity() {
 
     private fun finishAccountFlow(success: Boolean, message: String) {
         runOnUiThread {
-            if (isFinishing || isDestroyed) return@runOnUiThread
+            if (isFinishing || isDestroyed) {
+                releasePresencePauseIfIdle()
+                return@runOnUiThread
+            }
             accountAuthInProgress = false
             if (friendPresencePausedForAccountSwitch && !accountIdentityRecoveryPending) {
                 (application as LudoProofApplication).resumeFriendPresenceAfterAccountSwitch()

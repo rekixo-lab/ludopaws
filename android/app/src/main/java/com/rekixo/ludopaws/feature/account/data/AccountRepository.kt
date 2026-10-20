@@ -152,7 +152,7 @@ class AccountRepository(context: Context) {
         val profile = request(
             "POST",
             "/api/account/profile",
-            JSONObject().put("displayName", displayName),
+            JSONObject().put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName)),
             session.accessToken,
         ).getJSONObject("profile")
         updateCachedDisplayName(profile)

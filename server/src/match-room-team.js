@@ -1,3 +1,4 @@
+import { familyProjection } from "./family-safety.js";
 import {
   MatchRoom as ForfeitMatchRoom,
 } from "./match-room-forfeit.js";
@@ -131,7 +132,7 @@ export class MatchRoom extends ForfeitMatchRoom {
     if (typeof this.ctx.storage.setAlarm === "function") {
       await this.ctx.storage.setAlarm(now + FINISHED_IDLE_TTL_MS);
     }
-    broadcastStateChanged(this.ctx, next);
+    broadcastStateChanged(this.ctx, next, this.env);
 
     return json(200, {
       ok: true,
@@ -205,7 +206,7 @@ function decoratedState(state) {
   };
 }
 
-function broadcastStateChanged(ctx, state) {
+function broadcastStateChanged(ctx, state, env) {
   if (typeof ctx.getWebSockets !== "function") return;
   const payload = JSON.stringify({
     type: "STATE_CHANGED",
@@ -213,7 +214,7 @@ function broadcastStateChanged(ctx, state) {
     revision: state.revision,
     status: state.status,
     playerCount: state.players?.length ?? 0,
-    state: decoratedState(state),
+    state: familyProjection(decoratedState(state), env),
   });
   for (const socket of ctx.getWebSockets()) {
     try {

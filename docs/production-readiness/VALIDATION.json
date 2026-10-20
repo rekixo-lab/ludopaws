@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-20",
+  "baseCommit": "f7013741d9e88a7cf9476619c085375a0542580c",
+  "branch": "codex/production-readiness",
+  "releaseMode": "FAMILY_V1",
+  "productionDeployment": "not performed",
+  "manualReleaseDecision": "NO-GO pending publisher/privacy/consent review, exact signed release and physical/staging validation",
+  "nodeTests": {
+    "passed": 292,
+    "failed": 0,
+    "serverTests": 273,
+    "runtimeAndPreflightTests": 19,
+    "localNode": "24.22.0"
+  },
+  "androidJvmTests": {
+    "tests": 421,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "sourceGates": {
+    "passed": 23,
+    "failed": 0
+  },
+  "syntaxAndParsing": {
+    "trackedAndNewFiles": 692,
+    "javascriptSyntaxChecks": 117,
+    "xml": 19,
+    "json": 5,
+    "failures": []
+  },
+  "dependencyAdvisories": {
+    "database": "OSV",
+    "scope": "resolved Android release Maven artifacts; not native internals, server supply chain or exploit reachability",
+    "components": 94,
+    "matches": []
+  },
+  "workerDryRun": "passed",
+  "localReleaseBuild": "cancelled before completion to avoid local resource pressure; remote validation pending",
+  "localInstrumentation": {
+    "status": "incomplete; not a pass",
+    "completedBeforeTransportFailure": 22,
+    "expectedAtThatRun": 35,
+    "notes": "emulator transport loss and system-app ANRs; physical phone deferred by user; no emulator rerun/download permitted"
+  },
+  "emulatorCleanup": {
+    "deletedBytes": 6149388892,
+    "emulatorRemoved": true,
+    "systemImageRemoved": true,
+    "taskAvdRemoved": true
+  },
+  "physicalQa": {
+    "status": "build passed; device not connected/user deferred",
+    "applicationId": "com.rekixo.ludopaws.qa",
+    "apiBase": "https://127.0.0.1",
+    "productionDataIsolated": true,
+    "changesPhoneNetworkSettings": false
+  },
+  "remoteCi": {
+    "status": "pending",
+    "emulatorInstrumentation": "must be false"
+  },
+  "scopeLimitations": [
+    "No zero-bug or worldwide legal-compliance guarantee",
+    "No physical-phone or complete enabled-staging validation",
+    "No new signed Play upload/internal-track approval",
+    "OSV scope is known advisories for resolved Maven artifacts, not native internals or exploit reachability"
+  ]
+}

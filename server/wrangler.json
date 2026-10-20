@@ -144,7 +144,7 @@
     }
   ],
   "vars": {
-    "LUDOPROOF_AGE_SAFETY_MODE": "LOCKDOWN"
+    "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V1"
   },
   "observability": {
     "enabled": true,

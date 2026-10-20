@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MatchRoom } from "../src/match-room-realtime.js";
+import { actingSeatForTurn, teamIdForSeat } from "../src/game.js";
 import worker from "../src/index.js";
 import teamWorker from "../src/index-team.js";
 import { MatchmakerQueue } from "../src/matchmaker-queue.js";
@@ -36,7 +37,7 @@ function request(path, token, body = null) {
   });
 }
 
-async function setup({ mode = "ONLINE", playerCount = 2 } = {}) {
+async function setup({ mode = "ONLINE", playerCount = 2, family = false } = {}) {
   const sockets = [];
   const ctx = {
     storage: new Storage(),
@@ -45,11 +46,12 @@ async function setup({ mode = "ONLINE", playerCount = 2 } = {}) {
     acceptWebSocket(socket, tags) { socket.tags = tags; sockets.push(socket); },
   };
   const env = { LUDOPROOF_SESSION_HMAC_KEY: "session-key-for-realtime-".repeat(3) };
+  if (family) env.LUDOPROOF_AGE_SAFETY_MODE = "FAMILY_V1";
   const room = new MatchRoom(ctx, env);
   const created = await room.fetch(request("/create", null, {
     matchId: "LPABCDEFGH", displayName: "Alice", clientRequestId: crypto.randomUUID(),
     matchMode: mode, targetPlayerCount: playerCount,
-    rulesetKey: mode === "TEAM_UP" ? "TEAM_UP_V4" : "CLASSIC_V4",
+    rulesetKey: mode === "TEAM_UP" ? (family ? "TEAM_UP_V5" : "TEAM_UP_V4") : (family ? "CLASSIC_V5" : "CLASSIC_V4"),
   }));
   assert.equal(created.status, 201, await created.clone().text());
   const host = await created.json();
@@ -417,4 +419,99 @@ test("queued matches retain the first player's platform location when materializ
   assert.equal(hints[0], "apac");
   const state = await queue.ctx.storage.get("matchmaking-state");
   assert.equal(state.assignments[people[0].clientRequestId].rulesetKey, "CLASSIC_V4");
+});
+
+
+test("family room rejects voice and free text while forwarding only fixed reactions", async () => {
+  const { room, ctx, sender, receiver } = await setup({ family: true });
+  const initial = await ctx.storage.get("match-state");
+  assert.ok(initial.players.every(player => player.displayName === "Player"));
+  // Simulate sockets restored from a release which used to support voice.
+  sender.attachment.voiceJoined = true;
+  receiver.attachment.voiceJoined = true;
+  for (const type of ["VOICE_JOIN", "VOICE_SIGNAL", "VOICE_LEAVE"]) {
+    await room.webSocketMessage(sender, JSON.stringify({ type, targetPlayerId: initial.players[1].playerId,
+      signal: { sdp: "private contact information" } }));
+  }
+  assert.equal(receiver.messages.length, 0);
+  assert.ok(sender.messages.every(message => message.type === "VOICE_ENDED"));
+  await room.webSocketMessage(sender, JSON.stringify({ type: "QUICK_CHAT_SEND", emoji: "call me 123456" }));
+  assert.equal(receiver.messages.length, 0);
+  await room.webSocketMessage(sender, JSON.stringify({ type: "QUICK_CHAT_SEND", emoji: "👍", text: "private contact information" }));
+  assert.equal(receiver.messages.length, 1);
+  assert.equal(receiver.messages[0].emoji, "👍");
+  assert.equal(JSON.stringify(receiver.messages).includes("private contact"), false);
+});
+
+test("family HTTP snapshots, command replies and push snapshots redact legacy names", async () => {
+  const { room, ctx, host, sender, receiver } = await setup({ family: true });
+  const legacy = await ctx.storage.get("match-state");
+  legacy.players.forEach(player => { player.displayName = "call me 123456789"; });
+  await ctx.storage.put("match-state", legacy);
+  const http = await room.fetch(request("/state", host.playerToken));
+  assert.equal((await http.text()).includes("call me"), false);
+  const result = await command(room, sender, "ROLL", { clientRequestId: crypto.randomUUID(), expectedEventIndex: 0 });
+  assert.equal(result.statusCode, 200);
+  assert.equal(JSON.stringify(result).includes("call me"), false);
+  assert.equal(JSON.stringify(receiver.messages).includes("call me"), false);
+  assert.ok(receiver.messages.some(message => message.type === "STATE_CHANGED"));
+});
+
+for (const [mode, playerCount] of [["ONLINE", 2], ["ONLINE", 4], ["TEAM_UP", 4]]) {
+  test(`family V5 ${mode} ${playerCount}-player match completes through authenticated roll/move handlers`, async () => {
+    const { room, ctx, players } = await setup({ family: true, playerCount, mode });
+    const tokens = new Map(players.map(player => [player.playerId, player.playerToken]));
+    const originalNow = Date.now;
+    let now = originalNow();
+    Date.now = () => now;
+    try {
+      let state = await ctx.storage.get("match-state");
+      let transitions = 0;
+      while (state.status === "ACTIVE" && transitions < 6000) {
+        now += 1000;
+        const active = state.players[state.pendingRoll?.seat ?? actingSeatForTurn(state)];
+        const token = tokens.get(active.playerId);
+        assert.ok(token, "every acting seat must have its own credential");
+        const pending = state.pendingRoll;
+        const moving = pending?.status === "RESOLVED";
+        const indexes = pending?.legalTokenIndexes ?? [];
+        const selected = [...indexes].sort((a, b) => active.tokens[b] - active.tokens[a])[0];
+        const response = await room.fetch(request(moving ? "/move" : "/roll", token,
+          moving ? { clientRequestId: crypto.randomUUID(), eventIndex: pending.eventIndex, tokenIndex: selected }
+            : { clientRequestId: crypto.randomUUID(), expectedEventIndex: state.randomEventIndex }));
+        assert.equal(response.status, 200, await response.clone().text());
+        state = await ctx.storage.get("match-state");
+        transitions += 1;
+      }
+      assert.ok(transitions < 6000, "game must terminate without a stuck turn");
+      assert.equal(state.status, "FINISHED");
+      if (mode === "TEAM_UP") {
+        assert.ok(state.winnerTeamId, "a finished team match must identify its winning team");
+        const winners = state.players.filter((player, seat) => teamIdForSeat(state, seat) === state.winnerTeamId);
+        assert.equal(winners.length, 2);
+        assert.ok(winners.every(player => player.tokens.every(position => position === 57)));
+      } else {
+        assert.ok(state.players.find(player => player.playerId === state.winnerPlayerId)?.tokens.every(position => position === 57));
+      }
+      assert.equal(state.rulesetKey, mode === "TEAM_UP" ? "TEAM_UP_V5" : "CLASSIC_V5");
+    } finally {
+      Date.now = originalNow;
+    }
+  });
+}
+
+
+test("family timeout and team-forfeit pushes do not reveal legacy player names", async () => {
+  const { room, ctx, host, sender, receiver } = await setup({ family: true, mode: "TEAM_UP", playerCount: 4 });
+  const state = await ctx.storage.get("match-state");
+  state.players.forEach(player => { player.displayName = "private legacy nickname"; });
+  state.turnDeadlineAt = Date.now() - 1;
+  await ctx.storage.put("match-state", state);
+  await room.fetch(request("/state", host.playerToken));
+  assert.equal(JSON.stringify(receiver.messages).includes("private legacy"), false);
+  sender.messages.length = 0;
+  receiver.messages.length = 0;
+  await room.fetch(request("/start", host.playerToken, { forfeit: true, clientRequestId: crypto.randomUUID() }));
+  assert.ok(receiver.messages.some(message => message.type === "STATE_CHANGED"));
+  assert.equal(JSON.stringify(receiver.messages).includes("private legacy"), false);
 });

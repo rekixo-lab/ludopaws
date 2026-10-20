@@ -29,101 +29,103 @@ class FriendIdentityStore(
                 Context.MODE_PRIVATE,
             )
 
-    @Synchronized
     fun registrationRequestId():
         String {
-        loadRegistrationRequestId()
-            ?.let {
-                return it
-            }
+        synchronized(IDENTITY_LOCK) {
+            loadRegistrationRequestId()
+                ?.let {
+                    return it
+                }
 
-        val generated =
-            UUID.randomUUID()
-                .toString()
-                .lowercase(
-                    Locale.ROOT,
-                )
-        persistRegistrationRequestId(
-            generated,
-        )
-        return generated
+            val generated =
+                UUID.randomUUID()
+                    .toString()
+                    .lowercase(
+                        Locale.ROOT,
+                    )
+            persistRegistrationRequestId(
+                generated,
+            )
+            return generated
+        }
     }
 
-    @Synchronized
     fun save(
         credential: FriendCredential,
     ) {
-        require(
-            FRIEND_ID.matches(
-                credential.friendId,
-            ),
-        )
-        require(
-            FRIEND_TOKEN.matches(
-                credential.friendToken,
-            ),
-        )
-        require(
-            UUID_V4.matches(
-                credential.registrationRequestId,
-            ),
-        )
-
-        val protectedRequestId =
-            registrationRequestId()
-        require(
-            protectedRequestId ==
-                credential.registrationRequestId,
-        ) {
-            "Friend credential registration identity does not match this device"
-        }
-
-        val cipher =
-            Cipher.getInstance(
-                TRANSFORMATION,
-            )
-        cipher.init(
-            Cipher.ENCRYPT_MODE,
-            secretKey(),
-        )
-        cipher.updateAAD(
-            credentialAad(
-                credential.friendId,
-                protectedRequestId,
-            ),
-        )
-        val ciphertext =
-            cipher.doFinal(
-                credential
-                    .friendToken
-                    .toByteArray(
-                        Charsets.UTF_8,
-                    ),
-            )
-
-        check(
-            prefs.edit()
-                .putString(
-                    KEY_FRIEND_ID,
+        synchronized(IDENTITY_LOCK) {
+            require(
+                FRIEND_ID.matches(
                     credential.friendId,
+                ),
+            )
+            require(
+                FRIEND_TOKEN.matches(
+                    credential.friendToken,
+                ),
+            )
+            require(
+                UUID_V4.matches(
+                    credential.registrationRequestId,
+                ),
+            )
+
+            val protectedRequestId =
+                registrationRequestId()
+            require(
+                protectedRequestId ==
+                    credential.registrationRequestId,
+            ) {
+                "Friend credential registration identity does not match this device"
+            }
+
+            val cipher =
+                Cipher.getInstance(
+                    TRANSFORMATION,
                 )
-                .putString(
-                    KEY_TOKEN_IV,
-                    Base64.encodeToString(
-                        cipher.iv,
-                        Base64.NO_WRAP,
-                    ),
+            cipher.init(
+                Cipher.ENCRYPT_MODE,
+                secretKey(),
+            )
+            cipher.updateAAD(
+                credentialAad(
+                    credential.friendId,
+                    protectedRequestId,
+                ),
+            )
+            val ciphertext =
+                cipher.doFinal(
+                    credential
+                        .friendToken
+                        .toByteArray(
+                            Charsets.UTF_8,
+                        ),
                 )
-                .putString(
-                    KEY_TOKEN_CIPHERTEXT,
-                    Base64.encodeToString(
-                        ciphertext,
-                        Base64.NO_WRAP,
-                    ),
-                )
-                .commit(),
-        ) {
-            "Friend credential could not be persisted"
+
+            check(
+                prefs.edit()
+                    .putString(
+                        KEY_FRIEND_ID,
+                        credential.friendId,
+                    )
+                    .putString(
+                        KEY_TOKEN_IV,
+                        Base64.encodeToString(
+                            cipher.iv,
+                            Base64.NO_WRAP,
+                        ),
+                    )
+                    .putString(
+                        KEY_TOKEN_CIPHERTEXT,
+                        Base64.encodeToString(
+                            ciphertext,
+                            Base64.NO_WRAP,
+                        ),
+                    )
+                    .commit(),
+            ) {
+                "Friend credential could not be persisted"
+            }
         }
     }
 
@@ -131,131 +133,142 @@ class FriendIdentityStore(
      * Restores a credential returned by the authenticated account-recovery API.
      * The registration recovery secret and token are encrypted with Android Keystore.
      */
-    @Synchronized
     fun restoreFromAccount(credential: FriendCredential) {
-        require(FRIEND_ID.matches(credential.friendId))
-        require(FRIEND_TOKEN.matches(credential.friendToken))
-        require(UUID_V4.matches(credential.registrationRequestId))
-        persistRegistrationRequestId(credential.registrationRequestId)
-        save(credential)
-    }
-
-    @Synchronized
-    fun clearAllForAccountSwitch() {
-        check(prefs.edit().clear().commit()) {
-            "Previous account's friend credentials could not be cleared safely"
+        synchronized(IDENTITY_LOCK) {
+            require(FRIEND_ID.matches(credential.friendId))
+            require(FRIEND_TOKEN.matches(credential.friendToken))
+            require(UUID_V4.matches(credential.registrationRequestId))
+            persistRegistrationRequestId(credential.registrationRequestId)
+            save(credential)
         }
     }
 
-    @Synchronized
+    fun clearAllForAccountSwitch() {
+        synchronized(IDENTITY_LOCK) {
+            check(prefs.edit().clear().commit()) {
+                "Previous account's friend credentials could not be cleared safely"
+            }
+        }
+    }
+
     fun load():
         FriendCredential? {
-        val friendId =
-            prefs.getString(
-                KEY_FRIEND_ID,
-                null,
-            )
-                ?: return null
-        val requestId =
-            loadRegistrationRequestId()
-                ?: run {
-                    clearCredentialOnly()
-                    return null
-                }
-        val ivText =
-            prefs.getString(
-                KEY_TOKEN_IV,
-                null,
-            )
-                ?: return null
-        val ciphertextText =
-            prefs.getString(
-                KEY_TOKEN_CIPHERTEXT,
-                null,
-            )
-                ?: return null
-
-        if (
-            !FRIEND_ID.matches(
-                friendId,
-            ) ||
-            !UUID_V4.matches(
-                requestId,
-            )
-        ) {
-            clearCredentialOnly()
-            return null
-        }
-
-        return try {
-            val cipher =
-                Cipher.getInstance(
-                    TRANSFORMATION,
+        synchronized(IDENTITY_LOCK) {
+            val friendId =
+                prefs.getString(
+                    KEY_FRIEND_ID,
+                    null,
                 )
-            cipher.init(
-                Cipher.DECRYPT_MODE,
-                secretKey(),
-                GCMParameterSpec(
-                    128,
-                    Base64.decode(
-                        ivText,
-                        Base64.NO_WRAP,
-                    ),
-                ),
-            )
-            cipher.updateAAD(
-                credentialAad(
-                    friendId,
-                    requestId,
-                ),
-            )
-
-            val token =
-                cipher.doFinal(
-                    Base64.decode(
-                        ciphertextText,
-                        Base64.NO_WRAP,
-                    ),
+                    ?: return null
+            val requestId =
+                loadRegistrationRequestId()
+                    ?: run {
+                        clearCredentialOnly()
+                        return null
+                    }
+            val ivText =
+                prefs.getString(
+                    KEY_TOKEN_IV,
+                    null,
                 )
-                    .toString(
-                        Charsets.UTF_8,
-                    )
+                    ?: return null
+            val ciphertextText =
+                prefs.getString(
+                    KEY_TOKEN_CIPHERTEXT,
+                    null,
+                )
+                    ?: return null
 
             if (
-                !FRIEND_TOKEN.matches(
-                    token,
+                !FRIEND_ID.matches(
+                    friendId,
+                ) ||
+                !UUID_V4.matches(
+                    requestId,
                 )
             ) {
                 clearCredentialOnly()
-                null
-            } else {
-                FriendCredential(
-                    friendId =
-                        friendId,
-                    friendToken =
-                        token,
-                    registrationRequestId =
-                        requestId,
-                )
+                return null
             }
-        } catch (_: Exception) {
-            clearCredentialOnly()
-            null
+
+            return try {
+                val cipher =
+                    Cipher.getInstance(
+                        TRANSFORMATION,
+                    )
+                cipher.init(
+                    Cipher.DECRYPT_MODE,
+                    secretKey(),
+                    GCMParameterSpec(
+                        128,
+                        Base64.decode(
+                            ivText,
+                            Base64.NO_WRAP,
+                        ),
+                    ),
+                )
+                cipher.updateAAD(
+                    credentialAad(
+                        friendId,
+                        requestId,
+                    ),
+                )
+
+                val token =
+                    cipher.doFinal(
+                        Base64.decode(
+                            ciphertextText,
+                            Base64.NO_WRAP,
+                        ),
+                    )
+                        .toString(
+                            Charsets.UTF_8,
+                        )
+
+                if (
+                    !FRIEND_TOKEN.matches(
+                        token,
+                    )
+                ) {
+                    clearCredentialOnly()
+                    null
+                } else {
+                    FriendCredential(
+                        friendId =
+                            friendId,
+                        friendToken =
+                            token,
+                        registrationRequestId =
+                            requestId,
+                    )
+                }
+            } catch (_: Exception) {
+                clearCredentialOnly()
+                null
+            }
         }
     }
 
     fun clearCredentialOnly() {
-        prefs.edit()
-            .remove(
-                KEY_FRIEND_ID,
-            )
-            .remove(
-                KEY_TOKEN_IV,
-            )
-            .remove(
-                KEY_TOKEN_CIPHERTEXT,
-            )
-            .apply()
+        synchronized(IDENTITY_LOCK) {
+            prefs.edit()
+                .remove(
+                    KEY_FRIEND_ID,
+                )
+                .remove(
+                    KEY_TOKEN_IV,
+                )
+                .remove(
+                    KEY_TOKEN_CIPHERTEXT,
+                )
+                .apply()
+        }
+    }
+
+    fun clearCredentialIfMatches(expected: FriendCredential) {
+        synchronized(IDENTITY_LOCK) {
+            if (load() == expected) clearCredentialOnly()
+        }
     }
 
     private fun persistRegistrationRequestId(
@@ -452,6 +465,7 @@ class FriendIdentityStore(
             )
 
     private companion object {
+        val IDENTITY_LOCK = Any()
         const val PREFS_NAME =
             "ludoproof_friend_identity_v1"
         const val ANDROID_KEYSTORE =

@@ -1,3 +1,4 @@
+import { isFamilyMode } from "./family-safety.js";
 const FRIEND_ID = /^LPF-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}$/;
 const MATCH_ID = /^LP[A-Z2-9]{8}$/;
 const REQUEST_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -9,8 +10,9 @@ const MAX_RECENT = 30;
 const MAX_MESSAGE_CHARS = 240;
 
 export class FriendConversation {
-  constructor(ctx) {
+  constructor(ctx, env) {
     this.ctx = ctx;
+    this.env = env;
     this.tail = Promise.resolve();
   }
 
@@ -26,6 +28,9 @@ export class FriendConversation {
   async #handle(request) {
     try {
       const url = new URL(request.url);
+      if (isFamilyMode(this.env) && ["/send", "/list"].includes(url.pathname)) {
+        return json(403, { error: "FAMILY_FEATURE_UNAVAILABLE", message: "Free-text chat is unavailable in the family edition." });
+      }
       if (request.method !== "POST") {
         return json(405, { error: "METHOD_NOT_ALLOWED", message: "method not allowed" }, { allow: "POST" });
       }
@@ -177,8 +182,9 @@ export class FriendRecentRoom {
 
   async #deleteOwner(body) {
     const ownerFriendId = normalizeFriendId(body?.ownerFriendId), existing = await this.ctx.storage.get(RECENT_KEY);
+    if (existing && existing.ownerFriendId !== ownerFriendId) throw failure(409, "RECENT_OWNER_CONFLICT", "recent-player storage is bound to another Friend ID");
+    await this.ctx.storage.put("recent:deleted-owner", true);
     if (!existing) return json(200, { ok: true, deleted: false });
-    if (existing.ownerFriendId !== ownerFriendId) throw failure(409, "RECENT_OWNER_CONFLICT", "recent-player storage is bound to another Friend ID");
     await this.ctx.storage.delete(RECENT_KEY);
     return json(200, { ok: true, deleted: true });
   }
@@ -186,8 +192,9 @@ export class FriendRecentRoom {
   async #purgeOpponent(body) {
     const ownerFriendId = normalizeFriendId(body?.ownerFriendId), opponentFriendId = normalizeFriendId(body?.opponentFriendId);
     const existing = await this.ctx.storage.get(RECENT_KEY);
+    if (existing && existing.ownerFriendId !== ownerFriendId) throw failure(409, "RECENT_OWNER_CONFLICT", "recent-player storage is bound to another Friend ID");
+    await this.ctx.storage.put("recent:deleted-opponent:" + opponentFriendId, true);
     if (!existing) return json(200, { ok: true, removed: 0 });
-    if (existing.ownerFriendId !== ownerFriendId) throw failure(409, "RECENT_OWNER_CONFLICT", "recent-player storage is bound to another Friend ID");
     const before = Array.isArray(existing.entries) ? existing.entries.length : 0;
     existing.entries = (Array.isArray(existing.entries) ? existing.entries : []).filter((entry) => String(entry?.opponentFriendId ?? "").toUpperCase() !== opponentFriendId);
     const removed = before - existing.entries.length;
@@ -201,6 +208,10 @@ export class FriendRecentRoom {
     const opponentFriendId = normalizeFriendId(body?.opponentFriendId);
     if (ownerFriendId === opponentFriendId) {
       throw failure(400, "INVALID_RECENT_PLAYER", "recent opponent must be another player");
+    }
+    if (await this.ctx.storage.get("recent:deleted-owner") ||
+        await this.ctx.storage.get("recent:deleted-opponent:" + opponentFriendId)) {
+      return json(200, { ok: true, ignored: true });
     }
     const displayName = normalizeDisplayName(body?.displayName);
     const matchId = String(body?.matchId ?? "").toUpperCase();
@@ -246,27 +257,29 @@ export async function syncRecentFriends(env, state) {
   const players = (state.players ?? []).filter((player) => FRIEND_ID.test(String(player?.friendId ?? "")));
   if (players.length < 2) return;
   const playedAt = Number(state.finishedAt ?? state.updatedAt ?? state.createdAt ?? Date.now());
-  const tasks = [];
   for (const owner of players) {
     for (const opponent of players) {
       if (owner.friendId === opponent.friendId) continue;
-      const id = env.LUDOPROOF_FRIEND_RECENT.idFromName(owner.friendId);
-      const target = env.LUDOPROOF_FRIEND_RECENT.get(id);
-      tasks.push(
-        target.fetch(
-          new Request("https://recent/record", {
-            method: "POST", headers: { "content-type": "application/json" },
-            body: JSON.stringify({ ownerFriendId: owner.friendId, opponentFriendId: opponent.friendId, displayName: opponent.displayName, matchId: state.matchId, playedAt }),
-          }),
-        ),
-      );
+      // Register before writing the sink: deletion sees every possible destination.
+      // A concurrent deletion either rejects registration or purges/tombstones the sink.
       if (env.LUDOPROOF_FRIENDS) {
-        const friends = env.LUDOPROOF_FRIENDS, directory = friends.get(friends.idFromName("GLOBAL:V1"));
-        tasks.push(directory.fetch(new Request("https://friends/recent/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ownerFriendId: owner.friendId, opponentFriendId: opponent.friendId }) })));
+        const directory = env.LUDOPROOF_FRIENDS.get(env.LUDOPROOF_FRIENDS.idFromName("GLOBAL:V1"));
+        const response = await directory.fetch(new Request("https://friends/recent/register", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ ownerFriendId: owner.friendId, opponentFriendId: opponent.friendId }),
+        }));
+        if (!response.ok) throw failure(503, "RECENT_REGISTRATION_FAILED", "recent directory unavailable");
+        if ((await response.json()).registered !== true) continue;
       }
+      const target = env.LUDOPROOF_FRIEND_RECENT.get(env.LUDOPROOF_FRIEND_RECENT.idFromName(owner.friendId));
+      const response = await target.fetch(new Request("https://recent/record", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ownerFriendId: owner.friendId, opponentFriendId: opponent.friendId,
+          displayName: opponent.displayName, matchId: state.matchId, playedAt }),
+      }));
+      if (!response.ok) throw failure(503, "RECENT_RECORD_FAILED", "recent storage unavailable");
     }
   }
-  await Promise.all(tasks);
 }
 
 function canonicalPair(firstId, secondId) {

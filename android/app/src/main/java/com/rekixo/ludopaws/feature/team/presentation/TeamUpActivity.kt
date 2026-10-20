@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.team.presentation
 
-import android.app.Activity
+import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 import android.content.Intent
 import android.graphics.Canvas
 import android.graphics.Color
@@ -62,7 +63,7 @@ import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.Executors
 
-class TeamUpActivity : Activity() {
+class TeamUpActivity : ComponentActivity() {
     private val api by lazy { TeamMatchmakingApi() }
     private val ticketStore by lazy { TeamMatchmakingStore(this) }
     private val identityStore by lazy { LeaderboardIdentityStore(this) }
@@ -103,6 +104,11 @@ class TeamUpActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (ticketStore.load() != null) cancelSearch(exitAfterCancellation = true) else finish()
+            }
+        })
         LudoProofTheme.configureWindow(this)
         selectedCharacterId = CharacterSelectionStore(this).load().characterId
         // A persisted ticket from a prior Team Up page session must not silently
@@ -558,7 +564,7 @@ class TeamUpActivity : Activity() {
             addGameTopActions(
                 host = host,
                 context = this,
-                onBack = { finish() },
+                onBack = { if (ticketStore.load() != null) cancelSearch(exitAfterCancellation = true) else finish() },
                 onSettings = {
                     com.rekixo.ludopaws.ArcadeDialogs.showSettings(this)
                 },
@@ -836,7 +842,7 @@ class TeamUpActivity : Activity() {
         )
     }
 
-    private fun cancelSearch() {
+    private fun cancelSearch(exitAfterCancellation: Boolean = false) {
         val ticket = ticketStore.load()
             ?: run {
                 renderSearchState()
@@ -868,6 +874,7 @@ class TeamUpActivity : Activity() {
                     ticketStore.clear()
                     renderSearchState()
                     showStatus("Team search cancelled.")
+                    if (exitAfterCancellation) finish()
                 }
             },
         )

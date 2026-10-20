@@ -107,7 +107,7 @@ internal fun ProfileActivity.showNameEditor() {
 
     panel.addView(
         TextView(this).apply {
-            text = "Use 6–7 characters for your nickname."
+            text = "Use 6–7 characters for your device nickname. Online names are assigned automatically."
             textSize = if (compact) 12f else 13f
             setTextColor(0xFFD9EEFF.toInt())
             gravity = Gravity.CENTER

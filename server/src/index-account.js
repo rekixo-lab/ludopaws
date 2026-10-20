@@ -1,3 +1,4 @@
+import { familyResponse, isFamilyMode } from "./family-safety.js";
 import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
   ApiGate,
@@ -47,11 +48,16 @@ const ACCOUNT_WEB_CORS_PATHS = new Set([
 
 export default {
   async fetch(request, env) {
-    // Lock down direct API/WebSocket access when age eligibility cannot be verified.
-    // This is an operator safety switch, not an age verification mechanism.
+    // Enforce the selected product capabilities before routing old or new clients.
     const safetyResponse = ageSafetyBlockResponse(request, env);
     if (safetyResponse) return safetyResponse;
     const url = new URL(request.url);
+    if (url.pathname === "/api/capabilities" && request.method === "GET") {
+      const family = isFamilyMode(env);
+      return json(200, { releaseMode: family ? "FAMILY_V1" : "LOCKDOWN",
+        multiplayer: family, fixedQuickChat: family, freeTextChat: false, voice: false,
+        advertising: false, purchases: false, newGoogleLinking: false });
+    }
     if (request.method === "OPTIONS" && ACCOUNT_WEB_CORS_PATHS.has(url.pathname)) {
       const expectedOrigin = accountWebOrigin(env);
       const origin = request.headers.get("origin");
@@ -73,7 +79,7 @@ export default {
       );
     }
     const response = await handleAccountRequest(request, env);
-    return withAccountWebCors(request, response, env);
+    return withAccountWebCors(request, await familyResponse(response, env), env);
   },
 };
 
@@ -539,8 +545,8 @@ export async function handleAccountRequest(request, env) {
             Boolean(env?.LUDOPROOF_ACCOUNT_DIRECTORY) &&
             Boolean(env?.LUDOPROOF_PLAYER_ACCOUNTS),
         };
-        const billingReady = billingChecks.available;
-        const adsReady = env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
+        const billingReady = !isFamilyMode(env) && billingChecks.available;
+        const adsReady = !isFamilyMode(env) && env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
           Boolean(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID) &&
           (env?.LUDOPROOF_ADMOB_REWARD_ITEM == null || env.LUDOPROOF_ADMOB_REWARD_ITEM === "gems");
         return json(200, {

@@ -49,6 +49,8 @@ object OfflineLudoV3Binding {
         openingRollConsumed: List<Boolean>,
         winnerPlayerId: String?,
         history: List<OfflineV3BindingHistory>,
+        rulesetId: String = RULESET_ID,
+        opponentStackCapture: String = "CAPTURE_ALL_ON_UNSAFE_CELL",
     ): LocalV4Result {
         require(eventIndex >= 0)
         require(openingRollConsumed.size == players.size) {
@@ -107,7 +109,7 @@ object OfflineLudoV3Binding {
         val rulesetHash =
             EntroNexV4Local.sha256Hex(
                 "entronex:v4:game-ruleset:" +
-                    EntroNexV4Local.jcs(RULESET),
+                    EntroNexV4Local.jcs(ruleset(rulesetId, opponentStackCapture)),
             )
 
         val config =
@@ -135,10 +137,10 @@ object OfflineLudoV3Binding {
         )
     }
 
-    private val RULESET:
+    private fun ruleset(rulesetId: String, opponentStackCapture: String):
         Map<String, Any?> =
         mapOf(
-            "id" to RULESET_ID,
+            "id" to rulesetId,
             "boardTrackCells" to 52,
             "homePosition" to 57,
             "tokensPerPlayer" to 4,
@@ -159,7 +161,7 @@ object OfflineLudoV3Binding {
             "threeConsecutiveSixesForfeit" to true,
             "captureOnSafeCell" to false,
             "ownTokenStacking" to "ALLOWED",
-            "opponentStackCapture" to "CAPTURE_ALL_ON_UNSAFE_CELL",
+            "opponentStackCapture" to opponentStackCapture,
             "openingRollPolicy" to "GUARANTEED_SIX_ONCE_PER_PLAYER",
             "openingRollRequiresAllTokensInYard" to true,
             "openingRollCountsTowardConsecutiveSixes" to false,

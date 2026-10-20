@@ -28,12 +28,12 @@ jobs:
       LUDOPROOF_ACCOUNT_WEB_ORIGIN: ${{ vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN }}
       # Hard-pin monetization OFF in this release. Historical GitHub production
       # variables were still true and caused Cloudflare Production #83 to fail.
-      # Only a reviewed trusted-age release may change these explicit flags.
+      # Family edition keeps monetization disabled until its separate child-safety work is approved.
       GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: ${{ vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL }}
       GOOGLE_PLAY_BILLING_ENABLED: "false"
       LUDOPROOF_BILLING_ENABLED: "false"
       LUDOPROOF_ADMOB_SSV_ENABLED: "false"
-      LUDOPROOF_AGE_SAFETY_MODE: LOCKDOWN
+      LUDOPROOF_AGE_SAFETY_MODE: FAMILY_V1
       LUDOPROOF_ADS_ENABLED: "false"
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}

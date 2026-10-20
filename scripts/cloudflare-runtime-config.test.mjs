@@ -13,7 +13,7 @@ test("runtime vars require a valid Google Web OAuth client and the account-site 
   assert.equal(vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID, valid.GOOGLE_SIGN_IN_WEB_CLIENT_ID);
   assert.equal(vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN, ACCOUNT_WEB_ORIGIN);
   assert.equal(vars.APP_ENVIRONMENT, "test");
-  assert.equal(vars.LUDOPROOF_AGE_SAFETY_MODE, "LOCKDOWN");
+  assert.equal(vars.LUDOPROOF_AGE_SAFETY_MODE, "FAMILY_V1");
 });
 
 test("runtime store flags fail closed when GitHub variables are unset", () => {
@@ -46,15 +46,13 @@ test("Billing cannot be enabled without the Google Play service-account email", 
   );
 });
 
-test("Billing accepts a correctly shaped service-account email", () => {
-  const vars = buildCloudflareRuntimeVars({}, {
+test("Family edition rejects billing even with a correctly shaped service-account email", () => {
+  assert.throws(() => buildCloudflareRuntimeVars({}, {
     ...valid,
     GOOGLE_PLAY_BILLING_ENABLED: "true",
     LUDOPROOF_BILLING_ENABLED: "true",
     GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL: "ludoproof-play@ludoproof-prod.iam.gserviceaccount.com",
-  });
-  assert.equal(vars.GOOGLE_PLAY_BILLING_ENABLED, "true");
-  assert.equal(vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL, "ludoproof-play@ludoproof-prod.iam.gserviceaccount.com");
+  }), /must be disabled in the family release/);
 });
 
 test("AdMob SSV cannot be enabled without a real rewarded-unit ID", () => {
@@ -64,8 +62,8 @@ test("AdMob SSV cannot be enabled without a real rewarded-unit ID", () => {
   );
 });
 
-test("AdMob SSV only permits the configured gems reward and validates the unit ID", () => {
-  const vars = buildCloudflareRuntimeVars({}, {
+test("Family edition rejects configured ads and still validates reward settings", () => {
+  assert.throws(() => buildCloudflareRuntimeVars({}, {
     ...valid,
     LUDOPROOF_ADMOB_SSV_ENABLED: "true",
     LUDOPROOF_ADS_ENABLED: "true",
@@ -73,9 +71,7 @@ test("AdMob SSV only permits the configured gems reward and validates the unit I
     LUDOPROOF_ADMOB_REWARD_ITEM: "gems",
     ADMOB_APP_ID: "ca-app-pub-1234567890123456~1234567890",
     ADMOB_REWARDED_AD_UNIT_ID: adUnit,
-  });
-  assert.equal(vars.LUDOPROOF_ADMOB_SSV_ENABLED, "true");
-  assert.equal(vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID, adUnit);
+  }), /must be disabled in the family release/);
   assert.throws(
     () => buildCloudflareRuntimeVars({}, { ...valid, LUDOPROOF_ADMOB_REWARD_ITEM: "coins" }),
     /must be "gems"/,
@@ -109,10 +105,10 @@ test("feature flags reject ambiguous or non-canonical values instead of interpre
 });
 
 
-test("untrusted environment and existing dashboard vars cannot bypass age lockdown", () => {
+test("untrusted environment and existing dashboard vars cannot enable unrestricted capabilities", () => {
   const vars = buildCloudflareRuntimeVars(
     { LUDOPROOF_AGE_SAFETY_MODE: "ENABLED" },
     { ...valid, LUDOPROOF_AGE_SAFETY_MODE: "ENABLED" },
   );
-  assert.equal(vars.LUDOPROOF_AGE_SAFETY_MODE, "LOCKDOWN");
+  assert.equal(vars.LUDOPROOF_AGE_SAFETY_MODE, "FAMILY_V1");
 });
