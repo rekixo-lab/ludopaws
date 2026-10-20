@@ -8,6 +8,33 @@ const baseUrl =
       "https://ludoproof-game-api.ai-8f3.workers.dev",
   ).replace(/\/+$/, "");
 
+if (process.env.LUDOPROOF_AGE_SAFETY_MODE === "LOCKDOWN") {
+  const guarded = [
+    ["/api/matches", "POST"],
+    ["/api/matchmaking/search", "POST"],
+    ["/api/friends/register", "POST"],
+    ["/api/friends/messages/send", "POST"],
+    ["/api/store/purchases/verify", "POST"],
+    ["/api/admob/ssv", "POST"],
+  ];
+  for (const [path, method] of guarded) {
+    const response = await fetch(baseUrl + path, {
+      method,
+      headers: { "content-type": "application/json", "x-age": "adult" },
+      body: JSON.stringify({}),
+    });
+    if (response.status !== 403) {
+      throw new Error("Age lockdown bypass: " + path + " returned HTTP " + response.status);
+    }
+    const data = await response.json();
+    if (data?.error !== "AGE_ACCESS_NOT_AVAILABLE") {
+      throw new Error("Age lockdown unexpected error for " + path);
+    }
+  }
+  console.log("Live age safety lockdown verified. Connected gameplay intentionally unavailable.");
+  process.exit(0);
+}
+
 const ALGORITHM =
   "ludopaws-server-dice-v1";
 

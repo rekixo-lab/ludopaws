@@ -57,16 +57,21 @@ function runPreflight({ adsEnabled, billingEnabled = false, routeConfigured = tr
   }
 }
 
-test("production preflight permits explicitly enabled, validated AdMob SSV while Billing stays off", () => {
+test("production preflight refuses advertising until age safety lockdown ends", () => {
   const result = runPreflight({ adsEnabled: true, billingEnabled: false });
-  assert.equal(result.status, 0, "stdout: " + result.stdout + " stderr: " + result.stderr);
-  assert.match(result.stdout, /Cloudflare production deploy preflight passed/);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
 });
 
-test("production preflight permits explicit Google Play Billing after service-account configuration", () => {
+test("production preflight refuses billing while independent age eligibility is unavailable", () => {
   const result = runPreflight({ adsEnabled: false, billingEnabled: true });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Billing and rewarded ads must be disabled/);
+});
+
+test("production preflight passes offline-only lockdown after validation", () => {
+  const result = runPreflight({ adsEnabled: false, billingEnabled: false });
   assert.equal(result.status, 0, "stdout: " + result.stdout + " stderr: " + result.stderr);
-  assert.match(result.stdout, /Cloudflare production deploy preflight passed/);
 });
 
 test("production preflight requires the API hostname to target the deployed Worker", () => {

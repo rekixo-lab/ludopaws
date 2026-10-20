@@ -82,6 +82,9 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
     GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled),
     LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled),
     LUDOPROOF_ADMOB_REWARD_ITEM: "gems",
+    // There is not yet a server-verifiable adult authorization protocol.
+    // Deployments must fail closed until an independently reviewed implementation replaces this gate.
+    LUDOPROOF_AGE_SAFETY_MODE: "LOCKDOWN",
   };
 
   if (serviceAccountEmail) vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL = serviceAccountEmail;
