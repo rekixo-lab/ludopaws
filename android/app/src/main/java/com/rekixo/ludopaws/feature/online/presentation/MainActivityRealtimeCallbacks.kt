@@ -58,7 +58,7 @@ internal fun MainActivity.createRealtimeClient(
                         connected
                     if (connected && friendsVoiceEnabled) {
                         if (!realtimeClient.sendVoiceJoin()) {
-                            setFriendsVoiceStatus("Voice signaling is reconnecting…")
+                            updateFriendsVoiceStatus("Voice signaling is reconnecting…")
                         }
                     }
                     updateConnectionLabel()

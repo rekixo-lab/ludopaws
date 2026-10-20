@@ -635,7 +635,7 @@ class MainActivity : ComponentActivity() {
                 arrayOf(android.Manifest.permission.RECORD_AUDIO),
                 FRIENDS_VOICE_PERMISSION_REQUEST,
             )
-            setFriendsVoiceStatus("Allow microphone access to use voice.")
+            updateFriendsVoiceStatus("Allow microphone access to use voice.")
             return
         }
         startFriendsVoice()
@@ -645,7 +645,7 @@ class MainActivity : ComponentActivity() {
         if (!friendsVoiceEnabled) return
         friendsMicEnabled = !friendsMicEnabled
         friendsVoiceSession?.setMicEnabled(friendsMicEnabled)
-        setFriendsVoiceStatus(if (friendsMicEnabled) "Microphone is on" else "Microphone muted")
+        updateFriendsVoiceStatus(if (friendsMicEnabled) "Microphone is on" else "Microphone muted")
         currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
     }
 
@@ -653,7 +653,7 @@ class MainActivity : ComponentActivity() {
         if (friendsVoiceEnabled) return
         val localPlayerId = playerId
         if (localPlayerId.isNullOrBlank()) {
-            setFriendsVoiceStatus("Your player identity is not ready yet.")
+            updateFriendsVoiceStatus("Your player identity is not ready yet.")
             return
         }
         try {
@@ -667,7 +667,7 @@ class MainActivity : ComponentActivity() {
                     onStatusChanged = { status ->
                         mainHandler.post {
                             if (friendsVoiceEnabled && canRenderUi()) {
-                                setFriendsVoiceStatus(status)
+                                updateFriendsVoiceStatus(status)
                             }
                         }
                     },
@@ -696,10 +696,10 @@ class MainActivity : ComponentActivity() {
         friendsVoiceEnabled = false
         friendsVoiceSession?.close()
         friendsVoiceSession = null
-        setFriendsVoiceStatus(status)
+        updateFriendsVoiceStatus(status)
     }
 
-    internal fun setFriendsVoiceStatus(status: String) {
+    internal fun updateFriendsVoiceStatus(status: String) {
         friendsVoiceStatus = status
         currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
     }
@@ -715,7 +715,7 @@ class MainActivity : ComponentActivity() {
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             startFriendsVoice()
         } else {
-            setFriendsVoiceStatus("Microphone permission denied. Voice chat is off.")
+            updateFriendsVoiceStatus("Microphone permission denied. Voice chat is off.")
         }
     }
 
