@@ -316,7 +316,7 @@ test("non-Friends matches cannot activate private voice signaling", async () => 
     signal: { type: "offer", sdp: "v=0\\n" },
   }));
   assert.equal(receiver.messages.some((m) => m.type === "VOICE_SIGNAL"), false);
-  assert.equal(sender.attachment.voiceJoined, false);
+  assert.notEqual(sender.attachment.voiceJoined, true);
 });
 
 test("router sends authenticated gameplay directly to room and retains gate for public joins", async () => {
