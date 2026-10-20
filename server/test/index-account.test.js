@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import accountWorker from "../src/index-account.js";
+import accountWorker, { handleAccountRequest } from "../src/index-account.js";
 import { issueAccessToken } from "../src/account-security.js";
 import { sha256Hex } from "../src/crypto.js";
 
@@ -102,7 +102,7 @@ test("account wallet API derives the account from the verified bearer token, not
   };
   const now = Date.now();
   const token = await issueAccessToken(env, ACCOUNT_A, SESSION_A, now);
-  const response = await accountWorker.fetch(
+  const response = await handleAccountRequest(
     new Request(
       "https://api.example.test/api/wallet?accountId=" + ACCOUNT_B,
       { method: "GET", headers: { authorization: "Bearer " + token } },
@@ -154,7 +154,7 @@ test("catalog read requires a session and filters by status, schedule, and regio
     LUDOPROOF_STORE_CATALOG: catalog,
   };
   const token = await issueAccessToken(env, ACCOUNT_A, SESSION_A, Date.now());
-  const response = await accountWorker.fetch(new Request("https://api.example.test/api/store/catalog", {
+  const response = await handleAccountRequest(new Request("https://api.example.test/api/store/catalog", {
     headers: { authorization: "Bearer " + token, "cf-ipcountry": "IN" },
   }), env);
   assert.equal(response.status, 200);
@@ -165,7 +165,7 @@ test("catalog read requires a session and filters by status, schedule, and regio
   assert.match(etag, /ludopaws-catalog-v7-IN-/);
   assert.equal(response.headers.get("cache-control"), "private, max-age=60, must-revalidate");
 
-  const cached = await accountWorker.fetch(new Request("https://api.example.test/api/store/catalog", {
+  const cached = await handleAccountRequest(new Request("https://api.example.test/api/store/catalog", {
     headers: {
       authorization: "Bearer " + token,
       "cf-ipcountry": "IN",
@@ -237,7 +237,7 @@ test("account wallet API rejects requests without a verified bearer token", asyn
     LUDOPROOF_API_GATE: makeRateGate(),
     LUDOPROOF_PLAYER_ACCOUNTS: makePlayerNamespace(),
   };
-  const response = await accountWorker.fetch(
+  const response = await handleAccountRequest(
     new Request("https://api.example.test/api/wallet"),
     env,
   );
@@ -394,7 +394,7 @@ test("AdMob SSV rate limiting runs before signature/key verification", async () 
     LUDOPROOF_ADMOB_SSV_ENABLED: "true",
     LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-123/456",
   };
-  const response = await accountWorker.fetch(
+  const response = await handleAccountRequest(
     new Request("https://api.example.test/api/admob/ssv?invalid=signature"),
     env,
   );
@@ -409,7 +409,7 @@ test("AdMob SSV validation logs the safe error code without logging callback dat
   const originalWarn = console.warn;
   console.warn = (...args) => warnings.push(args);
   try {
-    const response = await accountWorker.fetch(
+    const response = await handleAccountRequest(
       new Request("https://api.example.test/api/admob/ssv"),
       {
         LUDOPROOF_API_GATE: makeRateGate(),

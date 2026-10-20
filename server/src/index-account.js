@@ -77,7 +77,14 @@ export default {
   },
 };
 
-async function handleAccountRequest(request, env) {
+/**
+ * Internal account-routing logic exposed for unit tests only.
+ * The ONLY HTTP entrypoint is the default Worker's guarded fetch() above:
+ * never wire this function to a public route or service binding.
+ * Internal unit tests exercise authentication and billing below the
+ * independent, always-on production age-safety gate.
+ */
+export async function handleAccountRequest(request, env) {
     const url = new URL(request.url);
     try {
       if (url.pathname === "/ready" && request.method === "GET") {
