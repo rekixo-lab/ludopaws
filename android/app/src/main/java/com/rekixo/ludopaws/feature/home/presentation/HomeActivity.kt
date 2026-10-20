@@ -27,6 +27,7 @@ class HomeActivity : Activity() {
         TextView? = null
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
+    internal var homeGuideVisible: Boolean = false
 
     override fun onCreate(
         savedInstanceState: Bundle?,
@@ -237,6 +238,7 @@ class HomeActivity : Activity() {
 
         refreshHomeProfileSummary()
         refreshHomeGemBalance()
+        showFirstRunGuideIfNeeded()
     }
 
     private fun recordAbandonedRemoteLossIfNeeded() {
