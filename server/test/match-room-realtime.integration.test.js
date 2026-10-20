@@ -135,6 +135,30 @@ test("simultaneous socket and HTTP retries resolve one roll and one move", async
   assert.equal(state.players[0].tokens[0], 0);
 });
 
+test("Team Up reconnect and lost acknowledgement preserve one authoritative dice outcome", async () => {
+  const { room, ctx, host, sender, receiver } = await setup({ mode: "TEAM_UP", playerCount: 4 });
+  sender.failSend = true; // command applied, acknowledgement lost
+  const first = { clientRequestId: crypto.randomUUID(), expectedEventIndex: 0 };
+  await command(room, sender, "ROLL", first, "lost-ack-team");
+  const afterFirst = await ctx.storage.get("match-state");
+  assert.equal(afterFirst.randomEventIndex, 1);
+  // Emulate a returning Android client asking for a fresh authoritative snapshot.
+  const fresh = await (await room.fetch(request("/state", host.playerToken))).json();
+  assert.equal(fresh.state.revision, afterFirst.revision);
+  const retry = await (await room.fetch(request("/roll", host.playerToken, first))).json();
+  assert.equal(retry.replayed, true);
+  assert.equal(retry.state.revision, afterFirst.revision);
+  assert.equal(retry.state.randomEventIndex, 1);
+  // A new action with stale event index must be rejected rather than rerolling.
+  const stale = await room.fetch(request("/roll", host.playerToken, {
+    clientRequestId: crypto.randomUUID(), expectedEventIndex: 0,
+  }));
+  assert.notEqual(stale.status, 200);
+  const afterRetry = await ctx.storage.get("match-state");
+  assert.equal(afterRetry.revision, afterFirst.revision);
+  assert.ok(receiver.messages.some((message) => message.type === "STATE_CHANGED"));
+});
+
 test("commands use socket identity, reject malformed/oversized commands and preserve heartbeat", async () => {
   const { room, ctx, host, sender, players } = await setup();
   const before = await ctx.storage.get("match-state");
