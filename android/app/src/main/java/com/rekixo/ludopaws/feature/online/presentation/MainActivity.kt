@@ -184,7 +184,7 @@ class MainActivity : ComponentActivity() {
     internal var friendsVoiceStatus =
         "Voice is off"
 
-    private var friendsVoiceSession: FriendsVoiceChatSession? = null
+    internal var friendsVoiceSession: FriendsVoiceChatSession? = null
     internal var remoteExitConfirmationDialog: android.app.Dialog? = null
     private var postWinInterstitialAd: PostWinInterstitialAdController? = null
     private var postWinInterstitialExitGate: PostWinInterstitialExitGate? = null
@@ -364,111 +364,7 @@ class MainActivity : ComponentActivity() {
     }
 
     internal val realtimeClient: MatchRealtimeClient by lazy {
-        MatchRealtimeClient(
-            onSnapshot = { response ->
-                mainHandler.post {
-                    val incomingMatchId = response.optJSONObject("state")?.optString("matchId")
-                    if (canRenderUi() && screenStarted && incomingMatchId == matchId) {
-                        mainHandler.removeCallbacks(realtimeRefreshRunnable)
-                        applyResponse(response, announce = false, silentValidationFailure = false)
-                    }
-                }
-            },
-            onRevision = {
-                    revision,
-                    _,
-                ->
-                mainHandler.post {
-                    if (
-                        !canRenderUi()
-                    ) {
-                        return@post
-                    }
-
-                    if (revision > lastRealtimeRevision) {
-                        // Roll HTTP responses apply authoritative snapshots directly.
-                        // Avoid another GET if this socket revision was already applied.
-                        if (revision.toLong() <= lastAppliedAuthoritativeRevision) {
-                            lastRealtimeRevision = maxOf(lastRealtimeRevision, revision)
-                        } else {
-                            lastRealtimeRevision = revision
-                            mainHandler.removeCallbacks(realtimeRefreshRunnable)
-                            mainHandler.postDelayed(realtimeRefreshRunnable, 40L)
-                        }
-                    }
-                }
-            },
-            onConnectionChanged = {
-                    connected ->
-                mainHandler.post {
-                    if (
-                        !canRenderUi()
-                    ) {
-                        return@post
-                    }
-                    realtimeConnected =
-                        connected
-                    if (connected && friendsVoiceEnabled) {
-                        if (!realtimeClient.sendVoiceJoin()) {
-                            setFriendsVoiceStatus("Voice signaling is reconnecting…")
-                        }
-                    }
-                    updateConnectionLabel()
-                    if (screenStarted && playerToken != null) {
-                        mainHandler.removeCallbacks(statePollRunnable)
-                        if (connected) {
-                            refreshState(silent = true)
-                            mainHandler.postDelayed(
-                                statePollRunnable,
-                                STATE_POLL_LIVE_MS,
-                            )
-                        } else {
-                            mainHandler.postDelayed(
-                                statePollRunnable,
-                                STATE_RECONCILE_DELAY_MS,
-                            )
-                        }
-                    }
-                }
-            },
-            onQuickChat = { senderPlayerId, displayName, emoji ->
-                mainHandler.post {
-                    if (!canRenderUi()) return@post
-                    OnlineLudoPawsPresentation.presentRemoteQuickChat(
-                        activity = this,
-                        senderPlayerId = senderPlayerId,
-                        displayName = displayName,
-                        emoji = emoji,
-                    )
-                }
-            },
-            onVoicePeers = { playerIds ->
-                mainHandler.post {
-                    if (friendsVoiceEnabled) friendsVoiceSession?.updatePeers(playerIds)
-                }
-            },
-            onVoiceSignal = { senderPlayerId, signal ->
-                mainHandler.post {
-                    if (friendsVoiceEnabled) {
-                        friendsVoiceSession?.handleSignal(senderPlayerId, signal)
-                    }
-                }
-            },
-            onVoiceEnded = {
-                mainHandler.post {
-                    stopFriendsVoice("Voice ended with the match.")
-                }
-            },
-            onUnavailable = { message ->
-                mainHandler.post {
-                    if (!canRenderUi()) return@post
-                    remoteSessionUnavailable = true
-                    mainHandler.removeCallbacks(statePollRunnable)
-                    mainHandler.removeCallbacks(realtimeReconnectRunnable)
-                    showStatus(message)
-                }
-            },
-        )
+        createRealtimeClient(STATE_POLL_LIVE_MS, STATE_RECONCILE_DELAY_MS)
     }
 
     internal val connectivityMonitor by lazy {
@@ -564,257 +460,7 @@ class MainActivity : ComponentActivity() {
                 null
         }
 
-        val (root, host) =
-            LudoProofTheme
-                .arcadeRoot(this)
-        arcadeRootView = root
-
-        val scroll =
-            ScrollView(this).apply {
-                isFillViewport =
-                    true
-                overScrollMode =
-                    View.OVER_SCROLL_NEVER
-            }
-
-        val contentHost =
-            FrameLayout(this)
-        scroll.addView(
-            contentHost,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-
-        val horizontalPaddingDp =
-            LudoProofTheme
-                .pageHorizontalPaddingDp(this)
-        val isExpandedWidth =
-            LudoProofTheme
-                .isExpandedWidth(this)
-        val contentWidth =
-            if (isExpandedWidth) {
-                minOf(
-                    resources.displayMetrics.widthPixels,
-                    dp(
-                        LudoProofTheme
-                            .pageMaxContentWidthDp(this),
-                    ),
-                )
-            } else {
-                resources.displayMetrics.widthPixels
-            }
-        val sectionSideMargin =
-            if (isExpandedWidth) {
-                0
-            } else {
-                dp(horizontalPaddingDp)
-            }
-
-        val content =
-            LinearLayout(this).apply {
-                orientation =
-                    LinearLayout.VERTICAL
-                setPadding(
-                    0,
-                    dp(14),
-                    0,
-                    dp(28),
-                )
-        }
-
-        contentHost.addView(
-            content,
-            FrameLayout.LayoutParams(
-                contentWidth,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.TOP or
-                    Gravity.CENTER_HORIZONTAL,
-            ),
-        )
-
-        host.addView(
-            scroll,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            ),
-        )
-
-        registerOnlineBackCallback()
-
-        if (
-            gameMode !=
-            GameMode.ONLINE
-        ) {
-            val hero = onlineHero()
-            onlineHeroPanel = hero
-            content.addView(
-                hero,
-                onlineSectionParams(
-                    if (isCompactOnline()) 12 else 16,
-                ).apply {
-                    leftMargin =
-                        sectionSideMargin
-                    rightMargin =
-                        sectionSideMargin
-                },
-            )
-        }
-
-        lobbyPanel =
-            onlineLobbyPanel()
-        content.addView(
-            lobbyPanel,
-            onlineSectionParams(
-                if (isCompactOnline()) 12 else 16,
-            ).apply {
-                leftMargin =
-                    sectionSideMargin
-                rightMargin =
-                    sectionSideMargin
-            },
-        )
-
-        matchStatusPanel =
-            onlineMatchStatusPanel()
-                .apply {
-                    visibility =
-                        View.GONE
-                }
-        content.addView(
-            matchStatusPanel,
-            onlineSectionParams(
-                if (isCompactOnline()) 4 else 6,
-            ).apply {
-                leftMargin =
-                    sectionSideMargin
-                rightMargin =
-                    sectionSideMargin
-            },
-        )
-
-        resultPanel =
-            onlineResultPanel()
-                .apply {
-                    visibility =
-                        View.GONE
-                }
-        content.addView(
-            resultPanel,
-            onlineSectionParams(
-                if (isCompactOnline()) 12 else 16,
-            ).apply {
-                leftMargin =
-                    sectionSideMargin
-                rightMargin =
-                    sectionSideMargin
-            },
-        )
-
-        boardView =
-            LudoBoardView(this).apply {
-                onTokenSelected = {
-                        tokenIndex ->
-                    moveToken(
-                        tokenIndex,
-                    )
-                }
-            }
-
-        boardFrame =
-            FrameLayout(this).apply {
-                visibility =
-                    View.GONE
-                clipChildren =
-                    false
-                clipToPadding =
-                    false
-            }
-        boardFrame.addView(
-            boardView,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        content.addView(
-            boardFrame,
-            onlineSectionParams(
-                if (isCompactOnline()) 4 else 6,
-            ).apply {
-                leftMargin = dp(1)
-                rightMargin = dp(1)
-            },
-        )
-
-        actionPanel =
-            onlineActionPanel()
-                .apply {
-                    visibility =
-                        View.GONE
-                }
-        content.addView(
-            actionPanel,
-            onlineSectionParams(
-                if (isCompactOnline()) 2 else 4,
-            ),
-        )
-
-        val topActionsBar =
-            addGameTopActions(
-                host = host,
-                context = this,
-                onBack = { requestRemoteExitAfterWinInterstitial() },
-                onSettings = {
-                    ArcadeDialogs.showSettings(this) {
-                        currentState?.let { state ->
-                            OnlineLudoPawsPresentation.render(
-                                activity = this,
-                                previous = state,
-                                current = state,
-                            )
-                        }
-                    }
-                },
-            ).apply {
-                // Use the shared plywood skin only for the Online screen's Back and Settings.
-                for (index in 0 until childCount) {
-                    getChildAt(index).background =
-                        plywoodBackground(
-                            context = this@MainActivity,
-                            cornerRadiusDp = 999f,
-                        )
-                }
-            }
-
-        setContentView(root)
-        root.setOnApplyWindowInsetsListener { _, insets ->
-            val cutoutTopInset =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    insets.displayCutout?.safeInsetTop ?: 0
-                } else {
-                    0
-                }
-            val statusBarTopInset =
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    insets.getInsetsIgnoringVisibility(WindowInsets.Type.statusBars()).top
-                } else {
-                    @Suppress("DEPRECATION")
-                    insets.systemWindowInsetTop
-                }
-            val safeTopInset = maxOf(cutoutTopInset, statusBarTopInset)
-            content.setPadding(
-                content.paddingLeft,
-                dp(14) + safeTopInset,
-                content.paddingRight,
-                content.paddingBottom,
-            )
-            topActionsBar.translationY = safeTopInset.toFloat()
-            insets
-        }
-        root.requestApplyInsets()
+        buildOnlineMatchScreen()
         updateRollButton()
         restorePublicMatchmakingUi()
 
@@ -867,7 +513,7 @@ class MainActivity : ComponentActivity() {
         )
     }
 
-    private fun requestRemoteExitAfterWinInterstitial() {
+    internal fun requestRemoteExitAfterWinInterstitial() {
         val state = currentState
         val currentPlayer = state?.players?.firstOrNull { it.playerId == playerId }
         val didCurrentPlayerWin = PostWinInterstitialPolicy.shouldShowRemote(
@@ -989,7 +635,7 @@ class MainActivity : ComponentActivity() {
                 arrayOf(android.Manifest.permission.RECORD_AUDIO),
                 FRIENDS_VOICE_PERMISSION_REQUEST,
             )
-            setFriendsVoiceStatus("Allow microphone access to use voice.")
+            updateFriendsVoiceStatus("Allow microphone access to use voice.")
             return
         }
         startFriendsVoice()
@@ -999,7 +645,7 @@ class MainActivity : ComponentActivity() {
         if (!friendsVoiceEnabled) return
         friendsMicEnabled = !friendsMicEnabled
         friendsVoiceSession?.setMicEnabled(friendsMicEnabled)
-        setFriendsVoiceStatus(if (friendsMicEnabled) "Microphone is on" else "Microphone muted")
+        updateFriendsVoiceStatus(if (friendsMicEnabled) "Microphone is on" else "Microphone muted")
         currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
     }
 
@@ -1007,7 +653,7 @@ class MainActivity : ComponentActivity() {
         if (friendsVoiceEnabled) return
         val localPlayerId = playerId
         if (localPlayerId.isNullOrBlank()) {
-            setFriendsVoiceStatus("Your player identity is not ready yet.")
+            updateFriendsVoiceStatus("Your player identity is not ready yet.")
             return
         }
         try {
@@ -1021,7 +667,7 @@ class MainActivity : ComponentActivity() {
                     onStatusChanged = { status ->
                         mainHandler.post {
                             if (friendsVoiceEnabled && canRenderUi()) {
-                                setFriendsVoiceStatus(status)
+                                updateFriendsVoiceStatus(status)
                             }
                         }
                     },
@@ -1050,10 +696,10 @@ class MainActivity : ComponentActivity() {
         friendsVoiceEnabled = false
         friendsVoiceSession?.close()
         friendsVoiceSession = null
-        setFriendsVoiceStatus(status)
+        updateFriendsVoiceStatus(status)
     }
 
-    private fun setFriendsVoiceStatus(status: String) {
+    internal fun updateFriendsVoiceStatus(status: String) {
         friendsVoiceStatus = status
         currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
     }
@@ -1069,7 +715,7 @@ class MainActivity : ComponentActivity() {
         if (grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
             startFriendsVoice()
         } else {
-            setFriendsVoiceStatus("Microphone permission denied. Voice chat is off.")
+            updateFriendsVoiceStatus("Microphone permission denied. Voice chat is off.")
         }
     }
 
