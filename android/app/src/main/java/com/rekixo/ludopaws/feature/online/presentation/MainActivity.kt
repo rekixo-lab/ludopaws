@@ -184,7 +184,7 @@ class MainActivity : ComponentActivity() {
     internal var friendsVoiceStatus =
         "Voice is off"
 
-    private var friendsVoiceSession: FriendsVoiceChatSession? = null
+    internal var friendsVoiceSession: FriendsVoiceChatSession? = null
     internal var remoteExitConfirmationDialog: android.app.Dialog? = null
     private var postWinInterstitialAd: PostWinInterstitialAdController? = null
     private var postWinInterstitialExitGate: PostWinInterstitialExitGate? = null
@@ -364,111 +364,7 @@ class MainActivity : ComponentActivity() {
     }
 
     internal val realtimeClient: MatchRealtimeClient by lazy {
-        MatchRealtimeClient(
-            onSnapshot = { response ->
-                mainHandler.post {
-                    val incomingMatchId = response.optJSONObject("state")?.optString("matchId")
-                    if (canRenderUi() && screenStarted && incomingMatchId == matchId) {
-                        mainHandler.removeCallbacks(realtimeRefreshRunnable)
-                        applyResponse(response, announce = false, silentValidationFailure = false)
-                    }
-                }
-            },
-            onRevision = {
-                    revision,
-                    _,
-                ->
-                mainHandler.post {
-                    if (
-                        !canRenderUi()
-                    ) {
-                        return@post
-                    }
-
-                    if (revision > lastRealtimeRevision) {
-                        // Roll HTTP responses apply authoritative snapshots directly.
-                        // Avoid another GET if this socket revision was already applied.
-                        if (revision.toLong() <= lastAppliedAuthoritativeRevision) {
-                            lastRealtimeRevision = maxOf(lastRealtimeRevision, revision)
-                        } else {
-                            lastRealtimeRevision = revision
-                            mainHandler.removeCallbacks(realtimeRefreshRunnable)
-                            mainHandler.postDelayed(realtimeRefreshRunnable, 40L)
-                        }
-                    }
-                }
-            },
-            onConnectionChanged = {
-                    connected ->
-                mainHandler.post {
-                    if (
-                        !canRenderUi()
-                    ) {
-                        return@post
-                    }
-                    realtimeConnected =
-                        connected
-                    if (connected && friendsVoiceEnabled) {
-                        if (!realtimeClient.sendVoiceJoin()) {
-                            setFriendsVoiceStatus("Voice signaling is reconnecting…")
-                        }
-                    }
-                    updateConnectionLabel()
-                    if (screenStarted && playerToken != null) {
-                        mainHandler.removeCallbacks(statePollRunnable)
-                        if (connected) {
-                            refreshState(silent = true)
-                            mainHandler.postDelayed(
-                                statePollRunnable,
-                                STATE_POLL_LIVE_MS,
-                            )
-                        } else {
-                            mainHandler.postDelayed(
-                                statePollRunnable,
-                                STATE_RECONCILE_DELAY_MS,
-                            )
-                        }
-                    }
-                }
-            },
-            onQuickChat = { senderPlayerId, displayName, emoji ->
-                mainHandler.post {
-                    if (!canRenderUi()) return@post
-                    OnlineLudoPawsPresentation.presentRemoteQuickChat(
-                        activity = this,
-                        senderPlayerId = senderPlayerId,
-                        displayName = displayName,
-                        emoji = emoji,
-                    )
-                }
-            },
-            onVoicePeers = { playerIds ->
-                mainHandler.post {
-                    if (friendsVoiceEnabled) friendsVoiceSession?.updatePeers(playerIds)
-                }
-            },
-            onVoiceSignal = { senderPlayerId, signal ->
-                mainHandler.post {
-                    if (friendsVoiceEnabled) {
-                        friendsVoiceSession?.handleSignal(senderPlayerId, signal)
-                    }
-                }
-            },
-            onVoiceEnded = {
-                mainHandler.post {
-                    stopFriendsVoice("Voice ended with the match.")
-                }
-            },
-            onUnavailable = { message ->
-                mainHandler.post {
-                    if (!canRenderUi()) return@post
-                    remoteSessionUnavailable = true
-                    mainHandler.removeCallbacks(statePollRunnable)
-                    mainHandler.removeCallbacks(realtimeReconnectRunnable)
-                    showStatus(message)
-                }
-            },
-        )
+        createRealtimeClient(STATE_POLL_LIVE_MS, STATE_RECONCILE_DELAY_MS)
     }
 
     internal val connectivityMonitor by lazy {
@@ -1053,7 +949,7 @@ class MainActivity : ComponentActivity() {
         setFriendsVoiceStatus(status)
     }
 
-    private fun setFriendsVoiceStatus(status: String) {
+    internal fun setFriendsVoiceStatus(status: String) {
         friendsVoiceStatus = status
         currentState?.let { OnlineLudoPawsPresentation.refreshVoiceControls(this, it) }
     }

@@ -1711,31 +1711,6 @@ class FriendsActivity : Activity() {
         )
     }
 
-    private fun isValidFriendRoomHandoff(
-        response: JSONObject,
-        expectedMatchId: String,
-        expectedPlayerId: String,
-        expectedPlayerCount: Int?,
-    ): Boolean {
-        if (
-            expectedMatchId.isBlank() ||
-            expectedPlayerId.isBlank() ||
-            response.optString("playerToken").isBlank() ||
-            response.optString("matchId").trim().uppercase(Locale.ROOT) != expectedMatchId
-        ) {
-            return false
-        }
-
-        val state = runCatching { GameJson.envelope(response).state }.getOrNull()
-            ?: return false
-        return state.matchId == expectedMatchId &&
-            state.matchMode == "FRIENDS" &&
-            state.status in setOf("WAITING", "ACTIVE") &&
-            state.targetPlayerCount != null &&
-            (expectedPlayerCount == null || state.targetPlayerCount == expectedPlayerCount) &&
-            state.players.any { it.playerId == expectedPlayerId }
-    }
-
     private fun openFriendRoom() {
         val session = activeFriendSession() ?: run {
             showStatus("Create or join a private friend room first.")
@@ -1855,39 +1830,6 @@ class FriendsActivity : Activity() {
         if (::statusText.isInitialized) statusText.text = value
     }
 
-    private fun formatLastSeen(timestamp: Long): String {
-        if (timestamp <= 0L) return "Offline"
-        val delta = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L)
-        return when {
-            delta < 60_000L -> "Offline • Last seen just now"
-            delta < 3_600_000L -> "Offline • Last seen ${delta / 60_000L}m ago"
-            delta < 86_400_000L -> "Offline • Last seen ${delta / 3_600_000L}h ago"
-            else -> "Offline • Last seen ${delta / 86_400_000L}d ago"
-        }
-    }
-
-    private fun formatPlayed(timestamp: Long): String {
-        if (timestamp <= 0L) return "Played recently"
-        val delta = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L)
-        return when {
-            delta < 60_000L -> "Played just now"
-            delta < 3_600_000L -> "Played ${delta / 60_000L}m ago"
-            delta < 86_400_000L -> "Played ${delta / 3_600_000L}h ago"
-            else -> "Played ${delta / 86_400_000L}d ago"
-        }
-    }
-
-    private fun formatMessageTime(timestamp: Long): String {
-        if (timestamp <= 0L) return ""
-        val delta = (System.currentTimeMillis() - timestamp).coerceAtLeast(0L)
-        return when {
-            delta < 60_000L -> "just now"
-            delta < 3_600_000L -> "${delta / 60_000L}m ago"
-            delta < 86_400_000L -> "${delta / 3_600_000L}h ago"
-            else -> "${delta / 86_400_000L}d ago"
-        }
-    }
-
     private fun itemParams(): LinearLayout.LayoutParams =
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1897,15 +1839,6 @@ class FriendsActivity : Activity() {
     private fun dp(value: Int): Int = FriendsVisualKit.dp(this, value)
 
     private fun isCompact(): Boolean = resources.configuration.screenWidthDp < 420
-
-    private fun JSONArray?.objects(): List<JSONObject> {
-        if (this == null) return emptyList()
-        val out = ArrayList<JSONObject>(length())
-        for (index in 0 until length()) {
-            optJSONObject(index)?.let(out::add)
-        }
-        return out
-    }
 
     private companion object {
         const val REFRESH_MS = 10_000L
