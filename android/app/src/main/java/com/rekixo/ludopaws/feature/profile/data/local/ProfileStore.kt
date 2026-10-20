@@ -596,8 +596,6 @@ class ProfileStore(
                     onlineGames,
                 localGames =
                     localGames,
-                bestDayStreak =
-                    bestDayStreak,
                 classic =
                     modeStats[
                         ProfileGameMode.CLASSIC

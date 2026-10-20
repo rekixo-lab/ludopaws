@@ -5,6 +5,7 @@ import android.app.AlertDialog
 import android.content.Context
 import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.HomeActivity
+import com.rekixo.ludopaws.openGameMode
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 
 /**
