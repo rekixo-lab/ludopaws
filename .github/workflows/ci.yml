@@ -152,7 +152,7 @@ jobs:
           "$AAPT" dump badging android/app/build/outputs/apk/debug/app-debug.apk | tee /tmp/ludoproof-badging.txt
           grep -q "targetSdkVersion:'36'" /tmp/ludoproof-badging.txt
           "$AAPT" dump permissions android/app/build/outputs/apk/debug/app-debug.apk > /tmp/ludopaws-debug-permissions.txt
-          if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID' /tmp/ludopaws-debug-permissions.txt; then
+          if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)|com.android.vending.BILLING' /tmp/ludopaws-debug-permissions.txt; then
             echo "Offline-only debug APK must not request microphone or advertising ID" >&2
             exit 1
           fi
@@ -164,11 +164,19 @@ jobs:
           set -euo pipefail
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           AAPT="$SDK_ROOT/build-tools/35.0.0/aapt"
-          "$AAPT" dump permissions android/app/build/outputs/apk/release/app-release.apk > /tmp/ludopaws-release-permissions.txt
-          if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID' /tmp/ludopaws-release-permissions.txt; then
-            echo "Offline-only release must not contain microphone or AD_ID permissions" >&2
+          shopt -s nullglob
+          release_apks=(android/app/build/outputs/apk/release/*.apk)
+          if [ "${#release_apks[@]}" -eq 0 ]; then
+            echo "Release build produced no APK to inspect" >&2
             exit 1
           fi
+          for apk in "${release_apks[@]}"; do
+            "$AAPT" dump permissions "$apk" > /tmp/ludopaws-release-permissions.txt
+            if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)|com.android.vending.BILLING' /tmp/ludopaws-release-permissions.txt; then
+              echo "Restricted audio, ads, or billing permission in release APK: $apk" >&2
+              exit 1
+            fi
+          done
       - name: Bundle release AAB
         run: gradle -p android :app:bundleRelease --stacktrace
       - name: Hash Android release evidence

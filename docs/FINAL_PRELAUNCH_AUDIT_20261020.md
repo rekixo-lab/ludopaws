@@ -24,7 +24,7 @@ A missing, mistyped or accidentally changed runtime var would bypass the age-saf
 
 ### PRIV-02 (fixed in audit branch): unused permissions in offline Android package
 
-The original Android manifest declared `RECORD_AUDIO` and `com.google.android.gms.permission.AD_ID` even though the locked-down Android build cannot access online voice, advertising or monetization. The offline-only manifest uses literal `tools:node="remove"` rules (Android manifest merging does not support placeholders in this enum). Debug and release CI steps inspect the **actual packaged APK** with aapt and fail if either permission reappears. The signed-release workflow includes the same assertion. A future approved connected release must reconfigure these permissions only after privacy/consent review.
+The original Android manifest declared `RECORD_AUDIO` and `com.google.android.gms.permission.AD_ID` even though the locked-down Android build cannot access online voice, advertising or monetization. The offline-only manifest uses literal `tools:node="remove"` rules (Android manifest merging does not support placeholders in this enum). Debug and release CI steps inspect each **actual packaged APK** with aapt, including the unsigned APK filename used in ordinary CI. SDK-injected AdServices ID, Attribution, Topics and Play Billing permissions are also removed in the offline-only build. Signed-release workflow enforces identical permission restrictions. A future approved connected release must reconfigure these permissions only after privacy/consent review.
 
 ## Review coverage and CI evidence
 
