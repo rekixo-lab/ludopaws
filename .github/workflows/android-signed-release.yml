@@ -237,6 +237,18 @@ jobs:
         run: |
           gradle -p android :app:assembleRelease :app:bundleRelease --stacktrace
 
+      - name: Verify offline-only signed release permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          AAPT="$SDK_ROOT/build-tools/35.0.0/aapt"
+          "$AAPT" dump permissions android/app/build/outputs/apk/release/app-release.apk > /tmp/ludopaws-signed-permissions.txt
+          if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID' /tmp/ludopaws-signed-permissions.txt; then
+            echo "Offline signed APK contains microphone or AD_ID permissions" >&2
+            exit 1
+          fi
+
       - name: Verify APK and AAB signatures
         shell: bash
         run: |
