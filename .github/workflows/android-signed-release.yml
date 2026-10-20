@@ -237,6 +237,26 @@ jobs:
         run: |
           gradle -p android :app:assembleRelease :app:bundleRelease --stacktrace
 
+      - name: Verify offline-only signed release permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          AAPT="$SDK_ROOT/build-tools/35.0.0/aapt"
+          shopt -s nullglob
+          release_apks=(android/app/build/outputs/apk/release/*.apk)
+          if [ "${#release_apks[@]}" -eq 0 ]; then
+            echo "No signed release APK found for privacy check" >&2
+            exit 1
+          fi
+          for apk in "${release_apks[@]}"; do
+            "$AAPT" dump permissions "$apk" > /tmp/ludopaws-signed-permissions.txt
+            if grep -Eq 'android.permission.RECORD_AUDIO|com.google.android.gms.permission.AD_ID|android.permission.ACCESS_ADSERVICES_(AD_ID|ATTRIBUTION|TOPICS)|com.android.vending.BILLING' /tmp/ludopaws-signed-permissions.txt; then
+              echo "Restricted audio, ads, or billing permission in signed APK: $apk" >&2
+              exit 1
+            fi
+          done
+
       - name: Verify APK and AAB signatures
         shell: bash
         run: |

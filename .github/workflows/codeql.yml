@@ -39,9 +39,10 @@ jobs:
 
   android-kotlin:
     name: Analyze Android Kotlin
-    # Kotlin analysis requires a clean Android build; run it on main, weekly, or manually,
-    # not on every PR edit. The JavaScript CodeQL job still scans ready PRs.
-    if: ${{ (github.event.repository.private == false || vars.LUDOPROOF_CODEQL_PRIVATE == 'true') && github.event_name != 'pull_request' }}
+    # Scan both JavaScript AND Kotlin on ready PRs targeting main, including the
+    # cumulative four-phase security audit. Draft PRs stay cheap; no production
+    # deployment or signing is triggered by analysis.
+    if: ${{ (github.event.repository.private == false || vars.LUDOPROOF_CODEQL_PRIVATE == 'true') && (github.event_name != 'pull_request' || github.event.pull_request.draft == false) }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
