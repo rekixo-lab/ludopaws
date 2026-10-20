@@ -7,6 +7,7 @@ const required = {
   offlineGameplay: 'android/app/src/main/java/com/rekixo/ludopaws/feature/offline/presentation/gameplay/OfflineGameplayScreenUi.kt',
   offlineSetup: 'android/app/src/main/java/com/rekixo/ludopaws/feature/offline/presentation/setup/OfflineSetupScreenUi.kt',
   onlineMain: 'android/app/src/main/java/com/rekixo/ludopaws/feature/online/presentation/MainActivity.kt',
+  onlineScreen: 'android/app/src/main/java/com/rekixo/ludopaws/feature/online/presentation/MainActivityScreen.kt',
   keep: 'android/app/src/main/res/raw/ludo_paws_background_keep.xml',
 };
 
@@ -54,8 +55,12 @@ if (!read('offlineGameplay').includes('LudoProofTheme.arcadeRoot(')) {
 if (!read('offlineSetup').includes('LudoProofTheme.arcadeRoot(this)')) {
   throw new Error('Offline setup must use the same shared root background.');
 }
-if (!read('onlineMain').includes('arcadeRootView = root')) {
-  throw new Error('Online Activity must use the shared root background.');
+if (
+  !read('onlineMain').includes('buildOnlineMatchScreen()') ||
+  !read('onlineScreen').includes('LudoProofTheme') ||
+  !read('onlineScreen').includes('arcadeRootView = root')
+) {
+  throw new Error('Online Activity must compose its screen with the shared root background.');
 }
 
 const keep = read('keep');
