@@ -125,7 +125,7 @@ const colorTests = read(
   "android/app/src/test/java/com/rekixo/ludopaws/OfflinePlayerLayoutTest.kt",
 );
 for (const [source, markers, label] of [
-  [colorPolicy, ["normalizeColorsForSeats(", "selectColorForSeat(", "oppositeColor(requestedColor)", "colors[owner] = previous"], "color selection policy"],
+  [colorPolicy, ["normalizeColorsForSeats(", "selectColorForSeat(", "swapColorForSeat(", "colors[owner] = previous"], "color selection policy"],
   [store, ["colorsBySeat: List<String> = emptyList()", "setupColorsKey(mode)", "putString(setupColorsKey(mode)"], "color persistence"],
   [ui, ["selectedColorsBySeat = saved.colorsBySeat", "selectedColorsBySeat[selectedCharacterSlot]", "selectColorForActiveSlot("], "player slot selection"],
   [selection, ["selectColorForActiveSlot(entry.key)", "colorSelectionStatus?.text"], "color picker"],
@@ -133,7 +133,7 @@ for (const [source, markers, label] of [
   [session, ["colorsBySeat: List<String>? = null", "colorsBySeat = colorsBySeat"], "session contract"],
   [engine, ["colorsBySeat?.toList()", "colorsBySeat.distinct().size == playerCount"], "engine assignment"],
   [rematch, ["selectedColorsBySeat = finished.players.map { it.color }", "colorsBySeat = if (isComputerMode) null else selectedColorsBySeat"], "rematch"],
-  [colorTests, ["passAndPlayThreePlayersKeepIndividualSelectedColors", "fourPlayersSwapColorsWithoutDuplicates", "twoPlayersKeepOppositeColorsWhenEitherPlayerChooses"], "regression tests"],
+  [colorTests, ["passAndPlayThreePlayersKeepIndividualSelectedColors", "occupiedColorDoesNotChangeOtherSeatsWithoutConfirmation", "firstPlayersRedRemainsRedWhenSecondChoosesBlue"], "regression tests"],
 ]) {
   for (const marker of markers) {
     requireText(source, marker, label);
