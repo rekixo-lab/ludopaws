@@ -2,6 +2,7 @@ package com.rekixo.ludopaws.feature.offline.data.local
 
 import android.content.Context
 import com.rekixo.ludopaws.GameMode
+import com.rekixo.ludopaws.OfflinePlayerLayout
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.selection.StarterPawsAssignmentPolicy
 
@@ -9,6 +10,7 @@ data class OfflineCharacterSetupSnapshot(
     val playerCount: Int,
     val selectedSlot: Int,
     val characterIds: List<String>,
+    val colorsBySeat: List<String> = emptyList(),
 )
 
 data class ActiveOfflineCharacterSetup(
@@ -67,6 +69,12 @@ class OfflineCharacterSetupStore(
                 preferredCharacterId = preferredCharacterId,
                 computerMode = mode == GameMode.COMPUTER,
             )
+        val storedColors = parseIds(prefs.getString(setupColorsKey(mode), null))
+        val colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
+            playerCount = playerCount,
+            requestedColors = storedColors,
+            preferredColor = storedColors.firstOrNull() ?: "BLUE",
+        )
         val storedSlot =
             prefs.getInt(
                 setupSlotKey(mode),
@@ -89,6 +97,7 @@ class OfflineCharacterSetupStore(
                     playerCount = playerCount,
                     selectedSlot = selectedSlot,
                     characterIds = normalized,
+                    colorsBySeat = colorsBySeat,
                 ),
         )
     }
@@ -125,6 +134,11 @@ class OfflineCharacterSetupStore(
                 playerCount = snapshot.playerCount,
                 selectedSlot = safeSlot,
                 characterIds = normalized,
+                colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
+                    playerCount = snapshot.playerCount,
+                    requestedColors = snapshot.colorsBySeat,
+                    preferredColor = snapshot.colorsBySeat.firstOrNull() ?: "BLUE",
+                ),
             )
 
         prefs.edit()
@@ -144,6 +158,7 @@ class OfflineCharacterSetupStore(
                 setupIdsKey(mode),
                 repaired.characterIds.joinToString(","),
             )
+            .putString(setupColorsKey(mode), repaired.colorsBySeat.joinToString(","))
             .apply()
 
         return repaired
@@ -265,6 +280,9 @@ class OfflineCharacterSetupStore(
         mode: GameMode,
     ): String =
         "${modeKey(mode)}_selected_slot"
+
+    private fun setupColorsKey(mode: GameMode): String =
+        "${modeKey(mode)}_colors_by_seat"
 
     private fun setupIdsKey(
         mode: GameMode,

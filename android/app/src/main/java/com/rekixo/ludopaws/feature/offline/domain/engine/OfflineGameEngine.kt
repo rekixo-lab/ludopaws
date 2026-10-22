@@ -59,6 +59,7 @@ class OfflineGameEngine(
     fun start(
         playerCount: Int,
         preferredColor: String = "RED",
+        colorsBySeat: List<String>? = null,
     ): MatchSnapshot {
         MatchSpec.classic(
             mode = mode,
@@ -68,11 +69,18 @@ class OfflineGameEngine(
             "Unsupported offline color"
         }
 
-        val colorOrder =
-            OfflinePlayerLayout.colorsFor(
-                playerCount,
-                preferredColor,
-            )
+        // Honor the selected Pass & Play seat colors without rewriting them.
+        if (colorsBySeat != null) {
+            require(colorsBySeat.size == playerCount)
+            require(colorsBySeat.all { it in OfflinePlayerLayout.COLORS })
+            require(colorsBySeat.distinct().size == playerCount)
+            if (playerCount == 2) {
+                require(colorsBySeat[1] == OfflinePlayerLayout.oppositeColor(colorsBySeat[0]))
+            }
+            require(colorsBySeat.first() == preferredColor)
+        }
+        val colorOrder = colorsBySeat?.toList()
+            ?: OfflinePlayerLayout.colorsFor(playerCount, preferredColor)
         val humanName =
             profileStore.snapshot().displayName.ifBlank { "Player 1" }
 
