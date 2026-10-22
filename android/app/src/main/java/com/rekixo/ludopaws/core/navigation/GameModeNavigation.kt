@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import com.rekixo.ludopaws.feature.mode.presentation.RemoteModeEntryActivity
 import com.rekixo.ludopaws.feature.friends.presentation.FriendsActivity
@@ -13,7 +13,7 @@ fun Activity.openGameMode(
     resumeSavedMatch: Boolean = false,
 ) {
     if (mode.isRemote && !BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Online play is temporarily unavailable")
             .setMessage(PlayAgeSignalsObserver.offlineExplanation())
             .setNegativeButton("CLOSE", null)

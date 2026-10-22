@@ -43,6 +43,7 @@ class LocalMatchSession(
     fun start(
         playerCount: Int,
         preferredColor: String,
+        colorsBySeat: List<String>? = null,
     ): MatchSnapshot {
         MatchSpec.classic(
             mode =
@@ -58,6 +59,7 @@ class LocalMatchSession(
                     playerCount,
                 preferredColor =
                     preferredColor,
+                colorsBySeat = colorsBySeat,
             ),
         )
     }

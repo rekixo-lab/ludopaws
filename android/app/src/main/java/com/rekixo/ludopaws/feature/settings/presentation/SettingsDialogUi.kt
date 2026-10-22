@@ -7,7 +7,7 @@ import android.widget.TextView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ScrollView
-import com.rekixo.ludopaws.core.ui.components.AppFocusRing
+import android.widget.LinearLayout
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
@@ -55,7 +55,7 @@ internal fun showSettingsDialog(
         loadingLabel,
         fullWidthParams(context, 12),
     )
-    val overflowGutter = settingsDp(context, 12)
+    val overflowGutter = settingsDp(context, 6)
     val scroll =
         ScrollView(context).apply {
             isFillViewport = true
@@ -80,8 +80,8 @@ internal fun showSettingsDialog(
     )
     sizeDialog(
         dialog,
-        .84f,
-        overflowGutterDp = 12,
+        if (context.resources.configuration.screenWidthDp < 380) .94f else .88f,
+        overflowGutterDp = 6,
     )
     dialog.show()
 
@@ -218,9 +218,6 @@ internal fun showSettingsDialog(
                 }
             }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Sound",
@@ -247,44 +244,10 @@ internal fun showSettingsDialog(
                 notifyChanged()
             }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Quick chat",
                 control = quickChatControl,
-            ),
-        )
-
-        val motionControl = SettingsBooleanControl(
-            context = context,
-            initialValue = settings.reduceMotionEnabled,
-        ) { enabled ->
-            settingsStore.setReduceMotionEnabled(enabled)
-            settings = settingsStore.snapshot()
-            notifyChanged()
-        }
-        panel.addView(settingsDivider(context))
-        panel.addView(
-            settingsCompactRow(
-                context = context,
-                label = "Reduce motion",
-                control = motionControl,
-            ),
-        )
-
-        val guideField = settingsDropdownField(context, "HOW TO PLAY")
-        guideField.contentDescription = "How to play Ludo Paws"
-        guideField.setOnClickListener {
-            com.rekixo.ludopaws.ui.home.showLudoPawsGuide(activity)
-        }
-        panel.addView(settingsDivider(context))
-        panel.addView(
-            settingsCompactRow(
-                context = context,
-                label = "How to play",
-                control = guideField,
             ),
         )
 
@@ -334,9 +297,6 @@ internal fun showSettingsDialog(
                 notifyChanged()
             }
         }
-        panel.addView(
-            settingsDivider(context),
-        )
         panel.addView(
             settingsCompactRow(
                 context = context,
@@ -410,9 +370,6 @@ internal fun showSettingsDialog(
             }
         }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Boards",
@@ -484,9 +441,6 @@ internal fun showSettingsDialog(
             }
         }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Dice",
@@ -494,19 +448,53 @@ internal fun showSettingsDialog(
             ),
         )
 
+        // One compact bottom row: both informational actions share the same
+        // width, styling and touch target instead of stretching into full rows.
+        val privacyAction = settingsDropdownField(context, "Privacy Policy").apply {
+            text = "Privacy Policy"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
+            setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
+            setSingleLine(true)
+            contentDescription = "Open Privacy Policy"
+            setOnClickListener {
+                GameSoundFeedback.click(context)
+                showPrivacyPolicyDialog(context)
+            }
+        }
+        val guideAction = settingsDropdownField(context, "How to Play").apply {
+            text = "How to Play"
+            setTextColor(android.graphics.Color.WHITE)
+            textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
+            setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
+            setSingleLine(true)
+            contentDescription = "How to play Ludo Paws"
+            setOnClickListener {
+                GameSoundFeedback.click(context)
+                com.rekixo.ludopaws.ui.home.showLudoPawsGuide(activity)
+            }
+        }
         panel.addView(
-            settingsPrivacyLink(
-                context,
-            ).apply {
-                AppFocusRing.apply(this, cornerRadiusDp = 8f, strokeWidthDp = 2f)
-                setOnClickListener {
-                    GameSoundFeedback.click(
-                        context,
-                    )
-                    showPrivacyPolicyDialog(
-                        context,
-                    )
-                }
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, settingsDp(context, 7), 0, settingsDp(context, 1))
+                addView(
+                    privacyAction,
+                    LinearLayout.LayoutParams(
+                        0,
+                        settingsDp(context, 42),
+                        1f,
+                    ).apply { marginEnd = settingsDp(context, 6) },
+                )
+                addView(
+                    guideAction,
+                    LinearLayout.LayoutParams(
+                        0,
+                        settingsDp(context, 42),
+                        1f,
+                    ),
+                )
             },
         )
 
@@ -571,7 +559,7 @@ private fun selectSettingsCosmetic(
             if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
             result.fold(onSuccess = { onApplied() }, onFailure = { error ->
                 onFailure()
-                android.app.AlertDialog.Builder(activity)
+                PlywoodAlertDialogBuilder(activity)
                     .setTitle("Could not change appearance")
                     .setMessage(error.message ?: "Please check your connection and try again.")
                     .setPositiveButton("OK", null).show()

@@ -63,17 +63,17 @@ internal fun OfflineGameActivity.showSetup() {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            // Pass & Play follows the Friends/Online surface hierarchy: one
-            // plywood shell contains recessed setup sections. Computer keeps its
-            // dedicated compact selection panel.
+            // Robot and Pass & Play show independent headings and selection
+            // tiles on the bare page, without any parent plywood panels.
             setPadding(
-                if (isComputerMode) 0 else dp(8),
-                if (isComputerMode) 0 else dp(if (isCompactSetup()) 10 else 12),
-                if (isComputerMode) 0 else dp(8),
-                if (isComputerMode) 0 else dp(24),
+                dp(8),
+                if (isComputerMode) dp(if (isCompactSetup()) 64 else 70)
+                    else dp(if (isCompactSetup()) 10 else 12),
+                dp(8),
+                dp(20),
             )
-            // The page itself has no backing panel. Pass & Play's three setup
-            // sections are grouped inside their own shared selection surface below.
+            // No page backing and no section backing. Each selectable tile
+            // still owns its small selection/highlight treatment.
             background = null
         }
     contentHost.addView(
@@ -81,13 +81,8 @@ internal fun OfflineGameActivity.showSetup() {
         FrameLayout.LayoutParams(
             contentWidth,
             FrameLayout.LayoutParams.WRAP_CONTENT,
-            if (isComputerMode) {
-                // Center the complete VS COMPUTER setup in the mobile
-                // viewport when it fits; Pass & Play keeps its existing top flow.
-                Gravity.CENTER
-            } else {
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            },
+            // Both modes now follow the same top-aligned page flow.
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
         ),
     )
 
@@ -101,8 +96,8 @@ internal fun OfflineGameActivity.showSetup() {
 
     var fixedTopActionsBar: FrameLayout? = null
     if (isComputerMode) {
-        // Back/Settings stay fixed to the screen; ROBOT now sits inside
-        // the Computer plywood selection panel, like the Friends title.
+        // Back/Settings and the Robot icon/title share the exact fixed top row.
+        // Selections scroll below without moving the action/title bar.
         fixedTopActionsBar = addGameTopActions(
             host = host,
             context = this,
@@ -114,109 +109,40 @@ internal fun OfflineGameActivity.showSetup() {
                 }
             },
         ).apply {
-            // Use the same plywood action surfaces as the Online page.
-            for (index in 0 until childCount) {
-                getChildAt(index).background =
-                    plywoodBackground(context = this@showSetup, cornerRadiusDp = 999f)
-            }
+            // Robot's title belongs BETWEEN the two 52dp action controls,
+            // vertically centered on their 14dp-from-top baseline.
+            val availableTitleWidth = (
+                resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+            ).coerceAtLeast(dp(108))
+            addView(
+                centeredSetupTitle("ROBOT"),
+                FrameLayout.LayoutParams(
+                    minOf(availableTitleWidth, dp(if (isCompactSetup()) 194 else 224)),
+                    dp(52),
+                    Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                ).apply {
+                    topMargin = dp(14)
+                },
+            )
         }
     } else {
         content.addView(backHeader("PASS & PLAY"))
     }
 
-    // Paw selection and player count share one recessed panel on the computer page.
-    // Pass & Play keeps its existing individual setup panels and color selection.
-    if (isComputerMode) {
-        val combinedSelectionPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            clipChildren = false
-            clipToPadding = false
-            setPadding(
-                dp(8),
-                dp(if (isCompactSetup()) 6 else 8),
-                dp(8),
-                dp(if (isCompactSetup()) 8 else 10),
-            )
-            background = plywoodBackground(
-                context = this@showSetup,
-                cornerRadiusDp = 24f,
-            )
-        }
-        combinedSelectionPanel.addView(
-            centeredSetupTitle("ROBOT"),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { bottomMargin = dp(8) },
-        )
-        combinedSelectionPanel.addView(
-            characterPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        combinedSelectionPanel.addView(
-            playersPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        content.addView(
-            combinedSelectionPanel,
-            setupSectionParams(if (isCompactSetup()) 10 else 12),
-        )
-    } else {
-        // One shared plywood surface for all three Pass & Play setup sections.
-        // The children are transparent so they read as one connected panel.
-        val combinedSelectionPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            clipChildren = false
-            clipToPadding = false
-            setPadding(
-                dp(8),
-                dp(if (isCompactSetup()) 6 else 8),
-                dp(8),
-                dp(if (isCompactSetup()) 8 else 10),
-            )
-            background = plywoodBackground(
-                context = this@showSetup,
-                cornerRadiusDp = 24f,
-            )
-        }
-        combinedSelectionPanel.addView(
-            characterPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        combinedSelectionPanel.addView(
-            playersPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        combinedSelectionPanel.addView(
-            colorPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        content.addView(
-            combinedSelectionPanel,
-            setupSectionParams(if (isCompactSetup()) 10 else 12),
-        )
-    }
+    // Both modes: the same three flat sections with identical vertical
+    // gaps, heading insets and selectable tile layouts.
+    content.addView(
+        characterPanel(),
+        setupSectionParams(if (isCompactSetup()) 10 else 12),
+    )
+    content.addView(
+        playersPanel(),
+        setupSectionParams(if (isCompactSetup()) 10 else 12),
+    )
+    content.addView(
+        colorPanel(),
+        setupSectionParams(if (isCompactSetup()) 10 else 12),
+    )
 
     refreshSetupSelections()
 
@@ -240,7 +166,9 @@ internal fun OfflineGameActivity.showSetup() {
                 showGame(
                     session.start(
                         playerCount = selectedPlayers,
-                        preferredColor = selectedColor,
+                        preferredColor = if (isComputerMode) selectedColor
+                            else selectedColorsBySeat.first(),
+                        colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
                     ),
                 )
             }
@@ -252,7 +180,7 @@ internal fun OfflineGameActivity.showSetup() {
             val sideMargin = if (isCompactSetup()) dp(10) else dp(34)
             setMargins(
                 sideMargin,
-                dp(if (isCompactSetup()) 14 else 18),
+                dp(if (isCompactSetup()) 10 else 14),
                 sideMargin,
                 0,
             )
@@ -277,9 +205,10 @@ internal fun OfflineGameActivity.showSetup() {
         val safeTopInset = maxOf(cutoutTop, statusTop)
         content.setPadding(
             content.paddingLeft,
-            if (isComputerMode) 0 else dp(if (isCompactSetup()) 10 else 12) + safeTopInset,
+            (if (isComputerMode) dp(if (isCompactSetup()) 64 else 70)
+                else dp(if (isCompactSetup()) 10 else 12)) + safeTopInset,
             content.paddingRight,
-            if (isComputerMode) 0 else content.paddingBottom,
+            content.paddingBottom,
         )
         fixedTopActionsBar?.translationY = safeTopInset.toFloat()
         insets

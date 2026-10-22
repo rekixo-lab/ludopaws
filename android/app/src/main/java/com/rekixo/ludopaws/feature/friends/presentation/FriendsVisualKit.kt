@@ -17,7 +17,6 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
-import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.core.ui.art.transparentDarkBlueStrokeBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
@@ -90,18 +89,15 @@ internal object FriendsVisualKit {
             elevation = dp(context, 8).toFloat()
         }
 
-    @Suppress("UNUSED_PARAMETER")
-    fun compactCard(
-        context: Context,
-        accent: Int = CYAN,
-    ): LinearLayout =
+    /** Layout-only section: typography, rows, and buttons sit directly on the page. */
+    fun flatSection(context: Context): LinearLayout =
         LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(context, 12), dp(context, 12), dp(context, 12), dp(context, 12))
-            background = recessedPlywoodBackground(context, outerCornerRadiusDp = 18f)
+            setPadding(dp(context, 4), dp(context, 6), dp(context, 4), dp(context, 6))
+            background = null
+            elevation = 0f
             clipChildren = false
             clipToPadding = false
-            elevation = dp(context, 8).toFloat()
         }
 
     fun rowSurface(context: Context): android.graphics.drawable.Drawable =

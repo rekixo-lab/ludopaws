@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.friends.presentation
 
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -19,7 +19,6 @@ import android.view.WindowInsets
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.PopupMenu
 import android.widget.ScrollView
 import android.widget.TextView
 import com.rekixo.ludopaws.ConnectivityMonitor
@@ -132,7 +131,11 @@ class FriendsActivity : Activity() {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
         }
-        val contentHost = FrameLayout(this)
+        val contentHost = FrameLayout(this).apply {
+            // Symmetric reserved space avoids overlap with the fixed
+            // Friends/ONLINE header without pinning the sections to the top.
+            setPadding(0, dp(96), 0, dp(26))
+        }
         scroll.addView(
             contentHost,
             FrameLayout.LayoutParams(
@@ -141,7 +144,7 @@ class FriendsActivity : Activity() {
             ),
         )
 
-        val horizontalPadding = dp(if (isCompact()) 10 else 18)
+        val horizontalPadding = dp(if (isCompact()) 14 else 22)
         val width = minOf(
             resources.displayMetrics.widthPixels - horizontalPadding * 2,
             dp(LudoProofTheme.pageMaxContentWidthDp(this)),
@@ -150,15 +153,13 @@ class FriendsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(8), dp(12), dp(8), dp(42))
-            background = plywoodBackground(
-                context = this@FriendsActivity,
-                cornerRadiusDp = 24f,
-            )
+            setPadding(dp(6), dp(6), dp(6), dp(22))
+            // Like Robot/Pass & Play, the page itself has no enclosing card.
+            background = null
+            elevation = 0f
         }
-        // Center the whole plywood panel in the ScrollView viewport when it fits.
-        // ScrollView.fillViewport keeps this viewport-sized on short content while
-        // allowing the panel to scroll from the top when its content is taller.
+        // The invisible host centers short Friends sections on the device.
+        // Long friend lists can still grow naturally and scroll from the top.
         val contentLayoutParams = FrameLayout.LayoutParams(
             width,
             FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -173,33 +174,34 @@ class FriendsActivity : Activity() {
             ),
         )
 
-        content.addView(buildHeader())
-        content.addView(View(this), LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(20),
-        ))
-        content.addView(buildIdentityCard(), FriendsVisualKit.sectionGap(this, 9))
-        content.addView(buildAddFriendCard(), FriendsVisualKit.sectionGap(this, 8))
+        // The title and live ONLINE indicator are attached to the fixed
+        // Back/Settings bar, never repeated among scrollable Friends sections.
+        // Independent groups with consistent spacing instead of cramped rows.
+        content.addView(buildIdentitySection(), FriendsVisualKit.sectionGap(this, 10))
+        content.addView(buildAddFriendSection(), FriendsVisualKit.sectionGap(this, 14))
 
-        roomContainer = FriendsVisualKit.compactCard(this, 0xFFFFA22A.toInt())
-        content.addView(roomContainer, FriendsVisualKit.sectionGap(this, 8))
+        roomContainer = FriendsVisualKit.flatSection(this)
+        content.addView(roomContainer, FriendsVisualKit.sectionGap(this, 20))
 
-        inboxContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        content.addView(inboxContainer, FriendsVisualKit.sectionGap(this, 8))
+        inboxContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        content.addView(inboxContainer, FriendsVisualKit.sectionGap(this, 18))
 
-        friendsContainer = FriendsVisualKit.compactCard(this, 0xFF9D78FF.toInt())
-        content.addView(friendsContainer, FriendsVisualKit.sectionGap(this, 8))
+        friendsContainer = FriendsVisualKit.flatSection(this)
+        content.addView(friendsContainer, FriendsVisualKit.sectionGap(this, 20))
 
         statusText = FriendsVisualKit.body(
             this,
             "Invite friends and start a private match.",
-            sizeSp = 10.5f,
+            sizeSp = 11f,
             muted = true,
         ).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
         }
-        content.addView(statusText)
+        content.addView(statusText, FriendsVisualKit.sectionGap(this, 13))
         val topActionsBar =
             addGameTopActions(
                 host = host,
@@ -211,6 +213,28 @@ class FriendsActivity : Activity() {
                     getChildAt(index).background =
                         plywoodBackground(context = this@FriendsActivity, cornerRadiusDp = 999f)
                 }
+
+                // The 52dp title row matches Robot, Online and Team Up:
+                // centered between the fixed Back and Settings buttons.
+                val availableTitleWidth = (
+                    resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+                ).coerceAtLeast(dp(108))
+                addView(
+                    buildFixedFriendsTitle(),
+                    FrameLayout.LayoutParams(
+                        minOf(availableTitleWidth, dp(if (isCompact()) 194 else 224)),
+                        dp(52),
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                    ).apply { topMargin = dp(14) },
+                )
+                addView(
+                    buildFixedFriendsConnectionStatus(),
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        dp(20),
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                    ).apply { topMargin = dp(70) },
+                )
             }
         setContentView(root)
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -228,151 +252,177 @@ class FriendsActivity : Activity() {
                     insets.systemWindowInsetTop
                 }
             val safeTopInset = maxOf(cutoutTop, statusTop)
-            // Keep Back/Settings aligned to the system-bar safe area independently;
-            // the plywood panel itself is centered by contentLayoutParams.
+            // Center short content below the fixed header; long lists scroll.
+            contentHost.setPadding(
+                contentHost.paddingLeft,
+                dp(96) + safeTopInset,
+                contentHost.paddingRight,
+                dp(26),
+            )
             topActionsBar.translationY = safeTopInset.toFloat()
             insets
         }
         root.requestApplyInsets()
     }
 
-    private fun buildHeader(): View {
-        val row = FrameLayout(this).apply { minimumHeight = dp(76) }
-        val titleRow = LinearLayout(this).apply {
+    /** Fixed center title in the same row as Back and Settings. */
+    private fun buildFixedFriendsTitle(): View =
+        LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        titleRow.addView(
-            FriendsVisualKit.iconView(this, FriendsIcon.PEOPLE, FriendsVisualKit.TEXT),
-            LinearLayout.LayoutParams(dp(36), dp(36)),
-        )
-        titleRow.addView(
-            FriendsVisualKit.title(this, "FRIENDS", sizeSp = if (isCompact()) 22f else 26f),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { marginStart = dp(8) },
-        )
-
-        val titleStack = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            background = null
+            elevation = 0f
             addView(
-                titleRow,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    dp(54),
+                FriendsVisualKit.iconView(
+                    this@FriendsActivity,
+                    FriendsIcon.PEOPLE,
+                    FriendsVisualKit.TEXT,
                 ),
+                LinearLayout.LayoutParams(
+                    dp(if (isCompact()) 28 else 32),
+                    dp(if (isCompact()) 28 else 32),
+                ).apply { marginEnd = dp(8) },
             )
             addView(
-                LinearLayout(this@FriendsActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    addView(
-                        LaserStatusDotView(this@FriendsActivity),
-                        LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(5) },
+                TextView(this@FriendsActivity).apply {
+                    text = "FRIENDS"
+                    LudoProofTheme.title(
+                        this,
+                        if (isCompact()) 20f else 23f,
+                        gold = false,
                     )
-                    addView(
-                        FriendsVisualKit.body(this@FriendsActivity, "ONLINE", sizeSp = 10f).apply {
-                            setTextColor(0xFFD4FFB2.toInt())
-                            includeFontPadding = false
-                        },
-                    )
+                    gravity = Gravity.CENTER_VERTICAL
+                    letterSpacing = 0.025f
+                    includeFontPadding = false
+                    maxLines = 1
                 },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = dp(2) },
             )
         }
-        row.addView(
-            titleStack,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER,
-            ),
-        )
-        if (!isCompact()) {
-            row.addView(
-                FriendsHeaderArtView(this),
-                FrameLayout.LayoutParams(dp(174), dp(72), Gravity.END or Gravity.CENTER_VERTICAL),
-            )
-        }
-        return row
-    }
 
-    private fun buildIdentityCard(): View {
-        val card = FriendsVisualKit.compactCard(this, FriendsVisualKit.GOLD)
-        val row = LinearLayout(this).apply {
+    /** Blinking connection dot/status stays directly beneath the fixed title. */
+    private fun buildFixedFriendsConnectionStatus(): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = null
+            elevation = 0f
+            addView(
+                LaserStatusDotView(this@FriendsActivity),
+                LinearLayout.LayoutParams(dp(10), dp(10)).apply {
+                    marginEnd = dp(5)
+                },
+            )
+            addView(
+                FriendsVisualKit.body(this@FriendsActivity, "ONLINE", sizeSp = 10.5f).apply {
+                    setTextColor(0xFFD4FFB2.toInt())
+                    includeFontPadding = false
+                },
+            )
+        }
+
+
+    private fun buildIdentitySection(): View {
+        val section = FriendsVisualKit.flatSection(this)
+        val idRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        row.addView(
+        idRow.addView(
             FriendsVisualKit.iconView(this, FriendsIcon.ID_CARD, FriendsVisualKit.GOLD),
-            LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(7) },
+            LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(10) },
         )
-        val middle = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        middle.addView(FriendsVisualKit.title(this, "YOUR FRIEND ID", 11.5f))
+        val idLabel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(FriendsVisualKit.title(this@FriendsActivity, "YOUR FRIEND ID", 12.5f))
+        }
         friendIdText = FriendsVisualKit.title(
             this,
             credential?.friendId ?: "CREATING…",
-            sizeSp = if (isCompact()) 11.5f else 15f,
+            sizeSp = if (isCompact()) 14f else 16f,
             gold = true,
         ).apply {
             maxLines = 1
             setSingleLine(true)
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(0, dp(3), 0, 0)
+            setPadding(0, dp(4), 0, 0)
         }
-        middle.addView(friendIdText)
-        row.addView(middle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(
+        idLabel.addView(friendIdText)
+        idRow.addView(idLabel, LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f,
+        ))
+        section.addView(idRow)
+
+        // The ID is no longer squeezed between icon, COPY and SHARE.
+        // These standalone actions are equally wide in a second row.
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        actions.addView(
             FriendsVisualKit.button(this, "COPY", FriendsButtonStyle.GREEN, FriendsIcon.COPY) {
                 copyFriendId()
-            }.apply { textSize = 10f },
-            LinearLayout.LayoutParams(dp(66), dp(36)).apply { marginStart = dp(4) },
+            }.apply { textSize = 12f },
+            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(5) },
         )
-        row.addView(
+        actions.addView(
             FriendsVisualKit.button(this, "SHARE", FriendsButtonStyle.BLUE, FriendsIcon.SHARE) {
                 shareFriendId()
-            }.apply { textSize = 10f },
-            LinearLayout.LayoutParams(dp(70), dp(36)).apply { marginStart = dp(4) },
+            }.apply { textSize = 12f },
+            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(5) },
         )
-        card.addView(row)
-        return card
+        section.addView(
+            actions,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(10) },
+        )
+        return section
     }
 
-    private fun buildAddFriendCard(): View {
-        val card = FriendsVisualKit.compactCard(this, FriendsVisualKit.GOLD)
-        val row = LinearLayout(this).apply {
+
+    private fun buildAddFriendSection(): View {
+        val section = FriendsVisualKit.flatSection(this)
+        val heading = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        row.addView(
+        heading.addView(
             FriendsVisualKit.iconView(this, FriendsIcon.ADD_FRIEND, 0xFFD5F1FF.toInt()),
-            LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginEnd = dp(6) },
+            LinearLayout.LayoutParams(dp(29), dp(29)).apply { marginEnd = dp(9) },
         )
-        row.addView(
-            FriendsVisualKit.title(this, "ADD", 12f),
-            LinearLayout.LayoutParams(dp(38), LinearLayout.LayoutParams.WRAP_CONTENT),
+        heading.addView(
+            FriendsVisualKit.title(this, "ADD FRIEND", if (isCompact()) 13.5f else 15f),
         )
-        addFriendInput = FriendsVisualKit.input(this, "Enter Friend ID")
-        addFriendInput.setHintTextColor(Color.WHITE)
-        addFriendInput.textSize = 12f
-        addFriendInput.setPadding(dp(9), 0, dp(9), 0)
-        row.addView(addFriendInput, LinearLayout.LayoutParams(0, dp(42), 1f))
-        row.addView(
+        section.addView(heading)
+
+        val inputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        addFriendInput = FriendsVisualKit.input(this, "Enter Friend ID").apply {
+            setHintTextColor(Color.WHITE)
+            textSize = 13f
+            setPadding(dp(12), 0, dp(12), 0)
+        }
+        inputRow.addView(
+            addFriendInput, LinearLayout.LayoutParams(0, dp(46), 1f),
+        )
+        inputRow.addView(
             FriendsVisualKit.button(
-                this,
-                "SEND",
-                FriendsButtonStyle.ORANGE,
-                FriendsIcon.INVITE,
+                this, "SEND", FriendsButtonStyle.ORANGE, FriendsIcon.INVITE,
             ) { sendFriendRequest() },
-            LinearLayout.LayoutParams(dp(80), dp(42)).apply { marginStart = dp(6) },
+            LinearLayout.LayoutParams(dp(if (isCompact()) 88 else 104), dp(46))
+                .apply { marginStart = dp(9) },
         )
-        card.addView(row)
-        return card
+        section.addView(
+            inputRow,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(9) },
+        )
+        return section
     }
 
     private fun renderAll() {
@@ -395,7 +445,7 @@ class FriendsActivity : Activity() {
                 LinearLayout.LayoutParams(dp(25), dp(25)).apply { marginEnd = dp(6) },
             )
             addView(
-                FriendsVisualKit.title(this@FriendsActivity, "PRIVATE ROOM", 12.5f),
+                FriendsVisualKit.title(this@FriendsActivity, "PRIVATE ROOM", if (isCompact()) 14f else 16f),
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
         }
@@ -472,8 +522,8 @@ class FriendsActivity : Activity() {
             }
             countRow.addView(
                 playerCountButton,
-                LinearLayout.LayoutParams(dp(42), dp(40)).apply {
-                    if (index > 0) marginStart = dp(5)
+                LinearLayout.LayoutParams(dp(44), dp(44)).apply {
+                    if (index > 0) marginStart = dp(6)
                 },
             )
         }
@@ -484,7 +534,7 @@ class FriendsActivity : Activity() {
                 FriendsButtonStyle.PURPLE,
                 FriendsIcon.HOUSE,
             ) { createFriendRoom() },
-            LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginStart = dp(7) },
+            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(9) },
         )
         roomContainer.addView(
             countRow,
@@ -500,7 +550,7 @@ class FriendsActivity : Activity() {
         val incomingCount = snapshot?.optJSONArray("incomingRequests")?.length() ?: 0
         val inviteCount = snapshot?.optJSONArray("invites")?.length() ?: 0
         inboxContainer.addView(
-            inboxCard(
+            inboxAction(
                 title = "FRIEND REQUESTS",
                 summary = if (incomingCount == 0) "No pending" else "$incomingCount pending",
                 icon = FriendsIcon.REQUESTS,
@@ -512,7 +562,7 @@ class FriendsActivity : Activity() {
             },
         )
         inboxContainer.addView(
-            inboxCard(
+            inboxAction(
                 title = "ROOM INVITES",
                 summary = if (inviteCount == 0) "No invites" else "$inviteCount waiting",
                 icon = FriendsIcon.INVITES,
@@ -525,15 +575,17 @@ class FriendsActivity : Activity() {
         )
     }
 
-    private fun inboxCard(
+    private fun inboxAction(
         title: String,
         summary: String,
         icon: FriendsIcon,
         count: Int,
         accent: Int,
         onClick: () -> Unit,
-    ): View = FriendsVisualKit.compactCard(this, accent).apply {
-        setPadding(dp(7), dp(6), dp(7), dp(6))
+    ): View = FriendsVisualKit.flatSection(this).apply {
+        // Requests and invites are interactive buttons, not wooden section cards.
+        background = FriendsVisualKit.rowSurface(this@FriendsActivity)
+        setPadding(dp(9), dp(10), dp(9), dp(10))
         isClickable = true
         isFocusable = true
         AppFocusRing.apply(this, cornerRadiusDp = 18f, strokeWidthDp = 2f)
@@ -559,9 +611,9 @@ class FriendsActivity : Activity() {
         }
         row.addView(iconFrame, LinearLayout.LayoutParams(dp(34), dp(34)))
         val textBox = LinearLayout(this@FriendsActivity).apply { orientation = LinearLayout.VERTICAL }
-        textBox.addView(FriendsVisualKit.title(this@FriendsActivity, title, 9.5f))
+        textBox.addView(FriendsVisualKit.title(this@FriendsActivity, title, if (isCompact()) 10f else 11.5f))
         textBox.addView(
-            FriendsVisualKit.body(this@FriendsActivity, summary, 9f, muted = true),
+            FriendsVisualKit.body(this@FriendsActivity, summary, 10f, muted = true),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -612,80 +664,79 @@ class FriendsActivity : Activity() {
                 player.optString("opponentFriendId").lowercase().contains(query)
         }
 
+
         if (friendsContainer.childCount == 0) {
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val heading = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        heading.addView(
-            FriendsVisualKit.iconView(this, FriendsIcon.PEOPLE, 0xFFDDF5FF.toInt()),
-            LinearLayout.LayoutParams(dp(27), dp(27)).apply { marginEnd = dp(5) },
-        )
-        heading.addView(
-            FriendsVisualKit.title(
-                this,
-                "FRIENDS • RECENT",
-                if (isCompact()) 9.5f else 12f,
-            ),
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-        )
-        header.addView(heading, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        val search = FriendsVisualKit.input(this, "Search friends…").apply {
-            setHintTextColor(Color.WHITE)
-            textSize = 12f
-            setText(friendQuery)
-            setSelection(text.length)
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-                override fun afterTextChanged(s: Editable?) {
-                    val next = s?.toString().orEmpty()
-                    if (next != friendQuery) {
-                        friendQuery = next
-                        renderFriends()
-                    }
-                }
-            })
-        }
-        search.setPadding(
-            search.paddingLeft,
-            search.paddingTop,
-            dp(31),
-            search.paddingBottom,
-        )
-        val searchInputWithIcon = FrameLayout(this).apply {
-            addView(
-                search,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
+            // Full-width search beneath a clear heading; no narrow compact
+            // input or oversized parent container.
+            val header = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val heading = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            heading.addView(
+                FriendsVisualKit.iconView(this, FriendsIcon.PEOPLE, 0xFFDDF5FF.toInt()),
+                LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(8) },
+            )
+            heading.addView(
+                FriendsVisualKit.title(
+                    this, "FRIENDS & RECENT", if (isCompact()) 13f else 15f,
                 ),
             )
-            addView(
-                FriendsVisualKit.iconView(this@FriendsActivity, FriendsIcon.SEARCH, Color.WHITE).apply {
-                    isClickable = false
-                    isFocusable = false
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                },
-                FrameLayout.LayoutParams(
-                    dp(if (isCompact()) 16 else 18),
-                    dp(if (isCompact()) 16 else 18),
-                    Gravity.END or Gravity.CENTER_VERTICAL,
-                ).apply {
-                    marginEnd = dp(9)
-                },
+            header.addView(heading)
+            val search = FriendsVisualKit.input(this, "Search friends…").apply {
+                setHintTextColor(Color.WHITE)
+                textSize = 13f
+                setText(friendQuery)
+                setSelection(text.length)
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                    override fun afterTextChanged(s: Editable?) {
+                        val next = s?.toString().orEmpty()
+                        if (next != friendQuery) {
+                            friendQuery = next
+                            renderFriends()
+                        }
+                    }
+                })
+            }
+            search.setPadding(
+                search.paddingLeft, search.paddingTop, dp(33), search.paddingBottom,
             )
-        }
-        header.addView(
-            searchInputWithIcon,
-            LinearLayout.LayoutParams(if (isCompact()) dp(132) else dp(180), dp(36))
-                .apply { marginStart = dp(6) },
-        )
-        friendsContainer.addView(header)
+            val searchInputWithIcon = FrameLayout(this).apply {
+                addView(
+                    search,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                addView(
+                    FriendsVisualKit.iconView(
+                        this@FriendsActivity, FriendsIcon.SEARCH, Color.WHITE,
+                    ).apply {
+                        isClickable = false
+                        isFocusable = false
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    },
+                    FrameLayout.LayoutParams(
+                        dp(18),
+                        dp(18),
+                        Gravity.END or Gravity.CENTER_VERTICAL,
+                    ).apply { marginEnd = dp(11) },
+                )
+            }
+            header.addView(
+                searchInputWithIcon,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(44),
+                ).apply { topMargin = dp(9) },
+            )
+            friendsContainer.addView(header)
         }
         renderBlockedPlayers()
 
@@ -844,7 +895,7 @@ class FriendsActivity : Activity() {
             isFocusable = true
             contentDescription = "More actions for " + friend.optString("displayName", "friend")
             AppFocusRing.apply(this, cornerRadiusDp = 8f, strokeWidthDp = 2f)
-            setOnClickListener { anchor -> showFriendMenu(anchor, friend) }
+            setOnClickListener { anchor -> showFriendMenu(friend) }
         }
         actions.addView(more, LinearLayout.LayoutParams(dp(26), dp(34)).apply { marginStart = dp(2) })
         row.addView(
@@ -920,7 +971,7 @@ class FriendsActivity : Activity() {
             playFriend(friendId)
             return
         }
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Add friend to play again?")
             .setMessage("$displayName is no longer in your friends list. Send a friend request first?")
             .setNegativeButton("CANCEL", null)
@@ -930,46 +981,36 @@ class FriendsActivity : Activity() {
             .show()
     }
 
-    private fun showFriendMenu(anchor: View, friend: JSONObject) {
-        PopupMenu(this, anchor).apply {
-            menu.add("Copy Friend ID")
-            menu.add("Remove Friend")
-            menu.add("Block Player")
-            menu.add("Report Player")
-            setOnMenuItemClickListener { item ->
-                when (item.title.toString()) {
-                    "Copy Friend ID" -> {
+    private fun showFriendMenu(friend: JSONObject) {
+        // Replace the platform's plain PopupMenu with the same Plywood /
+        // translucent-blue options used throughout the app.
+        PlywoodAlertDialogBuilder(this)
+            .setTitle("FRIEND OPTIONS")
+            .setItems(arrayOf("Copy Friend ID", "Remove Friend", "Block Player", "Report Player")) { _, choice ->
+                when (choice) {
+                    0 -> {
                         copyText("Ludo Paws Friend ID", friend.optString("friendId"))
                         showStatus("Friend ID copied.")
-                        true
                     }
-                    "Remove Friend" -> {
-                        confirmRemoveFriend(
-                            friend.optString("friendId"),
-                            friend.optString("displayName", "Friend"),
-                        )
-                        true
-                    }
-                    "Block Player" -> {
+                    1 -> confirmRemoveFriend(
+                        friend.optString("friendId"),
+                        friend.optString("displayName", "Friend"),
+                    )
+                    2 -> {
                         val friendId = friend.optString("friendId")
                         val name = friend.optString("displayName", "this player")
-                        AlertDialog.Builder(this@FriendsActivity)
+                        PlywoodAlertDialogBuilder(this@FriendsActivity)
                             .setTitle("Block $name?")
                             .setMessage("Blocking removes the friendship and stops future friend requests, invites, and messages. You can unblock later.")
                             .setNegativeButton("CANCEL", null)
                             .setPositiveButton("BLOCK") { _, _ -> blockFriend(friendId) }
                             .show()
-                        true
                     }
-                    "Report Player" -> {
-                        showReportFriend(friend.optString("friendId"))
-                        true
-                    }
-                    else -> false
+                    3 -> showReportFriend(friend.optString("friendId"))
                 }
             }
-            show()
-        }
+            .setNegativeButton("CANCEL", null)
+            .show()
     }
 
     private fun showRequestsDialog() {
@@ -1033,7 +1074,7 @@ class FriendsActivity : Activity() {
 
     private fun showScrollableDialog(title: String, content: View) {
         val scroll = ScrollView(this).apply { addView(content) }
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle(title)
             .setView(scroll)
             .setNegativeButton("CLOSE", null)
@@ -1426,7 +1467,7 @@ class FriendsActivity : Activity() {
     }
 
     private fun confirmRemoveFriend(friendId: String, displayName: String) {
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Remove friend?")
             .setMessage("Remove $displayName ($friendId) from your friends?")
             .setNegativeButton("CANCEL", null)
@@ -1462,7 +1503,7 @@ class FriendsActivity : Activity() {
         if (!FRIEND_ID.matches(friendId)) return
         val labels = arrayOf("Harassment", "Spam", "Hate", "Threats", "Sexual content", "Other")
         val reasons = arrayOf("HARASSMENT", "SPAM", "HATE", "THREATS", "SEXUAL_CONTENT", "OTHER")
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Report player")
             .setItems(labels) { _, selected ->
                 val auth = credential ?: return@setItems

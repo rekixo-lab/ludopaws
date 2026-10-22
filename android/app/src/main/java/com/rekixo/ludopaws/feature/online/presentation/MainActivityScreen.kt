@@ -99,10 +99,9 @@ internal fun MainActivity.buildOnlineMatchScreen() {
 
         registerOnlineBackCallback()
 
-        if (
-            gameMode !=
-            GameMode.ONLINE
-        ) {
+        // The Team Up lobby has the same unboxed vertical flow as Online:
+        // no large hero/banner above its independent controls.
+        if (gameMode != GameMode.ONLINE && gameMode != GameMode.TEAM_UP) {
             val hero = onlineHero()
             onlineHeroPanel = hero
             content.addView(
@@ -241,6 +240,24 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                             context = this@buildOnlineMatchScreen,
                             cornerRadiusDp = 999f,
                         )
+                }
+
+                if (gameMode == GameMode.ONLINE || gameMode == GameMode.TEAM_UP) {
+                    // Robot-style fixed 52dp row for Online and Team Up.
+                    // Neither setup nor matchmaking search can scroll the title away.
+                    val availableTitleWidth = (
+                        resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+                    ).coerceAtLeast(dp(108))
+                    addView(
+                        onlineFixedTitle(),
+                        FrameLayout.LayoutParams(
+                            minOf(availableTitleWidth, dp(if (isCompactOnline()) 194 else 224)),
+                            dp(52),
+                            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                        ).apply {
+                            topMargin = dp(14)
+                        },
+                    )
                 }
             }
 

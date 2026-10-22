@@ -1,6 +1,6 @@
 package com.rekixo.ludopaws.feature.profile.presentation.components
 
-import android.app.AlertDialog
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Dialog
 import android.content.Intent
 import android.graphics.Color
@@ -269,8 +269,7 @@ internal fun ProfileActivity.viewAllBadges() {
 internal fun ProfileActivity.viewPurchases(
     body: String,
 ) {
-    AlertDialog
-        .Builder(this)
+    PlywoodAlertDialogBuilder(this)
         .setTitle(
             "Purchased Products",
         )

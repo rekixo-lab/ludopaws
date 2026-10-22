@@ -24,28 +24,24 @@ internal fun OfflineGameActivity.centeredSetupTitle(label: String): View {
     val badge = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
-        setPadding(
-            dp(if (compact) 10 else 14),
-            dp(4),
-            dp(if (compact) 10 else 14),
-            dp(4),
-        )
-        // The Computer title is intentionally unboxed, with a robot icon on its left.
+        setPadding(dp(2), dp(2), dp(2), dp(2))
+        // Unboxed Robot header is centered between fixed Back and Settings
+        // controls with the same small-icon/title scale as Pass & Play.
         background = null
         elevation = 0f
         addView(
             RobotTitleIconView(this@centeredSetupTitle),
             LinearLayout.LayoutParams(
-                dp(36),
-                dp(36),
+                dp(if (compact) 22 else 26),
+                dp(if (compact) 22 else 26),
             ).apply {
-                marginEnd = dp(8)
+                marginEnd = dp(7)
             },
         )
         addView(
             TextView(this@centeredSetupTitle).apply {
                 text = label
-                LudoProofTheme.title(this, if (compact) 22f else 26f, gold = false)
+                LudoProofTheme.title(this, if (compact) 15f else 19f, gold = false)
                 setPadding(0, 0, 0, 0)
                 includeFontPadding = false
                 maxLines = 1
@@ -58,8 +54,8 @@ internal fun OfflineGameActivity.centeredSetupTitle(label: String): View {
         addView(
             badge,
             FrameLayout.LayoutParams(
-                dp(if (compact) 222 else 254),
-                dp(54),
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                dp(52),
                 Gravity.CENTER,
             ),
         )

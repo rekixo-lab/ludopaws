@@ -252,7 +252,9 @@ internal class LudoPaws3DSceneRenderer {
                         LudoPawsTeamIdentityPolicy.resolve(player.color)
                             ?: return@forEach
                     val character = CharacterRegistry.resolve(
-                        LudoPaws3DCharacterPolicy.characterIdForColor(player.color),
+                        LudoPaws3DCharacterPolicy.characterIdForSeat(
+                state.characterIdsBySeat, player.seat, player.color,
+            ),
                     )
                     player.tokens.forEachIndexed { tokenIndex, currentPosition ->
                         val key =
@@ -707,7 +709,9 @@ internal class LudoPaws3DSceneRenderer {
         // Stay on the cell-center path; characters may hold translation during planted
         // anticipation/contact phases without changing route endpoints or step duration.
         val renderer = CharacterRegistry.resolve(
-            LudoPaws3DCharacterPolicy.characterIdForColor(player.color),
+            LudoPaws3DCharacterPolicy.characterIdForSeat(
+                state.characterIdsBySeat, player.seat, player.color,
+            ),
         ).renderer
         // The character already supplies an eased travel phase. Applying the board
         // helper's cubic ease again concentrates motion into too few FAST frames.

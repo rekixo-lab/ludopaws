@@ -4,7 +4,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.drawable.ColorDrawable
 import android.graphics.RectF
 import android.graphics.RadialGradient
 import android.graphics.Shader
@@ -20,21 +19,16 @@ import android.widget.TextView
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
-import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.core.ui.icons.AppIconVariant
 import com.rekixo.ludopaws.core.ui.icons.AppIconView
 import com.rekixo.ludopaws.feature.offline.*
 import com.rekixo.ludopaws.ui.offline.common.*
 
-internal fun OfflineGameActivity.playersPanel(
-    embeddedInCombinedPanel: Boolean = false,
-):
-    LinearLayout =
+internal fun OfflineGameActivity.playersPanel(): LinearLayout =
     selectionPanel(
         "SELECT PLAYERS",
-        if (isComputerMode) "You + 1–3 computer players" else "",
-        embeddedInCombinedPanel = embeddedInCombinedPanel,
+        "",
     ).apply {
         val playersRow = LinearLayout(this@playersPanel).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -114,15 +108,18 @@ internal fun OfflineGameActivity.playersPanel(
         addView(playersRow)
     }
 
-internal fun OfflineGameActivity.colorPanel(
-    embeddedInCombinedPanel: Boolean = false,
-):
-    LinearLayout =
+internal fun OfflineGameActivity.colorPanel(): LinearLayout =
     selectionPanel(
         "CHOOSE YOUR COLOR",
-        if (isComputerMode) "Your color will rotate to the bottom-left side." else "",
-        embeddedInCombinedPanel = embeddedInCombinedPanel,
+        "",
     ).apply {
+        colorSelectionStatus = TextView(this@colorPanel).apply {
+            textSize = if (isCompactSetup()) 12f else 13f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(0xFFFFD45E.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(6))
+        }.also(::addView)
         val colorRow = LinearLayout(this@colorPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -179,8 +176,7 @@ internal fun OfflineGameActivity.colorPanel(
                 )
                 setOnClickListener { clicked ->
                     clicked.playSelectionPopAnimation()
-                    selectedColor = entry.key
-                    refreshSetupSelections()
+                    selectColorForActiveSlot(entry.key)
                 }
             }
             colorMap[entry.key] = colorTile
@@ -292,39 +288,33 @@ internal fun OfflineGameActivity.localTrustStrip():
 internal fun OfflineGameActivity.selectionPanel(
     title: String,
     subtitle: String,
-    embeddedInCombinedPanel: Boolean = false,
-):
-    LinearLayout =
-    LudoProofTheme.panel(this).apply {
-        val horizontalPadding = if (embeddedInCombinedPanel) {
-            dp(if (isCompactSetup()) 4 else 6)
-        } else {
-            dp(if (isCompactSetup()) 10 else 14)
-        }
-        val verticalPadding = if (embeddedInCombinedPanel) {
-            dp(if (isCompactSetup()) 3 else 5)
-        } else {
-            dp(if (isCompactSetup()) 10 else 14)
-        }
-        setPadding(horizontalPadding, verticalPadding, horizontalPadding, verticalPadding)
-        // Embedded subsections are transparent: their shared parent supplies
-        // the single plywood surface for the combined setup.
-        background = when {
-            embeddedInCombinedPanel -> ColorDrawable(Color.TRANSPARENT)
-            isComputerMode -> recessedPlywoodBackground(
-                context = this@selectionPanel,
-                outerCornerRadiusDp = 20f,
-            )
-            else -> recessedPlywoodBackground(
-                context = this@selectionPanel,
-                outerCornerRadiusDp = 20f,
-            )
-        }
-        if (embeddedInCombinedPanel) elevation = 0f
+): LinearLayout =
+    // Layout only: none of the three setup sections draws a parent card.
+    // Keep headings, selectable animal/player/color tiles and selection glows.
+    LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        clipChildren = false
+        clipToPadding = false
+        setPadding(
+            dp(if (isCompactSetup()) 2 else 4),
+            dp(2),
+            dp(if (isCompactSetup()) 2 else 4),
+            dp(2),
+        )
+        background = null
+        elevation = 0f
 
         val heading = LinearLayout(this@selectionPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            // Same inset and breathing room around all three headings in
+            // Robot and Pass & Play, with no outer section background.
+            setPadding(
+                dp(4),
+                dp(if (isCompactSetup()) 5 else 6),
+                dp(4),
+                dp(if (isCompactSetup()) 7 else 9),
+            )
             val sectionIcon: View = when (title) {
                 "SELECT PLAYERS" -> AppIconView(
                     this@selectionPanel,
@@ -584,8 +574,17 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
         }
     }
 
+    colorSelectionStatus?.text = if (isComputerMode) "YOUR COLOR: $selectedColor"
+    else "PLAYER ${selectedCharacterSlot + 1} COLOR: $selectedColor"
     colorButtons.forEach { (colorName, tile) ->
         val selected = colorName == selectedColor
+        val ownerSeat = selectedColorsBySeat.indexOf(colorName)
+        tile.contentDescription = when {
+            isComputerMode -> "$colorName color"
+            ownerSeat >= 0 && ownerSeat != selectedCharacterSlot ->
+                "$colorName assigned to Player ${ownerSeat + 1}, tap to swap colors automatically"
+            else -> "$colorName color for Player ${selectedCharacterSlot + 1}"
+        }
         tile.background = playerCountSelectionBackground(
             context = this@refreshSetupSelections,
             selected = selected,

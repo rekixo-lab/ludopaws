@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.profile.presentation
 
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.app.AlertDialog
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Build
@@ -284,7 +284,7 @@ class ProfileActivity : Activity() {
 
     private fun showAccountActions() {
         if (accountAuthInProgress) return
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Ludo Paws Account")
             .setView(TextView(this).apply {
                 text = if (accountGoogleLinked) {
@@ -337,7 +337,7 @@ class ProfileActivity : Activity() {
                             setPadding(0, dp(14), 0, dp(8))
                         })
                     }
-                    AlertDialog.Builder(this@ProfileActivity)
+                    PlywoodAlertDialogBuilder(this@ProfileActivity)
                         .setTitle("Guest deletion code")
                         .setView(content)
                         .setPositiveButton("Close", null)
@@ -349,7 +349,7 @@ class ProfileActivity : Activity() {
                     accountAuthInProgress = false
                     accountStatus = "Guest deletion code unavailable"
                     renderProfile()
-                    AlertDialog.Builder(this@ProfileActivity)
+                    PlywoodAlertDialogBuilder(this@ProfileActivity)
                         .setTitle("Could not prepare code")
                         .setMessage(error.message ?: "Connect to the internet and try again. The guest account has not been deleted.")
                         .setPositiveButton("OK", null)
@@ -361,7 +361,7 @@ class ProfileActivity : Activity() {
 
     internal fun confirmAccountDeletion() {
         if (accountAuthInProgress) return
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Delete account and data?")
             .setMessage(
                 "This permanently deletes your Ludo Paws account, server wallet, cosmetics, linked Friend ID and leaderboard profile. This cannot be undone. Your local profile and wallet cache for this account will also be cleared.",
@@ -403,7 +403,7 @@ class ProfileActivity : Activity() {
                     accountSwitchFromId = null
                     accountStatus = if (cleanupErrors.isEmpty()) "Account deleted" else "Account deleted; local cleanup needs attention"
                     renderProfile()
-                    AlertDialog.Builder(this)
+                    PlywoodAlertDialogBuilder(this)
                         .setTitle("Account deleted")
                         .setMessage(
                             if (cleanupErrors.isEmpty()) {
@@ -421,7 +421,7 @@ class ProfileActivity : Activity() {
                     accountAuthInProgress = false
                     accountStatus = "Account deletion not completed"
                     renderProfile()
-                    AlertDialog.Builder(this)
+                    PlywoodAlertDialogBuilder(this)
                         .setTitle("Account not deleted")
                         .setMessage(error.message ?: "The account service could not complete deletion. Your account session has been kept so you can try again.")
                         .setPositiveButton("OK", null)
@@ -432,7 +432,7 @@ class ProfileActivity : Activity() {
     }
 
     private fun confirmAccountRestore() {
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Restore another account?")
             .setMessage(
                 "This will switch the active account on this device. The current guest profile, its Friend ID, leaderboard identity and inventory will not be merged into the restored account. If you have not saved the current guest to Google, cancel and save it first.",
@@ -480,7 +480,7 @@ class ProfileActivity : Activity() {
     private fun startGoogleAccountFlow(linkCurrentAccount: Boolean) {
         if (accountAuthInProgress) return
         if (!isAccountSignInConfigured) {
-            AlertDialog.Builder(this)
+            PlywoodAlertDialogBuilder(this)
                 .setTitle("Google account setup required")
                 .setMessage("Google account sign-in has not been configured for this build. The game can still be played as a guest, but account linking is not available yet.")
                 .setPositiveButton("OK", null)
@@ -620,7 +620,7 @@ class ProfileActivity : Activity() {
                                     "Account restored · ${session?.displayName ?: "Player"}"
                                 }
                                 renderProfile()
-                                AlertDialog.Builder(this@ProfileActivity)
+                                PlywoodAlertDialogBuilder(this@ProfileActivity)
                                     .setTitle(if (linkCurrentAccount) "Account saved" else "Account restored")
                                     .setMessage(
                                         if (linkCurrentAccount) {
@@ -689,7 +689,7 @@ class ProfileActivity : Activity() {
             accountStatus = message.take(100)
             renderProfile()
             if (!success) {
-                AlertDialog.Builder(this)
+                PlywoodAlertDialogBuilder(this)
                     .setTitle("Ludo Paws Account")
                     .setMessage(message)
                     .setPositiveButton("OK", null)
@@ -706,7 +706,7 @@ class ProfileActivity : Activity() {
     private fun startPlayGamesSignIn() {
         if (!isPlayGamesConfigured) {
             playGamesStatus = getString(R.string.profile_play_games_setup_button_message)
-            AlertDialog.Builder(this)
+            PlywoodAlertDialogBuilder(this)
                 .setTitle("Google Play Games")
                 .setMessage(playGamesStatus)
                 .setPositiveButton("OK", null)
@@ -748,7 +748,7 @@ class ProfileActivity : Activity() {
                             }
                             ?: getString(R.string.profile_play_games_sign_in_failed)
                     renderProfile()
-                    AlertDialog.Builder(this)
+                    PlywoodAlertDialogBuilder(this)
                         .setTitle("Google Play Games")
                         .setMessage(playGamesStatus)
                         .setPositiveButton("OK", null)
@@ -762,7 +762,7 @@ class ProfileActivity : Activity() {
                     playGamesStatus =
                         getString(R.string.profile_play_games_sign_in_not_completed)
                     renderProfile()
-                    AlertDialog.Builder(this)
+                    PlywoodAlertDialogBuilder(this)
                         .setTitle("Google Play Games")
                         .setMessage(playGamesStatus)
                         .setPositiveButton("OK", null)

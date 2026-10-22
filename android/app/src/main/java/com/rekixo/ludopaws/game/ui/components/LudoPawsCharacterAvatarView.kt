@@ -47,6 +47,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         0xFF5BE0FF.toInt()
     private var highlighted: Boolean = false
     private var showCircularChrome: Boolean = true
+    private var showTeamBadge: Boolean = false
     private var modelTeamColor: String = LudoPawsTeamColor.BLUE.wireName
     private var requestedPortraitKey: String? = null
     private var portraitBitmap: Bitmap? = null
@@ -57,6 +58,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         highlighted: Boolean = false,
         modelTeamColor: String? = null,
         showCircularChrome: Boolean = true,
+        showTeamBadge: Boolean = false,
     ) {
         this.characterId =
             LudoPawsCharacterCatalog
@@ -65,6 +67,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         this.ringColor = ringColor
         this.highlighted = highlighted
         this.showCircularChrome = showCircularChrome
+        this.showTeamBadge = showTeamBadge
         this.modelTeamColor =
             LudoPawsTeamIdentityPolicy
                 .resolve(modelTeamColor)
@@ -153,6 +156,20 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             // Keep a non-blank immediate fallback while the shared 3D portrait
             // is generated, or if ES3/off-screen rendering is unavailable.
             CharacterRegistry.resolve(characterId).avatar.draw(avatarContext, canvas)
+        }
+
+        if (showTeamBadge) {
+            // Always distinguish player colors, even when the 3D texture
+            // is not ready and the vector fallback is displayed.
+            val badgeColor = LudoPawsTeamIdentityPolicy.resolve(modelTeamColor)?.argb
+                ?: ringColor
+            fill.color = 0xFFFFFFFF.toInt()
+            canvas.drawCircle(87f, 87f, 12f, fill)
+            fill.color = badgeColor
+            canvas.drawCircle(87f, 87f, 9f, fill)
+            stroke.color = 0xAA061A32.toInt()
+            stroke.strokeWidth = 2f
+            canvas.drawCircle(87f, 87f, 9f, stroke)
         }
 
         canvas.restore()

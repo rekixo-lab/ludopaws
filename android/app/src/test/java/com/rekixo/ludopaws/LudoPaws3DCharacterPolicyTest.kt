@@ -6,6 +6,22 @@ import org.junit.Test
 
 class LudoPaws3DCharacterPolicyTest {
     @Test
+    fun `four pass and play seats keep their animal when team colors are rearranged`() {
+        val pawBySeat = listOf("dog", "cat", "duck", "goat")
+        val colorsBySeat = listOf("YELLOW", "GREEN", "RED", "BLUE")
+        colorsBySeat.forEachIndexed { seat, color ->
+            assertEquals(
+                pawBySeat[seat],
+                LudoPaws3DCharacterPolicy.characterIdForSeat(
+                    characterIdsBySeat = pawBySeat,
+                    seat = seat,
+                    fallbackColor = color,
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `canonical selected characters resolve to matching production species`() {
         assertEquals(
             LudoPaws3DSpecies.DOG,

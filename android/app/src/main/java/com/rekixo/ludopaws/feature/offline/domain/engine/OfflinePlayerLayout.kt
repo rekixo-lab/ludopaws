@@ -98,6 +98,68 @@ object OfflinePlayerLayout {
             ) %
             4
 
+    /**
+     * Each seat owns its selected color. Initial two-player defaults use opposite
+     * corners, but explicit selections can use any two distinct colors.
+     * Revalidating persisted choices must NEVER rewrite a valid seat color.
+     */
+    fun normalizeColorsForSeats(
+        playerCount: Int,
+        requestedColors: List<String>,
+        preferredColor: String = "BLUE",
+    ): List<String> {
+        require(playerCount in 2..4)
+        val safePreferred = preferredColor.takeIf(COLORS::contains) ?: "BLUE"
+        val defaults = colorsFor(playerCount, safePreferred)
+        if (requestedColors.isEmpty()) return defaults
+        val assigned = MutableList<String?>(playerCount) { null }
+        val used = mutableSetOf<String>()
+        for (seat in 0 until playerCount) {
+            val requested = requestedColors.getOrNull(seat)
+            if (requested != null && requested in COLORS && used.add(requested)) {
+                assigned[seat] = requested
+            }
+        }
+        for (seat in 0 until playerCount) {
+            if (assigned[seat] == null) {
+                val fallback = (defaults + COLORS).first { it !in used }
+                assigned[seat] = fallback
+                used += fallback
+            }
+        }
+        val result = assigned.map { requireNotNull(it) }
+        return result
+    }
+
+    /**
+     * Apply a color tap immediately for Pass & Play.
+     *
+     * An unclaimed color changes only this seat. If another seat already owns
+     * the requested color, exchange the two colors atomically while leaving
+     * all other player seats untouched. Selecting the current color is a no-op.
+     */
+    fun selectColorForSeat(
+        playerCount: Int,
+        currentColors: List<String>,
+        selectedSeat: Int,
+        requestedColor: String,
+    ): List<String> {
+        require(selectedSeat in 0 until playerCount)
+        require(requestedColor in COLORS)
+        val colors = normalizeColorsForSeats(
+            playerCount, currentColors, currentColors.firstOrNull() ?: "BLUE",
+        ).toMutableList()
+        val owner = colors.indexOf(requestedColor)
+        if (owner == selectedSeat) return colors
+
+        val previousColor = colors[selectedSeat]
+        colors[selectedSeat] = requestedColor
+        if (owner >= 0) {
+            colors[owner] = previousColor
+        }
+        return colors
+    }
+
     private fun colorIndex(
         color: String,
     ): Int =

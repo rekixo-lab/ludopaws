@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.safety
 
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Context
 import java.util.WeakHashMap
 
@@ -27,7 +27,7 @@ internal object FamilyAgeScreen {
         if (activity.isFinishing || activity.isDestroyed) return
         pending[activity]?.let { it.add(onComplete); return }
         pending[activity] = mutableListOf(onComplete)
-        AlertDialog.Builder(activity)
+        PlywoodAlertDialogBuilder(activity)
             .setTitle("Age and privacy")
             .setView(android.widget.TextView(activity).apply {
                 text = "Choose your age group. This stays on this device. All players receive the same family-safe gameplay and child-directed ad treatment. Change this in Profile → Age and privacy."
@@ -47,7 +47,7 @@ internal object FamilyAgeScreen {
     fun withOptionalGoogle(activity: Activity, action: () -> Unit) {
         ensureChoice(activity) {
             if (optionalGoogleAllowed(activity)) action()
-            else AlertDialog.Builder(activity)
+            else PlywoodAlertDialogBuilder(activity)
                 .setTitle("Continue with your game account")
                 .setMessage("Optional Google identity services are unavailable for this privacy setting. Offline and online gameplay, Friends, store items and fixed quick-chat remain available. For help with an existing account, contact AI@rekixo.com.")
                 .setPositiveButton("OK", null).show()

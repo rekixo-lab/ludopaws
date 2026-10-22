@@ -5,6 +5,7 @@ import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.FrameLayout
@@ -50,6 +51,7 @@ internal object OnlineLudoPawsPresentation {
         var railDiagnosticKey: String? = null,
         val topProfileCards: MutableList<View> = mutableListOf(),
         val bottomProfileCards: MutableList<View> = mutableListOf(),
+        val playerCardsById: MutableMap<String, LudoPawsPlayerCardView> = mutableMapOf(),
         var activeDiceProfileCard: View? = null,
     )
 
@@ -129,6 +131,7 @@ internal object OnlineLudoPawsPresentation {
         host.activeDiceProfileCard = null
         host.feedbackLedger.clear()
         host.railBindingKey = null
+        host.playerCardsById.clear()
         host.activeDiceControl = null
         host.activeDicePlayerId = null
         host.activeDiceProfileCard = null
@@ -708,9 +711,9 @@ internal object OnlineLudoPawsPresentation {
             val localPlayer = player.playerId == activity.playerId
             val playerWidth = dp(activity, 112)
             val quickChatEnabled = GameSettingsStore(activity).snapshot().quickChatEnabled
+            // Footer geometry stays fixed when Quick Chat is switched on/off.
             val reserveProfileFooter =
-                quickChatEnabled &&
-                    state.status == "ACTIVE"
+                state.status == "ACTIVE"
             val activeDiceControl =
                 if (active) {
                     activeOnlineDiceControl(
@@ -730,18 +733,21 @@ internal object OnlineLudoPawsPresentation {
             if (alignEnd && activeDiceControl != null) {
                 slotHost.addView(activeDiceControl)
             }
+            // Reuse the portrait view across authoritative snapshot refreshes.
             val playerCard =
-                LudoPawsPlayerCardView(activity).apply {
-                    bind(
-                        player = player,
-                        characterId = characterIdsBySeat.getOrNull(player.seat),
-                        active = active,
-                        computer = player.playerType == "BOT",
-                        compact = true,
-                        localPlayer = localPlayer,
-                        portraitOnEnd = alignEnd,
-                    )
+                quickChatHost.playerCardsById.getOrPut(player.playerId) {
+                    LudoPawsPlayerCardView(activity)
                 }
+            (playerCard.parent as? ViewGroup)?.removeView(playerCard)
+            playerCard.bind(
+                player = player,
+                characterId = characterIdsBySeat.getOrNull(player.seat),
+                active = active,
+                computer = player.playerType == "BOT",
+                compact = true,
+                localPlayer = localPlayer,
+                portraitOnEnd = alignEnd,
+            )
             if (rail === quickChatHost.topRail) {
                 quickChatHost.topProfileCards += playerCard
             } else {

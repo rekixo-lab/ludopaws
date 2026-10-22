@@ -3,6 +3,7 @@ package com.rekixo.ludopaws.ui.offline.gameplay
 import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import com.rekixo.ludopaws.*
@@ -179,23 +180,23 @@ private fun OfflineGameActivity.addPlayerSlot(
         val humanIsBottom =
             humanSlot == OfflinePlayerLayout.Slot.BOTTOM_LEFT ||
                 humanSlot == OfflinePlayerLayout.Slot.BOTTOM_RIGHT
-        // Reserve the same profile footer for both players on the human's rail row.
-        // This stops the active profile/card/dice from shifting upward when chat appears.
+        // Always reserve the same footer on the human's row, even when Quick Chat
+        // is disabled. Visibility alone must not remeasure or shift the cards.
         val reserveProfileFooter =
             isComputerMode &&
                 hasComputerOpponent &&
                 humanPlayerCount == 1 &&
-                quickChatEnabled &&
                 slotIsBottom == humanIsBottom
         val showQuickChat =
             reserveProfileFooter &&
+                quickChatEnabled &&
                 !computerPlayer
 
         val activeDiceView =
             if (active) {
                 activeDiceControl(player).apply {
                     if (reserveProfileFooter) {
-                        translationY = -dp(10).toFloat()
+                        translationY = -dp(15).toFloat()
                     }
                 }
             } else {
@@ -205,17 +206,21 @@ private fun OfflineGameActivity.addPlayerSlot(
             host.addView(requireNotNull(activeDiceView))
         }
 
+        // Preserve the same portrait instance across turns, dice rolls and
+        // quick-chat rebinds. Recreating it briefly flashes vector fallback art.
         val playerCard =
-            LudoPawsPlayerCardView(this).apply {
-                bind(
-                    player = player,
-                    characterId = characterId,
-                    active = active,
-                    computer = computerPlayer,
-                    compact = isCompactSetup(),
-                    portraitOnEnd = alignEnd,
-                )
+            playerCardViewsBySeat.getOrPut(player.seat) {
+                LudoPawsPlayerCardView(this)
             }
+        (playerCard.parent as? ViewGroup)?.removeView(playerCard)
+        playerCard.bind(
+            player = player,
+            characterId = characterId,
+            active = active,
+            computer = computerPlayer,
+            compact = isCompactSetup(),
+            portraitOnEnd = alignEnd,
+        )
         val quickChatButton =
             QuickChatButtonView(this).apply {
                 visibility = if (showQuickChat) View.VISIBLE else View.GONE
@@ -252,7 +257,7 @@ private fun OfflineGameActivity.addPlayerSlot(
                 clipToPadding = false
                 setPadding(
                     0,
-                    if (reserveProfileFooter) dp(18) else 0,
+                    if (reserveProfileFooter) dp(9) else 0,
                     0,
                     0,
                 )
@@ -264,8 +269,8 @@ private fun OfflineGameActivity.addPlayerSlot(
                     ),
                 )
                 if (reserveProfileFooter) {
-                    // Fixed footer height for the human and adjacent CPU profile.
-                    // A GONE CPU button leaves the same measured row, keeping all cards aligned.
+                    // Fixed footer height even with chat disabled or on the CPU side.
+                    // The control is GONE, but its parent slot keeps its measured height.
                     val chatSlot =
                         FrameLayout(this@addPlayerSlot).apply {
                             clipChildren = false

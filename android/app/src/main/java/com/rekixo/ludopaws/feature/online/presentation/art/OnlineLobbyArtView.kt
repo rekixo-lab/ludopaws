@@ -34,46 +34,8 @@ class OnlineLobbyArtView @JvmOverloads constructor(
             return
         }
 
-        paint.shader =
-            LinearGradient(
-                0f,
-                0f,
-                w,
-                h,
-                intArrayOf(
-                    0xFF052B70.toInt(),
-                    0xFF0860C2.toInt(),
-                    0xFF031840.toInt(),
-                ),
-                null,
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            0f,
-            0f,
-            w,
-            h,
-            dp(20f),
-            dp(20f),
-            paint,
-        )
-        paint.shader =
-            null
-
-        stroke.color =
-            0xFF49DFFF.toInt()
-        stroke.strokeWidth =
-            dp(2f)
-        canvas.drawRoundRect(
-            dp(1f),
-            dp(1f),
-            w - dp(1f),
-            h - dp(1f),
-            dp(20f),
-            dp(20f),
-            stroke,
-        )
-
+        // Unboxed Team Up artwork: keep the globe, shield, nodes and glow,
+        // but draw no blue panel fill or border behind the components.
         val cx =
             w * .22f
         val cy =
