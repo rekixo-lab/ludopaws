@@ -34,15 +34,16 @@ import com.rekixo.ludopaws.feature.online.cancelPublicMatchmaking
 import com.rekixo.ludopaws.feature.online.selectPublicPlayerCount
 
 /**
- * Robot-style fixed ONLINE heading between Back and Settings.
- * This view belongs to the top actions layer, not the scrolling lobby,
- * so it remains centered during both setup and matchmaking search.
+ * Robot-style fixed ONLINE / TEAM UP heading between Back and Settings.
+ * The scrollable setup and searching views only contain independent controls,
+ * so both modes keep exactly one title, visible while matchmaking.
  */
 internal fun MainActivity.onlineFixedTitle(): FrameLayout =
     FrameLayout(this).apply {
         clipChildren = false
         clipToPadding = false
         val compact = isCompactOnline()
+        val isTeamUp = gameMode == GameMode.TEAM_UP
         val titleRow = LinearLayout(this@onlineFixedTitle).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -50,7 +51,7 @@ internal fun MainActivity.onlineFixedTitle(): FrameLayout =
             elevation = 0f
             addView(
                 ModeArtView(this@onlineFixedTitle).apply {
-                    mode = ModeArtView.Mode.ONLINE
+                    mode = if (isTeamUp) ModeArtView.Mode.TEAM_UP else ModeArtView.Mode.ONLINE
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 },
                 LinearLayout.LayoutParams(
@@ -60,7 +61,7 @@ internal fun MainActivity.onlineFixedTitle(): FrameLayout =
             )
             addView(
                 TextView(this@onlineFixedTitle).apply {
-                    text = "ONLINE"
+                    text = if (isTeamUp) "TEAM UP" else "ONLINE"
                     LudoProofTheme.title(this, if (compact) 15f else 19f, gold = false)
                     gravity = Gravity.CENTER_VERTICAL
                     includeFontPadding = false
@@ -78,47 +79,51 @@ internal fun MainActivity.onlineFixedTitle(): FrameLayout =
         )
     }
 
+/**
+ * Independent Team Up description underneath the fixed top bar.
+ * Its small text has no enclosing card, shadow or background.
+ */
+private fun MainActivity.teamUpDetails(): LinearLayout =
+    LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+        background = null
+        elevation = 0f
+        addView(
+            TextView(this@teamUpDetails).apply {
+                text = "Red + Yellow vs Green + Blue"
+                LudoProofTheme.body(
+                    this,
+                    if (isCompactOnline()) 12f else 13f,
+                    centered = true,
+                    bright = true,
+                )
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+            },
+        )
+        addView(
+            TextView(this@teamUpDetails).apply {
+                text = "Remote server dice authority • exit forfeits your team"
+                LudoProofTheme.body(
+                    this,
+                    if (isCompactOnline()) 9.5f else 10.5f,
+                    centered = true,
+                    bright = true,
+                )
+                gravity = Gravity.CENTER
+                setPadding(0, dp(4), 0, 0)
+            },
+        )
+    }
+
 private fun MainActivity.onlineModePanelHeader(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         val compact = isCompactOnline()
-        // Team Up keeps its existing scrolling header. ONLINE has exactly one
-        // title in the fixed Back/Settings bar, including during matchmaking.
-        if (gameMode != GameMode.ONLINE) {
-            val isTeamUp = gameMode == GameMode.TEAM_UP
-            val iconSize = if (isTeamUp) { if (compact) 34 else 38 } else 36
-            val titleSize = if (isTeamUp) { if (compact) 20f else 23f } else { if (compact) 22f else 26f }
-            addView(
-                LinearLayout(this@onlineModePanelHeader).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    addView(
-                        ModeArtView(this@onlineModePanelHeader).apply {
-                            mode = if (isTeamUp) ModeArtView.Mode.TEAM_UP else ModeArtView.Mode.ONLINE
-                            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                        },
-                        LinearLayout.LayoutParams(
-                            dp(iconSize),
-                            dp(iconSize),
-                        ).apply { marginEnd = dp(8) },
-                    )
-                    addView(
-                        TextView(this@onlineModePanelHeader).apply {
-                            text = if (isTeamUp) "TEAM UP" else "ONLINE"
-                            LudoProofTheme.title(this, titleSize)
-                            gravity = Gravity.CENTER_VERTICAL
-                            maxLines = 1
-                            includeFontPadding = false
-                        },
-                        LinearLayout.LayoutParams(
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                            LinearLayout.LayoutParams.WRAP_CONTENT,
-                        ),
-                    )
-                },
-            )
-        }
+        // The mode title sits in the shared fixed top bar. Both scrolling
+        // states keep only the live connection-status indicator here.
         val statusRow = LinearLayout(this@onlineModePanelHeader).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -239,15 +244,31 @@ internal fun MainActivity.onlineLobbyPanel():
                     ).apply { bottomMargin = dp(8) },
                 )
 
+                if (gameMode == GameMode.TEAM_UP) {
+                    addView(
+                        teamUpDetails(),
+                        LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                        ).apply { bottomMargin = dp(10) },
+                    )
+                }
+
                 // Show the selected Ludo Paws character here as well as during matchmaking.
                 val selectionOwnAvatar =
                     FrameLayout(this@onlineLobbyPanel).apply {
-                        background =
-                            recessedPlywoodBackground(
+                        if (gameMode == GameMode.TEAM_UP) {
+                            // Independent character art, not a recessed card.
+                            background = null
+                            elevation = 0f
+                            setPadding(0, 0, 0, 0)
+                        } else {
+                            background = recessedPlywoodBackground(
                                 context = this@onlineLobbyPanel,
                                 outerCornerRadiusDp = 18f,
                             )
-                        setPadding(dp(3), dp(3), dp(3), dp(3))
+                            setPadding(dp(3), dp(3), dp(3), dp(3))
+                        }
                         contentDescription = "Your selected character"
                         addView(
                             LudoPawsCharacterAvatarView(
@@ -469,7 +490,7 @@ internal fun MainActivity.onlineLobbyPanel():
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
-                topMargin = dp(if (gameMode != GameMode.ONLINE) 10 else if (isCompactOnline()) 64 else 72)
+                topMargin = dp(if (isCompactOnline()) 64 else 72)
             },
         )
 
@@ -517,17 +538,32 @@ internal fun MainActivity.onlineLobbyPanel():
                     ).apply { bottomMargin = dp(8) },
                 )
 
+                if (gameMode == GameMode.TEAM_UP) {
+                    addView(
+                        teamUpDetails(),
+                        LinearLayout.LayoutParams(
+                            LinearLayout.LayoutParams.MATCH_PARENT,
+                            LinearLayout.LayoutParams.WRAP_CONTENT,
+                        ).apply { bottomMargin = dp(10) },
+                    )
+                }
+
                 val ownAvatar =
                     FrameLayout(
                         this@onlineLobbyPanel,
                     ).apply {
-                        // Reuse the carved plywood pocket instead of the old blue avatar plate.
-                        background =
-                            recessedPlywoodBackground(
+                        if (gameMode == GameMode.TEAM_UP) {
+                            // Independent character art, not a recessed card.
+                            background = null
+                            elevation = 0f
+                            setPadding(0, 0, 0, 0)
+                        } else {
+                            background = recessedPlywoodBackground(
                                 context = this@onlineLobbyPanel,
                                 outerCornerRadiusDp = 14f,
                             )
-                        setPadding(dp(3), dp(3), dp(3), dp(3))
+                            setPadding(dp(3), dp(3), dp(3), dp(3))
+                        }
                         addView(
                             LudoPawsCharacterAvatarView(
                                 this@onlineLobbyPanel,
@@ -742,7 +778,7 @@ internal fun MainActivity.onlineLobbyPanel():
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
                 // Align standalone searching controls with standalone setup controls.
-                topMargin = dp(if (gameMode != GameMode.ONLINE) 10 else if (isCompactOnline()) 64 else 72)
+                topMargin = dp(if (isCompactOnline()) 64 else 72)
             },
         )
 

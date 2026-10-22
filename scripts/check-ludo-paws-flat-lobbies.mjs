@@ -35,7 +35,8 @@ for (const part of ["playerCountSelectionBackground(", "playGamesSignInBackgroun
   "matchmakingSetupPanel", "matchmakingSearchPanel", "beginPublicMatchmaking()", "cancelPublicMatchmaking()"]) {
   assert.ok(online.includes(part), "Online feature must remain operational: " + part);
 }
-assert.ok(online.includes("gameMode != GameMode.ONLINE"), "Team Up hero must have correct top spacing");
+assert.equal((online.match(/topMargin = dp\(if \(isCompactOnline\(\)\) 64 else 72\)/g) || []).length, 2,
+  "Both lobbies must start below fixed title and Back/Settings controls");
 const heroArtwork = region(hero, "override fun onDraw(", "private fun drawShield(", "Team Up hero drawing");
 assert.doesNotMatch(heroArtwork, /LinearGradient\(/, "Team Up hero must not repaint a panel background");
 assert.doesNotMatch(heroArtwork, /canvas\.drawRoundRect\(/, "Team Up hero must not draw a rectangular card border");
@@ -66,19 +67,41 @@ for (const part of ["background = inputSurface(context)", "background = buttonBa
 // inside each state, but never repeat the big ONLINE heading in scroll content.
 const onlineScreen = read("feature/online/presentation/MainActivityScreen.kt");
 const fixedStart = region(online, "internal fun MainActivity.onlineFixedTitle()", "private fun MainActivity.onlineModePanelHeader()", "fixed ONLINE title");
-assert.match(fixedStart, /text = "ONLINE"/, "ONLINE fixed title text");
-assert.match(fixedStart, /ModeArtView\.Mode\.ONLINE/, "ONLINE title icon");
+assert.match(fixedStart, /text = if \(isTeamUp\) "TEAM UP" else "ONLINE"/, "Both fixed title labels");
+assert.match(fixedStart, /ModeArtView\.Mode\.TEAM_UP else ModeArtView\.Mode\.ONLINE/, "Both fixed mode icons");
 assert.match(fixedStart, /background = null/, "ONLINE title must stay unboxed");
 assert.match(fixedStart, /15f else 19f/, "ONLINE title matches Robot size");
 const topBar = region(onlineScreen, "val topActionsBar =", "setContentView(root)", "fixed Online Back/Settings bar");
-assert.match(topBar, /if \(gameMode == GameMode\.ONLINE\)/, "fixed heading must be Online-only");
+assert.match(topBar, /gameMode == GameMode\.ONLINE \|\| gameMode == GameMode\.TEAM_UP/, "fixed heading applies to both modes");
 assert.match(topBar, /onlineFixedTitle\(\)/, "title is attached to fixed top bar");
 assert.match(topBar, /Gravity\.TOP or Gravity\.CENTER_HORIZONTAL/, "title is centered between Back and Settings");
 assert.match(topBar, /topMargin = dp\(14\)/, "title aligns with Back/Settings vertically");
 assert.match(onlineScreen, /topActionsBar\.translationY = safeTopInset\.toFloat\(\)/, "title follows safe cutout inset");
 const scrollingHeader = region(online, "private fun MainActivity.onlineModePanelHeader()", "internal fun MainActivity.onlineLobbyPanel()", "scrolling header");
-assert.match(scrollingHeader, /if \(gameMode != GameMode\.ONLINE\)/, "only Team Up keeps scrolling title");
+assert.doesNotMatch(scrollingHeader, /ModeArtView|text = "TEAM UP"/, "Neither mode repeats its title in scrolling content");
 assert.match(scrollingHeader, /this@onlineModePanelHeader\.connectionTexts\.add\(statusLabel\)/, "connection status still updates");
 assert.equal((online.match(/onlineModePanelHeader\(\),/g) || []).length, 2,
   "initial setup and searching retain status rows without duplicated title");
-console.log("Unboxed lobbies and fixed Online title gate passed; setup and matchmaking share the Robot-style top row.");
+
+const teamUpHeroCase = region(onlineScreen, "// The Team Up lobby has", "lobbyPanel =", "Team Up banner routing");
+assert.match(teamUpHeroCase, /gameMode != GameMode\.ONLINE && gameMode != GameMode\.TEAM_UP/,
+  "Team Up must not include the old oversized hero banner");
+assert.equal((online.match(/teamUpDetails\(\),/g) || []).length, 2,
+  "Team Up description must remain visible in both setup and search");
+const details = region(online, "private fun MainActivity.teamUpDetails()", "private fun MainActivity.onlineModePanelHeader()", "flat Team Up details");
+for (const snippet of ["Red + Yellow vs Green + Blue",
+  "Remote server dice authority • exit forfeits your team",
+  "background = null", "elevation = 0f"]) {
+  assert.ok(details.includes(snippet), "Unboxed Team Up information missing: " + snippet);
+}
+const selectedAvatar = region(online, "val selectionOwnAvatar =", "addView(\n                    selectionOwnAvatar,", "Team Up setup character");
+const searchAvatar = region(online, "val ownAvatar =", "addView(\n                    ownAvatar,", "Team Up searching character");
+for (const [label, avatar] of [["setup", selectedAvatar], ["searching", searchAvatar]]) {
+  assert.match(avatar, /if \(gameMode == GameMode\.TEAM_UP\)/,
+    "Team Up " + label + " character must independently remove its plywood surface");
+  assert.match(avatar, /background = null/, "Team Up " + label + " character needs no card");
+  assert.match(avatar, /setPadding\(0, 0, 0, 0\)/, "Team Up " + label + " removes old recessed-card padding");
+  assert.match(avatar, /else \{\s*background = recessedPlywoodBackground/,
+    "Online " + label + " remains exactly as before");
+}
+console.log("Flat Online/Team Up/Friends lobby and both fixed mode title checks passed.");
