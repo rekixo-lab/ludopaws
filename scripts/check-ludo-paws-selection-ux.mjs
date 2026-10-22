@@ -140,6 +140,24 @@ for (const [source, markers, label] of [
   }
 }
 
+// Seat color must reach both selected-pet previews and all active 3D pawns.
+const avatarView = read(
+  "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/LudoPawsCharacterAvatarView.kt",
+);
+const sceneRenderer = read(
+  "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/LudoPaws3DSceneRenderer.kt",
+);
+for (const [source, markers, label] of [
+  [ui, ["modelTeamColor = selectedColor", "showTeamBadge = true", "ForegroundColorSpan(seatTint)"], "character previews"],
+  [avatarView, ["showTeamBadge: Boolean = false", "resolve(modelTeamColor)?.argb", "canvas.drawCircle(83f, 83f, 9f, fill)"], "avatar team badges"],
+  [sceneRenderer, ["characterIdForSeat(", "state.characterIdsBySeat, player.seat, player.color"], "3D seat-based pawns"],
+]) {
+  for (const marker of markers) requireText(source, marker, label);
+}
+if (sceneRenderer.includes("characterIdForColor(player.color)")) {
+  throw new Error("Ludo Paws selection UX gate: pawn renderer still falls back to color instead of seat identity");
+}
+
 console.log(
   "Ludo Paws selection UX gate passed: unique starter characters, per-player color persistence, seat-stable match/rematch colors and gameplay isolation.",
 );

@@ -3,6 +3,9 @@ package com.rekixo.ludopaws.ui.offline.setup
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
@@ -18,6 +21,7 @@ import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.OfflineGameActivity
 import com.rekixo.ludopaws.OfflinePlayerLayout
+import com.rekixo.ludopaws.LudoPawsTeamIdentityPolicy
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
 import com.rekixo.ludopaws.feature.characters.domain.selection.StarterPawsAssignmentPolicy
@@ -299,8 +303,11 @@ private fun OfflineGameActivity.characterChoiceCard(
             avatar.tag = CHARACTER_AVATAR_TAG
             avatar.bind(
                 characterId = character.id,
-                ringColor = 0xFF5BE0FF.toInt(),
+                ringColor = LudoPawsTeamIdentityPolicy.resolve(selectedColor)?.argb
+                    ?: 0xFF5BE0FF.toInt(),
+                modelTeamColor = selectedColor,
                 showCircularChrome = false,
+                showTeamBadge = true,
             )
             addView(
                 avatar,
@@ -406,13 +413,20 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
                 ?.let(LudoPawsCharacterCatalog::character)
                 ?.displayName
                 .orEmpty()
-        button.text =
-            when {
-                isComputerMode -> "YOU\n$characterName"
-                else -> "P${slot + 1}\n$characterName"
-            }
-        button.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
         val seatColor = selectedColorsBySeat.getOrNull(slot) ?: "BLUE"
+        val seatTint = LudoPawsTeamIdentityPolicy.resolve(seatColor)?.argb
+            ?: Color.WHITE
+        val label = if (isComputerMode) "YOU\n$characterName"
+            else "● P${slot + 1}\n$characterName"
+        button.text = SpannableString(label).apply {
+            if (!isComputerMode) {
+                setSpan(
+                    ForegroundColorSpan(seatTint),
+                    0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+                )
+            }
+        }
+        button.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
         button.contentDescription = "Player ${slot + 1}, $characterName, $seatColor color"
     }
 
@@ -433,9 +447,12 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         card.findViewWithTag<LudoPawsCharacterAvatarView>(CHARACTER_AVATAR_TAG)
             ?.bind(
                 characterId = characterId,
-                ringColor = 0xFF5BE0FF.toInt(),
-                highlighted = false,
+                ringColor = LudoPawsTeamIdentityPolicy.resolve(selectedColor)?.argb
+                    ?: 0xFF5BE0FF.toInt(),
+                highlighted = selected,
+                modelTeamColor = selectedColor,
                 showCircularChrome = false,
+                showTeamBadge = true,
             )
         card.findViewWithTag<TextView>(CHARACTER_NAME_TAG)
             ?.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
