@@ -5,19 +5,24 @@ import com.rekixo.ludopaws.feature.characters.rendering.*
 import com.rekixo.ludopaws.feature.characters.shared.*
 import kotlin.math.*
 
-/** Hinged floppy ears and jaw stay with the head; the gaze and blink use shared life state. */
+/** Cute puppy face: expressive reflective eyes, rounded muzzle, smile and hinged floppy ears. */
 internal object DogFaceRenderer {
     fun draw(ctx: CharacterDrawContext, parent: FloatArray, pose: CharacterPose) = with(ctx) {
         surface = CharacterSurface.COAT
         dogMesh(parent, DogGeometry.head, DOG_TAN)
         dogMesh(parent, DogGeometry.muzzle, DOG_CREAM)
+        // A centered cream blaze visually ties the glossy, oversized eyes together.
+        drawPart(parent, 0f, 1.154f, .292f, .086f, .138f, .028f, DOG_CREAM)
+        drawPart(parent, 0f, 1.012f, .352f, .057f, .111f, .029f, DOG_CREAM)
         for (side in listOf(-1f, 1f)) {
+            surface = CharacterSurface.COAT
+            drawPart(parent, side * .355f, .785f, .365f, .086f, .046f, .024f, DOG_BLUSH)
             eye(parent, side)
             val ear = rigTransforms[3]
             System.arraycopy(parent, 0, ear, 0, 16)
             val t = life?.timeSeconds ?: 0f
             val listen = if (life != null) sin(t * .8f + side * 1.7f) * 2.5f else 0f
-            Matrix.translateM(ear, 0, side * .365f, 1.12f, -.035f)
+            Matrix.translateM(ear, 0, side * .410f, 1.12f, -.035f)
             Matrix.rotateM(ear, 0, side * (12f + pose.primaryAppendageDegrees * .7f + listen), 0f, 0f, 1f)
             Matrix.rotateM(ear, 0, -8f + pose.primaryAppendageDegrees * .28f, 1f, 0f, 0f)
             surface = CharacterSurface.COAT
@@ -36,7 +41,11 @@ internal object DogFaceRenderer {
         Matrix.translateM(jaw, 0, 0f, .74f, .20f)
         Matrix.rotateM(jaw, 0, -open * 27f, 1f, 0f, 0f)
         Matrix.translateM(jaw, 0, 0f, -.74f, -.20f)
-        drawPart(parent, 0f, .685f, .539f, .205f, .010f + open * .06f, .036f, DOG_LIP)
+        drawPart(parent, 0f, .685f, .539f, .205f, .016f + open * .06f, .036f, DOG_LIP)
+        // Permanent upward corners keep the puppy friendly between mouth animations.
+        for (side in listOf(-1f, 1f)) {
+            drawPart(parent, side * .174f, .714f, .532f, .033f, .020f, .014f, DOG_LIP)
+        }
         surface = CharacterSurface.COAT
         dogMesh(jaw, DogGeometry.jaw, DOG_CREAM)
         if (open > .09f) {
@@ -46,19 +55,27 @@ internal object DogFaceRenderer {
     }
 
     private fun CharacterDrawContext.eye(parent: FloatArray, side: Float) {
-        val x = side * .215f
-        val open = life?.blink ?: 1f
-        val gx = (life?.gazeX ?: 0f) * .5f
-        val gy = (life?.gazeY ?: 0f) * .5f
+        val x = side * .229f
+        val openness = life?.blink ?: 1f
+        val gx = (life?.gazeX ?: 0f) * .027f
+        val gy = (life?.gazeY ?: 0f) * .023f
+
+        // Large cream whites, warm brown irises and two tiny catchlights:
+        // readable as a friendly puppy even at pawn-sized render scales.
         surface = CharacterSurface.COAT
-        drawPart(parent, x, 1.015f, .285f, .115f, .132f, .052f, DOG_EAR_BROWN)
+        drawPart(parent, x, 1.018f, .334f, .146f, .168f, .055f, DOG_EAR_BROWN)
         surface = CharacterSurface.EYE
-        drawPart(parent, x, 1.015f, .313f, .101f, .118f * open, .038f, DOG_IRIS)
-        drawPart(parent, x + gx, 1.015f + gy * open, .346f, .067f, .087f * open, .015f, EYE_DARK)
-        if (open > .3f) {
-            drawPart(parent, x + gx - .026f, 1.055f + gy, .360f, .021f, .025f * open, .008f, WHITE)
+        drawPart(parent, x, 1.018f, .387f, .131f, .151f * openness, .043f, WHITE)
+        drawPart(parent, x + gx, 1.014f + gy, .419f, .095f, .117f * openness, .023f, DOG_IRIS)
+        drawPart(parent, x + gx, 1.014f + gy, .442f, .067f, .088f * openness, .017f, EYE_DARK)
+        if (openness > .25f) {
+            drawPart(parent, x + gx - .029f, 1.064f + gy, .462f,
+                .028f, .034f * openness, .008f, WHITE)
+            drawPart(parent, x + gx + .036f, .970f + gy, .457f,
+                .012f, .014f * openness, .006f, WHITE)
         }
         surface = CharacterSurface.COAT
-        drawPart(parent, x, 1.17f, .249f, .100f, .025f, .036f, DOG_CREAM, rotateZ = side * 8f)
+        drawPart(parent, x, 1.190f, .264f, .110f, .030f, .032f, DOG_CREAM,
+            rotateZ = side * 9f)
     }
 }
