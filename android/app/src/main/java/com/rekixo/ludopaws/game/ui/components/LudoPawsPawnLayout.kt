@@ -80,6 +80,38 @@ object LudoPawsPawnLayout {
     }
 
     /**
+     * Bind the animated 3D model's foot-ground pivot to the REAL tile center.
+     *
+     * Model local Y is positive up; projection mirrors it into screen Y which
+     * is positive down. At the grounded foot point the projection is:
+     *   screenFootY = rootY - modelScale * groundPivotY
+     *
+     * Solve for rootY rather than positioning the MODEL ORIGIN at the cell
+     * center. This keeps the paw planted as the animal grows, breathes, reacts
+     * or changes size in a crowded cell. No logical token path is changed.
+     */
+    fun rootYForFootContact(
+        boardCenterY: Float,
+        modelScale: Float,
+        groundPivotY: Float,
+    ): Float = boardCenterY + modelScale * groundPivotY
+
+    /**
+     * A tight contact mark shows the exact occupied board cell, even when
+     * enlarged ears, heads and tails visually overhang adjacent cells.
+     * Avoid the old, nearly two-cell-wide oval that suggested a false square.
+     */
+    fun contactShadowRadius(
+        cell: Float,
+        pawnRadius: Float,
+        presentationScale: Float,
+    ): Float =
+        minOf(
+            cell * 0.30f,
+            pawnRadius * presentationScale * 0.70f,
+        )
+
+    /**
      * Builds one deterministic stack layout for the complete board snapshot.
      * Pawns sharing the same rendered cell are ordered by seat and token index,
      * so renderer, legal halo and hit-testing always agree on the same geometry.

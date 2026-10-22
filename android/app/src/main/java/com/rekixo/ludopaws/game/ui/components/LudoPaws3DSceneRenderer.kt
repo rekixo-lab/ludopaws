@@ -444,9 +444,15 @@ internal class LudoPaws3DSceneRenderer {
                 pawn.presentationScale *
                 pawn.attentionScale *
                 reaction.scale
+        // The fixed board coordinate is the FOOT CONTACT, not the body origin.
+        // Species-specific pivot and the *current* animated scale determine the
+        // root translation, so a 32%-larger pawn cannot stand on the next square.
         val rootY =
-            pawn.y +
-                pawn.radius * pawn.character.definition.rootYOffsetPerRadius
+            LudoPawsPawnLayout.rootYForFootContact(
+                boardCenterY = pawn.y,
+                modelScale = modelScale,
+                groundPivotY = pawn.character.definition.groundPivotY,
+            )
 
         val sampled = pawn.character.renderer.sample(frame.kind, frame.progress, frame.hopPlayback)
         val base = if(frame.kind == CharacterMotion.IDLE) living.idlePose(sampled) else sampled
@@ -930,18 +936,23 @@ internal class LudoPaws3DSceneRenderer {
     }
 
     private fun drawContactShadow(pawn: RenderPawn) {
-        val visualRadius =
-            pawn.radius * pawn.presentationScale
-        val shadowY =
-            pawn.y +
-                pawn.radius * pawn.character.definition.footBaselinePerRadius
+        // The shadow marks the authoritative occupied square, not the bottom
+        // of the oversized 3D body's on-screen bounding box. Keep it within
+        // the smallest physical board cells and independent of body breathing.
+        val cell = min(width, height).toFloat() / LudoPawsFxBoardGeometry.BOARD_SIZE
+        val contactRadius =
+            LudoPawsPawnLayout.contactShadowRadius(
+                cell = cell,
+                pawnRadius = pawn.radius,
+                presentationScale = pawn.presentationScale,
+            )
 
         Matrix.setIdentityM(root, 0)
         Matrix.translateM(
             root,
             0,
             pawn.x,
-            shadowY,
+            pawn.y,
             -0.80f,
         )
 
@@ -953,8 +964,8 @@ internal class LudoPaws3DSceneRenderer {
             translateX = 0f,
             translateY = 0f,
             translateZ = 0f,
-            scaleX = visualRadius * 1.70f,
-            scaleY = visualRadius * 0.42f,
+            scaleX = contactRadius,
+            scaleY = contactRadius * 0.36f,
             scaleZ = 0.02f,
             color = SHADOW_OUTER,
         )
@@ -963,8 +974,8 @@ internal class LudoPaws3DSceneRenderer {
             translateX = 0f,
             translateY = 0f,
             translateZ = 0.01f,
-            scaleX = visualRadius * 1.45f,
-            scaleY = visualRadius * 0.30f,
+            scaleX = contactRadius * 0.75f,
+            scaleY = contactRadius * 0.24f,
             scaleZ = 0.02f,
             color = SHADOW_INNER,
         )
