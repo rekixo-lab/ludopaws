@@ -84,6 +84,56 @@ class OfflinePlayerLayoutTest {
     }
 
     @Test
+    fun everyColorPermutationPreservesUnrelatedPlayerSeats() {
+        val palette = OfflinePlayerLayout.COLORS
+        for (count in 2..4) {
+            fun verifyArrangement(assigned: List<String>) {
+                if (assigned.size < count) {
+                    for (color in palette.filterNot(assigned::contains)) {
+                        verifyArrangement(assigned + color)
+                    }
+                    return
+                }
+                for (seat in assigned.indices) {
+                    for (requested in palette) {
+                        val owner = assigned.indexOf(requested)
+                        val selected = OfflinePlayerLayout.selectColorForSeat(
+                            count, assigned, seat, requested,
+                        )
+                        val expected = assigned.toMutableList()
+                        if (owner == -1 || owner == seat) expected[seat] = requested
+                        assertEquals(
+                            "count=$count, original=$assigned, seat=$seat, color=$requested",
+                            expected, selected,
+                        )
+                        assertEquals(count, selected.distinct().size)
+                        assertEquals(
+                            selected,
+                            OfflinePlayerLayout.normalizeColorsForSeats(
+                                count, selected, selected.first(),
+                            ),
+                        )
+                        if (owner >= 0 && owner != seat) {
+                            val confirmed = OfflinePlayerLayout.swapColorForSeat(
+                                count, assigned, seat, requested,
+                            )
+                            assertEquals(requested, confirmed[seat])
+                            assertEquals(assigned[seat], confirmed[owner])
+                            assertEquals(count, confirmed.distinct().size)
+                            for (other in assigned.indices) {
+                                if (other != seat && other != owner) {
+                                    assertEquals(assigned[other], confirmed[other])
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            verifyArrangement(emptyList())
+        }
+    }
+
+    @Test
     fun twoPlayerUsesOppositeBoardCorners() {
         assertEquals(
             listOf(
