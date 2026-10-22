@@ -157,7 +157,7 @@ const sceneRenderer = read(
 );
 for (const [source, markers, label] of [
   [ui, ["modelTeamColor = selectedColor", "showTeamBadge = true", "ForegroundColorSpan(seatTint)"], "character previews"],
-  [avatarView, ["showTeamBadge: Boolean = false", "resolve(modelTeamColor)?.argb", "canvas.drawCircle(83f, 83f, 9f, fill)"], "avatar team badges"],
+  [avatarView, ["showTeamBadge: Boolean = false", "resolve(modelTeamColor)?.argb", "canvas.drawCircle(87f, 87f, 9f, fill)"], "avatar team badges"],
   [sceneRenderer, ["characterIdForSeat(", "state.characterIdsBySeat, player.seat, player.color"], "3D seat-based pawns"],
 ]) {
   for (const marker of markers) requireText(source, marker, label);
@@ -197,7 +197,7 @@ for (const marker of [
 ]) {
   requireText(colorTests, marker, "color ownership regression tests");
 }
-if ((avatarView.match(/canvas\\.drawCircle\\(87f, 87f,/g) || []).length !== 3 ||
+if (avatarView.split("canvas.drawCircle(87f, 87f,").length - 1 !== 3 ||
     avatarView.includes("canvas.drawCircle(83f, 83f,")) {
   throw new Error("Selection UX gate: all three badge circles must share one bottom-right center");
 }
