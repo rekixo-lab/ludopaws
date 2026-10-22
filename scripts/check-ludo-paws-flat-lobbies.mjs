@@ -169,13 +169,14 @@ assert.doesNotMatch(fixedFriends, /private fun buildHeader\(\)/,
 assert.match(fixedFriends, /buildFixedFriendsTitle\(\)/, "Fixed Friends title must be attached to Back/Settings bar");
 assert.match(fixedFriends, /buildFixedFriendsConnectionStatus\(\)/, "Blinking ONLINE status must stay under Friends title");
 assert.match(fixedFriends, /text = "FRIENDS"/, "Correct title label");
-assert.match(fixedFriends, /if \(isCompact\(\)\) 15f else 19f/, "Same title scale as Robot/Team Up");
+assert.match(fixedFriends, /if \(isCompact\(\)\) 20f else 23f/, "Friends title should be visibly larger");
 assert.match(fixedFriends, /topMargin = dp\(14\)/, "Friends title on same baseline as Back/Settings");
 assert.match(fixedFriends, /topMargin = dp\(70\)/, "Friends status sits below title");
 assert.match(fixedFriends, /topActionsBar\.translationY = safeTopInset\.toFloat\(\)/,
   "Fixed Friends title and status must honor display cutout");
 assert.match(fixedFriends, /contentHost\.setPadding\(/, "Centered content must reserve cutout-safe header clearance");
-assert.match(fixedFriends, /dp\(96\) \+ safeTopInset/g, "Symmetric top and bottom content clearance");
+assert.match(fixedFriends, /dp\(96\) \+ safeTopInset/, "Safe top inset for fixed Friends header");
+assert.match(fixedFriends, /dp\(26\)/, "Reduced bottom spacing protects available screen height");
 assert.match(fixedFriends, /isFillViewport = true/, "Viewport fill is required for vertical centering");
 assert.match(fixedFriends, /Gravity\.CENTER,/, "Scrollable sections must be centered within the viewport");
 assert.match(fixedFriends, /FrameLayout\.LayoutParams\.WRAP_CONTENT/,
@@ -184,4 +185,25 @@ for (const section of ["buildIdentitySection()", "buildAddFriendSection()", "roo
   "friendsContainer = FriendsVisualKit.flatSection", "inboxContainer =", "statusText = FriendsVisualKit.body"]) {
   assert.ok(friends.includes(section), "Friends section must remain functional: " + section);
 }
-console.log("Unboxed Friends/Team Up/Online with fixed titles and vertically centered Friends content passed.");
+
+const identity = region(friends, "private fun buildIdentitySection()", "private fun buildAddFriendSection()", "Friend ID layout");
+assert.match(identity, /friendIdText = FriendsVisualKit\.title/, "Friend ID remains displayed");
+assert.match(identity, /section\.addView\(\s*actions,/, "Copy and Share belong to a separate aligned row");
+assert.match(identity, /copyFriendId\(\)/, "Copy Friend ID action retained");
+assert.match(identity, /shareFriendId\(\)/, "Share Friend ID action retained");
+assert.match(identity, /dp\(44\)/, "Larger action targets");
+const addFriend = region(friends, "private fun buildAddFriendSection()", "private fun renderAll()", "Friend invite layout");
+assert.match(addFriend, /"ADD FRIEND"/, "Add Friend heading");
+assert.match(addFriend, /dp\(46\)/, "Comfortable input and Send target");
+assert.match(addFriend, /sendFriendRequest\(\)/, "Send Friend Request action retained");
+assert.match(friends, /"PRIVATE ROOM", if \(isCompact\(\)\) 14f else 16f/, "Private Room heading is readable");
+const friendSearch = region(friends, "private fun renderFriends()", "private fun renderBlockedPlayers()", "Friends search section");
+assert.match(friendSearch, /"FRIENDS & RECENT"/, "Friends list heading");
+assert.match(friendSearch, /orientation = LinearLayout\.VERTICAL/, "Search sits beneath list heading");
+assert.match(friendSearch, /LinearLayout\.LayoutParams\(\s*LinearLayout\.LayoutParams\.MATCH_PARENT,\s*dp\(44\)/,
+  "Friends list search input fills available width");
+assert.match(friendSearch, /friendQuery = next/, "Live Friends filtering retained");
+assert.match(friendSearch, /friendsContainer\.addView\(header\)/, "Friends search header remains attached");
+assert.doesNotMatch(friends, /FriendsVisualKit\.compactCard\(/, "No outer boxes restored");
+assert.match(friends, /FriendsVisualKit\.sectionGap\(this, 20\)/, "Main sections are deliberately spaced");
+console.log("Friends title, balanced flat sections, standalone controls and other lobbies verified.");
