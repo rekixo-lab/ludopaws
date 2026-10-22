@@ -35,10 +35,10 @@ class ArcadeBackdropView @JvmOverloads constructor(
     }
 
     private fun applySharedBackdrop() {
-        // Full-screen plain plywood texture with square outer corners.
+        // Full-screen plain plywood with a 22.5dp corner radius (150% of its 15dp default).
         // Reuse the same drawable when switching screens.
         if (background !is PlywoodTextureDrawable) {
-            background = plywoodBackground(context, cornerRadiusDp = 0f)
+            background = plywoodBackground(context, cornerRadiusDp = 22.5f)
         }
     }
 }
