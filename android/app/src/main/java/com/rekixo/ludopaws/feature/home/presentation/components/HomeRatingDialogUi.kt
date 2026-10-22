@@ -28,6 +28,7 @@ import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
+import com.rekixo.ludopaws.core.ui.art.transparentDarkBlueStrokeBackground
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
 import com.rekixo.ludopaws.ui.dialogs.sizeDialog
 import kotlin.math.abs
@@ -164,13 +165,11 @@ internal fun HomeActivity.showHomeRatingDialog() {
         clipChildren = false
         clipToPadding = false
         setPadding(dp(3), dp(2), dp(3), dp(2))
-        background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0xB5091440.toInt(), 0xB71A2C71.toInt()),
-        ).apply {
-            cornerRadius = dp(14).toFloat()
-            setStroke(dp(1), 0x887DCBFF.toInt())
-        }
+        // Match Profile → Game Stats → Classic's blue card and outline.
+        background = transparentDarkBlueStrokeBackground(
+            context = this@showHomeRatingDialog,
+            cornerRadiusDp = 14f,
+        )
     }
     val ratingCaption = TextView(this).apply {
         text = "5 / 5  •  PAWSOME!"

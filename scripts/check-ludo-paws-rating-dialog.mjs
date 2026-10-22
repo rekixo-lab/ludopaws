@@ -37,6 +37,7 @@ for (const token of [
   "background = recessedPlywoodBackground(context, outerCornerRadiusDp = 24f)",
   "RatingPlywoodHeaderIcon(this, isClose = false)",
   "RatingPlywoodHeaderIcon(this, isClose = true)",
+  "background = transparentDarkBlueStrokeBackground(",
   "contentDescription = \"Not now\"",
 ]) {
   if (!source.includes(token)) throw new Error("Rating popup gate missing: " + token);
@@ -81,5 +82,8 @@ if (source.includes("ratingCloseDrawable(") ||
 if (!source.includes("0xFF55290F.toInt()") ||
     !source.includes("0xFF4E3018.toInt()")) {
   throw new Error("Rating popup gate: wooden panel needs legible dark-brown typography");
+}
+if (source.includes("intArrayOf(0xB5091440.toInt(), 0xB71A2C71.toInt())")) {
+  throw new Error("Rating popup gate: old five-star strip gradient returned");
 }
 console.log("Ludo Paws plywood rating dialog, liquid-gold stars and RGB CTA gate passed.");
