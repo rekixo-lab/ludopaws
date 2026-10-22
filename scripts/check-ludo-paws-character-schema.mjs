@@ -38,7 +38,12 @@ requireText(androidContract, "SCHEMA_VERSION = 1", "Android character schema ver
 requireText(androidContract, "resolveRemote", "Android must have one fallback resolver for remote character IDs.");
 requireText(androidPolicy, "LudoPawsCharacterIdentityContract", "Online rendering must consume the centralized character contract.");
 requireText(models, "val characterId: String? = null", "Old server states must keep characterId optional on Android.");
-requireText(gameApi, '.put("characterId", characterId)', "New Android create/join/search calls must send cosmetic identity.");
+// The wire identity is normalized by the centralized compatibility contract.
+const normalizedCharacterRequest =
+  /\.put\(\s*"characterId"\s*,\s*(?:com\.rekixo\.ludopaws\.feature\.online\.domain\.)?LudoPawsCharacterIdentityContract\.resolveForRequest\(\s*characterId\s*\)\s*\)/g;
+if ((gameApi.match(normalizedCharacterRequest) ?? []).length < 4) {
+  throw new Error("New Android create/join/search calls must send normalized cosmetic identity.");
+}
 
 for (const source of [room, publicQueue, teamQueue]) {
   requireText(source, "characterId", "Every remote room/matchmaking path must preserve character identity.");
