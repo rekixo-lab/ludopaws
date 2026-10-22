@@ -132,8 +132,11 @@ object OfflinePlayerLayout {
     }
 
     /**
-     * Only the requesting seat can change from a normal tap. An occupied color
-     * is a no-op until both players explicitly agree to swap.
+     * Apply a color tap immediately for Pass & Play.
+     *
+     * An unclaimed color changes only this seat. If another seat already owns
+     * the requested color, exchange the two colors atomically while leaving
+     * all other player seats untouched. Selecting the current color is a no-op.
      */
     fun selectColorForSeat(
         playerCount: Int,
@@ -147,30 +150,12 @@ object OfflinePlayerLayout {
             playerCount, currentColors, currentColors.firstOrNull() ?: "BLUE",
         ).toMutableList()
         val owner = colors.indexOf(requestedColor)
-        if (owner >= 0 && owner != selectedSeat) return colors
-        colors[selectedSeat] = requestedColor
-        return colors
-    }
+        if (owner == selectedSeat) return colors
 
-    /** Use this only after the setup UI explicitly confirms the exchange. */
-    fun swapColorForSeat(
-        playerCount: Int,
-        currentColors: List<String>,
-        selectedSeat: Int,
-        requestedColor: String,
-    ): List<String> {
-        require(selectedSeat in 0 until playerCount)
-        require(requestedColor in COLORS)
-        val colors = normalizeColorsForSeats(
-            playerCount, currentColors, currentColors.firstOrNull() ?: "BLUE",
-        ).toMutableList()
-        val owner = colors.indexOf(requestedColor)
-        if (owner >= 0 && owner != selectedSeat) {
-            val previous = colors[selectedSeat]
-            colors[selectedSeat] = requestedColor
-            colors[owner] = previous
-        } else {
-            colors[selectedSeat] = requestedColor
+        val previousColor = colors[selectedSeat]
+        colors[selectedSeat] = requestedColor
+        if (owner >= 0) {
+            colors[owner] = previousColor
         }
         return colors
     }

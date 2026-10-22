@@ -121,7 +121,7 @@ internal fun OfflineGameActivity.colorPanel(
     selectionPanel(
         "CHOOSE YOUR COLOR",
         if (isComputerMode) "Your color will rotate to the bottom-left side."
-        else "Choose each P1–P4 color separately. Colors already in use require a confirmed swap.",
+        else "Choose each P1–P4 color. If another player has it, the two colors swap automatically.",
         embeddedInCombinedPanel = embeddedInCombinedPanel,
     ).apply {
         colorSelectionStatus = TextView(this@colorPanel).apply {
@@ -599,7 +599,7 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
         tile.contentDescription = when {
             isComputerMode -> "$colorName color"
             ownerSeat >= 0 && ownerSeat != selectedCharacterSlot ->
-                "$colorName assigned to Player ${ownerSeat + 1}, tap to request a swap"
+                "$colorName assigned to Player ${ownerSeat + 1}, tap to swap colors automatically"
             else -> "$colorName color for Player ${selectedCharacterSlot + 1}"
         }
         tile.background = playerCountSelectionBackground(

@@ -13,13 +13,13 @@ class OfflinePlayerLayoutTest {
     }
 
     @Test
-    fun occupiedColorDoesNotChangeOtherSeatsWithoutConfirmation() {
+    fun occupiedColorAutomaticallySwapsExactlyTwoSeats() {
         val original = listOf("BLUE", "RED", "GREEN", "YELLOW")
-        val blocked = OfflinePlayerLayout.selectColorForSeat(4, original, 2, "RED")
-        assertEquals(original, blocked)
-        val swapped = OfflinePlayerLayout.swapColorForSeat(4, original, 2, "RED")
+        val swapped = OfflinePlayerLayout.selectColorForSeat(4, original, 2, "RED")
         assertEquals(listOf("BLUE", "GREEN", "RED", "YELLOW"), swapped)
+        assertEquals(original, OfflinePlayerLayout.selectColorForSeat(4, swapped, 2, "GREEN"))
         assertEquals(4, swapped.distinct().size)
+        assertEquals(original, listOf("BLUE", "RED", "GREEN", "YELLOW"))
     }
 
     @Test
@@ -29,11 +29,14 @@ class OfflinePlayerLayoutTest {
         val second = OfflinePlayerLayout.selectColorForSeat(2, first, 1, "BLUE")
         assertEquals(listOf("RED", "BLUE"), second)
         assertEquals(second, OfflinePlayerLayout.normalizeColorsForSeats(2, second, "RED"))
-        assertEquals(second, OfflinePlayerLayout.selectColorForSeat(2, second, 1, "RED"))
+
+        // If P2 deliberately taps P1's RED, swap only those two assignments.
+        val swapped = OfflinePlayerLayout.selectColorForSeat(2, second, 1, "RED")
+        assertEquals(listOf("BLUE", "RED"), swapped)
     }
 
     @Test
-    fun changingP2NeverAltersP1AcrossThreeAndFourPlayerModes() {
+    fun threeAndFourPlayerSelectionsOnlyAffectTheChooserAndCurrentOwner() {
         for (playerCount in 3..4) {
             val baseline = OfflinePlayerLayout.normalizeColorsForSeats(
                 playerCount, emptyList(), "RED",
@@ -47,20 +50,23 @@ class OfflinePlayerLayoutTest {
                 assertEquals(available, updated[1])
                 assertEquals(playerCount, updated.distinct().size)
             }
-            val duplicate = OfflinePlayerLayout.selectColorForSeat(
+            val swapped = OfflinePlayerLayout.selectColorForSeat(
                 playerCount, baseline, 1, "RED",
             )
-            assertEquals(baseline, duplicate)
+            assertEquals(baseline[1], swapped[0])
+            assertEquals("RED", swapped[1])
+            assertEquals(baseline.drop(2), swapped.drop(2))
         }
     }
 
     @Test
-    fun confirmedSwapCanExchangeColorsButNeverDuplicatesThem() {
-        val initial = listOf("RED", "GREEN", "YELLOW", "BLUE")
-        assertEquals(initial, OfflinePlayerLayout.selectColorForSeat(4, initial, 1, "RED"))
-        val confirmed = OfflinePlayerLayout.swapColorForSeat(4, initial, 1, "BLUE")
-        assertEquals(listOf("RED", "BLUE", "YELLOW", "GREEN"), confirmed)
-        assertEquals(confirmed.size, confirmed.distinct().size)
+    fun fourPlayerYellowAndRedSwapWithoutChangingOtherPlayers() {
+        val initial = listOf("BLUE", "YELLOW", "RED", "GREEN")
+        val result = OfflinePlayerLayout.selectColorForSeat(4, initial, 1, "RED")
+        assertEquals(listOf("BLUE", "RED", "YELLOW", "GREEN"), result)
+        assertEquals(result.size, result.distinct().size)
+        assertEquals(result, OfflinePlayerLayout.normalizeColorsForSeats(4, result, "BLUE"))
+        assertEquals(result, OfflinePlayerLayout.selectColorForSeat(4, result, 1, "RED"))
     }
 
     @Test
@@ -101,7 +107,9 @@ class OfflinePlayerLayoutTest {
                             count, assigned, seat, requested,
                         )
                         val expected = assigned.toMutableList()
-                        if (owner == -1 || owner == seat) expected[seat] = requested
+                        val oldColor = expected[seat]
+                        expected[seat] = requested
+                        if (owner >= 0 && owner != seat) expected[owner] = oldColor
                         assertEquals(
                             "count=$count, original=$assigned, seat=$seat, color=$requested",
                             expected, selected,
@@ -113,17 +121,9 @@ class OfflinePlayerLayoutTest {
                                 count, selected, selected.first(),
                             ),
                         )
-                        if (owner >= 0 && owner != seat) {
-                            val confirmed = OfflinePlayerLayout.swapColorForSeat(
-                                count, assigned, seat, requested,
-                            )
-                            assertEquals(requested, confirmed[seat])
-                            assertEquals(assigned[seat], confirmed[owner])
-                            assertEquals(count, confirmed.distinct().size)
-                            for (other in assigned.indices) {
-                                if (other != seat && other != owner) {
-                                    assertEquals(assigned[other], confirmed[other])
-                                }
+                        for (other in assigned.indices) {
+                            if (other != seat && other != owner) {
+                                assertEquals(assigned[other], selected[other])
                             }
                         }
                     }
