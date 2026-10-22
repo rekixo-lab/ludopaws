@@ -668,7 +668,7 @@ private class RatingStarView(context: Context) : View(context) {
 }
 
 /** Animated rainbow/gradient CTA with a moving white sheen and gold rim. */
-private class RatingSpectrumDrawable(context: Context) : Drawable() {
+internal class RatingSpectrumDrawable(context: Context) : Drawable() {
     private val density = context.resources.displayMetrics.density
     private val body = Paint(Paint.ANTI_ALIAS_FLAG)
     private val shine = Paint(Paint.ANTI_ALIAS_FLAG)

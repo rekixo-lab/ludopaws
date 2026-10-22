@@ -5,21 +5,18 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
 import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.animation.OvershootInterpolator
-import android.widget.Button
+import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
-import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
-import com.rekixo.ludopaws.core.ui.components.PlywoodCloseButton
+import com.rekixo.ludopaws.core.ui.art.transparentDarkBlueStrokeBackground
+import com.rekixo.ludopaws.ui.home.RatingSpectrumDrawable
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
 import com.rekixo.ludopaws.ui.dialogs.sizeDialog
 
@@ -61,63 +58,23 @@ object FamilyOnlineSafety {
 
         val panel = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(if (compact) 13 else 18), dp(12), dp(if (compact) 13 else 18), dp(14))
+            setPadding(dp(if (compact) 12 else 16), dp(12), dp(if (compact) 12 else 16), dp(9))
             background = plywoodBackground(activity, cornerRadiusDp = 22f)
             elevation = dp(8).toFloat()
         }
 
-        val header = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        header.addView(
-            TextView(activity).apply {
-                text = "✓"
-                textSize = 25f
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-                setTextColor(0xFF128D48.toInt())
-                setTypeface(Typeface.DEFAULT_BOLD)
-                background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 20f)
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },
-            LinearLayout.LayoutParams(dp(46), dp(46)).apply { marginEnd = dp(9) },
-        )
-        header.addView(
-            LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_VERTICAL
-                addView(
-                    TextView(activity).apply {
-                        text = FamilyOnlineSafetyNoticeCopy.TITLE
-                        textSize = if (compact) 17.5f else 20f
-                        setTypeface(Typeface.DEFAULT_BOLD)
-                        setTextColor(0xFF61330F.toInt())
-                        maxLines = 2
-                    },
-                )
-                addView(
-                    TextView(activity).apply {
-                        text = "FRIENDLY • PRIVATE • FAIR"
-                        textSize = 9.5f
-                        letterSpacing = .065f
-                        setTypeface(Typeface.DEFAULT_BOLD)
-                        setTextColor(0xFF79502A.toInt())
-                    },
-                )
-            },
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-        )
-        header.addView(
-            PlywoodCloseButton(activity, "Cancel online safety notice") {
-                dialog.dismiss()
-            },
-            LinearLayout.LayoutParams(dp(42), dp(42)),
-        )
+        // Compact rating-style title: no tick badge, no close circle.
         panel.addView(
-            header,
+            TextView(activity).apply {
+                text = FamilyOnlineSafetyNoticeCopy.TITLE
+                textSize = if (compact) 20f else 22f
+                setTypeface(Typeface.DEFAULT_BOLD)
+                setTextColor(0xFF61330F.toInt())
+                gravity = Gravity.CENTER
+            },
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
             ),
         )
 
@@ -131,112 +88,111 @@ object FamilyOnlineSafety {
             },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(9) },
+            ).apply { topMargin = dp(4) },
         )
 
-        // The safety text scrolls on small devices; the two action buttons never
-        // scroll out of reach, even at larger accessibility font sizes.
-        val scroll = object : ScrollView(activity) {
-            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-                val cap = minOf(dp(342), (resources.displayMetrics.heightPixels * .48f).toInt())
-                super.onMeasure(
-                    widthMeasureSpec,
-                    View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.AT_MOST),
-                )
-            }
-        }.apply {
-            isFillViewport = false
-            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-            setVerticalScrollBarEnabled(false)
-        }
-        val safetyContent = LinearLayout(activity).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(1), dp(4), dp(1), dp(4))
-        }
-        safetyContent.addView(
+        panel.addView(
             TextView(activity).apply {
                 text = FamilyOnlineSafetyNoticeCopy.INTRO
-                textSize = if (compact) 12.5f else 13f
+                textSize = if (compact) 11.5f else 12.5f
                 setTextColor(0xFF624224.toInt())
-                setLineSpacing(dp(2).toFloat(), 1.06f)
                 gravity = Gravity.CENTER
             },
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { bottomMargin = dp(7) },
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(5) },
         )
 
+        // One unified, gap-free section. Identical navy fill and blue stroke
+        // to the Rating Popup's five-star strip and Profile's Classic row.
+        val safetyContent = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            background = transparentDarkBlueStrokeBackground(
+                context = activity,
+                cornerRadiusDp = 14f,
+            )
+            setPadding(dp(6), dp(3), dp(6), dp(3))
+        }
+
         fun addTip(number: String, title: String, details: String) {
-            val card = LinearLayout(activity).apply {
+            if (safetyContent.childCount > 0) {
+                safetyContent.addView(
+                    View(activity).apply {
+                        setBackgroundColor(0x663DA2E6)
+                    },
+                    LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT, dp(1),
+                    ).apply {
+                        marginStart = dp(6)
+                        marginEnd = dp(6)
+                    },
+                )
+            }
+            val row = LinearLayout(activity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(9), dp(9), dp(10), dp(9))
-                background = GradientDrawable(
-                    GradientDrawable.Orientation.TL_BR,
-                    intArrayOf(0xFF154B86.toInt(), 0xFF0B2D61.toInt(), 0xFF091D49.toInt()),
-                ).apply {
-                    cornerRadius = dp(13).toFloat()
-                    setStroke(dp(1), 0xFF399DE1.toInt())
-                }
+                setPadding(dp(5), dp(if (compact) 5 else 7), dp(5), dp(if (compact) 5 else 7))
             }
-            card.addView(
+            row.addView(
                 TextView(activity).apply {
                     text = number
-                    textSize = 12f
+                    textSize = if (compact) 14f else 15f
                     gravity = Gravity.CENTER
                     setTypeface(Typeface.DEFAULT_BOLD)
-                    setTextColor(0xFFFFE8AB.toInt())
-                    background = GradientDrawable().apply {
-                        cornerRadius = dp(10).toFloat()
-                        setColor(0xFF0B568E.toInt())
-                        setStroke(dp(1), 0xFF6AD6FF.toInt())
-                    }
+                    setTextColor(0xFFFFDA70.toInt())
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 },
-                LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(9) },
+                LinearLayout.LayoutParams(dp(30), LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                    marginEnd = dp(7)
+                },
             )
-            card.addView(
+            row.addView(
                 LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
                     addView(
                         TextView(activity).apply {
                             text = title
-                            textSize = if (compact) 13f else 14f
+                            textSize = if (compact) 12.5f else 13.5f
                             setTypeface(Typeface.DEFAULT_BOLD)
                             setTextColor(0xFFFFE3A2.toInt())
+                            includeFontPadding = false
                         },
                     )
                     addView(
                         TextView(activity).apply {
                             text = details
-                            textSize = if (compact) 11.8f else 12.4f
+                            textSize = if (compact) 11.3f else 12f
                             setTextColor(0xFFF0F7FF.toInt())
-                            setLineSpacing(dp(1).toFloat(), 1.04f)
+                            includeFontPadding = false
+                            setLineSpacing(0f, 1.02f)
                         },
                         LinearLayout.LayoutParams(
                             LinearLayout.LayoutParams.MATCH_PARENT,
                             LinearLayout.LayoutParams.WRAP_CONTENT,
-                        ).apply { topMargin = dp(3) },
+                        ).apply { topMargin = dp(2) },
                     )
                 },
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
             safetyContent.addView(
-                card,
+                row,
                 LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = dp(5) },
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ),
             )
         }
         addTip("01", FamilyOnlineSafetyNoticeCopy.NAME_TITLE, FamilyOnlineSafetyNoticeCopy.NAME_BODY)
         addTip("02", FamilyOnlineSafetyNoticeCopy.CHAT_TITLE, FamilyOnlineSafetyNoticeCopy.CHAT_BODY)
         addTip("03", FamilyOnlineSafetyNoticeCopy.PRIVACY_TITLE, FamilyOnlineSafetyNoticeCopy.PRIVACY_BODY)
-        scroll.addView(safetyContent)
+
         panel.addView(
-            scroll,
+            safetyContent,
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(7) },
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(8) },
         )
 
         panel.addView(
@@ -248,76 +204,60 @@ object FamilyOnlineSafety {
             },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(8) },
+            ).apply { topMargin = dp(5) },
         )
-
-        fun buttonSkin(pressed: Boolean, primary: Boolean): GradientDrawable {
-            val colors = when {
-                primary && pressed -> intArrayOf(0xFFFFC95A.toInt(), 0xFFF7A424.toInt())
-                primary -> intArrayOf(0xFFFFF1A6.toInt(), 0xFFFFC849.toInt(), 0xFFF2A92D.toInt())
-                pressed -> intArrayOf(0xFF1C5599.toInt(), 0xFF0A2B60.toInt())
-                else -> intArrayOf(0xFF163E78.toInt(), 0xFF081F50.toInt())
-            }
-            return GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, colors).apply {
-                cornerRadius = dp(14).toFloat()
-                setStroke(dp(if (primary) 2 else 1), if (primary) 0xFFFFE9A1.toInt() else 0xFF3F92DB.toInt())
-            }
-        }
-        fun actionButton(label: String, primary: Boolean, onClick: () -> Unit): Button =
-            Button(activity).apply {
-                text = label
-                textSize = if (compact) 14.5f else 15.5f
-                setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(if (primary) 0xFF562500.toInt() else Color.WHITE)
-                gravity = Gravity.CENTER
-                minWidth = 0
-                minHeight = 0
-                setAllCaps(false)
-                setPadding(dp(7), 0, dp(7), 0)
-                background = StateListDrawable().apply {
-                    addState(intArrayOf(android.R.attr.state_pressed), buttonSkin(true, primary))
-                    addState(intArrayOf(), buttonSkin(false, primary))
-                }
-                elevation = dp(if (primary) 5 else 2).toFloat()
-                isClickable = true
-                isFocusable = true
-                setOnClickListener { onClick() }
-            }
 
         var submitted = false
-        val cancel = actionButton("CANCEL", primary = false) { dialog.dismiss() }
-        val continueButton = actionButton("CONTINUE  →", primary = true) {
-            if (!submitted) {
-                submitted = true
-                // Only Continue acknowledges this first-run notice.
-                prefs.edit().putBoolean("seen", true).apply()
-                dialog.dismiss()
-                if (!activity.isFinishing && !activity.isDestroyed) onContinue()
+        val spectrum = RatingSpectrumDrawable(activity)
+        var shimmerAnimator: ValueAnimator? = null
+        val continueButton = TextView(activity).apply {
+            text = "CONTINUE  →"
+            textSize = if (compact) 15.5f else 16.5f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = spectrum
+            elevation = dp(6).toFloat()
+            isClickable = true
+            isFocusable = true
+            contentDescription = "Continue to online play"
+            setOnClickListener {
+                if (!submitted) {
+                    submitted = true
+                    // Only Continue acknowledges the first-run safety notice.
+                    prefs.edit().putBoolean("seen", true).apply()
+                    dialog.dismiss()
+                    if (!activity.isFinishing && !activity.isDestroyed) onContinue()
+                }
             }
         }
-        continueButton.contentDescription = "Continue to online play"
-        cancel.contentDescription = "Cancel and return to Home"
-
-        val actions = LinearLayout(activity).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
-        actions.addView(
-            cancel,
-            LinearLayout.LayoutParams(0, dp(54), 1f).apply { marginEnd = dp(6) },
-        )
-        actions.addView(
-            continueButton,
-            LinearLayout.LayoutParams(0, dp(54), 1.65f).apply { marginStart = dp(6) },
-        )
         panel.addView(
-            actions,
+            continueButton,
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(11) },
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(if (compact) 49 else 54),
+            ).apply { topMargin = dp(9) },
         )
 
-        dialog.setOnDismissListener { panel.animate().cancel() }
+        panel.addView(
+            TextView(activity).apply {
+                text = "Cancel"
+                textSize = if (compact) 13f else 14f
+                setTextColor(0xFF66401E.toInt())
+                gravity = Gravity.CENTER
+                isClickable = true
+                isFocusable = true
+                contentDescription = "Cancel and return to Home"
+                setOnClickListener { dialog.dismiss() }
+            },
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(42),
+            ),
+        )
+
+        dialog.setOnDismissListener {
+            shimmerAnimator?.cancel()
+            panel.animate().cancel()
+        }
         dialog.setContentView(panel)
         sizeDialog(dialog, if (compact) .94f else .88f)
         if (animationsEnabled) {
@@ -333,6 +273,15 @@ object FamilyOnlineSafety {
                 .setDuration(340L)
                 .setInterpolator(OvershootInterpolator(.7f))
                 .start()
+            shimmerAnimator = ValueAnimator.ofFloat(-.35f, 1.35f).apply {
+                duration = 2750L
+                repeatCount = ValueAnimator.INFINITE
+                interpolator = LinearInterpolator()
+                addUpdateListener {
+                    spectrum.shimmerPosition = it.animatedValue as Float
+                }
+                start()
+            }
         }
         return true
     }
