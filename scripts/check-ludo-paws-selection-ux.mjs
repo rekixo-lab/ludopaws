@@ -194,6 +194,7 @@ for (const marker of [
   "firstPlayersRedRemainsRedWhenSecondChoosesBlue",
   "occupiedColorDoesNotChangeOtherSeatsWithoutConfirmation",
   "changingP2NeverAltersP1AcrossThreeAndFourPlayerModes",
+  "everyColorPermutationPreservesUnrelatedPlayerSeats",
 ]) {
   requireText(colorTests, marker, "color ownership regression tests");
 }
