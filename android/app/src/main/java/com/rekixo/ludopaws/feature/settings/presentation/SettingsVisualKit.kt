@@ -152,7 +152,7 @@ internal fun settingsCompactRow(
                         16f
                     }
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(Color.WHITE)
+                setTextColor(0xFF193A61.toInt())
                 gravity = Gravity.CENTER_VERTICAL
             },
             LinearLayout.LayoutParams(
@@ -201,7 +201,7 @@ internal fun settingsDropdownField(
                 14.5f
             }
         setTypeface(Typeface.DEFAULT_BOLD)
-        setTextColor(0xFFFFE07A.toInt())
+        setTextColor(0xFF153C68.toInt())
         gravity = Gravity.CENTER
         setPadding(
             settingsDp(context, 6),
@@ -349,14 +349,14 @@ internal class SettingsBooleanControl(
             if (!value) {
                 Color.WHITE
             } else {
-                0xFFA9C6E7.toInt()
+                0xFF315271.toInt()
             },
         )
         onText.setTextColor(
             if (value) {
                 Color.WHITE
             } else {
-                0xFFA9C6E7.toInt()
+                0xFF315271.toInt()
             },
         )
     }
@@ -479,9 +479,9 @@ internal fun showSettingsChoiceDialog(
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(
                     if (option == selected) {
-                        0xFFFFD34E.toInt()
+                        0xFF74400F.toInt()
                     } else {
-                        Color.WHITE
+                        0xFF193A61.toInt()
                     },
                 )
                 gravity = Gravity.CENTER_VERTICAL

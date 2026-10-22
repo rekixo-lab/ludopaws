@@ -20,6 +20,7 @@ expectAll(kit, [
   "cornerRadiusDp = 13f,", "cornerRadiusDp = 11f,", "cornerRadiusDp = 999f,",
   'PlywoodCloseButton(context, contentDescription = "Close settings")',
   "settingsCompactRow(", "settingsDropdownField(", "SettingsBooleanControl(",
+  "setTextColor(0xFF193A61.toInt())", "setTextColor(0xFF153C68.toInt())",
 ], "visual kit");
 expectAll(dialog, [
   'label = "Music"', 'label = "Sound"', 'label = "Quick chat"',
@@ -27,14 +28,15 @@ expectAll(dialog, [
   'text = "Privacy Policy"', 'text = "How to Play"',
   "settingsDropdownField(context, \"Privacy Policy\")",
   "settingsDropdownField(context, \"How to Play\")",
-  "settingsStore.set", "selectSettingsCosmetic(", "showSettingsChoiceDialog(",
+  "setMusicEnabled(", "setSoundEnabled(", "setQuickChatEnabled(",
+  "setGameSpeed(", "selectSettingsCosmetic(", "showSettingsChoiceDialog(",
   "SETTINGS_CONTENT_BUILD_DELAY_MS",
 ], "behavior");
 if (dialog.includes("panel.addView(settingsDivider(context))") ||
     dialog.includes("panel.addView(\n            settingsDivider(context),")) {
   throw new Error("Settings popup: old stacked thin dividers remain");
 }
-expectAll(audio, ["0x33104483", "0xFF247FCB.toInt()", "SettingsAudioIconKind.MUSIC", "SettingsAudioIconKind.SOUND"], "audio icons");
+expectAll(audio, ["0x33104483", "0xFF247FCB.toInt()", "0xFF17385D.toInt()", "SettingsAudioIconKind.MUSIC", "SettingsAudioIconKind.SOUND"], "audio icons");
 const matchCross = ["0xFF63351E.toInt()", "0xFFE0463B.toInt()", "0xFFFFC4A1.toInt()",
   "7.4f * density", "5.1f * density", "1.3f * density", "7.5f * density",
   "outerCornerRadiusDp = 24f", "cross(outline)", "cross(red)", "cross(glint)"];
