@@ -208,7 +208,7 @@ internal class PlywoodAlertDialogBuilder(private val context: Context) {
                 }
             }.apply {
                 isFillViewport = false
-                verticalScrollBarEnabled = false
+                setVerticalScrollBarEnabled(false)
                 overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
                 addView(body)
             }
