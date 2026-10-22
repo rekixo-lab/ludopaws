@@ -147,7 +147,7 @@ object FamilyOnlineSafety {
         }.apply {
             isFillViewport = false
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
-            verticalScrollBarEnabled = false
+            setVerticalScrollBarEnabled(false)
         }
         val safetyContent = LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
@@ -272,7 +272,7 @@ object FamilyOnlineSafety {
                 gravity = Gravity.CENTER
                 minWidth = 0
                 minHeight = 0
-                isAllCaps = false
+                setAllCaps(false)
                 setPadding(dp(7), 0, dp(7), 0)
                 background = StateListDrawable().apply {
                     addState(intArrayOf(android.R.attr.state_pressed), buttonSkin(true, primary))
