@@ -60,4 +60,25 @@ for (const item of ["buildIdentitySection()", "buildAddFriendSection()", "roomCo
 for (const part of ["background = inputSurface(context)", "background = buttonBackground(context, style, enabled)"]) {
   assert.ok(kit.includes(part), "Interactive inputs/buttons must keep their styles");
 }
-console.log("Unboxed Online/Team Up/Friends page gate passed; interactive controls, selectable tiles and page flows preserved.");
+
+// Online has one title, fixed to the same top control bar as Robot, during both
+// player selection and searching. Keep the independent connection-status row
+// inside each state, but never repeat the big ONLINE heading in scroll content.
+const onlineScreen = read("feature/online/presentation/MainActivityScreen.kt");
+const fixedStart = region(online, "internal fun MainActivity.onlineFixedTitle()", "private fun MainActivity.onlineModePanelHeader()", "fixed ONLINE title");
+assert.match(fixedStart, /text = "ONLINE"/, "ONLINE fixed title text");
+assert.match(fixedStart, /ModeArtView\.Mode\.ONLINE/, "ONLINE title icon");
+assert.match(fixedStart, /background = null/, "ONLINE title must stay unboxed");
+assert.match(fixedStart, /15f else 19f/, "ONLINE title matches Robot size");
+const topBar = region(onlineScreen, "val topActionsBar =", "setContentView(root)", "fixed Online Back/Settings bar");
+assert.match(topBar, /if \(gameMode == GameMode\.ONLINE\)/, "fixed heading must be Online-only");
+assert.match(topBar, /onlineFixedTitle\(\)/, "title is attached to fixed top bar");
+assert.match(topBar, /Gravity\.TOP or Gravity\.CENTER_HORIZONTAL/, "title is centered between Back and Settings");
+assert.match(topBar, /topMargin = dp\(14\)/, "title aligns with Back/Settings vertically");
+assert.match(onlineScreen, /topActionsBar\.translationY = safeTopInset\.toFloat\(\)/, "title follows safe cutout inset");
+const scrollingHeader = region(online, "private fun MainActivity.onlineModePanelHeader()", "internal fun MainActivity.onlineLobbyPanel()", "scrolling header");
+assert.match(scrollingHeader, /if \(gameMode != GameMode\.ONLINE\)/, "only Team Up keeps scrolling title");
+assert.match(scrollingHeader, /this@onlineModePanelHeader\.connectionTexts\.add\(statusLabel\)/, "connection status still updates");
+assert.equal((online.match(/onlineModePanelHeader\(\),/g) || []).length, 2,
+  "initial setup and searching retain status rows without duplicated title");
+console.log("Unboxed lobbies and fixed Online title gate passed; setup and matchmaking share the Robot-style top row.");

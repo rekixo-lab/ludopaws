@@ -242,6 +242,24 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                             cornerRadiusDp = 999f,
                         )
                 }
+
+                if (gameMode == GameMode.ONLINE) {
+                    // Same fixed 52dp row and 14dp top inset as Robot.
+                    // Both matchmaking views live in the scroll layer underneath.
+                    val availableTitleWidth = (
+                        resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+                    ).coerceAtLeast(dp(108))
+                    addView(
+                        onlineFixedTitle(),
+                        FrameLayout.LayoutParams(
+                            minOf(availableTitleWidth, dp(if (isCompactOnline()) 194 else 224)),
+                            dp(52),
+                            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                        ).apply {
+                            topMargin = dp(14)
+                        },
+                    )
+                }
             }
 
         setContentView(root)
