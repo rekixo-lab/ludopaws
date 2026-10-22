@@ -190,13 +190,14 @@ internal fun HomeActivity.showHomeRatingDialog() {
         gravity = Gravity.CENTER
     }
     val spectrum = RatingSpectrumDrawable(this)
+    var rateAction: LinearLayout? = null
     val ctaText = TextView(this).apply {
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
         setTextColor(Color.WHITE)
         textSize = if (compact) 12f else 14f
         gravity = Gravity.CENTER_VERTICAL
         maxLines = 1
-        isSingleLine = true
+        setSingleLine(true)
     }
 
     fun refreshCopy() {
@@ -207,6 +208,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         }
         ratingCaption.text = selectedRating.toString() + " / 5  •  " +
             if (selectedRating == 5) "PAWSOME!" else "THANK YOU!"
+        rateAction?.contentDescription = "Rate $selectedRating stars on Google Play"
     }
 
     fun applyProgress(progress: Float, allowPop: Boolean) {
@@ -328,10 +330,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
             ),
         )
     }
-    cta.setOnClickListener {
-        dialog.dismiss()
-        openPlayStoreRating(this)
-    }
+    rateAction = cta
     panel.addView(
         cta,
         LinearLayout.LayoutParams(
@@ -471,7 +470,7 @@ private class RatingStarView(context: Context) : View(context) {
             }
         }
 
-    private val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         color = 0xFF273B76.toInt()
     }
@@ -517,7 +516,7 @@ private class RatingStarView(context: Context) : View(context) {
         canvas.translate((width - size) / 2f, (height - size) / 2f)
         canvas.scale(size / 100f, size / 100f)
 
-        canvas.drawPath(star, background)
+        canvas.drawPath(star, tintPaint)
         canvas.drawPath(star, line)
         if (fillFraction > 0f) {
             canvas.save()
