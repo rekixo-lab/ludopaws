@@ -197,7 +197,10 @@ for (const marker of [
 ]) {
   requireText(colorTests, marker, "color ownership regression tests");
 }
-requireText(avatarView, "canvas.drawCircle(87f, 87f", "bottom-corner team badge");
+if ((avatarView.match(/canvas\\.drawCircle\\(87f, 87f,/g) || []).length !== 3 ||
+    avatarView.includes("canvas.drawCircle(83f, 83f,")) {
+  throw new Error("Selection UX gate: all three badge circles must share one bottom-right center");
+}
 
 console.log(
   "Ludo Paws selection UX gate passed: unique starter characters, per-player color persistence, seat-stable match/rematch colors and gameplay isolation.",

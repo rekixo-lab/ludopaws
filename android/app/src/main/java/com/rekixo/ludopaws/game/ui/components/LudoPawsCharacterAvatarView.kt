@@ -166,10 +166,10 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             fill.color = 0xFFFFFFFF.toInt()
             canvas.drawCircle(87f, 87f, 12f, fill)
             fill.color = badgeColor
-            canvas.drawCircle(83f, 83f, 9f, fill)
+            canvas.drawCircle(87f, 87f, 9f, fill)
             stroke.color = 0xAA061A32.toInt()
             stroke.strokeWidth = 2f
-            canvas.drawCircle(83f, 83f, 9f, stroke)
+            canvas.drawCircle(87f, 87f, 9f, stroke)
         }
 
         canvas.restore()
