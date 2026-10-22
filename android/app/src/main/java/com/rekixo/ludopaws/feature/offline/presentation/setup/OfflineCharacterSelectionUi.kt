@@ -96,8 +96,10 @@ internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
         AlertDialog.Builder(this)
             .setTitle("Color already assigned")
             .setMessage(
-                "$color belongs to Player ${ownerSeat + 1}. " +
-                    "Swap colors with Player ${seat + 1}?",
+                "Player ${ownerSeat + 1} already has $color. " +
+                    "Swap Player ${seat + 1}'s ${selectedColorsBySeat[seat]} " +
+                    "with Player ${ownerSeat + 1}'s $color? " +
+                    "Both players' colors will change.",
             )
             .setNegativeButton("CANCEL", null)
             .setPositiveButton("SWAP") { _, _ ->
