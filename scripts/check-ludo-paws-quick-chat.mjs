@@ -79,8 +79,18 @@ for (const label of ['Music', 'Sound', 'Quick chat', 'Game Speed', 'Boards', 'Di
 for (const removed of ['label = "Animal Voices"', 'label = "Haptics"', 'label = "Game Sounds"']) {
   if (settings.includes(removed)) throw new Error(`Obsolete Settings row is still visible: ${removed}`);
 }
-if (!settings.includes('settingsPrivacyLink(')) {
-  throw new Error('Settings UI must retain its Privacy Policy link.');
+// Settings now uses a matching themed dropdown action instead of the old
+// settingsPrivacyLink() helper. Verify the real visible control and click
+// handler, not an obsolete implementation detail.
+for (const marker of [
+  'settingsDropdownField(context, "Privacy Policy")',
+  'text = "Privacy Policy"',
+  'contentDescription = "Open Privacy Policy"',
+  'showPrivacyPolicyDialog(context)',
+]) {
+  if (!settings.includes(marker)) {
+    throw new Error('Settings UI must retain its working Privacy Policy link: ' + marker);
+  }
 }
 const settingsKit = read('settingsKit');
 const themedPlywoodSurfaces = settingsKit.match(/background\s*=\s*plywoodBackground\(/g) || [];
