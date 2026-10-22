@@ -63,17 +63,16 @@ internal fun OfflineGameActivity.showSetup() {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            // Pass & Play follows the Friends/Online surface hierarchy: one
-            // plywood shell contains recessed setup sections. Computer keeps its
-            // dedicated compact selection panel.
+            // Both local modes show three separate recessed-plywood selectors.
+            // There is deliberately no enclosing wooden group/background.
             setPadding(
-                if (isComputerMode) 0 else dp(8),
+                dp(8),
                 if (isComputerMode) 0 else dp(if (isCompactSetup()) 10 else 12),
-                if (isComputerMode) 0 else dp(8),
+                dp(8),
                 if (isComputerMode) 0 else dp(24),
             )
-            // The page itself has no backing panel. Pass & Play's three setup
-            // sections are grouped inside their own shared selection surface below.
+            // The page itself has no backing panel; each selector draws its
+            // own recessed wood background with independent rounded corners.
             background = null
         }
     contentHost.addView(
@@ -101,8 +100,8 @@ internal fun OfflineGameActivity.showSetup() {
 
     var fixedTopActionsBar: FrameLayout? = null
     if (isComputerMode) {
-        // Back/Settings stay fixed to the screen; ROBOT now sits inside
-        // the Computer plywood selection panel, like the Friends title.
+        // Back/Settings stay fixed; the ROBOT heading sits freely on
+        // the page above the independent selection panels.
         fixedTopActionsBar = addGameTopActions(
             host = host,
             context = this,
@@ -124,110 +123,28 @@ internal fun OfflineGameActivity.showSetup() {
         content.addView(backHeader("PASS & PLAY"))
     }
 
-    // Both local modes share the same paw / player-count / color picker.
-    // Robot picks the human's color; the CPU colors remain automatic.
+    // Paw, player count and color are three INDEPENDENT recessed-plywood
+    // sections placed directly on the page. No combined plywood parent shell.
+    // Robot retains a standalone title; Pass & Play keeps its existing header.
     if (isComputerMode) {
-        val combinedSelectionPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            clipChildren = false
-            clipToPadding = false
-            setPadding(
-                dp(8),
-                dp(if (isCompactSetup()) 6 else 8),
-                dp(8),
-                dp(if (isCompactSetup()) 8 else 10),
-            )
-            background = plywoodBackground(
-                context = this@showSetup,
-                cornerRadiusDp = 24f,
-            )
-        }
-        combinedSelectionPanel.addView(
+        content.addView(
             centeredSetupTitle("ROBOT"),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { bottomMargin = dp(8) },
-        )
-        combinedSelectionPanel.addView(
-            characterPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        combinedSelectionPanel.addView(
-            playersPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        // Exactly the same four glossy color choices as Pass & Play, integrated
-        // into Robot's existing shared plywood setup surface.
-        combinedSelectionPanel.addView(
-            colorPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        content.addView(
-            combinedSelectionPanel,
-            setupSectionParams(if (isCompactSetup()) 10 else 12),
-        )
-    } else {
-        // One shared plywood surface for all three Pass & Play setup sections.
-        // The children are transparent so they read as one connected panel.
-        val combinedSelectionPanel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            clipChildren = false
-            clipToPadding = false
-            setPadding(
-                dp(8),
-                dp(if (isCompactSetup()) 6 else 8),
-                dp(8),
-                dp(if (isCompactSetup()) 8 else 10),
-            )
-            background = plywoodBackground(
-                context = this@showSetup,
-                cornerRadiusDp = 24f,
-            )
-        }
-        combinedSelectionPanel.addView(
-            characterPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        combinedSelectionPanel.addView(
-            playersPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        combinedSelectionPanel.addView(
-            colorPanel(embeddedInCombinedPanel = true),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply {
-                topMargin = dp(if (isCompactSetup()) 2 else 4)
-            },
-        )
-        content.addView(
-            combinedSelectionPanel,
-            setupSectionParams(if (isCompactSetup()) 10 else 12),
+            setupSectionParams(if (isCompactSetup()) 8 else 10),
         )
     }
+
+    content.addView(
+        characterPanel(),
+        setupSectionParams(if (isCompactSetup()) 8 else 10),
+    )
+    content.addView(
+        playersPanel(),
+        setupSectionParams(if (isCompactSetup()) 7 else 9),
+    )
+    content.addView(
+        colorPanel(),
+        setupSectionParams(if (isCompactSetup()) 7 else 9),
+    )
 
     refreshSetupSelections()
 

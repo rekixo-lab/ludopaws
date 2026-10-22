@@ -187,17 +187,32 @@ if (/AlertDialog|setPositiveButton\("SWAP"\)|setTitle\("Color already assigned"\
 requireText(ui, "selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(", "automatic seat assignment");
 requireText(ui, "persistCharacterSetup()", "persistent automatic swaps");
 requireText(selection, "the two colors swap automatically", "color picker hint");
-// Robot and Pass & Play use the same four-color tiles in their plywood panels.
-const colorPickerMarker = "colorPanel(embeddedInCombinedPanel = true)";
-if (screen.split(colorPickerMarker).length - 1 !== 2) {
-  throw new Error("Selection UX gate: both Robot and Pass & Play need the color picker");
+// Robot and Pass & Play now use the same three standalone recessed wood
+// panels directly in the page. The shared outer plywood wrapper must be gone.
+for (const marker of [
+  "characterPanel()",
+  "playersPanel()",
+  "colorPanel()",
+  'centeredSetupTitle("ROBOT")',
+]) {
+  requireText(screen, marker, "independent local setup sections");
 }
-const robotStart = screen.indexOf("    // Both local modes share the same paw");
-const robotEnd = screen.indexOf("    } else {", robotStart);
-if (robotStart < 0 || robotEnd <= robotStart ||
-    !screen.slice(robotStart, robotEnd).includes(colorPickerMarker)) {
-  throw new Error("Selection UX gate: Robot combined setup must contain the color picker");
+for (const obsolete of [
+  "combinedSelectionPanel",
+  "embeddedInCombinedPanel = true",
+  "cornerRadiusDp = 24f,",
+]) {
+  if (screen.includes(obsolete)) {
+    throw new Error("Selection UX gate: old combined plywood wrapper remains: " + obsolete);
+  }
 }
+if (screen.split("content.addView(\n        characterPanel()").length - 1 !== 1 ||
+    screen.split("content.addView(\n        playersPanel()").length - 1 !== 1 ||
+    screen.split("content.addView(\n        colorPanel()").length - 1 !== 1) {
+  throw new Error("Selection UX gate: selectors must attach directly to page content");
+}
+requireText(selection, "embeddedInCombinedPanel -> ColorDrawable(Color.TRANSPARENT)", "standalone section render policy");
+requireText(selection, "else -> recessedPlywoodBackground(", "independent recessed wood backgrounds");
 for (const required of [
   "selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot",
   "selectedColor = selectedColorsBySeat[selectedCharacterSlot]",
