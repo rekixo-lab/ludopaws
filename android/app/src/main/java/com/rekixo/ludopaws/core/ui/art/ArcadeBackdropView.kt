@@ -3,14 +3,14 @@ package com.rekixo.ludopaws
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
-import com.rekixo.ludopaws.core.ui.art.RecessedPlywoodDrawable
-import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
+import com.rekixo.ludopaws.core.ui.art.PlywoodTextureDrawable
+import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 
 /**
  * Shared full-screen plywood backdrop across all app screens, including gameplay.
  *
  * Both legacy background entry points intentionally use the same code-drawn
- * recessed plywood skin; neither loads a WebP or another image resource.
+ * plain plywood skin; neither loads a WebP or another image resource.
  */
 class ArcadeBackdropView @JvmOverloads constructor(
     context: Context,
@@ -35,10 +35,10 @@ class ArcadeBackdropView @JvmOverloads constructor(
     }
 
     private fun applySharedBackdrop() {
-        // Full-bleed square outside corners; the existing inset carved pocket
-        // and plywood rim remain intact. Reuse the drawable on screen changes.
-        if (background !is RecessedPlywoodDrawable) {
-            background = recessedPlywoodBackground(context, outerCornerRadiusDp = 0f)
+        // Full-screen plain plywood texture with square outer corners.
+        // Reuse the same drawable when switching screens.
+        if (background !is PlywoodTextureDrawable) {
+            background = plywoodBackground(context, cornerRadiusDp = 0f)
         }
     }
 }

@@ -3,7 +3,6 @@ import fs from 'node:fs';
 const required = {
   backdrop: 'android/app/src/main/java/com/rekixo/ludopaws/core/ui/art/ArcadeBackdropView.kt',
   surface: 'android/app/src/main/java/com/rekixo/ludopaws/core/ui/art/AppSurfaceBackgrounds.kt',
-  recessed: 'android/app/src/main/java/com/rekixo/ludopaws/core/ui/art/RecessedPlywoodDrawable.kt',
   plywood: 'android/app/src/main/java/com/rekixo/ludopaws/core/ui/art/PlywoodTextureDrawable.kt',
   theme: 'android/app/src/main/java/com/rekixo/ludopaws/core/ui/theme/LudoProofTheme.kt',
   offlineGameplay: 'android/app/src/main/java/com/rekixo/ludopaws/feature/offline/presentation/gameplay/OfflineGameplayScreenUi.kt',
@@ -31,8 +30,8 @@ for (const marker of [
   'fun useGameplayBackground()',
   'fun useUiBackground()',
   'applySharedBackdrop()',
-  'recessedPlywoodBackground(context, outerCornerRadiusDp = 0f)',
-  'background !is RecessedPlywoodDrawable',
+  'plywoodBackground(context, cornerRadiusDp = 0f)',
+  'background !is PlywoodTextureDrawable',
 ]) {
   if (!backdrop.includes(marker)) throw new Error('Unified plywood gate: backdrop missing ' + marker);
 }
@@ -47,10 +46,12 @@ const uiEntry = backdrop.slice(backdrop.indexOf('fun useUiBackground()'), backdr
 if (!gameplayEntry.includes('applySharedBackdrop()') || !uiEntry.includes('applySharedBackdrop()')) {
   throw new Error('Gameplay and regular UI must use the same plywood implementation.');
 }
-if (!read('surface').includes('internal fun recessedPlywoodBackground(') ||
-    !read('recessed').includes('PlywoodTextureDrawable(') ||
+if (!read('surface').includes('internal fun plywoodBackground(') ||
     !read('plywood').includes('class PlywoodTextureDrawable')) {
-  throw new Error('Backdrop must use the existing recessed plywood skin.');
+  throw new Error('Backdrop must use the existing plain plywood skin.');
+}
+if (/RecessedPlywoodDrawable|recessedPlywoodBackground/.test(backdrop)) {
+  throw new Error('Shared full-screen backdrop must not use recessed plywood.');
 }
 const theme = read('theme');
 if (!theme.includes('ArcadeBackdropView(context)')) {
@@ -62,4 +63,4 @@ if (!read('offlineGameplay').includes('LudoProofTheme.arcadeRoot(') ||
     !read('onlineScreen').includes('arcadeRootView = root')) {
   throw new Error('Offline and online screens must use the shared background root.');
 }
-console.log('Unified background gate passed: all UI/gameplay screens use code-drawn recessed plywood; obsolete WebP background removed.');
+console.log('Unified background gate passed: all UI/gameplay screens use code-drawn plain plywood; obsolete WebP background removed.');
