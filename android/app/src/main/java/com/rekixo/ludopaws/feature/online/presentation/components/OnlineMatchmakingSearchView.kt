@@ -211,7 +211,7 @@ internal class MatchmakingOpponentRailView(
                     foundOpponents
 
             // Match the Profile page's translucent blue surface (#33104483).
-            // The outer recessed plywood pocket remains on the parent container.
+            // Slots stand alone on the shared full-page backdrop.
             cardFill.color =
                 0x33104483
             border.color =

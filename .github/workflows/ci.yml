@@ -104,6 +104,8 @@ jobs:
         run: node scripts/check-ludo-paws-character-domain.mjs
       - name: Ludo Paws character selection UX gate
         run: node scripts/check-ludo-paws-selection-ux.mjs
+      - name: Ludo Paws flat Online, Team Up and Friends screens gate
+        run: node scripts/check-ludo-paws-flat-lobbies.mjs
       - name: Ludo Paws pawn rendering gate
         run: node scripts/check-ludo-paws-pawn-rendering.mjs
       - name: Ludo Paws reaction engine gate

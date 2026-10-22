@@ -164,7 +164,7 @@ internal fun MainActivity.onlineLobbyPanel():
                             26
                         },
                     ),
-                    dp(12),
+                    dp(6),
                     dp(
                         if (
                             isCompactOnline()
@@ -174,15 +174,13 @@ internal fun MainActivity.onlineLobbyPanel():
                             26
                         },
                     ),
-                    dp(20),
+                    dp(8),
                 )
                 clipChildren = false
                 clipToPadding = false
-                background =
-                    plywoodBackground(
-                        context = this@onlineLobbyPanel,
-                        cornerRadiusDp = 24f,
-                    )
+                // These are layout-only groups: the page shows standalone controls.
+                background = null
+                elevation = 0f
 
                 addView(
                     onlineModePanelHeader(),
@@ -422,7 +420,7 @@ internal fun MainActivity.onlineLobbyPanel():
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
-                topMargin = dp(if (isCompactOnline()) 92 else 112)
+                topMargin = dp(if (gameMode != GameMode.ONLINE) 10 else if (isCompactOnline()) 64 else 72)
             },
         )
 
@@ -459,11 +457,9 @@ internal fun MainActivity.onlineLobbyPanel():
                     dp(18),
                 )
                 // The complete searching board keeps the same regular plywood skin as setup.
-                background =
-                    plywoodBackground(
-                        context = this@onlineLobbyPanel,
-                        cornerRadiusDp = 24f,
-                    )
+                // These are layout-only groups: the page shows standalone controls.
+                background = null
+                elevation = 0f
 
                 addView(
                     onlineModePanelHeader(),
@@ -583,42 +579,14 @@ internal fun MainActivity.onlineLobbyPanel():
                     },
                 )
 
-                // Only the inner opponent/searching lane uses the recessed plywood pocket.
-                val matchmakingOpponentArea =
-                    FrameLayout(this@onlineLobbyPanel).apply {
-                        background =
-                            recessedPlywoodBackground(
-                                context = this@onlineLobbyPanel,
-                                outerCornerRadiusDp = 16f,
-                            )
-                        setPadding(dp(7), dp(6), dp(7), dp(6))
-                        clipToPadding = true
-                        clipChildren = true
-                    }
+                // The opponent rail draws each blue slot itself; no wooden parent pocket.
                 matchmakingOpponentRail =
-                    MatchmakingOpponentRailView(
-                        this@onlineLobbyPanel,
-                    )
-                matchmakingOpponentArea.addView(
-                    matchmakingOpponentRail,
-                    FrameLayout.LayoutParams(
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                        FrameLayout.LayoutParams.MATCH_PARENT,
-                    ),
-                )
+                    MatchmakingOpponentRailView(this@onlineLobbyPanel)
                 addView(
-                    matchmakingOpponentArea,
+                    matchmakingOpponentRail,
                     LinearLayout.LayoutParams(
                         LinearLayout.LayoutParams.MATCH_PARENT,
-                        dp(
-                            if (
-                                isCompactOnline()
-                            ) {
-                                118
-                            } else {
-                                132
-                            },
-                        ),
+                        dp(if (isCompactOnline()) 118 else 132),
                     ),
                 )
 
@@ -726,7 +694,7 @@ internal fun MainActivity.onlineLobbyPanel():
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
                 // Keep the searching box aligned with the setup card's vertical position.
-                topMargin = dp(if (isCompactOnline()) 92 else 112)
+                topMargin = dp(if (gameMode != GameMode.ONLINE) 10 else if (isCompactOnline()) 64 else 72)
             },
         )
 

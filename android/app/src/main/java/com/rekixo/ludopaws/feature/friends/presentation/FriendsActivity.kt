@@ -150,18 +150,16 @@ class FriendsActivity : Activity() {
             clipChildren = false
             clipToPadding = false
             setPadding(dp(8), dp(12), dp(8), dp(42))
-            background = plywoodBackground(
-                context = this@FriendsActivity,
-                cornerRadiusDp = 24f,
-            )
+            // Like Robot/Pass & Play, the page itself has no enclosing card.
+            background = null
+            elevation = 0f
         }
-        // Center the whole plywood panel in the ScrollView viewport when it fits.
-        // ScrollView.fillViewport keeps this viewport-sized on short content while
-        // allowing the panel to scroll from the top when its content is taller.
+        // Only an invisible layout host remains; sections flow from the top
+        // without a page-sized decorative panel.
         val contentLayoutParams = FrameLayout.LayoutParams(
             width,
             FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.CENTER,
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
         )
         contentHost.addView(content, contentLayoutParams)
         host.addView(
@@ -177,16 +175,16 @@ class FriendsActivity : Activity() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             dp(20),
         ))
-        content.addView(buildIdentityCard(), FriendsVisualKit.sectionGap(this, 9))
-        content.addView(buildAddFriendCard(), FriendsVisualKit.sectionGap(this, 8))
+        content.addView(buildIdentitySection(), FriendsVisualKit.sectionGap(this, 9))
+        content.addView(buildAddFriendSection(), FriendsVisualKit.sectionGap(this, 8))
 
-        roomContainer = FriendsVisualKit.compactCard(this, 0xFFFFA22A.toInt())
+        roomContainer = FriendsVisualKit.flatSection(this)
         content.addView(roomContainer, FriendsVisualKit.sectionGap(this, 8))
 
         inboxContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         content.addView(inboxContainer, FriendsVisualKit.sectionGap(this, 8))
 
-        friendsContainer = FriendsVisualKit.compactCard(this, 0xFF9D78FF.toInt())
+        friendsContainer = FriendsVisualKit.flatSection(this)
         content.addView(friendsContainer, FriendsVisualKit.sectionGap(this, 8))
 
         statusText = FriendsVisualKit.body(
@@ -301,8 +299,8 @@ class FriendsActivity : Activity() {
         return row
     }
 
-    private fun buildIdentityCard(): View {
-        val card = FriendsVisualKit.compactCard(this, FriendsVisualKit.GOLD)
+    private fun buildIdentitySection(): View {
+        val card = FriendsVisualKit.flatSection(this)
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -342,8 +340,8 @@ class FriendsActivity : Activity() {
         return card
     }
 
-    private fun buildAddFriendCard(): View {
-        val card = FriendsVisualKit.compactCard(this, FriendsVisualKit.GOLD)
+    private fun buildAddFriendSection(): View {
+        val card = FriendsVisualKit.flatSection(this)
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -499,7 +497,7 @@ class FriendsActivity : Activity() {
         val incomingCount = snapshot?.optJSONArray("incomingRequests")?.length() ?: 0
         val inviteCount = snapshot?.optJSONArray("invites")?.length() ?: 0
         inboxContainer.addView(
-            inboxCard(
+            inboxAction(
                 title = "FRIEND REQUESTS",
                 summary = if (incomingCount == 0) "No pending" else "$incomingCount pending",
                 icon = FriendsIcon.REQUESTS,
@@ -511,7 +509,7 @@ class FriendsActivity : Activity() {
             },
         )
         inboxContainer.addView(
-            inboxCard(
+            inboxAction(
                 title = "ROOM INVITES",
                 summary = if (inviteCount == 0) "No invites" else "$inviteCount waiting",
                 icon = FriendsIcon.INVITES,
@@ -524,14 +522,16 @@ class FriendsActivity : Activity() {
         )
     }
 
-    private fun inboxCard(
+    private fun inboxAction(
         title: String,
         summary: String,
         icon: FriendsIcon,
         count: Int,
         accent: Int,
         onClick: () -> Unit,
-    ): View = FriendsVisualKit.compactCard(this, accent).apply {
+    ): View = FriendsVisualKit.flatSection(this).apply {
+        // Requests and invites are interactive buttons, not wooden section cards.
+        background = FriendsVisualKit.rowSurface(this@FriendsActivity)
         setPadding(dp(7), dp(6), dp(7), dp(6))
         isClickable = true
         isFocusable = true
