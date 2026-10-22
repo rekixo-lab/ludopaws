@@ -108,6 +108,8 @@ class OfflineGameActivity : ComponentActivity() {
     internal var diceHost: FrameLayout? = null
     internal var topPlayerRail: LinearLayout? = null
     internal var bottomPlayerRail: LinearLayout? = null
+    // Stable portrait instances across repeated renderPlayerRails() calls.
+    internal val playerCardViewsBySeat = mutableMapOf<Int, LudoPawsPlayerCardView>()
     internal var turnText: TextView? = null
     internal var infoText: TextView? = null
     internal var statusText: TextView? = null
@@ -223,6 +225,7 @@ class OfflineGameActivity : ComponentActivity() {
             null
         bottomPlayerRail =
             null
+        playerCardViewsBySeat.clear()
         turnText =
             null
         infoText =

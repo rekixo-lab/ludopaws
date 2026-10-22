@@ -87,7 +87,14 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         }
 
         cached?.let { bitmap ->
-            mainHandler.post { callback(bitmap) }
+            // Player rails rebind on every turn. A posted cache hit leaves a
+            // newly attached avatar on vector fallback for one visible frame.
+            // Deliver an already-rendered portrait synchronously on the UI thread.
+            if (Looper.myLooper() == Looper.getMainLooper()) {
+                callback(bitmap)
+            } else {
+                mainHandler.post { callback(bitmap) }
+            }
             return
         }
         if (unavailable) {

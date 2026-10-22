@@ -58,7 +58,7 @@ if (!read('offlineRail').includes('senderPlayerId = player.playerId')) {
 }
 for (const marker of [
   'val reserveProfileFooter =',
-  'setPadding(\n                    0,\n                    if (reserveProfileFooter) dp(18) else 0',
+  'setPadding(\n                    0,\n                    if (reserveProfileFooter) dp(9) else 0',
   'val chatSlot =',
 ]) {
   if (!read('offlineRail').includes(marker)) {
@@ -86,6 +86,35 @@ const settingsKit = read('settingsKit');
 const themedPlywoodSurfaces = settingsKit.match(/background\s*=\s*plywoodBackground\(/g) || [];
 if (themedPlywoodSurfaces.length < 2) {
   throw new Error('Settings popup and option dialogs must use the shared plywood theme background.');
+}
+// Chat visibility must never change the size or board gap of a profile rail.
+const offlineRail = read('offlineRail');
+const footerPolicy = offlineRail.slice(
+  offlineRail.indexOf('val reserveProfileFooter ='),
+  offlineRail.indexOf('val showQuickChat ='),
+);
+if (footerPolicy.includes('quickChatEnabled') || !offlineRail.includes('quickChatEnabled &&')) {
+  throw new Error('Offline footer height must be independent of Quick Chat visibility.');
+}
+for (const marker of [
+  'playerCardViewsBySeat.getOrPut(player.seat)',
+  '(playerCard.parent as? ViewGroup)?.removeView(playerCard)',
+  'translationY = -dp(15).toFloat()',
+]) {
+  if (!offlineRail.includes(marker)) throw new Error('Offline stable profile binding missing ' + marker);
+}
+const onlineRail = read('onlinePresentation');
+const onlineFooterPolicy = onlineRail.slice(
+  onlineRail.indexOf('val reserveProfileFooter ='),
+  onlineRail.indexOf('val activeDiceControl =', onlineRail.indexOf('val reserveProfileFooter =')),
+);
+if (onlineFooterPolicy.includes('quickChatEnabled') || !onlineRail.includes('playerCardsById.getOrPut(player.playerId)')) {
+  throw new Error('Online footer geometry and portrait reuse must be independent of chat state.');
+}
+const portraitCache = fs.readFileSync('android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/LudoPawsCharacterPortraitBitmapCache.kt', 'utf8');
+if (!portraitCache.includes('if (Looper.myLooper() == Looper.getMainLooper())') ||
+    !portraitCache.includes('callback(bitmap)')) {
+  throw new Error('Cached 3D portraits must be delivered synchronously on the UI thread.');
 }
 if (!read('offlineRail').includes('isComputerMode') || !read('offlineRail').includes('hasComputerOpponent')) {
   throw new Error('Offline Quick Chat must be reserved for the human in Computer mode, never Pass & Play.');
