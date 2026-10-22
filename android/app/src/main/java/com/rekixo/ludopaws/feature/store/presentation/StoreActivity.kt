@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.store.presentation
 
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -354,7 +354,7 @@ class StoreActivity :
                     return@runOnUiThread
                 }
                 if (!googleLinked) {
-                    AlertDialog.Builder(this)
+                    PlywoodAlertDialogBuilder(this)
                         .setTitle("Save your account before purchasing")
                         .setMessage("Save this game account to an eligible Google account so you can recover its wallet and purchases after reinstalling or changing phones. A parent or guardian can manage this. Playing and rewarded ads do not require Google sign-in.")
                         .setNegativeButton("Cancel", null)
@@ -371,7 +371,7 @@ class StoreActivity :
     }
 
     private fun confirmSavedAccountPurchase(productId: String, expectedAccountId: String) {
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Google Play purchase")
             .setMessage("This purchase costs real money. Google Play will show the local price before payment. Children should ask a parent or guardian. No payment is made by opening this confirmation.")
             .setNegativeButton("Cancel", null)
@@ -624,7 +624,7 @@ class StoreActivity :
                         "Google Play purchase (not available yet)"
                 }
             }
-            AlertDialog.Builder(this)
+            PlywoodAlertDialogBuilder(this)
                 .setTitle("Unlock ${cosmetic.title}")
                 .setItems(labels.toTypedArray()) { _, index ->
                     val channel = channels.getOrNull(index) ?: return@setItems
@@ -988,8 +988,7 @@ class StoreActivity :
             return
         }
 
-        AlertDialog
-            .Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle(
                 "Ludo Paws Store",
             )

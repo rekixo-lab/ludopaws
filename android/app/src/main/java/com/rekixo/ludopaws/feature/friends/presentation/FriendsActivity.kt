@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.friends.presentation
 
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.app.AlertDialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -19,7 +19,6 @@ import android.view.WindowInsets
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.PopupMenu
 import android.widget.ScrollView
 import android.widget.TextView
 import com.rekixo.ludopaws.ConnectivityMonitor
@@ -844,7 +843,7 @@ class FriendsActivity : Activity() {
             isFocusable = true
             contentDescription = "More actions for " + friend.optString("displayName", "friend")
             AppFocusRing.apply(this, cornerRadiusDp = 8f, strokeWidthDp = 2f)
-            setOnClickListener { anchor -> showFriendMenu(anchor, friend) }
+            setOnClickListener { anchor -> showFriendMenu(friend) }
         }
         actions.addView(more, LinearLayout.LayoutParams(dp(26), dp(34)).apply { marginStart = dp(2) })
         row.addView(
@@ -920,7 +919,7 @@ class FriendsActivity : Activity() {
             playFriend(friendId)
             return
         }
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Add friend to play again?")
             .setMessage("$displayName is no longer in your friends list. Send a friend request first?")
             .setNegativeButton("CANCEL", null)
@@ -930,46 +929,36 @@ class FriendsActivity : Activity() {
             .show()
     }
 
-    private fun showFriendMenu(anchor: View, friend: JSONObject) {
-        PopupMenu(this, anchor).apply {
-            menu.add("Copy Friend ID")
-            menu.add("Remove Friend")
-            menu.add("Block Player")
-            menu.add("Report Player")
-            setOnMenuItemClickListener { item ->
-                when (item.title.toString()) {
-                    "Copy Friend ID" -> {
+    private fun showFriendMenu(friend: JSONObject) {
+        // Replace the platform's plain PopupMenu with the same Plywood /
+        // translucent-blue options used throughout the app.
+        PlywoodAlertDialogBuilder(this)
+            .setTitle("FRIEND OPTIONS")
+            .setItems(arrayOf("Copy Friend ID", "Remove Friend", "Block Player", "Report Player")) { _, choice ->
+                when (choice) {
+                    0 -> {
                         copyText("Ludo Paws Friend ID", friend.optString("friendId"))
                         showStatus("Friend ID copied.")
-                        true
                     }
-                    "Remove Friend" -> {
-                        confirmRemoveFriend(
-                            friend.optString("friendId"),
-                            friend.optString("displayName", "Friend"),
-                        )
-                        true
-                    }
-                    "Block Player" -> {
+                    1 -> confirmRemoveFriend(
+                        friend.optString("friendId"),
+                        friend.optString("displayName", "Friend"),
+                    )
+                    2 -> {
                         val friendId = friend.optString("friendId")
                         val name = friend.optString("displayName", "this player")
-                        AlertDialog.Builder(this@FriendsActivity)
+                        PlywoodAlertDialogBuilder(this@FriendsActivity)
                             .setTitle("Block $name?")
                             .setMessage("Blocking removes the friendship and stops future friend requests, invites, and messages. You can unblock later.")
                             .setNegativeButton("CANCEL", null)
                             .setPositiveButton("BLOCK") { _, _ -> blockFriend(friendId) }
                             .show()
-                        true
                     }
-                    "Report Player" -> {
-                        showReportFriend(friend.optString("friendId"))
-                        true
-                    }
-                    else -> false
+                    3 -> showReportFriend(friend.optString("friendId"))
                 }
             }
-            show()
-        }
+            .setNegativeButton("CANCEL", null)
+            .show()
     }
 
     private fun showRequestsDialog() {
@@ -1033,7 +1022,7 @@ class FriendsActivity : Activity() {
 
     private fun showScrollableDialog(title: String, content: View) {
         val scroll = ScrollView(this).apply { addView(content) }
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle(title)
             .setView(scroll)
             .setNegativeButton("CLOSE", null)
@@ -1426,7 +1415,7 @@ class FriendsActivity : Activity() {
     }
 
     private fun confirmRemoveFriend(friendId: String, displayName: String) {
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Remove friend?")
             .setMessage("Remove $displayName ($friendId) from your friends?")
             .setNegativeButton("CANCEL", null)
@@ -1462,7 +1451,7 @@ class FriendsActivity : Activity() {
         if (!FRIEND_ID.matches(friendId)) return
         val labels = arrayOf("Harassment", "Spam", "Hate", "Threats", "Sexual content", "Other")
         val reasons = arrayOf("HARASSMENT", "SPAM", "HATE", "THREATS", "SEXUAL_CONTENT", "OTHER")
-        AlertDialog.Builder(this)
+        PlywoodAlertDialogBuilder(this)
             .setTitle("Report player")
             .setItems(labels) { _, selected ->
                 val auth = credential ?: return@setItems

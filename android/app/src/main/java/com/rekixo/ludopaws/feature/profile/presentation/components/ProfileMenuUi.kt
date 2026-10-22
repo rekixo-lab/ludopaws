@@ -1,6 +1,6 @@
 package com.rekixo.ludopaws.feature.profile.presentation.components
 
-import android.app.AlertDialog
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -177,7 +177,7 @@ internal fun ProfileActivity.showProfileMenu(anchor: View) {
             "Replace guest deletion code",
             "Invalidate the previous code and create a new one",
         ) {
-            AlertDialog.Builder(this@showProfileMenu)
+            PlywoodAlertDialogBuilder(this@showProfileMenu)
                 .setTitle("Replace saved guest deletion code?")
                 .setMessage(
                     "This invalidates all previously saved guest deletion codes for this account. Save the replacement privately before uninstalling.",

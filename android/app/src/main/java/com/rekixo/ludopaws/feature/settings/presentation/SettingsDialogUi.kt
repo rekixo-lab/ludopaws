@@ -559,7 +559,7 @@ private fun selectSettingsCosmetic(
             if (activity.isFinishing || activity.isDestroyed) return@runOnUiThread
             result.fold(onSuccess = { onApplied() }, onFailure = { error ->
                 onFailure()
-                android.app.AlertDialog.Builder(activity)
+                PlywoodAlertDialogBuilder(activity)
                     .setTitle("Could not change appearance")
                     .setMessage(error.message ?: "Please check your connection and try again.")
                     .setPositiveButton("OK", null).show()
