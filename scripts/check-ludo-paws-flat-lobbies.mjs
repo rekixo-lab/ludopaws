@@ -45,7 +45,7 @@ assert.match(heroArtwork, /canvas\.drawCircle\(/, "Standalone Team Up globe artw
 
 const page = region(friends, "val content = LinearLayout(this).apply", "contentHost.addView(content, contentLayoutParams)", "Friends page host");
 assert.match(page, /background\s*=\s*null/, "Friends must not have a page-wide background");
-assert.match(page, /Gravity\.TOP or Gravity\.CENTER_HORIZONTAL/, "Friends page must top-align its sections");
+assert.match(page, /Gravity\.CENTER,/, "Friends content must center in its invisible viewport host");
 assert.doesNotMatch(page, /plywoodBackground|recessedPlywoodBackground|hudPanelDrawable/, "Friends page shell must be invisible");
 const section = region(kit, "fun flatSection(", "fun rowSurface(", "flat Friends section factory");
 assert.match(section, /background\s*=\s*null/);
@@ -157,4 +157,31 @@ assert.match(teamColors, /background = recessedPlywoodBackground\(/,
 assert.match(teamColors, /outerCornerRadiusDp = 16f/, "Small team card radius");
 assert.match(teamSource, /Intent\(this, MainActivity::class\.java\)/,
   "Finished Team Up matchmaking must still enter the real gameplay Activity");
-console.log("Unboxed Team Up with fixed title/status, centered body and individually framed cards passed.");
+
+// The Friends entry launches FriendsActivity, not the Online lobby. Title and
+// pulsing connection label stay in the fixed header; all other sections
+// center within the device when they fit and scroll naturally when long.
+const fixedFriends = region(friends, "private fun buildUi()", "private fun buildIdentitySection()", "actual Friends activity header");
+assert.doesNotMatch(fixedFriends, /content\.addView\(buildHeader\(\)\)/,
+  "Friends title must not scroll among the content cards");
+assert.doesNotMatch(fixedFriends, /private fun buildHeader\(\)/,
+  "Old Friends header must no longer be composed into body");
+assert.match(fixedFriends, /buildFixedFriendsTitle\(\)/, "Fixed Friends title must be attached to Back/Settings bar");
+assert.match(fixedFriends, /buildFixedFriendsConnectionStatus\(\)/, "Blinking ONLINE status must stay under Friends title");
+assert.match(fixedFriends, /text = "FRIENDS"/, "Correct title label");
+assert.match(fixedFriends, /if \(isCompact\(\)\) 15f else 19f/, "Same title scale as Robot/Team Up");
+assert.match(fixedFriends, /topMargin = dp\(14\)/, "Friends title on same baseline as Back/Settings");
+assert.match(fixedFriends, /topMargin = dp\(70\)/, "Friends status sits below title");
+assert.match(fixedFriends, /topActionsBar\.translationY = safeTopInset\.toFloat\(\)/,
+  "Fixed Friends title and status must honor display cutout");
+assert.match(fixedFriends, /contentHost\.setPadding\(/, "Centered content must reserve cutout-safe header clearance");
+assert.match(fixedFriends, /dp\(96\) \+ safeTopInset/g, "Symmetric top and bottom content clearance");
+assert.match(fixedFriends, /isFillViewport = true/, "Viewport fill is required for vertical centering");
+assert.match(fixedFriends, /Gravity\.CENTER,/, "Scrollable sections must be centered within the viewport");
+assert.match(fixedFriends, /FrameLayout\.LayoutParams\.WRAP_CONTENT/,
+  "Host must wrap growing friends list without clipping");
+for (const section of ["buildIdentitySection()", "buildAddFriendSection()", "roomContainer = FriendsVisualKit.flatSection",
+  "friendsContainer = FriendsVisualKit.flatSection", "inboxContainer =", "statusText = FriendsVisualKit.body"]) {
+  assert.ok(friends.includes(section), "Friends section must remain functional: " + section);
+}
+console.log("Unboxed Friends/Team Up/Online with fixed titles and vertically centered Friends content passed.");

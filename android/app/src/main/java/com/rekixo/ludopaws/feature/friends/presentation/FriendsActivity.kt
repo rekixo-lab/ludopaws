@@ -131,7 +131,11 @@ class FriendsActivity : Activity() {
             isFillViewport = true
             overScrollMode = View.OVER_SCROLL_NEVER
         }
-        val contentHost = FrameLayout(this)
+        val contentHost = FrameLayout(this).apply {
+            // Symmetric reserved space avoids overlap with the fixed
+            // Friends/ONLINE header without pinning the sections to the top.
+            setPadding(0, dp(96), 0, dp(96))
+        }
         scroll.addView(
             contentHost,
             FrameLayout.LayoutParams(
@@ -149,17 +153,17 @@ class FriendsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(8), dp(12), dp(8), dp(42))
+            setPadding(dp(8), dp(4), dp(8), dp(12))
             // Like Robot/Pass & Play, the page itself has no enclosing card.
             background = null
             elevation = 0f
         }
-        // Only an invisible layout host remains; sections flow from the top
-        // without a page-sized decorative panel.
+        // The invisible host centers short Friends sections on the device.
+        // Long friend lists can still grow naturally and scroll from the top.
         val contentLayoutParams = FrameLayout.LayoutParams(
             width,
             FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+            Gravity.CENTER,
         )
         contentHost.addView(content, contentLayoutParams)
         host.addView(
@@ -170,11 +174,8 @@ class FriendsActivity : Activity() {
             ),
         )
 
-        content.addView(buildHeader())
-        content.addView(View(this), LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(20),
-        ))
+        // The title and live ONLINE indicator are attached to the fixed
+        // Back/Settings bar, never repeated among scrollable Friends sections.
         content.addView(buildIdentitySection(), FriendsVisualKit.sectionGap(this, 9))
         content.addView(buildAddFriendSection(), FriendsVisualKit.sectionGap(this, 8))
 
@@ -208,6 +209,28 @@ class FriendsActivity : Activity() {
                     getChildAt(index).background =
                         plywoodBackground(context = this@FriendsActivity, cornerRadiusDp = 999f)
                 }
+
+                // The 52dp title row matches Robot, Online and Team Up:
+                // centered between the fixed Back and Settings buttons.
+                val availableTitleWidth = (
+                    resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+                ).coerceAtLeast(dp(108))
+                addView(
+                    buildFixedFriendsTitle(),
+                    FrameLayout.LayoutParams(
+                        minOf(availableTitleWidth, dp(if (isCompact()) 194 else 224)),
+                        dp(52),
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                    ).apply { topMargin = dp(14) },
+                )
+                addView(
+                    buildFixedFriendsConnectionStatus(),
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        dp(20),
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                    ).apply { topMargin = dp(70) },
+                )
             }
         setContentView(root)
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -225,79 +248,74 @@ class FriendsActivity : Activity() {
                     insets.systemWindowInsetTop
                 }
             val safeTopInset = maxOf(cutoutTop, statusTop)
-            // Keep Back/Settings aligned to the system-bar safe area independently;
-            // the plywood panel itself is centered by contentLayoutParams.
+            // Keep fixed Back/Settings/title/status together below the cutout.
+            // Match top and bottom clearances so short Friends content stays
+            // centered on-screen; long friend lists remain fully scrollable.
+            contentHost.setPadding(
+                contentHost.paddingLeft,
+                dp(96) + safeTopInset,
+                contentHost.paddingRight,
+                dp(96) + safeTopInset,
+            )
             topActionsBar.translationY = safeTopInset.toFloat()
             insets
         }
         root.requestApplyInsets()
     }
 
-    private fun buildHeader(): View {
-        val row = FrameLayout(this).apply { minimumHeight = dp(76) }
-        val titleRow = LinearLayout(this).apply {
+    /** Fixed center title in the same row as Back and Settings. */
+    private fun buildFixedFriendsTitle(): View =
+        LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        titleRow.addView(
-            FriendsVisualKit.iconView(this, FriendsIcon.PEOPLE, FriendsVisualKit.TEXT),
-            LinearLayout.LayoutParams(dp(36), dp(36)),
-        )
-        titleRow.addView(
-            FriendsVisualKit.title(this, "FRIENDS", sizeSp = if (isCompact()) 22f else 26f),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { marginStart = dp(8) },
-        )
-
-        val titleStack = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
+            background = null
+            elevation = 0f
             addView(
-                titleRow,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    dp(54),
+                FriendsVisualKit.iconView(
+                    this@FriendsActivity,
+                    FriendsIcon.PEOPLE,
+                    FriendsVisualKit.TEXT,
                 ),
+                LinearLayout.LayoutParams(
+                    dp(if (isCompact()) 22 else 26),
+                    dp(if (isCompact()) 22 else 26),
+                ).apply { marginEnd = dp(7) },
             )
             addView(
-                LinearLayout(this@FriendsActivity).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    addView(
-                        LaserStatusDotView(this@FriendsActivity),
-                        LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(5) },
+                TextView(this@FriendsActivity).apply {
+                    text = "FRIENDS"
+                    LudoProofTheme.title(
+                        this,
+                        if (isCompact()) 15f else 19f,
+                        gold = false,
                     )
-                    addView(
-                        FriendsVisualKit.body(this@FriendsActivity, "ONLINE", sizeSp = 10f).apply {
-                            setTextColor(0xFFD4FFB2.toInt())
-                            includeFontPadding = false
-                        },
-                    )
+                    gravity = Gravity.CENTER_VERTICAL
+                    includeFontPadding = false
+                    maxLines = 1
                 },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply { topMargin = dp(2) },
             )
         }
-        row.addView(
-            titleStack,
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER,
-            ),
-        )
-        if (!isCompact()) {
-            row.addView(
-                FriendsHeaderArtView(this),
-                FrameLayout.LayoutParams(dp(174), dp(72), Gravity.END or Gravity.CENTER_VERTICAL),
+
+    /** Blinking connection dot/status stays directly beneath the fixed title. */
+    private fun buildFixedFriendsConnectionStatus(): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = null
+            elevation = 0f
+            addView(
+                LaserStatusDotView(this@FriendsActivity),
+                LinearLayout.LayoutParams(dp(10), dp(10)).apply {
+                    marginEnd = dp(5)
+                },
+            )
+            addView(
+                FriendsVisualKit.body(this@FriendsActivity, "ONLINE", sizeSp = 10f).apply {
+                    setTextColor(0xFFD4FFB2.toInt())
+                    includeFontPadding = false
+                },
             )
         }
-        return row
-    }
 
     private fun buildIdentitySection(): View {
         val card = FriendsVisualKit.flatSection(this)
