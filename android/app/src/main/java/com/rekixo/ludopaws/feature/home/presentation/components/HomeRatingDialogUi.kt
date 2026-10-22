@@ -15,7 +15,6 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
-import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.os.Build
 import android.view.Gravity
@@ -27,6 +26,8 @@ import android.widget.TextView
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
 import com.rekixo.ludopaws.ui.dialogs.sizeDialog
 import kotlin.math.abs
@@ -65,16 +66,13 @@ internal fun HomeActivity.showHomeRatingDialog() {
         setPadding(side, dp(9), side, dp(12))
         clipChildren = false
         clipToPadding = false
-        background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(
-                0xFF1845A1.toInt(), 0xFF11185D.toInt(), 0xFF35166C.toInt(),
-                0xFF071B4D.toInt(),
-            ),
-        ).apply {
-            cornerRadius = dp(22).toFloat()
-            setStroke(dp(2), 0xFFFFD96A.toInt())
-        }
+        // Approved flat plywood is right for a full-size dialog surface.
+        // The beveled wood texture supplies its own continuous premium rim.
+        background = plywoodBackground(
+            context = this@showHomeRatingDialog,
+            cornerRadiusDp = 22f,
+            rimThicknessDp = 5.5f,
+        )
         elevation = dp(12).toFloat()
     }
 
@@ -83,49 +81,28 @@ internal fun HomeActivity.showHomeRatingDialog() {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
     }
-    val medallion = TextView(this).apply {
-        text = "★"
-        textSize = 22f
-        setTextColor(0xFFFFE981.toInt())
-        gravity = Gravity.CENTER
-        includeFontPadding = false
-        background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0xFF8656FF.toInt(), 0xFF253FC0.toInt(), 0xFF152064.toInt()),
-        ).apply {
-            shape = GradientDrawable.OVAL
-            setStroke(dp(1), 0xFFFFE28E.toInt())
-        }
-        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-    }
+    // Recessed timber badge with a Canvas-drawn, mathematically centered gold star.
+    val medallion = RatingPlywoodHeaderIcon(this, isClose = false)
     closeRow.addView(
         medallion,
-        LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginEnd = dp(9) },
+        LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(9) },
     )
     closeRow.addView(
         TextView(this).apply {
             text = "RATE & REVIEW"
             textSize = 11f
             letterSpacing = .09f
-            setTextColor(0xFF8FE9FF.toInt())
+            setTextColor(0xFF633718.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
             gravity = Gravity.CENTER_VERTICAL
         },
-        LinearLayout.LayoutParams(0, dp(30), 1f),
+        LinearLayout.LayoutParams(0, dp(42), 1f),
     )
     closeRow.addView(
-        TextView(this).apply {
-            text = "×"
-            textSize = 23f
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            contentDescription = "Close rating dialog"
-            isClickable = true
-            isFocusable = true
-            background = ratingCloseDrawable(this@showHomeRatingDialog)
-            setOnClickListener { dialog.dismiss() }
+        RatingPlywoodHeaderIcon(this, isClose = true) {
+            dialog.dismiss()
         },
-        LinearLayout.LayoutParams(dp(30), dp(30)),
+        LinearLayout.LayoutParams(dp(42), dp(42)),
     )
     panel.addView(
         closeRow,
@@ -139,10 +116,10 @@ internal fun HomeActivity.showHomeRatingDialog() {
         TextView(this).apply {
             text = getString(R.string.rate_dialog_title)
             textSize = if (compact) 19f else 21f
-            setTextColor(0xFFFFEAA4.toInt())
+            setTextColor(0xFF55290F.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
             gravity = Gravity.CENTER
-            setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), 0x990F051D.toInt())
+            setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0x66FFF1C3)
         },
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -153,7 +130,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         TextView(this).apply {
             text = getString(R.string.rate_dialog_question)
             textSize = if (compact) 14f else 15f
-            setTextColor(Color.WHITE)
+            setTextColor(0xFF4E3018.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
             gravity = Gravity.CENTER
         },
@@ -166,7 +143,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         TextView(this).apply {
             text = "Tap a star to choose your rating"
             textSize = if (compact) 10.5f else 11f
-            setTextColor(0xFFB9DDFB.toInt())
+            setTextColor(0xFF604428.toInt())
             gravity = Gravity.CENTER
         },
         LinearLayout.LayoutParams(
@@ -198,7 +175,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
     val ratingCaption = TextView(this).apply {
         text = "5 / 5  •  PAWSOME!"
         textSize = if (compact) 11.5f else 12f
-        setTextColor(0xFFFFE28E.toInt())
+        setTextColor(0xFF7B421A.toInt())
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
         gravity = Gravity.CENTER
     }
@@ -364,7 +341,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         TextView(this).apply {
             text = "Not now"
             textSize = if (compact) 13f else 14f
-            setTextColor(0xFFC4D0EE.toInt())
+            setTextColor(0xFF66401E.toInt())
             gravity = Gravity.CENTER
             isClickable = true
             isFocusable = true
@@ -475,6 +452,103 @@ private fun openPlayStoreRating(
     }
 }
 
+
+/**
+ * Matching carved-wood controls only for the rating dialog.
+ *
+ * The star is drawn around the exact Canvas center instead of relying on a font
+ * baseline. The close X uses a dark outline, cherry-red stroke and subtle warm
+ * highlight so it stays centered and readable over the recessed wood surface.
+ */
+private class RatingPlywoodHeaderIcon(
+    context: Context,
+    private val isClose: Boolean,
+    onClose: (() -> Unit)? = null,
+) : View(context) {
+    private val density = resources.displayMetrics.density
+    private val outline = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF63351E.toInt()
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        strokeWidth = 7.4f * density
+    }
+    private val red = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFE0463B.toInt()
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        strokeWidth = 5.1f * density
+    }
+    private val glint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFC4A1.toInt()
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+        strokeJoin = Paint.Join.ROUND
+        strokeWidth = 1.3f * density
+    }
+    private val starFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFD455.toInt()
+        style = Paint.Style.FILL
+    }
+    private val starStroke = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF794016.toInt()
+        style = Paint.Style.STROKE
+        strokeWidth = 1.35f * density
+        strokeJoin = Paint.Join.ROUND
+    }
+    private val starPath = Path()
+
+    init {
+        // At 42dp with a radius above half the width, the outer badge is round,
+        // while its center has the familiar recessed wood pocket.
+        background = recessedPlywoodBackground(context, outerCornerRadiusDp = 24f)
+        if (isClose) {
+            contentDescription = "Close rating dialog"
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClose?.invoke() }
+        } else {
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        val cx = width * .5f
+        val cy = height * .5f
+        if (isClose) {
+            val arm = 7.5f * density
+            fun cross(paint: Paint) {
+                canvas.drawLine(cx - arm, cy - arm, cx + arm, cy + arm, paint)
+                canvas.drawLine(cx + arm, cy - arm, cx - arm, cy + arm, paint)
+            }
+            cross(outline)
+            cross(red)
+            // Fine specular tint inside the red X, not a separate offset glyph.
+            cross(glint)
+        } else {
+            starPath.reset()
+            val radius = min(width, height) * .285f
+            for (point in 0 until 10) {
+                val r = if (point % 2 == 0) radius else radius * .47f
+                val angle = Math.toRadians(-90.0 + 36.0 * point)
+                val x = cx + cos(angle).toFloat() * r
+                val y = cy + sin(angle).toFloat() * r
+                if (point == 0) starPath.moveTo(x, y) else starPath.lineTo(x, y)
+            }
+            starPath.close()
+            starFill.shader = LinearGradient(
+                cx - radius, cy - radius, cx + radius, cy + radius,
+                intArrayOf(0xFFFFFFB5.toInt(), 0xFFFFD653.toInt(), 0xFFF3A41B.toInt()),
+                null, Shader.TileMode.CLAMP,
+            )
+            canvas.drawPath(starPath, starFill)
+            starFill.shader = null
+            canvas.drawPath(starPath, starStroke)
+        }
+    }
+}
 
 /**
  * Tinted-to-gold star. The filled portion is clipped from the LEFT edge,
@@ -687,13 +761,3 @@ private class RatingSpectrumDrawable(context: Context) : Drawable() {
     }
 }
 
-private fun ratingCloseDrawable(context: Context): StateListDrawable =
-    StateListDrawable().apply {
-        fun circle(color: Int): GradientDrawable = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(color)
-            setStroke(LudoProofTheme.dp(context, 1), 0xFFFFD96A.toInt())
-        }
-        addState(intArrayOf(android.R.attr.state_pressed), circle(0xFF6742B2.toInt()))
-        addState(intArrayOf(), circle(0xFF172960.toInt()))
-    }

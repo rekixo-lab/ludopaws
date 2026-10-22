@@ -33,6 +33,10 @@ for (const token of [
   "market://details?id=",
   "https://play.google.com/store/apps/details?id=",
   "contentDescription = \"Close rating dialog\"",
+  "background = plywoodBackground(",
+  "background = recessedPlywoodBackground(context, outerCornerRadiusDp = 24f)",
+  "RatingPlywoodHeaderIcon(this, isClose = false)",
+  "RatingPlywoodHeaderIcon(this, isClose = true)",
   "contentDescription = \"Not now\"",
 ]) {
   if (!source.includes(token)) throw new Error("Rating popup gate missing: " + token);
@@ -70,4 +74,12 @@ if (!selectionAnimation.includes("ValueAnimator.areAnimatorsEnabled()") ||
     !source.includes("if (animationsEnabled) {")) {
   throw new Error("System animator accessibility setting must remain supported");
 }
-console.log("Ludo Paws compact liquid-gold rating popup and settings cleanup gate passed.");
+if (source.includes("ratingCloseDrawable(") ||
+    source.includes("0xFF1845A1.toInt(), 0xFF11185D.toInt()")) {
+  throw new Error("Rating popup gate: old blue panel / close style still present");
+}
+if (!source.includes("0xFF55290F.toInt()") ||
+    !source.includes("0xFF4E3018.toInt()")) {
+  throw new Error("Rating popup gate: wooden panel needs legible dark-brown typography");
+}
+console.log("Ludo Paws plywood rating dialog, liquid-gold stars and RGB CTA gate passed.");
