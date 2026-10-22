@@ -240,7 +240,9 @@ internal fun OfflineGameActivity.showSetup() {
                 showGame(
                     session.start(
                         playerCount = selectedPlayers,
-                        preferredColor = selectedColor,
+                        preferredColor = if (isComputerMode) selectedColor
+                            else selectedColorsBySeat.first(),
+                        colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
                     ),
                 )
             }

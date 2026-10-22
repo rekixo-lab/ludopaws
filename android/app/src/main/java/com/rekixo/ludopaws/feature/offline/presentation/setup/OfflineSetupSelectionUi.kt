@@ -120,9 +120,17 @@ internal fun OfflineGameActivity.colorPanel(
     LinearLayout =
     selectionPanel(
         "CHOOSE YOUR COLOR",
-        if (isComputerMode) "Your color will rotate to the bottom-left side." else "",
+        if (isComputerMode) "Your color will rotate to the bottom-left side."
+        else "Pick each player color using P1–P4 above. Two players use opposite corners.",
         embeddedInCombinedPanel = embeddedInCombinedPanel,
     ).apply {
+        colorSelectionStatus = TextView(this@colorPanel).apply {
+            textSize = if (isCompactSetup()) 12f else 13f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(0xFFFFD45E.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(6))
+        }.also(::addView)
         val colorRow = LinearLayout(this@colorPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -179,8 +187,7 @@ internal fun OfflineGameActivity.colorPanel(
                 )
                 setOnClickListener { clicked ->
                     clicked.playSelectionPopAnimation()
-                    selectedColor = entry.key
-                    refreshSetupSelections()
+                    selectColorForActiveSlot(entry.key)
                 }
             }
             colorMap[entry.key] = colorTile
@@ -584,8 +591,12 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
         }
     }
 
+    colorSelectionStatus?.text = if (isComputerMode) "YOUR COLOR: $selectedColor"
+    else "PLAYER ${selectedCharacterSlot + 1} COLOR: $selectedColor"
     colorButtons.forEach { (colorName, tile) ->
         val selected = colorName == selectedColor
+        tile.contentDescription = if (isComputerMode) "$colorName color"
+            else "$colorName color for Player ${selectedCharacterSlot + 1}"
         tile.background = playerCountSelectionBackground(
             context = this@refreshSetupSelections,
             selected = selected,

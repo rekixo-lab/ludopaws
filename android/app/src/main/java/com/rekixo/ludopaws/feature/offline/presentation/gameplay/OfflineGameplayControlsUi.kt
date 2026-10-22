@@ -261,12 +261,14 @@ private fun OfflineGameActivity.startOfflineRematch() {
             )
         }
     selectedCharacterIds = characterIds
+    selectedColorsBySeat = finished.players.map { it.color }
     persistActiveCharacterSetup()
 
     showGame(
         session.start(
             playerCount = spec.playerCount,
             preferredColor = spec.preferredColor,
+            colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
         ),
     )
 }

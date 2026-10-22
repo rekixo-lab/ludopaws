@@ -93,6 +93,8 @@ class OfflineGameActivity : ComponentActivity() {
 
     internal var selectedCharacterSlot: Int = 0
     internal var selectedCharacterIds: List<String> = emptyList()
+    internal var selectedColorsBySeat: List<String> = emptyList()
+    internal var colorSelectionStatus: TextView? = null
     internal var activeCharacterMatchId: String? = null
     internal var activeCharacterIdsBySeat: List<String> = emptyList()
 
@@ -240,6 +242,7 @@ class OfflineGameActivity : ComponentActivity() {
             emptyMap()
         characterSummaryText =
             null
+        colorSelectionStatus = null
     }
 
     override fun onDestroy() {
