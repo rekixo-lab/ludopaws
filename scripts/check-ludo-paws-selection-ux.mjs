@@ -187,8 +187,8 @@ if (/AlertDialog|setPositiveButton\("SWAP"\)|setTitle\("Color already assigned"\
 requireText(ui, "selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(", "automatic seat assignment");
 requireText(ui, "persistCharacterSetup()", "persistent automatic swaps");
 requireText(selection, "the two colors swap automatically", "color picker hint");
-// Robot and Pass & Play now use the same three standalone recessed wood
-// panels directly in the page. The shared outer plywood wrapper must be gone.
+// Both local setup screens use standalone FLAT sections with no enclosing
+// shell, no individual recessed plywood parent backgrounds or panel elevation.
 for (const marker of [
   "characterPanel()",
   "playersPanel()",
@@ -211,8 +211,30 @@ if (screen.split("content.addView(\n        characterPanel()").length - 1 !== 1 
     screen.split("content.addView(\n        colorPanel()").length - 1 !== 1) {
   throw new Error("Selection UX gate: selectors must attach directly to page content");
 }
-requireText(selection, "embeddedInCombinedPanel -> ColorDrawable(Color.TRANSPARENT)", "standalone section render policy");
-requireText(selection, "else -> recessedPlywoodBackground(", "independent recessed wood backgrounds");
+const sectionStart = selection.indexOf("internal fun OfflineGameActivity.selectionPanel(");
+const sectionEnd = selection.indexOf("internal fun OfflineGameActivity.choiceTile(", sectionStart);
+if (sectionStart < 0 || sectionEnd < 0) {
+  throw new Error("Selection UX gate: flat section layout is missing");
+}
+const sectionBody = selection.slice(sectionStart, sectionEnd);
+for (const marker of ["LinearLayout(this).apply", "orientation = LinearLayout.VERTICAL",
+  "background = null", "elevation = 0f", "clipChildren = false"]) {
+  requireText(sectionBody, marker, "flat local setup section");
+}
+for (const forbidden of ["LudoProofTheme.panel(", "recessedPlywoodBackground(",
+  "playerCountSelectionBackground(", "ColorDrawable(", "embeddedInCombinedPanel",
+  "setStroke(", "GradientDrawable("]) {
+  if (sectionBody.includes(forbidden)) {
+    throw new Error("Selection UX gate: setup section wrapper is still decorated: " + forbidden);
+  }
+}
+for (const marker of ["playerCountSelectionBackground(", "SetupColorOrbView(", "playSelectionPopAnimation()"]) {
+  requireText(selection, marker, "selectable tiles retained");
+}
+if (ui.includes("embeddedInCombinedPanel") ||
+    selection.includes("embeddedInCombinedPanel")) {
+  throw new Error("Selection UX gate: obsolete combined setup panel mode remains");
+}
 for (const required of [
   "selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot",
   "selectedColor = selectedColorsBySeat[selectedCharacterSlot]",

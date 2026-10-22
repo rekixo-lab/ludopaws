@@ -63,16 +63,16 @@ internal fun OfflineGameActivity.showSetup() {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            // Both local modes show three separate recessed-plywood selectors.
-            // There is deliberately no enclosing wooden group/background.
+            // Robot and Pass & Play show independent headings and selection
+            // tiles on the bare page, without any parent plywood panels.
             setPadding(
                 dp(8),
                 if (isComputerMode) 0 else dp(if (isCompactSetup()) 10 else 12),
                 dp(8),
                 if (isComputerMode) 0 else dp(24),
             )
-            // The page itself has no backing panel; each selector draws its
-            // own recessed wood background with independent rounded corners.
+            // No page backing and no section backing. Each selectable tile
+            // still owns its small selection/highlight treatment.
             background = null
         }
     contentHost.addView(
@@ -123,9 +123,9 @@ internal fun OfflineGameActivity.showSetup() {
         content.addView(backHeader("PASS & PLAY"))
     }
 
-    // Paw, player count and color are three INDEPENDENT recessed-plywood
-    // sections placed directly on the page. No combined plywood parent shell.
-    // Robot retains a standalone title; Pass & Play keeps its existing header.
+    // Paw, player count and color now form a flat, independent page flow.
+    // Neither an enclosing shell nor any section-specific BG/elevation remains.
+    // Robot retains its title; Pass & Play keeps its existing back/header.
     if (isComputerMode) {
         content.addView(
             centeredSetupTitle("ROBOT"),
@@ -135,15 +135,15 @@ internal fun OfflineGameActivity.showSetup() {
 
     content.addView(
         characterPanel(),
-        setupSectionParams(if (isCompactSetup()) 8 else 10),
+        setupSectionParams(if (isCompactSetup()) 7 else 9),
     )
     content.addView(
         playersPanel(),
-        setupSectionParams(if (isCompactSetup()) 7 else 9),
+        setupSectionParams(if (isCompactSetup()) 10 else 12),
     )
     content.addView(
         colorPanel(),
-        setupSectionParams(if (isCompactSetup()) 7 else 9),
+        setupSectionParams(if (isCompactSetup()) 9 else 11),
     )
 
     refreshSetupSelections()
@@ -182,7 +182,7 @@ internal fun OfflineGameActivity.showSetup() {
             val sideMargin = if (isCompactSetup()) dp(10) else dp(34)
             setMargins(
                 sideMargin,
-                dp(if (isCompactSetup()) 14 else 18),
+                dp(if (isCompactSetup()) 10 else 14),
                 sideMargin,
                 0,
             )
