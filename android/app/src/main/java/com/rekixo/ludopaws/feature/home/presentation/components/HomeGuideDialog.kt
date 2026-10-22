@@ -118,7 +118,7 @@ internal fun showLudoPawsGuide(
                     "1. Choose Robot to practice alone, or Pass & Play with friends on one phone.\n\n" +
                     "2. Roll the dice, choose a highlighted pawn and race all four paws home.\n\n" +
                     "3. Earn XP and badges by completing games. You can see your progress in Profile.\n\n" +
-                    "4. Change sound, game speed and Reduce motion in Settings.\n\n" +
+                    "4. Change sound and game speed in Settings.\n\n" +
                     "Online games use automatic animal names and fixed reactions. Free-text chat and voice are unavailable."
                 textSize = 13.5f
                 setTextColor(Color.WHITE)

@@ -17,6 +17,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.net.Uri
+import android.os.Build
 import android.view.Gravity
 import android.view.View
 import android.view.animation.LinearInterpolator
@@ -26,7 +27,6 @@ import android.widget.TextView
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
-import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
 import com.rekixo.ludopaws.ui.dialogs.sizeDialog
 import kotlin.math.abs
@@ -55,7 +55,9 @@ internal fun HomeActivity.showHomeRatingDialog() {
 
     val dialog = baseDialog(this)
     val compact = LudoProofTheme.isCompactWidth(this)
-    val reduceMotion = GameSettingsStore(this).snapshot().reduceMotionEnabled
+    // Follow the Android system animation scale without a duplicate app toggle.
+    val animationsEnabled = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+        ValueAnimator.areAnimatorsEnabled()
     val side = dp(if (compact) 12 else 16)
     val panel = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -250,7 +252,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         for (i in popped.indices) popped[i] =
             RatingStarFillPolicy.fraction(displayedProgress, i) > .06f
         val destination = to.toFloat()
-        if (reduceMotion || abs(destination - displayedProgress) < .01f) {
+        if (!animationsEnabled || abs(destination - displayedProgress) < .01f) {
             applyProgress(destination, allowPop = false)
             return
         }
@@ -378,7 +380,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
 
     refreshCopy()
     // The stars are intentionally dim at the first rendered frame.
-    applyProgress(if (reduceMotion) selectedRating.toFloat() else 0f, allowPop = false)
+    applyProgress(if (animationsEnabled) 0f else selectedRating.toFloat(), allowPop = false)
     dialog.setOnDismissListener {
         starAnimator?.cancel()
         shimmerAnimator?.cancel()
@@ -389,7 +391,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
     dialog.setContentView(panel)
     sizeDialog(dialog, .88f)
     // Prepare transparent entrance BEFORE showing the window: no first-frame flash.
-    if (!reduceMotion) {
+    if (animationsEnabled) {
         panel.alpha = 0f
         panel.scaleX = .90f
         panel.scaleY = .90f
@@ -399,7 +401,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
     }
     dialog.show()
 
-    if (!reduceMotion) {
+    if (animationsEnabled) {
         panel.animate()
             .alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
             .setDuration(500L)

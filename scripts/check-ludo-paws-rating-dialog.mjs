@@ -7,7 +7,7 @@ const home = fs.readFileSync("android/app/src/main/java/com/rekixo/ludopaws/feat
 
 for (const token of [
   "showHomeRatingDialog()",
-  "GameSettingsStore(this).snapshot().reduceMotionEnabled",
+  "ValueAnimator.areAnimatorsEnabled()",
   "RatingStarFillPolicy.fraction(displayedProgress, index)",
   "canvas.clipPath(star)",
   "canvas.clipPath(fluid)",
@@ -48,4 +48,26 @@ if (source.includes("isFilled:") || source.includes("ratingPrimaryButtonDrawable
 if (source.includes("canvas.clipRect(0f, 0f, 100f * fillFraction")) {
   throw new Error("Rating popup gate: must use a rising liquid surface, not the old horizontal wipe");
 }
-console.log("Ludo Paws compact liquid-gold rating popup gate passed.");
+const settingsSource = fs.readFileSync(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/settings/presentation/SettingsDialogUi.kt", "utf8",
+);
+const store = fs.readFileSync(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/settings/data/local/GameSettingsStore.kt", "utf8",
+);
+const selectionAnimation = fs.readFileSync(
+  "android/app/src/main/java/com/rekixo/ludopaws/core/ui/components/SelectionPopAnimation.kt", "utf8",
+);
+const guide = fs.readFileSync(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/home/presentation/components/HomeGuideDialog.kt", "utf8",
+);
+for (const content of [source, settingsSource, store, selectionAnimation, guide]) {
+  if (/reduceMotionEnabled|Reduce motion|setReduceMotionEnabled|KEY_REDUCE_MOTION/.test(content)) {
+    throw new Error("Removed Reduce Motion toggle remains in production code");
+  }
+}
+if (!selectionAnimation.includes("ValueAnimator.areAnimatorsEnabled()") ||
+    !source.includes("val animationsEnabled =") ||
+    !source.includes("if (animationsEnabled) {")) {
+  throw new Error("System animator accessibility setting must remain supported");
+}
+console.log("Ludo Paws compact liquid-gold rating popup and settings cleanup gate passed.");
