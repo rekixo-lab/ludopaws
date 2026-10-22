@@ -134,7 +134,7 @@ class FriendsActivity : Activity() {
         val contentHost = FrameLayout(this).apply {
             // Symmetric reserved space avoids overlap with the fixed
             // Friends/ONLINE header without pinning the sections to the top.
-            setPadding(0, dp(96), 0, dp(96))
+            setPadding(0, dp(96), 0, dp(26))
         }
         scroll.addView(
             contentHost,
@@ -144,7 +144,7 @@ class FriendsActivity : Activity() {
             ),
         )
 
-        val horizontalPadding = dp(if (isCompact()) 10 else 18)
+        val horizontalPadding = dp(if (isCompact()) 14 else 22)
         val width = minOf(
             resources.displayMetrics.widthPixels - horizontalPadding * 2,
             dp(LudoProofTheme.pageMaxContentWidthDp(this)),
@@ -153,7 +153,7 @@ class FriendsActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
             clipToPadding = false
-            setPadding(dp(8), dp(4), dp(8), dp(12))
+            setPadding(dp(6), dp(6), dp(6), dp(22))
             // Like Robot/Pass & Play, the page itself has no enclosing card.
             background = null
             elevation = 0f
@@ -176,28 +176,32 @@ class FriendsActivity : Activity() {
 
         // The title and live ONLINE indicator are attached to the fixed
         // Back/Settings bar, never repeated among scrollable Friends sections.
-        content.addView(buildIdentitySection(), FriendsVisualKit.sectionGap(this, 9))
-        content.addView(buildAddFriendSection(), FriendsVisualKit.sectionGap(this, 8))
+        // Independent groups with consistent spacing instead of cramped rows.
+        content.addView(buildIdentitySection(), FriendsVisualKit.sectionGap(this, 10))
+        content.addView(buildAddFriendSection(), FriendsVisualKit.sectionGap(this, 14))
 
         roomContainer = FriendsVisualKit.flatSection(this)
-        content.addView(roomContainer, FriendsVisualKit.sectionGap(this, 8))
+        content.addView(roomContainer, FriendsVisualKit.sectionGap(this, 20))
 
-        inboxContainer = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        content.addView(inboxContainer, FriendsVisualKit.sectionGap(this, 8))
+        inboxContainer = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        content.addView(inboxContainer, FriendsVisualKit.sectionGap(this, 18))
 
         friendsContainer = FriendsVisualKit.flatSection(this)
-        content.addView(friendsContainer, FriendsVisualKit.sectionGap(this, 8))
+        content.addView(friendsContainer, FriendsVisualKit.sectionGap(this, 20))
 
         statusText = FriendsVisualKit.body(
             this,
             "Invite friends and start a private match.",
-            sizeSp = 10.5f,
+            sizeSp = 11f,
             muted = true,
         ).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(6), dp(8), dp(6))
+            setPadding(dp(8), dp(8), dp(8), dp(8))
         }
-        content.addView(statusText)
+        content.addView(statusText, FriendsVisualKit.sectionGap(this, 13))
         val topActionsBar =
             addGameTopActions(
                 host = host,
@@ -248,14 +252,12 @@ class FriendsActivity : Activity() {
                     insets.systemWindowInsetTop
                 }
             val safeTopInset = maxOf(cutoutTop, statusTop)
-            // Keep fixed Back/Settings/title/status together below the cutout.
-            // Match top and bottom clearances so short Friends content stays
-            // centered on-screen; long friend lists remain fully scrollable.
+            // Center short content below the fixed header; long lists scroll.
             contentHost.setPadding(
                 contentHost.paddingLeft,
                 dp(96) + safeTopInset,
                 contentHost.paddingRight,
-                dp(96) + safeTopInset,
+                dp(26),
             )
             topActionsBar.translationY = safeTopInset.toFloat()
             insets
@@ -277,19 +279,20 @@ class FriendsActivity : Activity() {
                     FriendsVisualKit.TEXT,
                 ),
                 LinearLayout.LayoutParams(
-                    dp(if (isCompact()) 22 else 26),
-                    dp(if (isCompact()) 22 else 26),
-                ).apply { marginEnd = dp(7) },
+                    dp(if (isCompact()) 28 else 32),
+                    dp(if (isCompact()) 28 else 32),
+                ).apply { marginEnd = dp(8) },
             )
             addView(
                 TextView(this@FriendsActivity).apply {
                     text = "FRIENDS"
                     LudoProofTheme.title(
                         this,
-                        if (isCompact()) 15f else 19f,
+                        if (isCompact()) 20f else 23f,
                         gold = false,
                     )
                     gravity = Gravity.CENTER_VERTICAL
+                    letterSpacing = 0.025f
                     includeFontPadding = false
                     maxLines = 1
                 },
@@ -310,7 +313,7 @@ class FriendsActivity : Activity() {
                 },
             )
             addView(
-                FriendsVisualKit.body(this@FriendsActivity, "ONLINE", sizeSp = 10f).apply {
+                FriendsVisualKit.body(this@FriendsActivity, "ONLINE", sizeSp = 10.5f).apply {
                     setTextColor(0xFFD4FFB2.toInt())
                     includeFontPadding = false
                 },
@@ -410,7 +413,7 @@ class FriendsActivity : Activity() {
                 LinearLayout.LayoutParams(dp(25), dp(25)).apply { marginEnd = dp(6) },
             )
             addView(
-                FriendsVisualKit.title(this@FriendsActivity, "PRIVATE ROOM", 12.5f),
+                FriendsVisualKit.title(this@FriendsActivity, "PRIVATE ROOM", if (isCompact()) 14f else 16f),
                 LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
             )
         }
@@ -487,8 +490,8 @@ class FriendsActivity : Activity() {
             }
             countRow.addView(
                 playerCountButton,
-                LinearLayout.LayoutParams(dp(42), dp(40)).apply {
-                    if (index > 0) marginStart = dp(5)
+                LinearLayout.LayoutParams(dp(44), dp(44)).apply {
+                    if (index > 0) marginStart = dp(6)
                 },
             )
         }
@@ -499,7 +502,7 @@ class FriendsActivity : Activity() {
                 FriendsButtonStyle.PURPLE,
                 FriendsIcon.HOUSE,
             ) { createFriendRoom() },
-            LinearLayout.LayoutParams(0, dp(40), 1f).apply { marginStart = dp(7) },
+            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(9) },
         )
         roomContainer.addView(
             countRow,
@@ -550,7 +553,7 @@ class FriendsActivity : Activity() {
     ): View = FriendsVisualKit.flatSection(this).apply {
         // Requests and invites are interactive buttons, not wooden section cards.
         background = FriendsVisualKit.rowSurface(this@FriendsActivity)
-        setPadding(dp(7), dp(6), dp(7), dp(6))
+        setPadding(dp(9), dp(10), dp(9), dp(10))
         isClickable = true
         isFocusable = true
         AppFocusRing.apply(this, cornerRadiusDp = 18f, strokeWidthDp = 2f)
@@ -576,9 +579,9 @@ class FriendsActivity : Activity() {
         }
         row.addView(iconFrame, LinearLayout.LayoutParams(dp(34), dp(34)))
         val textBox = LinearLayout(this@FriendsActivity).apply { orientation = LinearLayout.VERTICAL }
-        textBox.addView(FriendsVisualKit.title(this@FriendsActivity, title, 9.5f))
+        textBox.addView(FriendsVisualKit.title(this@FriendsActivity, title, if (isCompact()) 10f else 11.5f))
         textBox.addView(
-            FriendsVisualKit.body(this@FriendsActivity, summary, 9f, muted = true),
+            FriendsVisualKit.body(this@FriendsActivity, summary, 10f, muted = true),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
