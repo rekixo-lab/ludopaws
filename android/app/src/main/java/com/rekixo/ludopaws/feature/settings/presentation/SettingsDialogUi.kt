@@ -452,6 +452,7 @@ internal fun showSettingsDialog(
         // width, styling and touch target instead of stretching into full rows.
         val privacyAction = settingsDropdownField(context, "Privacy Policy").apply {
             text = "Privacy Policy"
+            setTextColor(android.graphics.Color.WHITE)
             textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
             setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
             setSingleLine(true)
@@ -463,6 +464,7 @@ internal fun showSettingsDialog(
         }
         val guideAction = settingsDropdownField(context, "How to Play").apply {
             text = "How to Play"
+            setTextColor(android.graphics.Color.WHITE)
             textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
             setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
             setSingleLine(true)

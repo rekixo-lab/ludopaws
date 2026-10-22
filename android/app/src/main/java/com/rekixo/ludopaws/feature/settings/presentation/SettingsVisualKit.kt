@@ -75,9 +75,14 @@ private fun settingsHeader(
                         23f
                     }
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(0xFF643619.toInt())
+                setTextColor(0xFFFFD34E.toInt())
                 gravity = Gravity.CENTER
-                setShadowLayer(1.2f, 0f, 1f, 0x77FFF0CA)
+                setShadowLayer(
+                    3f,
+                    0f,
+                    2f,
+                    0xAA000000.toInt(),
+                )
             }
 
         addView(
@@ -120,22 +125,22 @@ internal fun settingsCompactRow(
     LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        minimumHeight = settingsDp(context, 51)
+        minimumHeight = settingsDp(context, 50)
         setPadding(
-            settingsDp(context, 10),
+            settingsDp(context, 8),
             settingsDp(context, 2),
-            settingsDp(context, 7),
+            settingsDp(context, 4),
             settingsDp(context, 2),
         )
-        background = transparentDarkBlueStrokeBackground(
-            context = context,
-            cornerRadiusDp = 13f,
-        )
+        // Keep this full-width row FLAT. Only the icon/toggle/dropdown
+        // drawn inside it owns the translucent blue fill + blue outline.
+        background = null
+        elevation = 0f
         layoutParams = LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
         ).apply {
-            topMargin = settingsDp(context, 4)
+            topMargin = settingsDp(context, 3)
         }
 
         addView(
@@ -152,7 +157,14 @@ internal fun settingsCompactRow(
                         16f
                     }
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(0xFF193A61.toInt())
+                setTextColor(Color.WHITE)
+                // Soft dark contrast on warm, light plywood without a row BG.
+                setShadowLayer(
+                    settingsDp(context, 2).toFloat(),
+                    0f,
+                    settingsDp(context, 1).toFloat(),
+                    0xFF183250.toInt(),
+                )
                 gravity = Gravity.CENTER_VERTICAL
             },
             LinearLayout.LayoutParams(
@@ -201,7 +213,15 @@ internal fun settingsDropdownField(
                 14.5f
             }
         setTypeface(Typeface.DEFAULT_BOLD)
-        setTextColor(0xFF153C68.toInt())
+        setTextColor(Color.WHITE)
+        // Same white as the labels; shadow keeps it legible over the
+        // intentionally translucent blue field on the plywood popup.
+        setShadowLayer(
+            settingsDp(context, 2).toFloat(),
+            0f,
+            settingsDp(context, 1).toFloat(),
+            0xFF0A244F.toInt(),
+        )
         gravity = Gravity.CENTER
         setPadding(
             settingsDp(context, 6),
@@ -349,14 +369,14 @@ internal class SettingsBooleanControl(
             if (!value) {
                 Color.WHITE
             } else {
-                0xFF315271.toInt()
+                0xFF294A68.toInt()
             },
         )
         onText.setTextColor(
             if (value) {
                 Color.WHITE
             } else {
-                0xFF315271.toInt()
+                0xFF294A68.toInt()
             },
         )
     }
@@ -479,9 +499,9 @@ internal fun showSettingsChoiceDialog(
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(
                     if (option == selected) {
-                        0xFF74400F.toInt()
+                        0xFFFFD34E.toInt()
                     } else {
-                        0xFF193A61.toInt()
+                        Color.WHITE
                     },
                 )
                 gravity = Gravity.CENTER_VERTICAL
@@ -497,7 +517,12 @@ internal fun showSettingsChoiceDialog(
                     context = context,
                     cornerRadiusDp = 10f,
                 )
-                if (option == selected) alpha = 1f
+                setShadowLayer(
+                    settingsDp(context, 2).toFloat(),
+                    0f,
+                    settingsDp(context, 1).toFloat(),
+                    0xFF0A244F.toInt(),
+                )
                 AppFocusRing.apply(this, cornerRadiusDp = 10f, strokeWidthDp = 2f)
                 setOnClickListener {
                     onSelect(option)

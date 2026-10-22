@@ -54,7 +54,7 @@ internal class SettingsAudioIconView(
         widthMeasureSpec: Int,
         heightMeasureSpec: Int,
     ) {
-        val desired = settingsDp(context, 50)
+        val desired = settingsDp(context, 46)
         val width = resolveSize(desired, widthMeasureSpec)
         val height = resolveSize(desired, heightMeasureSpec)
         val size = min(width, height)
@@ -74,8 +74,8 @@ internal class SettingsAudioIconView(
         stroke.strokeWidth = size * .045f
         canvas.drawCircle(center, center, size * .45f, stroke)
 
-        stroke.color = 0xFF17385D.toInt()
-        fill.color = 0xFF17385D.toInt()
+        stroke.color = Color.WHITE
+        fill.color = Color.WHITE
         stroke.strokeWidth = size * .075f
 
         when (kind) {
