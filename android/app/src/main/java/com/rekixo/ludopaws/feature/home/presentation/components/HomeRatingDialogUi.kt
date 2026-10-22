@@ -209,6 +209,9 @@ internal fun HomeActivity.showHomeRatingDialog() {
         ratingCaption.text = selectedRating.toString() + " / 5  •  " +
             if (selectedRating == 5) "PAWSOME!" else "THANK YOU!"
         rateAction?.contentDescription = "Rate $selectedRating stars on Google Play"
+        stars.forEachIndexed { index, star ->
+            star.isSelected = index + 1 == selectedRating
+        }
     }
 
     fun applyProgress(progress: Float, allowPop: Boolean) {
@@ -253,7 +256,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
     repeat(RatingStarFillPolicy.MAX_STARS) { index ->
         val star = RatingStarView(this).apply {
             fillFraction = 0f
-            contentDescription = (index + 1).toString() + " stars"
+            contentDescription = (index + 1).toString() + " star rating"
             isClickable = true
             isFocusable = true
             setOnClickListener {
