@@ -144,6 +144,14 @@ for (const [source, markers, label] of [
 const avatarView = read(
   "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/LudoPawsCharacterAvatarView.kt",
 );
+const renderingTests = read(
+  "android/app/src/test/java/com/rekixo/ludopaws/LudoPaws3DCharacterPolicyTest.kt",
+);
+requireText(
+  renderingTests,
+  "four pass and play seats keep their animal when team colors are rearranged",
+  "4-player seat identity regression",
+);
 const sceneRenderer = read(
   "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/LudoPaws3DSceneRenderer.kt",
 );
