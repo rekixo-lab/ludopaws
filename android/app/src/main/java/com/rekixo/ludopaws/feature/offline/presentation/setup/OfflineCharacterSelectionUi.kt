@@ -39,7 +39,7 @@ internal fun OfflineGameActivity.initializeCharacterSetup() {
     selectedCharacterSlot = saved.selectedSlot
     selectedCharacterIds = saved.characterIds
     selectedColorsBySeat = saved.colorsBySeat
-    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
 }
 
 internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
@@ -63,7 +63,7 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
     selectedColorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
         playerCount, selectedColorsBySeat, selectedColorsBySeat.firstOrNull() ?: "BLUE",
     )
-    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
     persistCharacterSetup()
     rebuildCharacterSlotButtons()
     refreshSetupSelections()
@@ -75,26 +75,23 @@ internal fun OfflineGameActivity.selectCharacterSlot(slot: Int) {
     } else if (slot in 0 until selectedPlayers) {
         selectedCharacterSlot = slot
     }
-    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
     persistCharacterSetup()
     refreshSetupSelections()
 }
 
 internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
-    if (isComputerMode) {
-        selectedColor = color
-    } else {
-        // One tap applies the requested color. An occupied color automatically
-        // swaps with its current owner; other seats keep their selections.
-        selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(
-            playerCount = selectedPlayers,
-            currentColors = selectedColorsBySeat,
-            selectedSeat = selectedCharacterSlot,
-            requestedColor = color,
-        )
-        // Save both affected seats together, before rebinding selection UI.
-        persistCharacterSetup()
-    }
+    // Same one-tap color picker for Robot and Pass & Play. In Robot, seat 0 is
+    // the human; a CPU-owned color is automatically exchanged for its old one.
+    selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(
+        playerCount = selectedPlayers,
+        currentColors = selectedColorsBySeat,
+        selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot,
+        requestedColor = color,
+    )
+    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    // Save on selection, not just when PLAY is tapped.
+    persistCharacterSetup()
     refreshSetupSelections()
 }
 
@@ -136,7 +133,7 @@ internal fun OfflineGameActivity.persistCharacterSetup() {
     selectedCharacterSlot = repaired.selectedSlot
     selectedCharacterIds = repaired.characterIds
     selectedColorsBySeat = repaired.colorsBySeat
-    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
 }
 
 internal fun OfflineGameActivity.persistActiveCharacterSetup() {

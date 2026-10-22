@@ -124,8 +124,8 @@ internal fun OfflineGameActivity.showSetup() {
         content.addView(backHeader("PASS & PLAY"))
     }
 
-    // Paw selection and player count share one recessed panel on the computer page.
-    // Pass & Play keeps its existing individual setup panels and color selection.
+    // Both local modes share the same paw / player-count / color picker.
+    // Robot picks the human's color; the CPU colors remain automatic.
     if (isComputerMode) {
         val combinedSelectionPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -158,6 +158,17 @@ internal fun OfflineGameActivity.showSetup() {
         )
         combinedSelectionPanel.addView(
             playersPanel(embeddedInCombinedPanel = true),
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply {
+                topMargin = dp(if (isCompactSetup()) 2 else 4)
+            },
+        )
+        // Exactly the same four glossy color choices as Pass & Play, integrated
+        // into Robot's existing shared plywood setup surface.
+        combinedSelectionPanel.addView(
+            colorPanel(embeddedInCombinedPanel = true),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,

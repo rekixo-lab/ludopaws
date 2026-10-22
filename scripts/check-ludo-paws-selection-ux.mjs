@@ -187,6 +187,28 @@ if (/AlertDialog|setPositiveButton\("SWAP"\)|setTitle\("Color already assigned"\
 requireText(ui, "selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(", "automatic seat assignment");
 requireText(ui, "persistCharacterSetup()", "persistent automatic swaps");
 requireText(selection, "the two colors swap automatically", "color picker hint");
+// Robot and Pass & Play use the same four-color tiles in their plywood panels.
+const colorPickerMarker = "colorPanel(embeddedInCombinedPanel = true)";
+if (screen.split(colorPickerMarker).length - 1 !== 2) {
+  throw new Error("Selection UX gate: both Robot and Pass & Play need the color picker");
+}
+const robotStart = screen.indexOf("    // Both local modes share the same paw");
+const robotEnd = screen.indexOf("    } else {", robotStart);
+if (robotStart < 0 || robotEnd <= robotStart ||
+    !screen.slice(robotStart, robotEnd).includes(colorPickerMarker)) {
+  throw new Error("Selection UX gate: Robot combined setup must contain the color picker");
+}
+for (const required of [
+  "selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot",
+  "selectedColor = selectedColorsBySeat[selectedCharacterSlot]",
+  "persistCharacterSetup()",
+]) {
+  requireText(ui, required, "Robot color selection and persistence");
+}
+if (!colorTests.includes("robotColorPickerKeepsHumanChoiceForTwoThreeAndFourPlayers")) {
+  throw new Error("Selection UX gate: Robot two-, three-, four-player regression test missing");
+}
+
 
 if (colorEngine.includes("require(colorsBySeat[1] == OfflinePlayerLayout.oppositeColor")) {
   throw new Error("Selection UX gate: match engine rejects legitimate independently selected 2-player colors");

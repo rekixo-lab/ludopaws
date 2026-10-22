@@ -134,6 +134,30 @@ class OfflinePlayerLayoutTest {
     }
 
     @Test
+    fun robotColorPickerKeepsHumanChoiceForTwoThreeAndFourPlayers() {
+        for (players in 2..4) {
+            var assigned = OfflinePlayerLayout.colorsFor(players, "BLUE")
+            for (requested in OfflinePlayerLayout.COLORS) {
+                assigned = OfflinePlayerLayout.selectColorForSeat(
+                    playerCount = players,
+                    currentColors = assigned,
+                    selectedSeat = 0,
+                    requestedColor = requested,
+                )
+                assertEquals(requested, assigned.first())
+                assertEquals(players, assigned.size)
+                assertEquals(players, assigned.distinct().size)
+                assertEquals(
+                    assigned,
+                    OfflinePlayerLayout.normalizeColorsForSeats(players, assigned, requested),
+                )
+                // Robot match creation consumes the selected human color.
+                assertEquals(requested, OfflinePlayerLayout.colorsFor(players, requested).first())
+            }
+        }
+    }
+
+    @Test
     fun twoPlayerUsesOppositeBoardCorners() {
         assertEquals(
             listOf(
