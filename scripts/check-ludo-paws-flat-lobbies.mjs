@@ -128,6 +128,15 @@ assert.match(teamUi, /content\.addView\(\s*searchPanel,/, "Team Up search must a
 assert.match(teamUi, /content\.addView\(\s*statusText,/, "Team Up status must attach directly to page");
 assert.match(teamUi, /val connectionStrip = LinearLayout\(this\)\.apply/,
   "Independent Team Up connection indicator retained");
+const realFixedBar = region(teamUi, "val topActionsBar =", "setContentView(root)", "real Team Up fixed header");
+assert.match(realFixedBar, /addView\(\s*fixedTeamTitle,/, "TEAM UP stays in fixed header");
+assert.match(realFixedBar, /addView\(\s*connectionStrip,/, "Blinking ONLINE stays directly below fixed TEAM UP");
+assert.match(realFixedBar, /topMargin = dp\(70\)/, "ONLINE status aligns below title");
+assert.doesNotMatch(teamUi, /content\.addView\(\s*connectionStrip,/, "ONLINE status cannot scroll with centered content");
+assert.match(teamUi, /gravity = Gravity\.CENTER\s*\/\//, "Main content centered vertically and horizontally");
+assert.match(teamUi, /dp\(if \(isCompactTeamLayout\(\)\) 96 else 100\) \+ safeTopInset/,
+  "Page centers content while reserving header-safe space");
+assert.match(teamUi, /isFillViewport = true/, "FillViewport required for vertical centering");
 assert.match(teamUi, /quickTeamButton = FrameLayout\(this\)\.apply/,
   "Find a Team button retained");
 assert.match(teamUi, /teamSlotProgressView = TeamSlotProgressView/,
@@ -137,11 +146,15 @@ assert.match(teamUi, /cancelButton = Button/,
 assert.match(teamSource, /setupContent\.visibility = if \(searching\) View\.GONE else View\.VISIBLE/,
   "Setup/search visibility state retained");
 const teamAvatar = region(teamSource, "private fun teamCharacterTiles()", "private fun teamSetupPanel()", "independent team avatar");
-assert.match(teamAvatar, /background = null/, "Team Up avatar needs no wooden card");
-assert.doesNotMatch(teamAvatar, /recessedPlywoodBackground\(/);
+assert.match(teamAvatar, /background = recessedPlywoodBackground\(/,
+  "Team Up profile retains Online-style recessed backing");
+assert.match(teamAvatar, /outerCornerRadiusDp = 18f/, "Avatar recessed backing size");
+assert.match(teamAvatar, /setPadding\(dp\(3\), dp\(3\), dp\(3\), dp\(3\)\)/,
+  "Avatar inner padding is restored");
 const teamColors = region(teamSource, "private fun teamSelectionCard(", "private fun beginSearch()", "Team A/Team B illustrations");
-assert.match(teamColors, /background = null/, "Static team color graphics must be independent");
-assert.doesNotMatch(teamColors, /recessedPlywoodBackground\(/);
+assert.match(teamColors, /background = recessedPlywoodBackground\(/,
+  "TEAM A and TEAM B retain their individual recessed cards");
+assert.match(teamColors, /outerCornerRadiusDp = 16f/, "Small team card radius");
 assert.match(teamSource, /Intent\(this, MainActivity::class\.java\)/,
   "Finished Team Up matchmaking must still enter the real gameplay Activity");
-console.log("Flat lobbies and real TeamUpActivity fixed title/container regression checks passed.");
+console.log("Unboxed Team Up with fixed title/status, centered body and individually framed cards passed.");

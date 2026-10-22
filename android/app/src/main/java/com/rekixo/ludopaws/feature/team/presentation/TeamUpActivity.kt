@@ -154,10 +154,16 @@ class TeamUpActivity : ComponentActivity() {
         }
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            // Start below the fixed 52dp top controls instead of vertically
-            // centering a card in the ScrollView.
-            setPadding(dp(18), dp(if (isCompactTeamLayout()) 76 else 82), dp(18), dp(30))
+            gravity = Gravity.CENTER
+            // Fill-viewport content centers the independent setup or searching
+            // controls vertically; short displays still scroll as needed.
+            // Symmetric clear space reserves the fixed TEAM UP/ONLINE header.
+            setPadding(
+                dp(18),
+                dp(if (isCompactTeamLayout()) 96 else 100),
+                dp(18),
+                dp(if (isCompactTeamLayout()) 96 else 100),
+            )
             clipChildren = false
             clipToPadding = false
             background = null
@@ -218,14 +224,8 @@ class TeamUpActivity : ComponentActivity() {
                 },
             )
         }
-        content.addView(
-            connectionStrip,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(4) },
-        )
-
+        // Keep LIVE/ONLINE directly below the fixed TEAM UP title, rather
+        // than inside vertically centered setup/search components.
         // No oversized teamPanel: setup, search and status are direct
         // independent children of the scrollable page, as in Robot/Pass & Play.
         setupContent = teamSetupPanel()
@@ -569,6 +569,14 @@ class TeamUpActivity : ComponentActivity() {
                         Gravity.TOP or Gravity.CENTER_HORIZONTAL,
                     ).apply { topMargin = dp(14) },
                 )
+                addView(
+                    connectionStrip,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        dp(20),
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                    ).apply { topMargin = dp(70) },
+                )
             }
         setContentView(root)
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -588,7 +596,7 @@ class TeamUpActivity : ComponentActivity() {
             val safeTopInset = maxOf(cutoutTop, statusTop)
             content.setPadding(
                     content.paddingLeft,
-                    dp(if (isCompactTeamLayout()) 76 else 82) + safeTopInset,
+                    dp(if (isCompactTeamLayout()) 96 else 100) + safeTopInset,
                     content.paddingRight,
                     content.paddingBottom,
             )
@@ -599,8 +607,8 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     /**
-     * Show the selected character independently without a wooden square
-     * behind it; only the character artwork itself remains visible.
+     * The character retains its own recessed portrait BG, just like Online;
+     * the oversized page-level plywood container stays removed.
      */
     private fun teamCharacterTiles(): FrameLayout =
         FrameLayout(this).apply {
@@ -612,9 +620,11 @@ class TeamUpActivity : ComponentActivity() {
                     ?: LudoPawsCharacterCatalog.character(LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID)
                     ?: return@apply
 
-            background = null
-            elevation = 0f
-            setPadding(0, 0, 0, 0)
+            background = recessedPlywoodBackground(
+                context = this@TeamUpActivity,
+                outerCornerRadiusDp = 18f,
+            )
+            setPadding(dp(3), dp(3), dp(3), dp(3))
             contentDescription = "Your selected character: ${character.displayName}"
             addView(
                 LudoPawsCharacterAvatarView(this@TeamUpActivity).apply {
@@ -697,9 +707,12 @@ class TeamUpActivity : ComponentActivity() {
             clipChildren = false
             clipToPadding = false
             setPadding(dp(5), dp(7), dp(5), dp(7))
-            // Static team color illustration, not a wooden section card.
-            background = null
-            elevation = 0f
+            // TEAM A and TEAM B keep their own small card backgrounds,
+            // without restoring the removed page-level container.
+            background = recessedPlywoodBackground(
+                context = this@TeamUpActivity,
+                outerCornerRadiusDp = 16f,
+            )
             addView(
                 TeamColorTokenView(this@TeamUpActivity, firstColor, secondColor),
                 LinearLayout.LayoutParams(dp(88), dp(42)),
