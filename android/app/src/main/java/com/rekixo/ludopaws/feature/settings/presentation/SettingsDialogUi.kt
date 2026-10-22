@@ -55,7 +55,7 @@ internal fun showSettingsDialog(
         loadingLabel,
         fullWidthParams(context, 12),
     )
-    val overflowGutter = settingsDp(context, 12)
+    val overflowGutter = settingsDp(context, 6)
     val scroll =
         ScrollView(context).apply {
             isFillViewport = true
@@ -80,8 +80,8 @@ internal fun showSettingsDialog(
     )
     sizeDialog(
         dialog,
-        .84f,
-        overflowGutterDp = 12,
+        if (context.resources.configuration.screenWidthDp < 380) .94f else .88f,
+        overflowGutterDp = 6,
     )
     dialog.show()
 
@@ -218,9 +218,6 @@ internal fun showSettingsDialog(
                 }
             }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Sound",
@@ -246,9 +243,6 @@ internal fun showSettingsDialog(
                 )
                 notifyChanged()
             }
-        panel.addView(
-            settingsDivider(context),
-        )
         panel.addView(
             settingsCompactRow(
                 context = context,
@@ -303,9 +297,6 @@ internal fun showSettingsDialog(
                 notifyChanged()
             }
         }
-        panel.addView(
-            settingsDivider(context),
-        )
         panel.addView(
             settingsCompactRow(
                 context = context,
@@ -379,9 +370,6 @@ internal fun showSettingsDialog(
             }
         }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Boards",
@@ -453,9 +441,6 @@ internal fun showSettingsDialog(
             }
         }
         panel.addView(
-            settingsDivider(context),
-        )
-        panel.addView(
             settingsCompactRow(
                 context = context,
                 label = "Dice",
@@ -487,17 +472,16 @@ internal fun showSettingsDialog(
                 com.rekixo.ludopaws.ui.home.showLudoPawsGuide(activity)
             }
         }
-        panel.addView(settingsDivider(context))
         panel.addView(
             LinearLayout(context).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, settingsDp(context, 8), 0, settingsDp(context, 2))
+                setPadding(0, settingsDp(context, 7), 0, settingsDp(context, 1))
                 addView(
                     privacyAction,
                     LinearLayout.LayoutParams(
                         0,
-                        settingsDp(context, 44),
+                        settingsDp(context, 42),
                         1f,
                     ).apply { marginEnd = settingsDp(context, 6) },
                 )
@@ -505,7 +489,7 @@ internal fun showSettingsDialog(
                     guideAction,
                     LinearLayout.LayoutParams(
                         0,
-                        settingsDp(context, 44),
+                        settingsDp(context, 42),
                         1f,
                     ),
                 )

@@ -15,6 +15,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.transparentDarkBlueStrokeBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.components.PlywoodCloseButton
 
@@ -28,10 +29,10 @@ internal fun settingsCompactPanel(
         clipChildren = false
         clipToPadding = false
         setPadding(
-            settingsDp(context, 8),
-            settingsDp(context, 8),
-            settingsDp(context, 8),
-            settingsDp(context, 8),
+            settingsDp(context, 9),
+            settingsDp(context, 7),
+            settingsDp(context, 9),
+            settingsDp(context, 9),
         )
         background =
             plywoodBackground(
@@ -74,21 +75,16 @@ private fun settingsHeader(
                         23f
                     }
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(0xFFFFD34E.toInt())
+                setTextColor(0xFF643619.toInt())
                 gravity = Gravity.CENTER
-                setShadowLayer(
-                    3f,
-                    0f,
-                    2f,
-                    0xAA000000.toInt(),
-                )
+                setShadowLayer(1.2f, 0f, 1f, 0x77FFF0CA)
             }
 
         addView(
             title,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                settingsDp(context, 40),
+                settingsDp(context, 42),
                 Gravity.CENTER,
             ).apply {
                 leftMargin = settingsDp(context, 48)
@@ -104,8 +100,8 @@ private fun settingsHeader(
         addView(
             close,
             FrameLayout.LayoutParams(
-                settingsDp(context, 40),
-                settingsDp(context, 40),
+                settingsDp(context, 42),
+                settingsDp(context, 42),
                 Gravity.END or Gravity.TOP,
             ).apply {
                 // Keep the entire 40dp target inside the dialog like Leave Match;
@@ -124,13 +120,23 @@ internal fun settingsCompactRow(
     LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
-        minimumHeight = settingsDp(context, 50)
+        minimumHeight = settingsDp(context, 51)
         setPadding(
-            settingsDp(context, 5),
-            settingsDp(context, 3),
+            settingsDp(context, 10),
             settingsDp(context, 2),
-            settingsDp(context, 3),
+            settingsDp(context, 7),
+            settingsDp(context, 2),
         )
+        background = transparentDarkBlueStrokeBackground(
+            context = context,
+            cornerRadiusDp = 13f,
+        )
+        layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply {
+            topMargin = settingsDp(context, 4)
+        }
 
         addView(
             TextView(context).apply {
@@ -198,32 +204,19 @@ internal fun settingsDropdownField(
         setTextColor(0xFFFFE07A.toInt())
         gravity = Gravity.CENTER
         setPadding(
-            settingsDp(context, 10),
+            settingsDp(context, 6),
             0,
-            settingsDp(context, 10),
+            settingsDp(context, 6),
             0,
         )
         minHeight = settingsDp(context, 40)
         isClickable = true
         isFocusable = true
-        elevation = settingsDp(context, 3).toFloat()
-        background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(
-                    0xCC2A8BC2.toInt(),
-                    0xCC0C4D83.toInt(),
-                    0xE50A315F.toInt(),
-                ),
-            ).apply {
-                cornerRadius =
-                    settingsDp(context, 11)
-                        .toFloat()
-                setStroke(
-                    settingsDp(context, 1.5f),
-                    0xB8A8EEFF.toInt(),
-                )
-            }
+        elevation = 0f
+        background = transparentDarkBlueStrokeBackground(
+            context = context,
+            cornerRadiusDp = 11f,
+        )
         layoutParams =
             LinearLayout.LayoutParams(
                 settingsDp(
@@ -233,9 +226,9 @@ internal fun settingsDropdownField(
                             .configuration
                             .screenWidthDp < 380
                     ) {
-                        168
+                        146
                     } else {
-                        194
+                        170
                     },
                 ),
                 settingsDp(context, 40),
@@ -260,32 +253,20 @@ internal class SettingsBooleanControl(
     init {
         orientation = HORIZONTAL
         gravity = Gravity.CENTER
-        background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(
-                    0xD90A315F.toInt(),
-                    0xE5062248.toInt(),
-                ),
-            ).apply {
-                cornerRadius =
-                    settingsDp(context, 999)
-                        .toFloat()
-                setStroke(
-                    settingsDp(context, 1.5f),
-                    0xB8A8EEFF.toInt(),
-                )
-            }
+        background = transparentDarkBlueStrokeBackground(
+            context = context,
+            cornerRadiusDp = 999f,
+        )
         setPadding(
             settingsDp(context, 2),
             settingsDp(context, 2),
             settingsDp(context, 2),
             settingsDp(context, 2),
         )
-        elevation = settingsDp(context, 3).toFloat()
+        elevation = 0f
         layoutParams =
             LinearLayout.LayoutParams(
-                settingsDp(context, 112),
+                settingsDp(context, 102),
                 settingsDp(context, 38),
             )
 
@@ -512,19 +493,11 @@ internal fun showSettingsChoiceDialog(
                 )
                 isClickable = true
                 isFocusable = true
-                background =
-                    GradientDrawable().apply {
-                        setColor(
-                            if (option == selected) {
-                                0xAA0E428D.toInt()
-                            } else {
-                                0x66061A4B
-                            },
-                        )
-                        cornerRadius =
-                            settingsDp(context, 10)
-                                .toFloat()
-                    }
+                background = transparentDarkBlueStrokeBackground(
+                    context = context,
+                    cornerRadiusDp = 10f,
+                )
+                if (option == selected) alpha = 1f
                 AppFocusRing.apply(this, cornerRadiusDp = 10f, strokeWidthDp = 2f)
                 setOnClickListener {
                     onSelect(option)
@@ -535,7 +508,7 @@ internal fun showSettingsChoiceDialog(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
-                topMargin = settingsDp(context, 3)
+                topMargin = settingsDp(context, 4)
             },
         )
     }
