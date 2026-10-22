@@ -155,92 +155,87 @@ class TeamUpActivity : ComponentActivity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(18), dp(12), dp(18), dp(30))
+            // Start below the fixed 52dp top controls instead of vertically
+            // centering a card in the ScrollView.
+            setPadding(dp(18), dp(if (isCompactTeamLayout()) 76 else 82), dp(18), dp(30))
+            clipChildren = false
+            clipToPadding = false
+            background = null
         }
 
-        val headerTitle =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER
-                addView(
-                    LinearLayout(this@TeamUpActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER
-                        addView(
-                            FriendsVisualKit.iconView(
-                                this@TeamUpActivity,
-                                FriendsIcon.PEOPLE,
-                                FriendsVisualKit.TEXT,
-                            ),
-                            LinearLayout.LayoutParams(dp(36), dp(36)).apply {
-                                marginEnd = dp(8)
-                            },
-                        )
-                        addView(
-                            TextView(this@TeamUpActivity).apply {
-                                text = "TEAM UP"
-                                LudoProofTheme.title(this, 25f)
-                                gravity = Gravity.CENTER
-                            },
-                        )
-                    },
-                )
-                addView(
-                    LinearLayout(this@TeamUpActivity).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER
-                        addView(
-                            LaserStatusDotView(this@TeamUpActivity),
-                            LinearLayout.LayoutParams(dp(10), dp(10)).apply { marginEnd = dp(5) },
-                        )
-                        addView(
-                            TextView(this@TeamUpActivity).apply {
-                                text = "ONLINE"
-                                LudoProofTheme.body(this, 10f, centered = true, bright = true)
-                                setTextColor(0xFF62E9FF.toInt())
-                                includeFontPadding = false
-                            },
-                        )
-                    },
-                    LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                    ).apply {
-                        gravity = Gravity.CENTER_HORIZONTAL
-                        topMargin = dp(2)
-                    },
-                )
-            }
-
-        content.addView(
-            View(this),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
-            ),
-        )
-
-        val teamPanel =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(dp(18), dp(18), dp(18), dp(18))
-                background =
-                    plywoodBackground(
-                        context = this@TeamUpActivity,
-                        cornerRadiusDp = 24f,
+        // This mode is launched into TeamUpActivity (not MainActivity's
+        // Online lobby). Put its title in the fixed Back/Settings bar, like Robot.
+        val fixedTeamTitle = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = null
+            elevation = 0f
+            addView(
+                FriendsVisualKit.iconView(
+                    this@TeamUpActivity,
+                    FriendsIcon.PEOPLE,
+                    FriendsVisualKit.TEXT,
+                ),
+                LinearLayout.LayoutParams(dp(if (isCompactTeamLayout()) 22 else 26),
+                    dp(if (isCompactTeamLayout()) 22 else 26)).apply {
+                    marginEnd = dp(7)
+                },
+            )
+            addView(
+                TextView(this@TeamUpActivity).apply {
+                    text = "TEAM UP"
+                    LudoProofTheme.title(
+                        this,
+                        if (isCompactTeamLayout()) 15f else 19f,
+                        gold = false,
                     )
-            }
-        teamPanel.addView(
-            headerTitle,
+                    gravity = Gravity.CENTER_VERTICAL
+                    includeFontPadding = false
+                    maxLines = 1
+                },
+            )
+        }
+
+        // Connection indicator stays in the scrolling content, independent
+        // of the fixed TEAM UP heading, during setup and matchmaking.
+        val connectionStrip = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            background = null
+            elevation = 0f
+            addView(
+                LaserStatusDotView(this@TeamUpActivity),
+                LinearLayout.LayoutParams(dp(10), dp(10)).apply {
+                    marginEnd = dp(5)
+                },
+            )
+            addView(
+                TextView(this@TeamUpActivity).apply {
+                    text = "ONLINE"
+                    LudoProofTheme.body(this, 10f, centered = true, bright = true)
+                    setTextColor(0xFF62E9FF.toInt())
+                    includeFontPadding = false
+                },
+            )
+        }
+        content.addView(
+            connectionStrip,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(62),
-            ).apply { bottomMargin = dp(10) },
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(4) },
         )
+
+        // No oversized teamPanel: setup, search and status are direct
+        // independent children of the scrollable page, as in Robot/Pass & Play.
         setupContent = teamSetupPanel()
-        teamPanel.addView(setupContent)
+        content.addView(
+            setupContent,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(12) },
+        )
 
         quickTeamButton = FrameLayout(this).apply {
             isClickable = true
@@ -306,12 +301,9 @@ class TeamUpActivity : ComponentActivity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(12), dp(14), dp(12), dp(14))
-            // The search content is recessed into the outer plywood board.
-            background =
-                recessedPlywoodBackground(
-                    context = this@TeamUpActivity,
-                    outerCornerRadiusDp = 20f,
-                )
+            // Layout-only searching section, with standalone progress and buttons.
+            background = null
+            elevation = 0f
             visibility = View.GONE
 
             addView(
@@ -514,7 +506,7 @@ class TeamUpActivity : ComponentActivity() {
                 },
             )
         }
-        teamPanel.addView(
+        content.addView(
             searchPanel,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -527,22 +519,11 @@ class TeamUpActivity : ComponentActivity() {
             LudoProofTheme.body(this, 11.5f, centered = true, bright = true)
             setPadding(dp(8), dp(12), dp(8), 0)
         }
-        teamPanel.addView(statusText)
-
         content.addView(
-            teamPanel,
+            statusText,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-            ).apply { topMargin = dp(20) },
-        )
-
-        content.addView(
-            View(this),
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f,
             ),
         )
 
@@ -550,7 +531,7 @@ class TeamUpActivity : ComponentActivity() {
             content,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT,
             ),
         )
         host.addView(
@@ -577,6 +558,17 @@ class TeamUpActivity : ComponentActivity() {
                             cornerRadiusDp = 999f,
                         )
                 }
+                val availableTitleWidth = (
+                    resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+                ).coerceAtLeast(dp(108))
+                addView(
+                    fixedTeamTitle,
+                    FrameLayout.LayoutParams(
+                        minOf(availableTitleWidth, dp(if (isCompactTeamLayout()) 194 else 224)),
+                        dp(52),
+                        Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                    ).apply { topMargin = dp(14) },
+                )
             }
         setContentView(root)
         root.setOnApplyWindowInsetsListener { _, insets ->
@@ -596,7 +588,7 @@ class TeamUpActivity : ComponentActivity() {
             val safeTopInset = maxOf(cutoutTop, statusTop)
             content.setPadding(
                     content.paddingLeft,
-                    dp(12) + safeTopInset,
+                    dp(if (isCompactTeamLayout()) 76 else 82) + safeTopInset,
                     content.paddingRight,
                     content.paddingBottom,
             )
@@ -607,12 +599,8 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     /**
-     * Uses the same square, recessed-plywood character tiles as Online Match.
-     * The current player's chosen paw leads, followed by the other starter paws.
-     */
-    /**
-     * Shows only the character chosen in the player's profile, using Online Match's
-     * square recessed-plywood avatar treatment.
+     * Show the selected character independently without a wooden square
+     * behind it; only the character artwork itself remains visible.
      */
     private fun teamCharacterTiles(): FrameLayout =
         FrameLayout(this).apply {
@@ -624,11 +612,9 @@ class TeamUpActivity : ComponentActivity() {
                     ?: LudoPawsCharacterCatalog.character(LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID)
                     ?: return@apply
 
-            background = recessedPlywoodBackground(
-                context = this@TeamUpActivity,
-                outerCornerRadiusDp = 18f,
-            )
-            setPadding(dp(3), dp(3), dp(3), dp(3))
+            background = null
+            elevation = 0f
+            setPadding(0, 0, 0, 0)
             contentDescription = "Your selected character: ${character.displayName}"
             addView(
                 LudoPawsCharacterAvatarView(this@TeamUpActivity).apply {
@@ -711,10 +697,9 @@ class TeamUpActivity : ComponentActivity() {
             clipChildren = false
             clipToPadding = false
             setPadding(dp(5), dp(7), dp(5), dp(7))
-            background = recessedPlywoodBackground(
-                context = this@TeamUpActivity,
-                outerCornerRadiusDp = 16f,
-            )
+            // Static team color illustration, not a wooden section card.
+            background = null
+            elevation = 0f
             addView(
                 TeamColorTokenView(this@TeamUpActivity, firstColor, secondColor),
                 LinearLayout.LayoutParams(dp(88), dp(42)),
@@ -1518,6 +1503,9 @@ class TeamUpActivity : ComponentActivity() {
     private fun showStatus(value: String) {
         statusText.text = value
     }
+
+    private fun isCompactTeamLayout(): Boolean =
+        LudoProofTheme.isCompactWidth(this)
 
     private fun dp(value: Int): Int =
         (value * resources.displayMetrics.density).toInt()

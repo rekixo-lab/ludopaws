@@ -104,4 +104,44 @@ for (const [label, avatar] of [["setup", selectedAvatar], ["searching", searchAv
   assert.match(avatar, /else \{\s*background = recessedPlywoodBackground/,
     "Online " + label + " remains exactly as before");
 }
-console.log("Flat Online/Team Up/Friends lobby and both fixed mode title checks passed.");
+
+// Critical routing regression: Home's Team Up entry opens TeamUpActivity, NOT
+// MainActivity's generic Online lobby. Keep the actual Activity unboxed.
+const teamSource = read("feature/team/presentation/TeamUpActivity.kt");
+const teamUi = region(teamSource, "private fun buildUi()", "private fun teamCharacterTiles()", "real Team Up Activity");
+assert.doesNotMatch(teamUi, /teamPanel|teamPanel\.addView|val headerTitle/,
+  "Actual Team Up screen must not construct the old plywood box or embedded heading");
+assert.doesNotMatch(teamUi, /background\s*=\s*recessedPlywoodBackground/,
+  "Team Up searching must not use recessed plywood behind the whole section");
+assert.match(teamUi, /val fixedTeamTitle = LinearLayout\(this\)\.apply/,
+  "Team Up title must be independent");
+assert.match(teamUi, /text = "TEAM UP"/, "Correct Team Up title");
+assert.match(teamUi, /if \(isCompactTeamLayout\(\)\) 15f else 19f/,
+  "Team Up title must match Robot's text scale");
+assert.match(teamUi, /topMargin = dp\(14\)/, "Team Up title must align with Back/Settings controls");
+assert.match(teamUi, /Gravity\.TOP or Gravity\.CENTER_HORIZONTAL/,
+  "Team Up title must sit between Back and Settings");
+assert.match(teamUi, /topActionsBar\.translationY = safeTopInset\.toFloat\(\)/,
+  "Fixed Team Up title must honor display cutout");
+assert.match(teamUi, /content\.addView\(\s*setupContent,/, "Team Up setup must attach directly to page");
+assert.match(teamUi, /content\.addView\(\s*searchPanel,/, "Team Up search must attach directly to page");
+assert.match(teamUi, /content\.addView\(\s*statusText,/, "Team Up status must attach directly to page");
+assert.match(teamUi, /val connectionStrip = LinearLayout\(this\)\.apply/,
+  "Independent Team Up connection indicator retained");
+assert.match(teamUi, /quickTeamButton = FrameLayout\(this\)\.apply/,
+  "Find a Team button retained");
+assert.match(teamUi, /teamSlotProgressView = TeamSlotProgressView/,
+  "Team Up live searching progress retained");
+assert.match(teamUi, /cancelButton = Button/,
+  "Team Up cancel search button retained");
+assert.match(teamUi, /setupContent\.visibility = if \(searching\) View\.GONE else View\.VISIBLE/,
+  "Setup/search visibility state retained");
+const teamAvatar = region(teamSource, "private fun teamCharacterTiles()", "private fun teamSetupPanel()", "independent team avatar");
+assert.match(teamAvatar, /background = null/, "Team Up avatar needs no wooden card");
+assert.doesNotMatch(teamAvatar, /recessedPlywoodBackground\(/);
+const teamColors = region(teamSource, "private fun teamSelectionCard(", "private fun beginSearch()", "Team A/Team B illustrations");
+assert.match(teamColors, /background = null/, "Static team color graphics must be independent");
+assert.doesNotMatch(teamColors, /recessedPlywoodBackground\(/);
+assert.match(teamSource, /Intent\(this, MainActivity::class\.java\)/,
+  "Finished Team Up matchmaking must still enter the real gameplay Activity");
+console.log("Flat lobbies and real TeamUpActivity fixed title/container regression checks passed.");
