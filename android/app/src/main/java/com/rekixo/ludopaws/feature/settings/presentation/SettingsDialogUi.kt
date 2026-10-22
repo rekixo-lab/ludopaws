@@ -7,7 +7,7 @@ import android.widget.TextView
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ScrollView
-import com.rekixo.ludopaws.core.ui.components.AppFocusRing
+import android.widget.LinearLayout
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
@@ -480,34 +480,53 @@ internal fun showSettingsDialog(
             ),
         )
 
-        panel.addView(
-            settingsPrivacyLink(
-                context,
-            ).apply {
-                AppFocusRing.apply(this, cornerRadiusDp = 8f, strokeWidthDp = 2f)
-                setOnClickListener {
-                    GameSoundFeedback.click(
-                        context,
-                    )
-                    showPrivacyPolicyDialog(
-                        context,
-                    )
-                }
-            },
-        )
-
-        val guideField = settingsDropdownField(context, "HOW TO PLAY")
-        guideField.contentDescription = "How to play Ludo Paws"
-        guideField.setOnClickListener {
-            com.rekixo.ludopaws.ui.home.showLudoPawsGuide(activity)
+        // One compact bottom row: both informational actions share the same
+        // width, styling and touch target instead of stretching into full rows.
+        val privacyAction = settingsDropdownField(context, "Privacy Policy").apply {
+            text = "Privacy Policy"
+            textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
+            setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
+            isSingleLine = true
+            contentDescription = "Open Privacy Policy"
+            setOnClickListener {
+                GameSoundFeedback.click(context)
+                showPrivacyPolicyDialog(context)
+            }
+        }
+        val guideAction = settingsDropdownField(context, "How to Play").apply {
+            text = "How to Play"
+            textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
+            setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
+            isSingleLine = true
+            contentDescription = "How to play Ludo Paws"
+            setOnClickListener {
+                GameSoundFeedback.click(context)
+                com.rekixo.ludopaws.ui.home.showLudoPawsGuide(activity)
+            }
         }
         panel.addView(settingsDivider(context))
         panel.addView(
-            settingsCompactRow(
-                context = context,
-                label = "How to play",
-                control = guideField,
-            ),
+            LinearLayout(context).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, settingsDp(context, 8), 0, settingsDp(context, 2))
+                addView(
+                    privacyAction,
+                    LinearLayout.LayoutParams(
+                        0,
+                        settingsDp(context, 44),
+                        1f,
+                    ).apply { marginEnd = settingsDp(context, 6) },
+                )
+                addView(
+                    guideAction,
+                    LinearLayout.LayoutParams(
+                        0,
+                        settingsDp(context, 44),
+                        1f,
+                    ),
+                )
+            },
         )
 
 

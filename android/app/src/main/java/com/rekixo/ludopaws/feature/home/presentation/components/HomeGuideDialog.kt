@@ -182,26 +182,16 @@ internal fun showLudoPawsGuide(
         )
     }
 
-    val actions = LinearLayout(activity).apply {
-        orientation = LinearLayout.HORIZONTAL
-    }
-    actions.addView(
-        guideAction("NOT NOW") { dialog.dismiss() },
-        LinearLayout.LayoutParams(
-            0,
-            LinearLayout.LayoutParams.WRAP_CONTENT,
-            1f,
-        ).apply { marginEnd = settingsDp(activity, 6) },
-    )
-    actions.addView(
+    // A single, centered bottom action: dismissing the guide is enough.
+    panel.addView(
         guideAction("GOT IT") { dialog.dismiss() },
         LinearLayout.LayoutParams(
-            0,
+            settingsDp(activity, 152),
             LinearLayout.LayoutParams.WRAP_CONTENT,
-            1f,
-        ),
+        ).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        },
     )
-    panel.addView(actions)
 
     dialog.setContentView(panel)
     sizeDialog(dialog, .88f)
