@@ -320,77 +320,109 @@ class FriendsActivity : Activity() {
             )
         }
 
+
     private fun buildIdentitySection(): View {
-        val card = FriendsVisualKit.flatSection(this)
-        val row = LinearLayout(this).apply {
+        val section = FriendsVisualKit.flatSection(this)
+        val idRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        row.addView(
+        idRow.addView(
             FriendsVisualKit.iconView(this, FriendsIcon.ID_CARD, FriendsVisualKit.GOLD),
-            LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(7) },
+            LinearLayout.LayoutParams(dp(34), dp(34)).apply { marginEnd = dp(10) },
         )
-        val middle = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        middle.addView(FriendsVisualKit.title(this, "YOUR FRIEND ID", 11.5f))
+        val idLabel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(FriendsVisualKit.title(this@FriendsActivity, "YOUR FRIEND ID", 12.5f))
+        }
         friendIdText = FriendsVisualKit.title(
             this,
             credential?.friendId ?: "CREATING…",
-            sizeSp = if (isCompact()) 11.5f else 15f,
+            sizeSp = if (isCompact()) 14f else 16f,
             gold = true,
         ).apply {
             maxLines = 1
             setSingleLine(true)
             ellipsize = android.text.TextUtils.TruncateAt.END
-            setPadding(0, dp(3), 0, 0)
+            setPadding(0, dp(4), 0, 0)
         }
-        middle.addView(friendIdText)
-        row.addView(middle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        row.addView(
+        idLabel.addView(friendIdText)
+        idRow.addView(idLabel, LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f,
+        ))
+        section.addView(idRow)
+
+        // The ID is no longer squeezed between icon, COPY and SHARE.
+        // These standalone actions are equally wide in a second row.
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        actions.addView(
             FriendsVisualKit.button(this, "COPY", FriendsButtonStyle.GREEN, FriendsIcon.COPY) {
                 copyFriendId()
-            }.apply { textSize = 10f },
-            LinearLayout.LayoutParams(dp(66), dp(36)).apply { marginStart = dp(4) },
+            }.apply { textSize = 12f },
+            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(5) },
         )
-        row.addView(
+        actions.addView(
             FriendsVisualKit.button(this, "SHARE", FriendsButtonStyle.BLUE, FriendsIcon.SHARE) {
                 shareFriendId()
-            }.apply { textSize = 10f },
-            LinearLayout.LayoutParams(dp(70), dp(36)).apply { marginStart = dp(4) },
+            }.apply { textSize = 12f },
+            LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginStart = dp(5) },
         )
-        card.addView(row)
-        return card
+        section.addView(
+            actions,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(10) },
+        )
+        return section
     }
 
+
     private fun buildAddFriendSection(): View {
-        val card = FriendsVisualKit.flatSection(this)
-        val row = LinearLayout(this).apply {
+        val section = FriendsVisualKit.flatSection(this)
+        val heading = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        row.addView(
+        heading.addView(
             FriendsVisualKit.iconView(this, FriendsIcon.ADD_FRIEND, 0xFFD5F1FF.toInt()),
-            LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginEnd = dp(6) },
+            LinearLayout.LayoutParams(dp(29), dp(29)).apply { marginEnd = dp(9) },
         )
-        row.addView(
-            FriendsVisualKit.title(this, "ADD", 12f),
-            LinearLayout.LayoutParams(dp(38), LinearLayout.LayoutParams.WRAP_CONTENT),
+        heading.addView(
+            FriendsVisualKit.title(this, "ADD FRIEND", if (isCompact()) 13.5f else 15f),
         )
-        addFriendInput = FriendsVisualKit.input(this, "Enter Friend ID")
-        addFriendInput.setHintTextColor(Color.WHITE)
-        addFriendInput.textSize = 12f
-        addFriendInput.setPadding(dp(9), 0, dp(9), 0)
-        row.addView(addFriendInput, LinearLayout.LayoutParams(0, dp(42), 1f))
-        row.addView(
+        section.addView(heading)
+
+        val inputRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        addFriendInput = FriendsVisualKit.input(this, "Enter Friend ID").apply {
+            setHintTextColor(Color.WHITE)
+            textSize = 13f
+            setPadding(dp(12), 0, dp(12), 0)
+        }
+        inputRow.addView(
+            addFriendInput, LinearLayout.LayoutParams(0, dp(46), 1f),
+        )
+        inputRow.addView(
             FriendsVisualKit.button(
-                this,
-                "SEND",
-                FriendsButtonStyle.ORANGE,
-                FriendsIcon.INVITE,
+                this, "SEND", FriendsButtonStyle.ORANGE, FriendsIcon.INVITE,
             ) { sendFriendRequest() },
-            LinearLayout.LayoutParams(dp(80), dp(42)).apply { marginStart = dp(6) },
+            LinearLayout.LayoutParams(dp(if (isCompact()) 88 else 104), dp(46))
+                .apply { marginStart = dp(9) },
         )
-        card.addView(row)
-        return card
+        section.addView(
+            inputRow,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+            ).apply { topMargin = dp(9) },
+        )
+        return section
     }
 
     private fun renderAll() {
