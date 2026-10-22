@@ -50,6 +50,6 @@ internal object CatAvatarRenderer : CharacterAvatarRenderer {
         canvas.drawRoundRect(RectF(31f, 70f, 69f, 77f), 3.5f, 3.5f, fill)
         fill.color = 0xFFFFCC42.toInt()
         canvas.drawCircle(50f, 78f, 5f, fill)
-    
+
     }
 }
