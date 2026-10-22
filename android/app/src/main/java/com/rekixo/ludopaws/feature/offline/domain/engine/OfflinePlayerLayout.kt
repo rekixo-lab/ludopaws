@@ -98,6 +98,68 @@ object OfflinePlayerLayout {
             ) %
             4
 
+    /**
+     * A player seat owns its selected board color. Two players use opposite
+     * corners; three and four player games use distinct colors.
+     */
+    fun normalizeColorsForSeats(
+        playerCount: Int,
+        requestedColors: List<String>,
+        preferredColor: String = "BLUE",
+    ): List<String> {
+        require(playerCount in 2..4)
+        val safePreferred = preferredColor.takeIf(COLORS::contains) ?: "BLUE"
+        val defaults = colorsFor(playerCount, safePreferred)
+        if (requestedColors.isEmpty()) return defaults
+        val assigned = MutableList<String?>(playerCount) { null }
+        val used = mutableSetOf<String>()
+        for (seat in 0 until playerCount) {
+            val requested = requestedColors.getOrNull(seat)
+            if (requested != null && requested in COLORS && used.add(requested)) {
+                assigned[seat] = requested
+            }
+        }
+        for (seat in 0 until playerCount) {
+            if (assigned[seat] == null) {
+                val fallback = (defaults + COLORS).first { it !in used }
+                assigned[seat] = fallback
+                used += fallback
+            }
+        }
+        val result = assigned.map { requireNotNull(it) }
+        return if (playerCount == 2) {
+            listOf(result.first(), oppositeColor(result.first()))
+        } else {
+            result
+        }
+    }
+
+    /** Selecting an occupied color swaps owners instead of making duplicates. */
+    fun selectColorForSeat(
+        playerCount: Int,
+        currentColors: List<String>,
+        selectedSeat: Int,
+        requestedColor: String,
+    ): List<String> {
+        require(selectedSeat in 0 until playerCount)
+        require(requestedColor in COLORS)
+        val colors = normalizeColorsForSeats(
+            playerCount, currentColors, currentColors.firstOrNull() ?: "BLUE",
+        ).toMutableList()
+        if (playerCount == 2) {
+            return if (selectedSeat == 0) {
+                listOf(requestedColor, oppositeColor(requestedColor))
+            } else {
+                listOf(oppositeColor(requestedColor), requestedColor)
+            }
+        }
+        val previous = colors[selectedSeat]
+        val owner = colors.indexOf(requestedColor)
+        colors[selectedSeat] = requestedColor
+        if (owner >= 0 && owner != selectedSeat) colors[owner] = previous
+        return colors
+    }
+
     private fun colorIndex(
         color: String,
     ): Int =

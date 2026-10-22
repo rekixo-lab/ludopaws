@@ -5,6 +5,51 @@ import org.junit.Test
 
 class OfflinePlayerLayoutTest {
     @Test
+    fun passAndPlayThreePlayersKeepIndividualSelectedColors() {
+        val a = OfflinePlayerLayout.selectColorForSeat(3, listOf("BLUE", "RED", "GREEN"), 0, "YELLOW")
+        val b = OfflinePlayerLayout.selectColorForSeat(3, a, 1, "BLUE")
+        val c = OfflinePlayerLayout.selectColorForSeat(3, b, 2, "RED")
+        assertEquals(listOf("YELLOW", "BLUE", "RED"), c)
+    }
+
+    @Test
+    fun fourPlayersSwapColorsWithoutDuplicates() {
+        val result = OfflinePlayerLayout.selectColorForSeat(
+            4, listOf("BLUE", "RED", "GREEN", "YELLOW"), 2, "RED",
+        )
+        assertEquals(listOf("BLUE", "GREEN", "RED", "YELLOW"), result)
+        assertEquals(4, result.distinct().size)
+    }
+
+    @Test
+    fun twoPlayersKeepOppositeColorsWhenEitherPlayerChooses() {
+        val a = OfflinePlayerLayout.selectColorForSeat(2, listOf("BLUE", "GREEN"), 0, "RED")
+        assertEquals(listOf("RED", "YELLOW"), a)
+        val b = OfflinePlayerLayout.selectColorForSeat(2, a, 1, "BLUE")
+        assertEquals(listOf("GREEN", "BLUE"), b)
+    }
+
+    @Test
+    fun savedColorAssignmentsAreNormalizedAcrossPlayerCounts() {
+        assertEquals(
+            listOf("YELLOW", "RED", "BLUE", "GREEN"),
+            OfflinePlayerLayout.normalizeColorsForSeats(
+                4, listOf("YELLOW", "RED", "BLUE", "GREEN"),
+            ),
+        )
+        assertEquals(
+            listOf("BLUE", "GREEN"),
+            OfflinePlayerLayout.normalizeColorsForSeats(
+                2, listOf("BLUE", "RED"), "BLUE",
+            ),
+        )
+        assertEquals(
+            listOf("BLUE", "RED", "GREEN"),
+            OfflinePlayerLayout.normalizeColorsForSeats(3, emptyList(), "BLUE"),
+        )
+    }
+
+    @Test
     fun twoPlayerUsesOppositeBoardCorners() {
         assertEquals(
             listOf(
