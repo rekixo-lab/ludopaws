@@ -40,9 +40,6 @@ internal object DogRenderer : CharacterRenderer {
             val breath = 1f + (life?.breath ?: 0f)
             surface = CharacterSurface.BODY_COAT
             dogMesh(torso, DogGeometry.body, DOG_TAN, sx = breath, sz = breath)
-            // A soft cream chest makes the small pawn recognizable at a glance.
-            surface = CharacterSurface.COAT
-            drawPart(torso, 0f, .10f, .445f, .230f, .285f, .075f, DOG_CREAM)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)
             Matrix.translateM(neck, 0, 0f, .38f, 0f)

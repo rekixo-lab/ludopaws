@@ -7,6 +7,4 @@ internal val TONGUE_PINK = floatArrayOf(1.00f, 0.35f, 0.46f, 1f)
 
 internal val DOG_IRIS = floatArrayOf(.52f, .29f, .10f, 1f)
 internal val DOG_LIP = floatArrayOf(.22f, .12f, .075f, 1f)
-/** Subtle, warm puppy cheeks beneath the large reflective eyes. */
-internal val DOG_BLUSH = floatArrayOf(.96f, .64f, .53f, 1f)
 internal val DOG_PAW_SEAM = floatArrayOf(.62f, .43f, .27f, 1f)
