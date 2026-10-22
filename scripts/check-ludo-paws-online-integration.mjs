@@ -106,8 +106,16 @@ requireText(publicQueue, "characterId", "Public matchmaking must preserve charac
 requireText(teamQueue, "characterId", "Team Up matchmaking must preserve character identity across queue/status/replay.");
 
 requireText(runtime, "selectedCharacterId", "Android needs a process-safe selected character mirror.");
-requireText(gameApi, ".put(\"characterId\", characterId)", "Online/Friends requests must send selected character identity.");
-requireText(teamApi, ".put(\"characterId\", characterId)", "Team Up search must send selected character identity.");
+// Ensure every online/friends create, search and join writes the contract-resolved
+// cosmetic ID rather than sending an unsupported or stale local selection.
+const characterRequestWrite =
+  /\.put\(\s*"characterId"\s*,\s*(?:com\.rekixo\.ludopaws\.feature\.online\.domain\.)?LudoPawsCharacterIdentityContract\.resolveForRequest\(\s*characterId\s*\)\s*\)/g;
+if ((gameApi.match(characterRequestWrite) ?? []).length < 4) {
+  throw new Error("Online/Friends create, search and join must send contract-normalized character identity.");
+}
+if ((teamApi.match(characterRequestWrite) ?? []).length < 1) {
+  throw new Error("Team Up search must send contract-normalized character identity.");
+}
 requireText(models, "val characterId: String? = null", "Remote player snapshots must parse character identity.");
 requireText(policy, "LudoPawsCharacterCatalog", "Remote character policy must validate IDs against the local catalog.");
 requireText(policy, "LudoPawsCharacterIdentityContract", "Remote character policy must use the centralized compatibility contract.");
