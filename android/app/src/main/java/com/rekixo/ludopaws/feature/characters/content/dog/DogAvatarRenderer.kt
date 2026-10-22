@@ -38,6 +38,6 @@ internal object DogAvatarRenderer : CharacterAvatarRenderer {
         canvas.drawRoundRect(RectF(31f, 69f, 69f, 77f), 4f, 4f, fill)
         fill.color = 0xFFFFCC42.toInt()
         canvas.drawCircle(50f, 78f, 5.2f, fill)
-    
+
     }
 }

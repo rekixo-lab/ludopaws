@@ -41,6 +41,6 @@ internal object GoatAvatarRenderer : CharacterAvatarRenderer {
             close()
         }
         canvas.drawPath(beard, fill)
-    
+
     }
 }

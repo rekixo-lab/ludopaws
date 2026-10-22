@@ -30,6 +30,6 @@ internal object DuckAvatarRenderer : CharacterAvatarRenderer {
 
         fill.color = 0xFF4DB6E9.toInt()
         canvas.drawArc(RectF(35f, 67f, 65f, 84f), 0f, 180f, true, fill)
-    
+
     }
 }
