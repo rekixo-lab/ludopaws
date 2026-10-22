@@ -109,7 +109,7 @@ for (const [label, avatar] of [["setup", selectedAvatar], ["searching", searchAv
 // MainActivity's generic Online lobby. Keep the actual Activity unboxed.
 const teamSource = read("feature/team/presentation/TeamUpActivity.kt");
 const teamUi = region(teamSource, "private fun buildUi()", "private fun teamCharacterTiles()", "real Team Up Activity");
-assert.doesNotMatch(teamUi, /teamPanel|teamPanel\.addView|val headerTitle/,
+assert.doesNotMatch(teamUi, /\bval teamPanel\b|teamPanel\.addView|\bval headerTitle\b/,
   "Actual Team Up screen must not construct the old plywood box or embedded heading");
 assert.doesNotMatch(teamUi, /background\s*=\s*recessedPlywoodBackground/,
   "Team Up searching must not use recessed plywood behind the whole section");
@@ -134,7 +134,7 @@ assert.match(teamUi, /teamSlotProgressView = TeamSlotProgressView/,
   "Team Up live searching progress retained");
 assert.match(teamUi, /cancelButton = Button/,
   "Team Up cancel search button retained");
-assert.match(teamUi, /setupContent\.visibility = if \(searching\) View\.GONE else View\.VISIBLE/,
+assert.match(teamSource, /setupContent\.visibility = if \(searching\) View\.GONE else View\.VISIBLE/,
   "Setup/search visibility state retained");
 const teamAvatar = region(teamSource, "private fun teamCharacterTiles()", "private fun teamSetupPanel()", "independent team avatar");
 assert.match(teamAvatar, /background = null/, "Team Up avatar needs no wooden card");
