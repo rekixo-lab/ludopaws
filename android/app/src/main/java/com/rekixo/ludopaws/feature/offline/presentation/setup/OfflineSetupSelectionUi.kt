@@ -28,7 +28,7 @@ import com.rekixo.ludopaws.ui.offline.common.*
 internal fun OfflineGameActivity.playersPanel(): LinearLayout =
     selectionPanel(
         "SELECT PLAYERS",
-        if (isComputerMode) "You + 1–3 computer players" else "",
+        "",
     ).apply {
         val playersRow = LinearLayout(this@playersPanel).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -111,8 +111,7 @@ internal fun OfflineGameActivity.playersPanel(): LinearLayout =
 internal fun OfflineGameActivity.colorPanel(): LinearLayout =
     selectionPanel(
         "CHOOSE YOUR COLOR",
-        if (isComputerMode) "Your color will rotate to the bottom-left side."
-        else "Choose each P1–P4 color. If another player has it, the two colors swap automatically.",
+        "",
     ).apply {
         colorSelectionStatus = TextView(this@colorPanel).apply {
             textSize = if (isCompactSetup()) 12f else 13f
@@ -308,6 +307,14 @@ internal fun OfflineGameActivity.selectionPanel(
         val heading = LinearLayout(this@selectionPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
+            // Same inset and breathing room around all three headings in
+            // Robot and Pass & Play, with no outer section background.
+            setPadding(
+                dp(4),
+                dp(if (isCompactSetup()) 5 else 6),
+                dp(4),
+                dp(if (isCompactSetup()) 7 else 9),
+            )
             val sectionIcon: View = when (title) {
                 "SELECT PLAYERS" -> AppIconView(
                     this@selectionPanel,

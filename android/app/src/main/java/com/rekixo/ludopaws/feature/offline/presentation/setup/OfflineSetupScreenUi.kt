@@ -67,9 +67,10 @@ internal fun OfflineGameActivity.showSetup() {
             // tiles on the bare page, without any parent plywood panels.
             setPadding(
                 dp(8),
-                if (isComputerMode) 0 else dp(if (isCompactSetup()) 10 else 12),
+                if (isComputerMode) dp(if (isCompactSetup()) 64 else 70)
+                    else dp(if (isCompactSetup()) 10 else 12),
                 dp(8),
-                if (isComputerMode) 0 else dp(24),
+                dp(20),
             )
             // No page backing and no section backing. Each selectable tile
             // still owns its small selection/highlight treatment.
@@ -80,13 +81,8 @@ internal fun OfflineGameActivity.showSetup() {
         FrameLayout.LayoutParams(
             contentWidth,
             FrameLayout.LayoutParams.WRAP_CONTENT,
-            if (isComputerMode) {
-                // Center the complete VS COMPUTER setup in the mobile
-                // viewport when it fits; Pass & Play keeps its existing top flow.
-                Gravity.CENTER
-            } else {
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            },
+            // Both modes now follow the same top-aligned page flow.
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
         ),
     )
 
@@ -100,8 +96,8 @@ internal fun OfflineGameActivity.showSetup() {
 
     var fixedTopActionsBar: FrameLayout? = null
     if (isComputerMode) {
-        // Back/Settings stay fixed; the ROBOT heading sits freely on
-        // the page above the independent selection panels.
+        // Back/Settings and the Robot icon/title share the exact fixed top row.
+        // Selections scroll below without moving the action/title bar.
         fixedTopActionsBar = addGameTopActions(
             host = host,
             context = this,
@@ -113,29 +109,31 @@ internal fun OfflineGameActivity.showSetup() {
                 }
             },
         ).apply {
-            // Use the same plywood action surfaces as the Online page.
-            for (index in 0 until childCount) {
-                getChildAt(index).background =
-                    plywoodBackground(context = this@showSetup, cornerRadiusDp = 999f)
-            }
+            // Robot's title belongs BETWEEN the two 52dp action controls,
+            // vertically centered on their 14dp-from-top baseline.
+            val availableTitleWidth = (
+                resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
+            ).coerceAtLeast(dp(108))
+            addView(
+                centeredSetupTitle("ROBOT"),
+                FrameLayout.LayoutParams(
+                    minOf(availableTitleWidth, dp(if (isCompactSetup()) 194 else 224)),
+                    dp(52),
+                    Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+                ).apply {
+                    topMargin = dp(14)
+                },
+            )
         }
     } else {
         content.addView(backHeader("PASS & PLAY"))
     }
 
-    // Paw, player count and color now form a flat, independent page flow.
-    // Neither an enclosing shell nor any section-specific BG/elevation remains.
-    // Robot retains its title; Pass & Play keeps its existing back/header.
-    if (isComputerMode) {
-        content.addView(
-            centeredSetupTitle("ROBOT"),
-            setupSectionParams(if (isCompactSetup()) 8 else 10),
-        )
-    }
-
+    // Both modes: the same three flat sections with identical vertical
+    // gaps, heading insets and selectable tile layouts.
     content.addView(
         characterPanel(),
-        setupSectionParams(if (isCompactSetup()) 7 else 9),
+        setupSectionParams(if (isCompactSetup()) 10 else 12),
     )
     content.addView(
         playersPanel(),
@@ -143,7 +141,7 @@ internal fun OfflineGameActivity.showSetup() {
     )
     content.addView(
         colorPanel(),
-        setupSectionParams(if (isCompactSetup()) 9 else 11),
+        setupSectionParams(if (isCompactSetup()) 10 else 12),
     )
 
     refreshSetupSelections()
@@ -207,9 +205,10 @@ internal fun OfflineGameActivity.showSetup() {
         val safeTopInset = maxOf(cutoutTop, statusTop)
         content.setPadding(
             content.paddingLeft,
-            if (isComputerMode) 0 else dp(if (isCompactSetup()) 10 else 12) + safeTopInset,
+            (if (isComputerMode) dp(if (isCompactSetup()) 64 else 70)
+                else dp(if (isCompactSetup()) 10 else 12)) + safeTopInset,
             content.paddingRight,
-            if (isComputerMode) 0 else content.paddingBottom,
+            content.paddingBottom,
         )
         fixedTopActionsBar?.translationY = safeTopInset.toFloat()
         insets

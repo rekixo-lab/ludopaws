@@ -149,7 +149,7 @@ internal fun OfflineGameActivity.persistActiveCharacterSetup() {
 internal fun OfflineGameActivity.characterPanel(): LinearLayout =
     selectionPanel(
         "CHOOSE YOUR PAW",
-        if (isComputerMode) "CPU rivals use the other paws." else "",
+        "",
     ).apply {
         if (isComputerMode) {
             // Computer mode needs no YOU/character slot tab; paw selection is direct.

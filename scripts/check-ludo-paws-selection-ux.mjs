@@ -186,7 +186,42 @@ if (/AlertDialog|setPositiveButton\("SWAP"\)|setTitle\("Color already assigned"\
 }
 requireText(ui, "selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(", "automatic seat assignment");
 requireText(ui, "persistCharacterSetup()", "persistent automatic swaps");
-requireText(selection, "the two colors swap automatically", "color picker hint");
+// Details are no longer shown under the Color heading in either mode.
+if (selection.includes("Choose each P1–P4 color.") ||
+    selection.includes("Your color will rotate to the bottom-left side.") ||
+    selection.includes("You + 1–3 computer players") ||
+    ui.includes("CPU rivals use the other paws.")) {
+  throw new Error("Selection UX gate: removed setup subtitle has returned");
+}
+const commonHeader = read(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/offline/presentation/common/OfflineCommonUi.kt",
+);
+requireText(screen, 'topMargin = dp(14)', "Robot title top alignment");
+requireText(screen, 'Gravity.TOP or Gravity.CENTER_HORIZONTAL,', "Robot title centered with actions");
+requireText(screen, 'centeredSetupTitle("ROBOT")', "Robot title in fixed top actions");
+const fixedBarStart = screen.indexOf("fixedTopActionsBar = addGameTopActions(");
+const fixedBarEnd = screen.indexOf("    } else {", fixedBarStart);
+if (fixedBarStart < 0 || fixedBarEnd < 0 ||
+    !screen.slice(fixedBarStart, fixedBarEnd).includes('centeredSetupTitle("ROBOT")') ||
+    screen.indexOf('centeredSetupTitle("ROBOT")', fixedBarEnd) >= 0) {
+  throw new Error("Selection UX gate: Robot icon/title must live only in fixed top bar");
+}
+requireText(commonHeader, "RobotTitleIconView(", "Robot header icon");
+requireText(commonHeader, "FrameLayout.LayoutParams.MATCH_PARENT,", "responsive Robot title width");
+requireText(selection, "Same inset and breathing room around all three headings", "matched heading padding");
+for (const marker of [
+  'selectionPanel(\n        "CHOOSE YOUR PAW",\n        "",',
+  'selectionPanel(\n        "SELECT PLAYERS",\n        "",',
+  'selectionPanel(\n        "CHOOSE YOUR COLOR",\n        "",',
+]) {
+  if (!(selection + ui).includes(marker)) {
+    throw new Error("Selection UX gate: a local setup heading still has a subtitle: " + marker);
+  }
+}
+if (screen.split("setupSectionParams(if (isCompactSetup()) 10 else 12)").length - 1 !== 3) {
+  throw new Error("Selection UX gate: unequal spacing across the three setup sections");
+}
+
 // Both local setup screens use standalone FLAT sections with no enclosing
 // shell, no individual recessed plywood parent backgrounds or panel elevation.
 for (const marker of [
