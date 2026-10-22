@@ -164,7 +164,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             val badgeColor = LudoPawsTeamIdentityPolicy.resolve(modelTeamColor)?.argb
                 ?: ringColor
             fill.color = 0xFFFFFFFF.toInt()
-            canvas.drawCircle(83f, 83f, 12f, fill)
+            canvas.drawCircle(87f, 87f, 12f, fill)
             fill.color = badgeColor
             canvas.drawCircle(83f, 83f, 9f, fill)
             stroke.color = 0xAA061A32.toInt()

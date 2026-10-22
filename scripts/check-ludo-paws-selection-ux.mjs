@@ -166,6 +166,39 @@ if (sceneRenderer.includes("characterIdForColor(player.color)")) {
   throw new Error("Ludo Paws selection UX gate: pawn renderer still falls back to color instead of seat identity");
 }
 
+// Pass & Play must not rewrite another seat's color on a normal tap.
+const colorEngine = read(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/offline/domain/engine/OfflineGameEngine.kt",
+);
+for (const marker of [
+  "fun swapColorForSeat(",
+  "if (owner >= 0 && owner != selectedSeat) return colors",
+  "return result",
+]) {
+  requireText(colorPolicy, marker, "seat color ownership");
+}
+if (colorPolicy.includes("listOf(result.first(), oppositeColor(result.first()))")) {
+  throw new Error("Selection UX gate: persisted 2-player colors are being overwritten by the old opposite-corner rule");
+}
+for (const marker of [
+  'setTitle("Color already assigned")',
+  'setPositiveButton("SWAP")',
+  'selectedColorsBySeat = OfflinePlayerLayout.swapColorForSeat(',
+]) {
+  requireText(ui, marker, "explicit color swap");
+}
+if (colorEngine.includes("require(colorsBySeat[1] == OfflinePlayerLayout.oppositeColor")) {
+  throw new Error("Selection UX gate: match engine rejects legitimate independently selected 2-player colors");
+}
+for (const marker of [
+  "firstPlayersRedRemainsRedWhenSecondChoosesBlue",
+  "occupiedColorDoesNotChangeOtherSeatsWithoutConfirmation",
+  "changingP2NeverAltersP1AcrossThreeAndFourPlayerModes",
+]) {
+  requireText(colorTests, marker, "color ownership regression tests");
+}
+requireText(avatarView, "canvas.drawCircle(87f, 87f", "bottom-corner team badge");
+
 console.log(
   "Ludo Paws selection UX gate passed: unique starter characters, per-player color persistence, seat-stable match/rematch colors and gameplay isolation.",
 );

@@ -13,20 +13,54 @@ class OfflinePlayerLayoutTest {
     }
 
     @Test
-    fun fourPlayersSwapColorsWithoutDuplicates() {
-        val result = OfflinePlayerLayout.selectColorForSeat(
-            4, listOf("BLUE", "RED", "GREEN", "YELLOW"), 2, "RED",
-        )
-        assertEquals(listOf("BLUE", "GREEN", "RED", "YELLOW"), result)
-        assertEquals(4, result.distinct().size)
+    fun occupiedColorDoesNotChangeOtherSeatsWithoutConfirmation() {
+        val original = listOf("BLUE", "RED", "GREEN", "YELLOW")
+        val blocked = OfflinePlayerLayout.selectColorForSeat(4, original, 2, "RED")
+        assertEquals(original, blocked)
+        val swapped = OfflinePlayerLayout.swapColorForSeat(4, original, 2, "RED")
+        assertEquals(listOf("BLUE", "GREEN", "RED", "YELLOW"), swapped)
+        assertEquals(4, swapped.distinct().size)
     }
 
     @Test
-    fun twoPlayersKeepOppositeColorsWhenEitherPlayerChooses() {
-        val a = OfflinePlayerLayout.selectColorForSeat(2, listOf("BLUE", "GREEN"), 0, "RED")
-        assertEquals(listOf("RED", "YELLOW"), a)
-        val b = OfflinePlayerLayout.selectColorForSeat(2, a, 1, "BLUE")
-        assertEquals(listOf("GREEN", "BLUE"), b)
+    fun firstPlayersRedRemainsRedWhenSecondChoosesBlue() {
+        val first = OfflinePlayerLayout.selectColorForSeat(2, listOf("BLUE", "GREEN"), 0, "RED")
+        assertEquals(listOf("RED", "GREEN"), first)
+        val second = OfflinePlayerLayout.selectColorForSeat(2, first, 1, "BLUE")
+        assertEquals(listOf("RED", "BLUE"), second)
+        assertEquals(second, OfflinePlayerLayout.normalizeColorsForSeats(2, second, "RED"))
+        assertEquals(second, OfflinePlayerLayout.selectColorForSeat(2, second, 1, "RED"))
+    }
+
+    @Test
+    fun changingP2NeverAltersP1AcrossThreeAndFourPlayerModes() {
+        for (playerCount in 3..4) {
+            val baseline = OfflinePlayerLayout.normalizeColorsForSeats(
+                playerCount, emptyList(), "RED",
+            )
+            val available = OfflinePlayerLayout.COLORS.firstOrNull { it !in baseline }
+            if (available != null) {
+                val updated = OfflinePlayerLayout.selectColorForSeat(
+                    playerCount, baseline, 1, available,
+                )
+                assertEquals("RED", updated.first())
+                assertEquals(available, updated[1])
+                assertEquals(playerCount, updated.distinct().size)
+            }
+            val duplicate = OfflinePlayerLayout.selectColorForSeat(
+                playerCount, baseline, 1, "RED",
+            )
+            assertEquals(baseline, duplicate)
+        }
+    }
+
+    @Test
+    fun confirmedSwapCanExchangeColorsButNeverDuplicatesThem() {
+        val initial = listOf("RED", "GREEN", "YELLOW", "BLUE")
+        assertEquals(initial, OfflinePlayerLayout.selectColorForSeat(4, initial, 1, "RED"))
+        val confirmed = OfflinePlayerLayout.swapColorForSeat(4, initial, 1, "BLUE")
+        assertEquals(listOf("RED", "BLUE", "YELLOW", "GREEN"), confirmed)
+        assertEquals(confirmed.size, confirmed.distinct().size)
     }
 
     @Test
@@ -38,7 +72,7 @@ class OfflinePlayerLayoutTest {
             ),
         )
         assertEquals(
-            listOf("BLUE", "GREEN"),
+            listOf("BLUE", "RED"),
             OfflinePlayerLayout.normalizeColorsForSeats(
                 2, listOf("BLUE", "RED"), "BLUE",
             ),

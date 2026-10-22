@@ -99,8 +99,9 @@ object OfflinePlayerLayout {
             4
 
     /**
-     * A player seat owns its selected board color. Two players use opposite
-     * corners; three and four player games use distinct colors.
+     * Each seat owns its selected color. Initial two-player defaults use opposite
+     * corners, but explicit selections can use any two distinct colors.
+     * Revalidating persisted choices must NEVER rewrite a valid seat color.
      */
     fun normalizeColorsForSeats(
         playerCount: Int,
@@ -127,14 +128,13 @@ object OfflinePlayerLayout {
             }
         }
         val result = assigned.map { requireNotNull(it) }
-        return if (playerCount == 2) {
-            listOf(result.first(), oppositeColor(result.first()))
-        } else {
-            result
-        }
+        return result
     }
 
-    /** Selecting an occupied color swaps owners instead of making duplicates. */
+    /**
+     * Only the requesting seat can change from a normal tap. An occupied color
+     * is a no-op until both players explicitly agree to swap.
+     */
     fun selectColorForSeat(
         playerCount: Int,
         currentColors: List<String>,
@@ -146,17 +146,32 @@ object OfflinePlayerLayout {
         val colors = normalizeColorsForSeats(
             playerCount, currentColors, currentColors.firstOrNull() ?: "BLUE",
         ).toMutableList()
-        if (playerCount == 2) {
-            return if (selectedSeat == 0) {
-                listOf(requestedColor, oppositeColor(requestedColor))
-            } else {
-                listOf(oppositeColor(requestedColor), requestedColor)
-            }
-        }
-        val previous = colors[selectedSeat]
         val owner = colors.indexOf(requestedColor)
+        if (owner >= 0 && owner != selectedSeat) return colors
         colors[selectedSeat] = requestedColor
-        if (owner >= 0 && owner != selectedSeat) colors[owner] = previous
+        return colors
+    }
+
+    /** Use this only after the setup UI explicitly confirms the exchange. */
+    fun swapColorForSeat(
+        playerCount: Int,
+        currentColors: List<String>,
+        selectedSeat: Int,
+        requestedColor: String,
+    ): List<String> {
+        require(selectedSeat in 0 until playerCount)
+        require(requestedColor in COLORS)
+        val colors = normalizeColorsForSeats(
+            playerCount, currentColors, currentColors.firstOrNull() ?: "BLUE",
+        ).toMutableList()
+        val owner = colors.indexOf(requestedColor)
+        if (owner >= 0 && owner != selectedSeat) {
+            val previous = colors[selectedSeat]
+            colors[selectedSeat] = requestedColor
+            colors[owner] = previous
+        } else {
+            colors[selectedSeat] = requestedColor
+        }
         return colors
     }
 

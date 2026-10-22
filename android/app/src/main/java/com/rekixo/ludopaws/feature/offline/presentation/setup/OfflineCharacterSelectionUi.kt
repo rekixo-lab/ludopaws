@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.ui.offline.setup
 
+import android.app.AlertDialog
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -83,16 +84,46 @@ internal fun OfflineGameActivity.selectCharacterSlot(slot: Int) {
 internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
     if (isComputerMode) {
         selectedColor = color
-    } else {
-        selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(
-            playerCount = selectedPlayers,
-            currentColors = selectedColorsBySeat,
-            selectedSeat = selectedCharacterSlot,
-            requestedColor = color,
-        )
-        selectedColor = selectedColorsBySeat[selectedCharacterSlot]
-        persistCharacterSetup()
+        refreshSetupSelections()
+        return
     }
+    val seat = selectedCharacterSlot
+    val ownerSeat = selectedColorsBySeat.indexOf(color)
+    if (ownerSeat >= 0 && ownerSeat != seat) {
+        // Never silently take a color away from P1 (or another player).
+        // In 4-player games all colors are occupied; allow rearrangement
+        // only after an explicit confirmation of both players' swap.
+        AlertDialog.Builder(this)
+            .setTitle("Color already assigned")
+            .setMessage(
+                "$color belongs to Player ${ownerSeat + 1}. " +
+                    "Swap colors with Player ${seat + 1}?",
+            )
+            .setNegativeButton("CANCEL", null)
+            .setPositiveButton("SWAP") { _, _ ->
+                if (selectedCharacterSlot == seat &&
+                    selectedColorsBySeat.indexOf(color) == ownerSeat
+                ) {
+                    selectedColorsBySeat = OfflinePlayerLayout.swapColorForSeat(
+                        playerCount = selectedPlayers,
+                        currentColors = selectedColorsBySeat,
+                        selectedSeat = seat,
+                        requestedColor = color,
+                    )
+                    persistCharacterSetup()
+                    refreshSetupSelections()
+                }
+            }
+            .show()
+        return
+    }
+    selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(
+        playerCount = selectedPlayers,
+        currentColors = selectedColorsBySeat,
+        selectedSeat = seat,
+        requestedColor = color,
+    )
+    persistCharacterSetup()
     refreshSetupSelections()
 }
 
@@ -134,6 +165,7 @@ internal fun OfflineGameActivity.persistCharacterSetup() {
     selectedCharacterSlot = repaired.selectedSlot
     selectedCharacterIds = repaired.characterIds
     selectedColorsBySeat = repaired.colorsBySeat
+    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
 }
 
 internal fun OfflineGameActivity.persistActiveCharacterSetup() {

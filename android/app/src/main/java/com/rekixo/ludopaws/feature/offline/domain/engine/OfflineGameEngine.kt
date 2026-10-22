@@ -74,9 +74,6 @@ class OfflineGameEngine(
             require(colorsBySeat.size == playerCount)
             require(colorsBySeat.all { it in OfflinePlayerLayout.COLORS })
             require(colorsBySeat.distinct().size == playerCount)
-            if (playerCount == 2) {
-                require(colorsBySeat[1] == OfflinePlayerLayout.oppositeColor(colorsBySeat[0]))
-            }
             require(colorsBySeat.first() == preferredColor)
         }
         val colorOrder = colorsBySeat?.toList()
