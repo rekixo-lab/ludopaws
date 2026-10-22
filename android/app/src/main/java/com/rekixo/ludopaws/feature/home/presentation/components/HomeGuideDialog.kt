@@ -54,7 +54,6 @@ internal fun HomeActivity.showFirstRunGuideIfNeeded() {
 }
 
 /** Reusable from Settings; help remains available after first-run dismissal. */
-/** Reusable from Settings; help remains available after first-run dismissal. */
 internal fun showLudoPawsGuide(
     activity: Activity,
     onTryRobot: (() -> Unit)? = null,
@@ -99,15 +98,15 @@ internal fun showLudoPawsGuide(
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
             val maxHeight = (resources.displayMetrics.heightPixels * 0.52f).toInt()
             val offeredHeight = if (
-                MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.UNSPECIFIED
+                View.MeasureSpec.getMode(heightMeasureSpec) == View.MeasureSpec.UNSPECIFIED
             ) {
                 maxHeight
             } else {
-                minOf(MeasureSpec.getSize(heightMeasureSpec), maxHeight)
+                minOf(View.MeasureSpec.getSize(heightMeasureSpec), maxHeight)
             }
             super.onMeasure(
                 widthMeasureSpec,
-                MeasureSpec.makeMeasureSpec(offeredHeight, MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(offeredHeight, View.MeasureSpec.AT_MOST),
             )
         }
     }.apply {
