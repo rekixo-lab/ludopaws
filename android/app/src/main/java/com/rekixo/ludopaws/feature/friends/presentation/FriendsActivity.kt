@@ -664,80 +664,79 @@ class FriendsActivity : Activity() {
                 player.optString("opponentFriendId").lowercase().contains(query)
         }
 
+
         if (friendsContainer.childCount == 0) {
-        val header = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val heading = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        heading.addView(
-            FriendsVisualKit.iconView(this, FriendsIcon.PEOPLE, 0xFFDDF5FF.toInt()),
-            LinearLayout.LayoutParams(dp(27), dp(27)).apply { marginEnd = dp(5) },
-        )
-        heading.addView(
-            FriendsVisualKit.title(
-                this,
-                "FRIENDS • RECENT",
-                if (isCompact()) 9.5f else 12f,
-            ),
-            LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f),
-        )
-        header.addView(heading, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        val search = FriendsVisualKit.input(this, "Search friends…").apply {
-            setHintTextColor(Color.WHITE)
-            textSize = 12f
-            setText(friendQuery)
-            setSelection(text.length)
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-                override fun afterTextChanged(s: Editable?) {
-                    val next = s?.toString().orEmpty()
-                    if (next != friendQuery) {
-                        friendQuery = next
-                        renderFriends()
-                    }
-                }
-            })
-        }
-        search.setPadding(
-            search.paddingLeft,
-            search.paddingTop,
-            dp(31),
-            search.paddingBottom,
-        )
-        val searchInputWithIcon = FrameLayout(this).apply {
-            addView(
-                search,
-                FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.MATCH_PARENT,
-                    FrameLayout.LayoutParams.MATCH_PARENT,
+            // Full-width search beneath a clear heading; no narrow compact
+            // input or oversized parent container.
+            val header = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            val heading = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+            heading.addView(
+                FriendsVisualKit.iconView(this, FriendsIcon.PEOPLE, 0xFFDDF5FF.toInt()),
+                LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(8) },
+            )
+            heading.addView(
+                FriendsVisualKit.title(
+                    this, "FRIENDS & RECENT", if (isCompact()) 13f else 15f,
                 ),
             )
-            addView(
-                FriendsVisualKit.iconView(this@FriendsActivity, FriendsIcon.SEARCH, Color.WHITE).apply {
-                    isClickable = false
-                    isFocusable = false
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                },
-                FrameLayout.LayoutParams(
-                    dp(if (isCompact()) 16 else 18),
-                    dp(if (isCompact()) 16 else 18),
-                    Gravity.END or Gravity.CENTER_VERTICAL,
-                ).apply {
-                    marginEnd = dp(9)
-                },
+            header.addView(heading)
+            val search = FriendsVisualKit.input(this, "Search friends…").apply {
+                setHintTextColor(Color.WHITE)
+                textSize = 13f
+                setText(friendQuery)
+                setSelection(text.length)
+                addTextChangedListener(object : TextWatcher {
+                    override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                    override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+                    override fun afterTextChanged(s: Editable?) {
+                        val next = s?.toString().orEmpty()
+                        if (next != friendQuery) {
+                            friendQuery = next
+                            renderFriends()
+                        }
+                    }
+                })
+            }
+            search.setPadding(
+                search.paddingLeft, search.paddingTop, dp(33), search.paddingBottom,
             )
-        }
-        header.addView(
-            searchInputWithIcon,
-            LinearLayout.LayoutParams(if (isCompact()) dp(132) else dp(180), dp(36))
-                .apply { marginStart = dp(6) },
-        )
-        friendsContainer.addView(header)
+            val searchInputWithIcon = FrameLayout(this).apply {
+                addView(
+                    search,
+                    FrameLayout.LayoutParams(
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                        FrameLayout.LayoutParams.MATCH_PARENT,
+                    ),
+                )
+                addView(
+                    FriendsVisualKit.iconView(
+                        this@FriendsActivity, FriendsIcon.SEARCH, Color.WHITE,
+                    ).apply {
+                        isClickable = false
+                        isFocusable = false
+                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    },
+                    FrameLayout.LayoutParams(
+                        dp(18),
+                        dp(18),
+                        Gravity.END or Gravity.CENTER_VERTICAL,
+                    ).apply { marginEnd = dp(11) },
+                )
+            }
+            header.addView(
+                searchInputWithIcon,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(44),
+                ).apply { topMargin = dp(9) },
+            )
+            friendsContainer.addView(header)
         }
         renderBlockedPlayers()
 
