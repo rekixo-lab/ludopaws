@@ -14,6 +14,7 @@ internal object LudoPaws3DRenderCadencePolicy {
     internal const val IDLE_FRAME_DELAY_MILLIS = 33L
     internal const val HOME_CELEBRATION_TAIL_MILLIS = 1_400L
     internal const val FORWARD_LANDING_SETTLE_MILLIS = 90L
+    internal const val SECONDARY_SETTLE_TAIL_MILLIS = 250L
 
     /**
      * The visual pawn reaches the destination square before the short landing
@@ -47,7 +48,8 @@ internal object LudoPaws3DRenderCadencePolicy {
             if (forward?.toPosition == LudoPathEncoding.HOME_POSITION) {
                 HOME_CELEBRATION_TAIL_MILLIS
             } else {
-                0L
+                // Facing and appendage springs are still settling after the route ends.
+                SECONDARY_SETTLE_TAIL_MILLIS
             }
         val forwardActive =
             forward != null &&

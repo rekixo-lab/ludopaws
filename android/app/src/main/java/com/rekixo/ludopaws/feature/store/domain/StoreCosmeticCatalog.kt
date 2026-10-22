@@ -1,5 +1,7 @@
 package com.rekixo.ludopaws.feature.store.domain
 
+import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
+import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
@@ -14,120 +16,8 @@ object StoreCosmeticCatalog {
     const val DEFAULT_CHARACTER_PACK =
         "character_pack_starter_paws"
 
-    private val builtInBoards =
-        listOf(
-            cosmetic(
-                id = "board_classic",
-                title = "CLASSIC",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.FREE,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-            ),
-            cosmetic(
-                id = "board_checkers",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.FREE,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_chess",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                ads = 5,
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_diwali",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                ads = 10,
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_denim",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                ads = 10,
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_neon",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                level = 10,
-                ads = 20,
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_pirate",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.GEMS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                gems = 200,
-                level = 16,
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_alien",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.GEMS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                gems = 250,
-                level = 22,
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "board_penguin",
-                title = "LOCKED BOARD",
-                category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.GEMS,
-                previewSymbol = "",
-                previewPrimary = 0xFFF7F4EC.toInt(),
-                previewSecondary = 0xFFF7F4EC.toInt(),
-                gems = 250,
-                contentAvailable = false,
-            ),
-        )
-
-    private val builtInDice =
-        listOf(
-            cosmetic("dice_classic","CLASSIC",CosmeticCategory.DICE,CosmeticUnlockKind.FREE,"⚄",0xFFF7F7F7.toInt(),0xFF1B2838.toInt()),
-            cosmetic("dice_pumpkin","PUMPKIN",CosmeticCategory.DICE,CosmeticUnlockKind.FREE,"1",0xFFD9802F.toInt(),0xFF6A351C.toInt()),
-            cosmetic("dice_diwali","DIWALI",CosmeticCategory.DICE,CosmeticUnlockKind.REWARDED_ADS,"6",0xFFB21C32.toInt(),0xFFFFC832.toInt(),ads=5),
-            cosmetic("dice_football","FOOTBALL",CosmeticCategory.DICE,CosmeticUnlockKind.REWARDED_ADS,"6",0xFFF5F5F5.toInt(),0xFF222222.toInt(),ads=10),
-            cosmetic("dice_cricket","CRICKET",CosmeticCategory.DICE,CosmeticUnlockKind.REWARDED_ADS,"1",0xFF4F9E5F.toInt(),0xFFE8F4D8.toInt(),ads=20),
-            cosmetic("dice_summers","SUMMERS",CosmeticCategory.DICE,CosmeticUnlockKind.REWARDED_ADS,"3",0xFFFFF1D4.toInt(),0xFFE84432.toInt(),ads=30),
-            cosmetic("dice_colors","COLORS",CosmeticCategory.DICE,CosmeticUnlockKind.GEMS,"3",0xFFFFD63B.toInt(),0xFFEF3F8A.toInt(),gems=200),
-            cosmetic("dice_heart","HEART",CosmeticCategory.DICE,CosmeticUnlockKind.GEMS,"♥",0xFFF8F8F8.toInt(),0xFFD82E3D.toInt(),gems=250),
-        )
+    private val builtInBoards = BoardRegistry.all.map { it.offer }
+    private val builtInDice = DiceRegistry.all.map { it.offer }
 
     private val builtInAvatars =
         listOf(
@@ -353,34 +243,5 @@ object StoreCosmeticCatalog {
 
     private val ID_PATTERN = Regex("^[a-z0-9][a-z0-9_-]{2,63}$")
 
-    private fun cosmetic(
-        id: String,
-        title: String,
-        category: CosmeticCategory,
-        unlockKind: CosmeticUnlockKind,
-        previewSymbol: String,
-        previewPrimary: Int,
-        previewSecondary: Int,
-        gems: Int = 0,
-        level: Int = 0,
-        ads: Int = 0,
-        characterPackId: String? = null,
-        eventKey: String? = null,
-        contentAvailable: Boolean = true,
-    ) =
-        StoreCosmetic(
-            id = id,
-            title = title,
-            category = category,
-            unlockKind = unlockKind,
-            gemPrice = gems,
-            requiredLevel = level,
-            requiredAdViews = ads,
-            previewSymbol = previewSymbol,
-            previewPrimary = previewPrimary,
-            previewSecondary = previewSecondary,
-            characterPackId = characterPackId,
-            eventKey = eventKey,
-            contentAvailable = contentAvailable,
-        )
+
 }

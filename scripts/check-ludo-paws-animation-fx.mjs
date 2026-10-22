@@ -69,10 +69,9 @@ requireText(
     "data class LudoPaws3DActiveReaction",
     "fun durationMillis(",
     "fun sample(",
-    "LudoPaws3DSpecies.DOG",
-    "LudoPaws3DSpecies.GOAT",
-    "LudoPaws3DSpecies.DUCK",
-    "LudoPaws3DSpecies.CAT",
+    "CharacterDefinitions.all",
+    "profile(characterId)",
+    "CharacterReactionFrame",
     "AnimationCue.CAPTURE",
     "AnimationCue.CAPTURED",
     "AnimationCue.NERVOUS",
@@ -87,8 +86,8 @@ requireText(
     "LudoPawsFxBoardGeometry",
     "LudoPathEncoding",
     ".positionAtVisualStep(",
-    "SceneMotion.HOP",
-    "SceneMotion.HOME",
+    "CharacterMotion.HOP",
+    "CharacterMotion.HOME",
     "reactionPose(",
     "state.activeReactions[pawn.key]",
     "state.captureReturns[pawn.key]",
@@ -99,14 +98,11 @@ requireText(
     "legalAttentionScale",
     "FORWARD_LANDING_SETTLE_MILLIS",
     "LudoPaws3DReactionMotion.sample",
-    "earBounceDegrees = base.earBounceDegrees + reaction.primaryAppendageDegrees",
-    "beardSwingDegrees = base.beardSwingDegrees + reaction.secondaryAppendageDegrees",
-    "wingFlapDegrees = base.wingFlapDegrees + reaction.primaryAppendageDegrees",
-    "tailSwayDegrees = base.tailSwayDegrees + reaction.secondaryAppendageDegrees",
-    "Dog3DMotionTimeline",
-    "Goat3DMotionTimeline",
-    "Duck3DMotionTimeline",
-    "Cat3DMotionTimeline",
+    "living.followPrimary(base.primaryAppendageDegrees + reaction.primaryAppendageDegrees",
+    "living.followSecondary(base.secondaryAppendageDegrees + reaction.secondaryAppendageDegrees",
+    "living.followTertiary(base.tertiaryAppendageDegrees + reaction.tertiaryAppendageDegrees",
+    "pawn.character.renderer.sample",
+    "pawn.character.renderer.draw",
   ],
 );
 forbidText(
@@ -262,3 +258,10 @@ for (const retired of [
 console.log(
   "Ludo Paws production animation/FX gate passed: species-specific 3D body language, shared hop/home motion, visible captured-animal return, physical dice settle, circle-free pawn presentation and full-motion game FX are locked.",
 );
+
+for (const animal of ["Dog", "Goat", "Duck", "Cat"]) {
+  requireText(
+    `android/app/src/main/java/com/rekixo/ludopaws/feature/characters/content/${animal.toLowerCase()}/${animal}ReactionMotion.kt`,
+    ["CharacterReactionProfile", "AnimationCue.CAPTURE", "AnimationCue.CAPTURED", "AnimationCue.VICTORY", "AnimationCue.HOME"],
+  );
+}

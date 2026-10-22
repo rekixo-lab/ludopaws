@@ -11,7 +11,7 @@ import org.junit.Test
 
 class LudoPawsCharacterCatalogTest {
     @Test
-    fun `starter pack contains the four production 3d animals in deterministic order`() {
+    fun `starter pack contains the registered production 3d animals in deterministic order`() {
         val pack =
             requireNotNull(
                 LudoPawsCharacterCatalog
@@ -20,7 +20,7 @@ class LudoPawsCharacterCatalogTest {
 
         assertTrue(pack.starter)
         assertEquals(
-            listOf("dog", "goat", "duck", "cat"),
+            listOf("dog", "goat", "duck", "cat", "donkey"),
             pack.characterIds,
         )
         assertEquals(

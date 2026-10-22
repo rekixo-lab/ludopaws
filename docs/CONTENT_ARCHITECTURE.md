@@ -1,0 +1,91 @@
+# Adding characters, boards and dice
+
+Content lives under `android/app/src/main/java/com/rekixo/ludopaws/feature/`.
+Activities host screens. Adding an animal or cosmetic does not require a new
+Activity, GL context, game board implementation or dice outcome generator.
+
+## Characters
+
+Each animal has its own `characters/content/<id>/` directory:
+
+- `<Animal>Definition.kt`: stable identity, explicit pack membership, voice and
+  animation metadata, store display order, durations and model baselines.
+- `<Animal>Renderer.kt`: 3D anatomy and mapping from its timeline to `CharacterPose`.
+- `<Animal>3DMotion.kt`: pure idle, hop and home timeline.
+- `<Animal>ReactionMotion.kt`: species-specific reaction profile.
+- `<Animal>Materials.kt`: coat, eye and material colors.
+- `<Animal>AvatarRenderer.kt`: synchronous Canvas fallback for loading/unavailable portraits.
+
+Register the definition in `characters/domain/catalog/CharacterDefinitions.kt`
+and the renderer/avatar pair in `characters/rendering/CharacterRegistry.kt`.
+The registry checks that every definition has exactly one renderer entry.
+Gameplay, portrait generation and avatar fallback resolve the same character ID.
+
+Every definition has an explicit `packId`. Register new packs in
+`CharacterPackDefinitions.kt`, with descriptors under `characters/content/packs/`.
+The catalog builds membership from definitions. Paid animals must use their paid
+pack ID, not `starter_paws`. Registering a renderer does not grant ownership or
+make an unavailable store offer available. Existing purchases are pack-based;
+individual character purchases are a separate feature, not enabled here.
+
+## Boards
+
+Each theme has `boards/content/<id>/<Name>BoardDefinition.kt`, containing its
+existing offer and visual palette. Register it in `boards/domain/BoardRegistry.kt`.
+Store offers and preview palettes derive from these definitions. Existing draft
+boards remain unavailable.
+
+Palette themes reuse `boards/content/classic/ClassicBoardRenderer.kt`. For new
+chrome, implement `boards/rendering/BoardRenderer`, add a factory in
+`BoardRendererRegistry.kt`, and set the definition's `rendererKey`. Instances
+are created per view so mutable Paint and texture caches are not shared.
+
+`LudoBoardView` still owns the logical route, touch mapping and base cells.
+`LudoPawsBoardChromeView` hosts the visual renderer, then draws footprints and
+finish ranks above it. Cosmetics must not change safe cells, token positions,
+hit testing or game rules. Different logical geometry is a gameplay feature.
+
+## Dice
+
+Each style has `dice/content/<id>/<Name>DiceDefinition.kt`, containing its offer
+and palette factory. Register it in `dice/domain/DiceRegistry.kt`. Each factory
+returns separate color arrays; the team border override remains supported.
+
+Palette skins reuse `dice/content/classic/ClassicDiceRenderer.kt`. For different
+art, implement `dice/rendering/DiceRenderer`, add its factory to
+`DiceRendererRegistry.kt`, and reference its key from the definition.
+`DiceView` owns input, roll/settle timing, countdown and transforms. Renderers
+receive a resolved face and only draw it; they cannot choose roll outcomes.
+
+## Shared rendering and compatibility
+
+`LudoPaws3DSceneRenderer` coordinates pawn positions, facing, shadows and timing.
+Animal anatomy and species motion switches have moved out of it.
+`CharacterDrawContext` holds per-scene head transforms and exposes shared mesh
+drawing. Shared life motion and materials live in `characters/shared/`.
+Mesh and GLSL code live in `rendering/meshes/` and `rendering/shaders/`.
+
+Existing character, board, dice and pack IDs are preserved. Legacy character
+aliases still resolve. Unknown local IDs use known visual defaults; unknown
+store content is not automatically purchasable. Remote price overrides,
+ownership and purchase verification retain the existing store/account paths.
+The legacy species enum remains for footprint/compatibility callers; the scene
+and reaction selection resolve full character IDs.
+
+## Verification
+
+`ContentRegistryTest` checks catalog/renderer coverage, pack membership, legacy
+fallbacks, finite timelines, renderer availability and palette isolation.
+Existing motion, store, geometry and dice tests remain in place.
+
+Source gates:
+
+```
+node scripts/check-ludo-paws-pawn-rendering.mjs
+node scripts/check-ludo-paws-animation-fx.mjs
+```
+
+Build the QA variant and run the unit suite with `LUDOPAWS_QA_BUILD=true`.
+The existing portrait and dice visibility instrumentation tests exercise real
+GLES portraits and Canvas drawing on a connected device. Compilation alone
+cannot verify driver behavior or the visual quality of new art.

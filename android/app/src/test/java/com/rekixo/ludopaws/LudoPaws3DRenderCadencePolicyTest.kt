@@ -50,7 +50,7 @@ class LudoPaws3DRenderCadencePolicyTest {
     }
 
     @Test
-    fun `ordinary move drops to idle cadence as soon as movement ends`() {
+    fun `ordinary move keeps display cadence through final facing and spring recovery`() {
         val state =
             LudoPaws3DSceneState(
                 forwardMotion =
@@ -71,8 +71,16 @@ class LudoPaws3DRenderCadencePolicyTest {
             LudoPaws3DRenderCadencePolicy.frameDelayMillis(state, 2_599L),
         )
         assertEquals(
-            LudoPaws3DRenderCadencePolicy.IDLE_FRAME_DELAY_MILLIS,
+            LudoPaws3DRenderCadencePolicy.ACTIVE_FRAME_DELAY_MILLIS,
             LudoPaws3DRenderCadencePolicy.frameDelayMillis(state, 2_600L),
+        )
+        assertEquals(
+            LudoPaws3DRenderCadencePolicy.ACTIVE_FRAME_DELAY_MILLIS,
+            LudoPaws3DRenderCadencePolicy.frameDelayMillis(state, 2_849L),
+        )
+        assertEquals(
+            LudoPaws3DRenderCadencePolicy.IDLE_FRAME_DELAY_MILLIS,
+            LudoPaws3DRenderCadencePolicy.frameDelayMillis(state, 2_850L),
         )
     }
 

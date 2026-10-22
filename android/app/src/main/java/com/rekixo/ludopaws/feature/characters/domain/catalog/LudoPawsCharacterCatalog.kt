@@ -2,13 +2,11 @@ package com.rekixo.ludopaws.feature.characters.domain.catalog
 
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalPack
-import com.rekixo.ludopaws.feature.characters.domain.model.AnimalPersonality
-import com.rekixo.ludopaws.feature.characters.domain.model.AnimalSpecies
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimationSet
 import com.rekixo.ludopaws.feature.characters.domain.model.CharacterSelection
 import com.rekixo.ludopaws.feature.characters.domain.model.VoiceSet
 
-/** Canonical production catalog for the four code-generated 3D Ludo pawns. */
+/** Catalog assembled from registered character and pack definitions. */
 object LudoPawsCharacterCatalog {
     const val STARTER_PACK_ID = "starter_paws"
     const val DEFAULT_CHARACTER_ID = "dog"
@@ -22,91 +20,19 @@ object LudoPawsCharacterCatalog {
             "squirrel" to "dog",
             "hedgehog" to "goat",
             "sheep" to "cat",
+            "lion" to "donkey",
         )
 
-    private val voiceSetList =
-        listOf(
-            VoiceSet(
-                id = "dog_default",
-                species = AnimalSpecies.DOG,
-            ),
-            VoiceSet(
-                id = "goat_default",
-                species = AnimalSpecies.GOAT,
-            ),
-            VoiceSet(
-                id = "duck_default",
-                species = AnimalSpecies.DUCK,
-            ),
-            VoiceSet(
-                id = "cat_default",
-                species = AnimalSpecies.CAT,
-            ),
-        )
+    private val voiceSetList = CharacterDefinitions.all.map { it.voiceSet }
+    private val animationSetList = CharacterDefinitions.all.map { it.animationSet }
+    private val characterList = CharacterDefinitions.all.map { it.character }
 
-    private val animationSetList =
-        listOf(
-            AnimationSet("dog_default"),
-            AnimationSet("goat_default"),
-            AnimationSet("duck_default"),
-            AnimationSet("cat_default"),
+    private val packList = CharacterPackDefinitions.all.map { pack ->
+        AnimalPack(
+            id = pack.id, displayName = pack.displayName, starter = pack.starter,
+            characterIds = CharacterDefinitions.all.filter { it.packId == pack.id }.map { it.character.id },
         )
-
-    private val characterList =
-        listOf(
-            AnimalCharacter(
-                id = "dog",
-                displayName = "Dog",
-                species = AnimalSpecies.DOG,
-                personality = AnimalPersonality.PLAYFUL,
-                voiceSetId = "dog_default",
-                animationSetId = "dog_default",
-                fallbackDrawableName = "lp_3d_pawn_placeholder",
-            ),
-            AnimalCharacter(
-                id = "goat",
-                displayName = "Goat",
-                species = AnimalSpecies.GOAT,
-                personality = AnimalPersonality.CURIOUS,
-                voiceSetId = "goat_default",
-                animationSetId = "goat_default",
-                fallbackDrawableName = "lp_3d_pawn_placeholder",
-            ),
-            AnimalCharacter(
-                id = "duck",
-                displayName = "Duck",
-                species = AnimalSpecies.DUCK,
-                personality = AnimalPersonality.CHEERFUL,
-                voiceSetId = "duck_default",
-                animationSetId = "duck_default",
-                fallbackDrawableName = "lp_3d_pawn_placeholder",
-            ),
-            AnimalCharacter(
-                id = "cat",
-                displayName = "Cat",
-                species = AnimalSpecies.CAT,
-                personality = AnimalPersonality.SASSY,
-                voiceSetId = "cat_default",
-                animationSetId = "cat_default",
-                fallbackDrawableName = "lp_3d_pawn_placeholder",
-            ),
-        )
-
-    private val packList =
-        listOf(
-            AnimalPack(
-                id = STARTER_PACK_ID,
-                displayName = "3D Animal Paws",
-                starter = true,
-                characterIds =
-                    listOf(
-                        "dog",
-                        "goat",
-                        "duck",
-                        "cat",
-                    ),
-            ),
-        )
+    }
 
     private val charactersById = characterList.associateBy(AnimalCharacter::id)
     private val packsById = packList.associateBy(AnimalPack::id)
@@ -120,6 +46,9 @@ object LudoPawsCharacterCatalog {
         )
 
     init {
+        require(CharacterDefinitions.all.all { definition -> definition.packId in packsById }) {
+            "Character definition references an unregistered pack"
+        }
         validateCatalog()
     }
 

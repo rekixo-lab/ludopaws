@@ -38,7 +38,7 @@ class CharacterPackStoreCatalogTest {
             LudoPawsCharacterCatalog.charactersForPack(
                 requireNotNull(starter.characterPackId),
             )
-        assertEquals(4, characters.size)
+        assertEquals(5, characters.size)
         characters.forEach { character ->
             assertNotNull(
                 LudoPawsCharacterCatalog.voiceSet(

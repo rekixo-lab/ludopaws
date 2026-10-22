@@ -24,6 +24,8 @@ internal data class LudoPawsPawnStackPlacement(
  * already-authoritative token positions into deterministic visual geometry.
  */
 object LudoPawsPawnLayout {
+    /** Uniform in-game animal enlargement; shared by renderer and selection geometry. */
+    private const val ANIMAL_SIZE_MULTIPLIER = 1.32f
     private data class StackPlacementCache(
         val snapshotRef: WeakReference<MatchSnapshot>,
         val cellBits: Int,
@@ -74,7 +76,7 @@ object LudoPawsPawnLayout {
                 occupancy <= 9 -> 0.64f
                 else -> 0.56f
             }
-        return base * crowdScale
+        return base * crowdScale * ANIMAL_SIZE_MULTIPLIER
     }
 
     /**

@@ -8,7 +8,7 @@ class LudoPawsPawnLayoutVisualPolicyTest {
     @Test
     fun `single animal pawns remain prominent across yard track and home`() {
         assertEquals(
-            0.40f,
+            0.528f,
             LudoPawsPawnLayout.radiusScale(
                 position = -1,
                 occupancy = 1,
@@ -16,7 +16,7 @@ class LudoPawsPawnLayoutVisualPolicyTest {
             0.0001f,
         )
         assertEquals(
-            0.37f,
+            0.4884f,
             LudoPawsPawnLayout.radiusScale(
                 position = 12,
                 occupancy = 1,
@@ -24,7 +24,7 @@ class LudoPawsPawnLayoutVisualPolicyTest {
             0.0001f,
         )
         assertEquals(
-            0.35f,
+            0.462f,
             LudoPawsPawnLayout.radiusScale(
                 position = LudoPathEncoding.HOME_POSITION,
                 occupancy = 1,

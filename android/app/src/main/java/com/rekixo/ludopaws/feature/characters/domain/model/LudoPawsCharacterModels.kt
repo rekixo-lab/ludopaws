@@ -22,7 +22,7 @@ enum class AnimalSpecies {
     FOX,
     BEAR,
     ELEPHANT,
-    LION,
+    DONKEY,
     RABBIT,
     FROG,
     DOG,

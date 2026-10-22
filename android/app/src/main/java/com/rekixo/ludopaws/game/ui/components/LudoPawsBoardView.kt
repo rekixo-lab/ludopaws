@@ -327,7 +327,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
     fun reloadStyle() {
         boardSurface.reloadStyle()
         baseBoard.reloadStyle()
-        boardChrome.invalidate()
+        boardChrome.reloadStyle()
     }
 
     // BOARD SIZE LOCK: exactly mirror the approved LudoBoardView square.

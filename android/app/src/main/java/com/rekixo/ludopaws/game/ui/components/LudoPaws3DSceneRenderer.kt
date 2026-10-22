@@ -1,23 +1,15 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.feature.characters.shared.LudoPaws3DLifeMotion
+import com.rekixo.ludopaws.rendering.meshes.CharacterMesh
+import com.rekixo.ludopaws.rendering.meshes.SphereGeometry
+import com.rekixo.ludopaws.rendering.meshes.MeshGeometry
+import com.rekixo.ludopaws.rendering.shaders.CharacterShaders.VERTEX_SHADER
+import com.rekixo.ludopaws.rendering.shaders.CharacterShaders.FRAGMENT_SHADER
+import com.rekixo.ludopaws.rendering.shaders.GlProgram.createProgram
 import android.opengl.GLES30
 import android.opengl.Matrix
-import com.rekixo.ludopaws.feature.characters.prototype.Cat3DMotion
-import com.rekixo.ludopaws.feature.characters.prototype.Cat3DMotionTimeline
-import com.rekixo.ludopaws.feature.characters.prototype.Cat3DPose
-import com.rekixo.ludopaws.feature.characters.prototype.Dog3DMotion
-import com.rekixo.ludopaws.feature.characters.prototype.Dog3DMotionTimeline
-import com.rekixo.ludopaws.feature.characters.prototype.Dog3DPose
-import com.rekixo.ludopaws.feature.characters.prototype.Duck3DMotion
-import com.rekixo.ludopaws.feature.characters.prototype.Duck3DMotionTimeline
-import com.rekixo.ludopaws.feature.characters.prototype.Duck3DPose
-import com.rekixo.ludopaws.feature.characters.prototype.Goat3DMotion
-import com.rekixo.ludopaws.feature.characters.prototype.Goat3DMotionTimeline
-import com.rekixo.ludopaws.feature.characters.prototype.Goat3DPose
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import java.nio.FloatBuffer
-import java.nio.ShortBuffer
+import com.rekixo.ludopaws.feature.characters.rendering.*
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -29,8 +21,8 @@ import kotlin.math.sin
 /**
  * Shared production renderer for all code-generated animal pawns.
  *
- * Geometry comes from the four approved prototype renderers, but every pawn is
- * drawn through one ES3 program, one sphere mesh, and one EGL context. Board
+ * CharacterRegistry supplies anatomy and motion. All pawns share one ES3
+ * program, reusable context-local meshes and one EGL context. Board
  * coordinates come only from LudoPawsFxBoardGeometry/LudoPathEncoding so the 3D
  * layer cannot invent a second game route.
  */
@@ -42,8 +34,29 @@ internal class LudoPaws3DSceneRenderer {
     private var uColorLocation = -1
     private var uLightDirectionLocation = -1
     private var uNormalMatrixLocation = -1
-    private lateinit var sphere: SphereMesh
+    private lateinit var sphere: CharacterMesh
+    private var uMaterialLocation = -1
+    private var uLimbBendLocation = -1
+    private val customMeshes = mutableMapOf<MeshGeometry, CharacterMesh>()
 
+    private val lifeByPawn = mutableMapOf<LudoPaws3DPawnKey, LudoPaws3DLifeMotion>()
+    private val drawContext = object : CharacterDrawContext() {
+        override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
+            scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
+            rotateX: Float, rotateY: Float, rotateZ: Float) {
+            this@LudoPaws3DSceneRenderer.drawPart(parent, translateX, translateY, translateZ,
+                scaleX, scaleY, scaleZ, color, rotateX, rotateY, rotateZ)
+        }
+        override fun drawGeometry(parent: FloatArray, geometry: MeshGeometry,
+            translateX: Float, translateY: Float, translateZ: Float,
+            scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
+            rotateX: Float, rotateY: Float, rotateZ: Float) {
+            this@LudoPaws3DSceneRenderer.drawPart(parent, translateX, translateY, translateZ,
+                scaleX, scaleY, scaleZ, color, rotateX, rotateY, rotateZ, geometry)
+        }
+    }
+    private var bodyStretch = 1f
+    private var groundPivotY = -.72f
     private val projection = FloatArray(16)
     private val root = FloatArray(16)
     private val model = FloatArray(16)
@@ -64,6 +77,11 @@ internal class LudoPaws3DSceneRenderer {
                 VERTEX_SHADER.trimIndent(),
                 FRAGMENT_SHADER.trimIndent(),
             )
+        customMeshes.clear()
+        uLimbBendLocation = GLES30.glGetUniformLocation(program, "uLimbBend")
+        check(uLimbBendLocation >= 0) { "Missing limb deformation uniform" }
+        uMaterialLocation = GLES30.glGetUniformLocation(program, "uMaterial")
+        check(uMaterialLocation >= 0) { "Missing character material uniform" }
         uMvpLocation = GLES30.glGetUniformLocation(program, "uMvp")
         uColorLocation = GLES30.glGetUniformLocation(program, "uColor")
         uLightDirectionLocation = GLES30.glGetUniformLocation(program, "uLightDirection")
@@ -75,9 +93,8 @@ internal class LudoPaws3DSceneRenderer {
                 uNormalMatrixLocation >= 0,
         ) { "3D pawn shader is missing a required uniform" }
         sphere =
-            SphereMesh(
-                latitudeSegments = 16,
-                longitudeSegments = 24,
+            CharacterMesh(
+                geometry = SphereGeometry.standard,
                 uMvpLocation = uMvpLocation,
                 uColorLocation = uColorLocation,
                 uLightDirectionLocation = uLightDirectionLocation,
@@ -90,39 +107,7 @@ internal class LudoPaws3DSceneRenderer {
      * render paths normalize the shared GLSL constants so strict ES3 drivers see
      * the #version directive at the beginning of the source.
      */
-    fun onPortraitSurfaceCreated() {
-        GLES30.glClearColor(0f, 0f, 0f, 0f)
-        GLES30.glEnable(GLES30.GL_DEPTH_TEST)
-        GLES30.glEnable(GLES30.GL_BLEND)
-        GLES30.glBlendFunc(
-            GLES30.GL_SRC_ALPHA,
-            GLES30.GL_ONE_MINUS_SRC_ALPHA,
-        )
-        program =
-            createProgram(
-                VERTEX_SHADER.trimIndent(),
-                FRAGMENT_SHADER.trimIndent(),
-            )
-        uMvpLocation = GLES30.glGetUniformLocation(program, "uMvp")
-        uColorLocation = GLES30.glGetUniformLocation(program, "uColor")
-        uLightDirectionLocation = GLES30.glGetUniformLocation(program, "uLightDirection")
-        uNormalMatrixLocation = GLES30.glGetUniformLocation(program, "uNormalMatrix")
-        check(
-            uMvpLocation >= 0 &&
-                uColorLocation >= 0 &&
-                uLightDirectionLocation >= 0 &&
-                uNormalMatrixLocation >= 0,
-        ) { "3D portrait shader is missing a required uniform" }
-        sphere =
-            SphereMesh(
-                latitudeSegments = 16,
-                longitudeSegments = 24,
-                uMvpLocation = uMvpLocation,
-                uColorLocation = uColorLocation,
-                uLightDirectionLocation = uLightDirectionLocation,
-                uNormalMatrixLocation = uNormalMatrixLocation,
-            )
-    }
+    fun onPortraitSurfaceCreated() = onSurfaceCreated()
 
     fun onSurfaceChanged(
         width: Int,
@@ -156,8 +141,10 @@ internal class LudoPaws3DSceneRenderer {
             this.width.toFloat(),
             boardBottom,
             -topOverflow,
-            -100f,
-            100f,
+            // Models use pixel-sized world coordinates. A fixed +/-100 clips
+            // muzzles/eyes in large portraits and on high-resolution game surfaces.
+            -max(width, height).toFloat() * 2f,
+            max(width, height).toFloat() * 2f,
         )
     }
 
@@ -180,19 +167,23 @@ internal class LudoPaws3DSceneRenderer {
             this.width.toFloat(),
             this.height.toFloat(),
             0f,
-            -100f,
-            100f,
+            // Models use pixel-sized world coordinates. A fixed +/-100 clips
+            // muzzles/eyes in large portraits and on high-resolution game surfaces.
+            -max(width, height).toFloat() * 2f,
+            max(width, height).toFloat() * 2f,
         )
     }
 
     /**
-     * Draws one static portrait using the exact same 3D body-part methods,
-     * sphere mesh, shader, and lighting as a live board pawn. No match state,
+     * Draws an isolated character preview using the live pawn geometry and materials.
+     * Default arguments render the static portrait used by the shared bitmap cache. No match state,
      * pawn position, movement, or animation state is read or modified.
      */
     fun drawPortrait(
         characterId: String,
         teamColorName: String,
+        pose: CharacterPose = CharacterPose(),
+        previewLife: LudoPaws3DLifeMotion? = null,
     ) {
         if (program == 0) return
 
@@ -203,29 +194,25 @@ internal class LudoPaws3DSceneRenderer {
         )
         GLES30.glUseProgram(program)
 
-        val species =
-            LudoPaws3DCharacterPolicy
-                .speciesForCharacterId(characterId)
-                ?: LudoPaws3DSpecies.DOG
+        val character = CharacterRegistry.resolve(characterId)
         val teamColor =
             LudoPawsTeamIdentityPolicy.resolve(teamColorName)
                 ?: LudoPawsTeamColor.BLUE
+        drawContext.surface = CharacterSurface.MATTE
+        drawContext.life = previewLife
+        bodyStretch = pose.bodyScaleY
+        groundPivotY = character.definition.groundPivotY
         val size = min(width, height).toFloat()
         val modelScale = size * 0.30f
         prepareRoot(
             x = width * 0.5f,
             y = height * 0.62f,
             scale = modelScale,
-            liftY = 0f,
-            bodyYawDegrees = 0f,
+            liftY = pose.liftY,
+            bodyYawDegrees = pose.bodyYawDegrees,
         )
 
-        when (species) {
-            LudoPaws3DSpecies.DOG -> drawDog(root, Dog3DPose(), teamColor)
-            LudoPaws3DSpecies.GOAT -> drawGoat(root, Goat3DPose(), teamColor)
-            LudoPaws3DSpecies.DUCK -> drawDuck(root, Duck3DPose(), teamColor)
-            LudoPaws3DSpecies.CAT -> drawCat(root, Cat3DPose(), teamColor)
-        }
+        character.renderer.draw(drawContext, root, pose, teamColor)
         GLES30.glFinish()
     }
 
@@ -264,10 +251,9 @@ internal class LudoPaws3DSceneRenderer {
                     val teamColor =
                         LudoPawsTeamIdentityPolicy.resolve(player.color)
                             ?: return@forEach
-                    val species =
-                        LudoPaws3DCharacterPolicy
-                            .speciesForColor(player.color)
-                            ?: return@forEach
+                    val character = CharacterRegistry.resolve(
+                        LudoPaws3DCharacterPolicy.characterIdForColor(player.color),
+                    )
                     player.tokens.forEachIndexed { tokenIndex, currentPosition ->
                         val key =
                             LudoPaws3DPawnKey(
@@ -366,7 +352,7 @@ internal class LudoPaws3DSceneRenderer {
                         add(
                             RenderPawn(
                                 key = key,
-                                species = species,
+                                character = character,
                                 teamColor = teamColor,
                                 seat = player.seat,
                                 x = rotated.first,
@@ -390,6 +376,7 @@ internal class LudoPaws3DSceneRenderer {
         // Shadows are drawn as a separate background pass so one pawn's shadow
         // can never darken another pawn that was already painted in front of it.
         // The board coordinates remain authoritative; this pass is visual only.
+        lifeByPawn.keys.retainAll(renderPawns.map { it.key }.toSet())
         renderPawns.forEach(::drawContactShadow)
 
         renderPawns.forEach { pawn ->
@@ -415,301 +402,67 @@ internal class LudoPaws3DSceneRenderer {
                 state = state,
                 nowMillis = nowMillis,
             )
-        val reaction =
+        val rawReactionTarget =
             reactionPose(
                 pawn = pawn,
                 state = state,
                 nowMillis = nowMillis,
             )
-        val movementPose =
-            movementScalePose(
-                pawn = pawn,
-                state = state,
-                nowMillis = nowMillis,
-            )
+        // Locomotion owns weight/contact. Keep facial reactions, but fade a competing
+        // celebration bounce/scale through the existing springs before landing.
+        val reactionTarget = if (frame.kind == CharacterMotion.HOP) {
+            rawReactionTarget.copy(liftY = 0f, scale = 1f, bodyYawDegrees = 0f, bodyPitchDegrees = 0f)
+        } else rawReactionTarget
+        val living = lifeByPawn.getOrPut(pawn.key) { LudoPaws3DLifeMotion() }
+        drawContext.surface = CharacterSurface.MATTE
+        drawContext.life = living
+        // Watch the moving pawn, otherwise attend to an opponent.
+        val forward = state.forwardMotion
+        val targetPlayer = state.snapshot?.players?.firstOrNull {
+            it.playerId == forward?.playerId
+        } ?: state.snapshot?.players?.firstOrNull { it.playerId != pawn.key.playerId }
+        val focus = targetPlayer?.let { player ->
+            val index = if (player.playerId == forward?.playerId) forward.tokenIndex else 0
+            val position = player.tokens.getOrNull(index) ?: return@let null
+            animatedCenter(player, index, position, min(width, height).toFloat() / 15f, state, nowMillis)
+        }?.let {
+            rotatePoint(it.first, it.second, min(width, height).toFloat(),
+                state.perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0)
+        }
+        val reaction = living.update(nowMillis, pawn.seat * 397 + pawn.key.tokenIndex * 103,
+            frame.kind == CharacterMotion.IDLE && state.activeReactions[pawn.key]?.let {
+                nowMillis < it.startedAtMillis + it.durationMillis
+            } != true,
+            ((focus?.first ?: width * .5f) - pawn.x) / (width * .35f),
+            (pawn.y - (focus?.second ?: height * .5f)) / (height * .35f), reactionTarget)
+        groundPivotY = pawn.character.definition.groundPivotY
         val modelScale =
             pawn.radius *
                 MODEL_SCALE_PER_RADIUS *
                 pawn.presentationScale *
                 pawn.attentionScale *
-                reaction.scale *
-                movementPose.scale
+                reaction.scale
         val rootY =
             pawn.y +
-                pawn.radius * rootYOffsetPerRadius(pawn.species) +
-                movementPose.liftY
+                pawn.radius * pawn.character.definition.rootYOffsetPerRadius
 
-        when (pawn.species) {
-            LudoPaws3DSpecies.DOG -> {
-                val base =
-                    when (frame.kind) {
-                        SceneMotion.IDLE -> Dog3DMotionTimeline.sample(Dog3DMotion.IDLE, frame.progress)
-                        SceneMotion.HOP -> Dog3DMotionTimeline.sample(Dog3DMotion.HOP, frame.progress)
-                        SceneMotion.HOME -> Dog3DMotionTimeline.sample(Dog3DMotion.HOME, frame.progress)
-                    }
-                val pose =
-                    base.copy(
-                        liftY = base.liftY + reaction.liftY,
-                        bodyYawDegrees = pawn.facingYawDegrees + base.bodyYawDegrees + reaction.bodyYawDegrees,
-                        headTiltDegrees = base.headTiltDegrees + reaction.headTiltDegrees,
-                        earBounceDegrees = base.earBounceDegrees + reaction.primaryAppendageDegrees,
-                        tailWagDegrees = base.tailWagDegrees + reaction.secondaryAppendageDegrees,
-                    )
-                prepareRoot(
-                    x = pawn.x,
-                    y = rootY,
-                    scale = modelScale,
-                    liftY = pose.liftY,
-                    bodyYawDegrees = pose.bodyYawDegrees,
-                )
-                drawDog(root, pose, pawn.teamColor)
-            }
-
-            LudoPaws3DSpecies.GOAT -> {
-                val base =
-                    when (frame.kind) {
-                        SceneMotion.IDLE -> Goat3DMotionTimeline.sample(Goat3DMotion.IDLE, frame.progress)
-                        SceneMotion.HOP -> Goat3DMotionTimeline.sample(Goat3DMotion.HOP, frame.progress)
-                        SceneMotion.HOME -> Goat3DMotionTimeline.sample(Goat3DMotion.HOME, frame.progress)
-                    }
-                val pose =
-                    base.copy(
-                        liftY = base.liftY + reaction.liftY,
-                        bodyYawDegrees = pawn.facingYawDegrees + base.bodyYawDegrees + reaction.bodyYawDegrees,
-                        earFlickDegrees = base.earFlickDegrees + reaction.primaryAppendageDegrees,
-                        beardSwingDegrees = base.beardSwingDegrees + reaction.secondaryAppendageDegrees,
-                        tailFlickDegrees = base.tailFlickDegrees + reaction.tertiaryAppendageDegrees,
-                    )
-                prepareRoot(
-                    x = pawn.x,
-                    y = rootY,
-                    scale = modelScale,
-                    liftY = pose.liftY,
-                    bodyYawDegrees = pose.bodyYawDegrees,
-                )
-                drawGoat(root, pose, pawn.teamColor)
-            }
-
-            LudoPaws3DSpecies.DUCK -> {
-                val base =
-                    when (frame.kind) {
-                        SceneMotion.IDLE -> Duck3DMotionTimeline.sample(Duck3DMotion.IDLE, frame.progress)
-                        SceneMotion.HOP -> Duck3DMotionTimeline.sample(Duck3DMotion.HOP, frame.progress)
-                        SceneMotion.HOME -> Duck3DMotionTimeline.sample(Duck3DMotion.HOME, frame.progress)
-                    }
-                val pose =
-                    base.copy(
-                        liftY = base.liftY + reaction.liftY,
-                        bodyYawDegrees = pawn.facingYawDegrees + base.bodyYawDegrees + reaction.bodyYawDegrees,
-                        wingFlapDegrees = base.wingFlapDegrees + reaction.primaryAppendageDegrees,
-                        headTiltDegrees = base.headTiltDegrees + reaction.headTiltDegrees,
-                    )
-                prepareRoot(
-                    x = pawn.x,
-                    y = rootY,
-                    scale = modelScale,
-                    liftY = pose.liftY,
-                    bodyYawDegrees = pose.bodyYawDegrees,
-                )
-                drawDuck(root, pose, pawn.teamColor)
-            }
-
-            LudoPaws3DSpecies.CAT -> {
-                val base =
-                    when (frame.kind) {
-                        SceneMotion.IDLE -> Cat3DMotionTimeline.sample(Cat3DMotion.IDLE, frame.progress)
-                        SceneMotion.HOP -> Cat3DMotionTimeline.sample(Cat3DMotion.HOP, frame.progress)
-                        SceneMotion.HOME -> Cat3DMotionTimeline.sample(Cat3DMotion.HOME, frame.progress)
-                    }
-                val pose =
-                    base.copy(
-                        liftY = base.liftY + reaction.liftY,
-                        bodyYawDegrees = pawn.facingYawDegrees + base.bodyYawDegrees + reaction.bodyYawDegrees,
-                        headTiltDegrees = base.headTiltDegrees + reaction.headTiltDegrees,
-                        earTwitchDegrees = base.earTwitchDegrees + reaction.primaryAppendageDegrees,
-                        tailSwayDegrees = base.tailSwayDegrees + reaction.secondaryAppendageDegrees,
-                    )
-                prepareRoot(
-                    x = pawn.x,
-                    y = rootY,
-                    scale = modelScale,
-                    liftY = pose.liftY,
-                    bodyYawDegrees = pose.bodyYawDegrees,
-                )
-                drawCat(root, pose, pawn.teamColor)
-            }
-        }
-    }
-
-    // Active-move squash/stretch envelope. Kept presentation-only so board
-    // coordinates, route state, hit testing and timing remain authoritative.
-    private fun movementScalePose(
-        pawn: RenderPawn,
-        state: LudoPaws3DSceneState,
-        nowMillis: Long,
-    ): MovementScalePose {
-        val forward = state.forwardMotion
-        if (
-            forward == null ||
-            forward.playerId != pawn.key.playerId ||
-            forward.tokenIndex != pawn.key.tokenIndex ||
-            state.forwardDurationMillis <= 0L
-        ) {
-            return MovementScalePose()
-        }
-
-        val elapsed =
-            (nowMillis - state.forwardStartedAtMillis)
-                .coerceAtLeast(0L)
-        val totalDuration = state.forwardDurationMillis
-        if (elapsed >= totalDuration) {
-            return MovementScalePose()
-        }
-
-        val travelDuration =
-            (
-                totalDuration -
-                    LudoPaws3DRenderCadencePolicy.FORWARD_LANDING_SETTLE_MILLIS
-            ).coerceAtLeast(1L)
-
-        // Deliberately exaggerated for a clear, playful jump silhouette:
-        // 88% anticipation -> 124% takeoff pop -> 106% airborne -> 91% landing.
-        val anticipationMillis =
-            min(
-                80L,
-                max(
-                    55L,
-                    travelDuration / 7L,
-                ),
-            )
-        val takeoffMillis =
-            min(
-                150L,
-                max(
-                    105L,
-                    travelDuration / 4L,
-                ),
-            )
-        val landingMillis =
-            min(
-                95L,
-                max(
-                    65L,
-                    LudoPaws3DRenderCadencePolicy
-                        .FORWARD_LANDING_SETTLE_MILLIS / 3L,
-                ),
-            )
-
-        val scale: Float
-        val liftY: Float
-
-        when {
-            elapsed < anticipationMillis -> {
-                val t =
-                    smoothStep(
-                        elapsed.toFloat() /
-                            anticipationMillis.toFloat(),
-                    )
-                scale = lerp(1f, 0.88f, t)
-                // A tiny pre-load keeps the takeoff readable instead of looking flat.
-                liftY =
-                    pawn.radius *
-                        0.06f *
-                        smoothStep(t)
-            }
-
-            elapsed < anticipationMillis + takeoffMillis -> {
-                val t =
-                    smoothStep(
-                        (
-                            elapsed - anticipationMillis
-                        ).toFloat() /
-                            takeoffMillis.toFloat(),
-                    )
-                scale = lerp(0.88f, 1.24f, t)
-                // Strong vertical takeoff: clearly rises before the path hop begins.
-                liftY =
-                    lerp(
-                        pawn.radius * 0.06f,
-                        pawn.radius * 0.78f,
-                        t,
-                    )
-            }
-
-            elapsed < travelDuration -> {
-                val travelElapsed =
-                    elapsed - anticipationMillis - takeoffMillis
-                val travelWindow =
-                    (
-                        travelDuration -
-                            anticipationMillis -
-                            takeoffMillis
-                    ).coerceAtLeast(1L)
-                val t =
-                    (
-                        travelElapsed.toFloat() /
-                            travelWindow.toFloat()
-                    ).coerceIn(0f, 1f)
-                val eased = smoothStep(t)
-                scale = lerp(1.24f, 1.06f, eased)
-                liftY =
-                    lerp(
-                        pawn.radius * 0.78f,
-                        pawn.radius * 0.16f,
-                        eased,
-                    )
-            }
-
-            elapsed < totalDuration - landingMillis -> {
-                scale = 1.06f
-                liftY = pawn.radius * 0.16f
-            }
-
-            else -> {
-                val t =
-                    smoothStep(
-                        (
-                            elapsed - (totalDuration - landingMillis)
-                        ).toFloat() /
-                            landingMillis.toFloat(),
-                    )
-                val landingT =
-                    (
-                        t * 2f
-                    ).coerceAtMost(1f)
-                scale =
-                    when {
-                        t < 0.5f ->
-                            lerp(1.06f, 0.91f, smoothStep(landingT))
-
-                        else ->
-                            lerp(
-                                0.91f,
-                                1f,
-                                smoothStep(
-                                    (t - 0.5f) * 2f,
-                                ),
-                            )
-                    }
-                liftY =
-                    lerp(
-                        pawn.radius * 0.16f,
-                        0f,
-                        t,
-                    )
-            }
-        }
-
-        return MovementScalePose(
-            scale = scale,
-            liftY = liftY,
+        val sampled = pawn.character.renderer.sample(frame.kind, frame.progress, frame.hopPlayback)
+        val base = if(frame.kind == CharacterMotion.IDLE) living.idlePose(sampled) else sampled
+        bodyStretch = base.bodyScaleY
+        val pose = base.copy(
+            liftY = base.liftY + reaction.liftY,
+            bodyYawDegrees = pawn.facingYawDegrees + base.bodyYawDegrees + reaction.bodyYawDegrees,
+            headTiltDegrees = base.headTiltDegrees + reaction.headTiltDegrees,
+            primaryAppendageDegrees = living.followPrimary(base.primaryAppendageDegrees + reaction.primaryAppendageDegrees + living.shake),
+            secondaryAppendageDegrees = living.followSecondary(base.secondaryAppendageDegrees + reaction.secondaryAppendageDegrees + living.shake),
+            tertiaryAppendageDegrees = living.followTertiary(base.tertiaryAppendageDegrees + reaction.tertiaryAppendageDegrees + living.shake),
+            bodyPitchDegrees = base.bodyPitchDegrees + reaction.bodyPitchDegrees,
+            neckPitchDegrees = base.neckPitchDegrees + reaction.neckPitchDegrees,
+            jawOpen = (base.jawOpen + reaction.jawOpen).coerceIn(0f, 1f),
         )
+        prepareRoot(pawn.x, rootY, modelScale, pose.liftY, pose.bodyYawDegrees)
+        pawn.character.renderer.draw(drawContext, root, pose, pawn.teamColor)
     }
-
-    private data class MovementScalePose(
-        val scale: Float = 1f,
-        val liftY: Float = 0f,
-    )
 
     private fun reactionPose(
         pawn: RenderPawn,
@@ -723,7 +476,7 @@ internal class LudoPaws3DSceneRenderer {
         val elapsed = (nowMillis - active.startedAtMillis).coerceAtLeast(0L)
         if (elapsed >= active.durationMillis) return LudoPaws3DReactionPose()
         return LudoPaws3DReactionMotion.sample(
-            species = pawn.species,
+            characterId = pawn.character.id,
             cue = active.cue,
             progress = elapsed.toFloat() / active.durationMillis.toFloat(),
         )
@@ -743,7 +496,7 @@ internal class LudoPaws3DSceneRenderer {
             // The capture route owns board translation/scale. Keep the base body
             // stable so the CAPTURED reaction can add species-specific emotion.
             return MotionFrame(
-                kind = SceneMotion.IDLE,
+                kind = CharacterMotion.IDLE,
                 progress = 0f,
             )
         }
@@ -771,21 +524,27 @@ internal class LudoPaws3DSceneRenderer {
                         forward.visualSteps.toFloat()
                 val stepFraction = visualProgress - floor(visualProgress)
                 return MotionFrame(
-                    kind = SceneMotion.HOP,
+                    kind = CharacterMotion.HOP,
                     progress = stepFraction.coerceIn(0f, 1f),
+                    hopPlayback = if (visualProgress < 1f) CharacterHopPlayback.START else CharacterHopPlayback.CHAIN,
                 )
             }
 
             if (elapsed < state.forwardDurationMillis) {
-                return MotionFrame(kind = SceneMotion.IDLE, progress = 0f)
+                return MotionFrame(
+                    kind = CharacterMotion.HOP,
+                    progress = (elapsed - travelDuration).toFloat() /
+                        LudoPaws3DRenderCadencePolicy.FORWARD_LANDING_SETTLE_MILLIS,
+                    hopPlayback = CharacterHopPlayback.SETTLE,
+                )
             }
 
             if (forward.toPosition == LudoPathEncoding.HOME_POSITION) {
                 val celebrationElapsed = elapsed - state.forwardDurationMillis
-                val homeDuration = homeDurationMillis(pawn.species)
+                val homeDuration = pawn.character.definition.homeDurationMillis
                 if (celebrationElapsed in 0 until homeDuration) {
                     return MotionFrame(
-                        kind = SceneMotion.HOME,
+                        kind = CharacterMotion.HOME,
                         progress =
                             celebrationElapsed.toFloat() /
                                 homeDuration.toFloat(),
@@ -794,11 +553,15 @@ internal class LudoPaws3DSceneRenderer {
             }
         }
 
-        val duration = idleDurationMillis(pawn.species)
+        return idleMotionFrame(pawn, nowMillis)
+    }
+
+    private fun idleMotionFrame(pawn: RenderPawn, nowMillis: Long): MotionFrame {
+        val duration = pawn.character.definition.idleDurationMillis
         val phaseOffset =
             ((pawn.seat * 4 + pawn.key.tokenIndex) * 173L) % duration
         return MotionFrame(
-            kind = SceneMotion.IDLE,
+            kind = CharacterMotion.IDLE,
             progress =
                 ((nowMillis + phaseOffset) % duration)
                     .toFloat() /
@@ -941,14 +704,15 @@ internal class LudoPaws3DSceneRenderer {
                 cell = cell,
             ) ?: return from
 
-        // Keep the pawn's board-plane route on the cell-center path. A screen-space arc
-        // toward the board center changes X/Y and can push top/bottom-road pawns into the
-        // neighboring row. The existing 3D hop, scale, and pose animations remain untouched.
-        return LudoPawsFxBoardGeometry.interpolateMovementCenter(
-            from = from,
-            to = to,
-            progress = fraction,
-        )
+        // Stay on the cell-center path; characters may hold translation during planted
+        // anticipation/contact phases without changing route endpoints or step duration.
+        val renderer = CharacterRegistry.resolve(
+            LudoPaws3DCharacterPolicy.characterIdForColor(player.color),
+        ).renderer
+        // The character already supplies an eased travel phase. Applying the board
+        // helper's cubic ease again concentrates motion into too few FAST frames.
+        val travel = renderer.stepTravelProgress(fraction)
+        return lerp(from.first, to.first, travel) to lerp(from.second, to.second, travel)
     }
 
     private fun facingYawDegrees(
@@ -977,14 +741,8 @@ internal class LudoPaws3DSceneRenderer {
                     LudoPaws3DRenderCadencePolicy.FORWARD_LANDING_SETTLE_MILLIS
             ).coerceAtLeast(1L)
 
-        // HOME owns its celebratory spin after the final hop. Reset the path-facing
-        // contribution there so the species animation remains centered on the player.
-        if (
-            motion.toPosition == LudoPathEncoding.HOME_POSITION &&
-            elapsed >= duration
-        ) {
-            return LudoPawsPawnFacingPolicy.FRONT_YAW_DEGREES
-        }
+        // Ease the path-facing contribution home too; resetting it on contact caused
+        // a one-frame turn before the character's own celebration began.
 
         val totalSteps = motion.visualSteps.coerceAtLeast(1)
         if (elapsed < duration) {
@@ -1158,36 +916,21 @@ internal class LudoPaws3DSceneRenderer {
         if (bodyYawDegrees != 0f) {
             Matrix.rotateM(root, 0, bodyYawDegrees, 0f, 1f, 0f)
         }
+        // Compress around the feet, preserving volume instead of resizing the animal.
+        if (bodyStretch != 1f) {
+            val widthScale = 1f / kotlin.math.sqrt(bodyStretch)
+            Matrix.translateM(root, 0, 0f, groundPivotY, 0f)
+            Matrix.scaleM(root, 0, widthScale, bodyStretch, widthScale)
+            Matrix.translateM(root, 0, 0f, -groundPivotY, 0f)
+        }
     }
-
-    private fun rootYOffsetPerRadius(
-        species: LudoPaws3DSpecies,
-    ): Float =
-        when (species) {
-            // These offsets preserve the old foot baseline after the visual model
-            // scale increases from 0.72 to 1.20. Only the body grows upward/outward.
-            LudoPaws3DSpecies.DOG -> 0.01f
-            LudoPaws3DSpecies.GOAT -> 0.02f
-            LudoPaws3DSpecies.DUCK -> 0.14f
-            LudoPaws3DSpecies.CAT -> 0.02f
-        }
-
-    private fun footBaselinePerRadius(
-        species: LudoPaws3DSpecies,
-    ): Float =
-        when (species) {
-            LudoPaws3DSpecies.DOG -> 1.19f
-            LudoPaws3DSpecies.GOAT -> 1.17f
-            LudoPaws3DSpecies.DUCK -> 0.99f
-            LudoPaws3DSpecies.CAT -> 1.18f
-        }
 
     private fun drawContactShadow(pawn: RenderPawn) {
         val visualRadius =
             pawn.radius * pawn.presentationScale
         val shadowY =
             pawn.y +
-                pawn.radius * footBaselinePerRadius(pawn.species)
+                pawn.radius * pawn.character.definition.footBaselinePerRadius
 
         Matrix.setIdentityM(root, 0)
         Matrix.translateM(
@@ -1224,367 +967,6 @@ internal class LudoPaws3DSceneRenderer {
         GLES30.glDepthMask(true)
     }
 
-    private fun drawDuck(
-        parent: FloatArray,
-        pose: Duck3DPose,
-        teamColor: LudoPawsTeamColor,
-    ) {
-        val leftPaddle = -pose.legPaddleDegrees
-        val rightPaddle = pose.legPaddleDegrees
-        drawPart(
-            parent,
-            -0.24f + sin(Math.toRadians(leftPaddle.toDouble())).toFloat() * 0.08f,
-            -0.63f,
-            0.43f,
-            0.25f,
-            0.12f,
-            0.20f,
-            DUCK_ORANGE,
-            rotateY = -8f,
-            rotateZ = leftPaddle,
-        )
-        drawPart(
-            parent,
-            0.24f + sin(Math.toRadians(rightPaddle.toDouble())).toFloat() * 0.08f,
-            -0.63f,
-            0.43f,
-            0.25f,
-            0.12f,
-            0.20f,
-            DUCK_ORANGE,
-            rotateY = 8f,
-            rotateZ = rightPaddle,
-        )
-        drawPart(parent, 0f, -0.04f, 0f, 0.68f, 0.78f, 0.58f, DUCK_YELLOW)
-        drawTeamBib(parent, -0.13f, 0.53f, 0.40f, 0.40f, teamColor.glColor)
-        // Duck uses a small chest band because its silhouette has no distinct collar gap.
-        // It is drawn in character-root space, so it follows every movement and pose.
-        drawPart(parent, 0f, 0.28f, 0.48f, 0.43f, 0.075f, 0.065f, teamColor.glColor)
-        drawPart(parent, 0f, 0.19f, 0.545f, 0.095f, 0.11f, 0.045f, TAG_GOLD)
-        drawPart(parent, -0.61f, 0.03f, -0.02f, 0.22f, 0.47f, 0.31f, DUCK_YELLOW, rotateZ = -20f - pose.wingFlapDegrees)
-        drawPart(parent, 0.61f, 0.03f, -0.02f, 0.22f, 0.47f, 0.31f, DUCK_YELLOW, rotateZ = 20f + pose.wingFlapDegrees)
-        drawPart(parent, 0f, 0.87f, 0.02f, 0.54f, 0.53f, 0.52f, DUCK_YELLOW, rotateZ = pose.headTiltDegrees)
-        drawPart(parent, 0f, 0.77f, 0.50f, 0.44f, 0.15f, 0.31f, DUCK_ORANGE)
-        drawPart(parent, 0f, 0.70f, 0.48f, 0.30f, 0.07f, 0.24f, DUCK_BILL_LOWER)
-        drawPart(parent, -0.11f, 0.79f, 0.77f, 0.025f, 0.018f, 0.012f, DUCK_BILL_SHADOW)
-        drawPart(parent, 0.11f, 0.79f, 0.77f, 0.025f, 0.018f, 0.012f, DUCK_BILL_SHADOW)
-        drawDuckEye(parent, -0.20f)
-        drawDuckEye(parent, 0.20f)
-        drawPart(parent, -0.10f, 1.37f, -0.01f, 0.10f, 0.22f, 0.09f, DUCK_YELLOW, rotateZ = -18f)
-        drawPart(parent, 0.07f, 1.39f, -0.02f, 0.09f, 0.20f, 0.08f, DUCK_YELLOW, rotateZ = 15f)
-    }
-
-    private fun drawDuckEye(
-        parent: FloatArray,
-        x: Float,
-    ) {
-        drawPart(parent, x, 1.00f, 0.46f, 0.115f, 0.145f, 0.075f, EYE_DARK)
-        drawPart(parent, x - 0.027f, 1.047f, 0.525f, 0.027f, 0.035f, 0.020f, WHITE)
-    }
-
-    private fun drawDog(
-        parent: FloatArray,
-        pose: Dog3DPose,
-        teamColor: LudoPawsTeamColor,
-    ) {
-        drawPart(parent, -0.40f, -0.30f, -0.10f, 0.43f, 0.52f, 0.50f, DOG_TAN)
-        drawPart(parent, 0.40f, -0.30f, -0.10f, 0.43f, 0.52f, 0.50f, DOG_TAN)
-        drawPart(parent, 0f, -0.08f, 0f, 0.72f, 0.78f, 0.60f, DOG_TAN)
-        drawTeamBib(parent, -0.12f, 0.56f, 0.40f, 0.38f, teamColor.glColor)
-        drawDogLeg(parent, -0.40f, -0.37f, -0.10f, -pose.legSwingDegrees - pose.legTuckDegrees * 0.45f)
-        drawDogLeg(parent, 0.40f, -0.37f, -0.10f, pose.legSwingDegrees + pose.legTuckDegrees * 0.45f)
-        drawDogLeg(parent, -0.22f, -0.40f, 0.42f, pose.legSwingDegrees - pose.legTuckDegrees)
-        drawDogLeg(parent, 0.22f, -0.40f, 0.42f, -pose.legSwingDegrees + pose.legTuckDegrees)
-        drawPart(parent, 0f, 0.43f, 0.02f, 0.52f, 0.10f, 0.48f, teamColor.glColor)
-        drawPart(parent, 0f, 0.34f, 0.49f, 0.10f, 0.13f, 0.07f, TAG_GOLD)
-        drawPart(parent, 0f, 0.88f, 0.02f, 0.60f, 0.56f, 0.54f, DOG_TAN, rotateZ = pose.headTiltDegrees)
-        drawPart(parent, -0.19f, 0.78f, 0.46f, 0.27f, 0.23f, 0.22f, DOG_CREAM)
-        drawPart(parent, 0.19f, 0.78f, 0.46f, 0.27f, 0.23f, 0.22f, DOG_CREAM)
-        drawPart(parent, 0f, 0.82f, 0.63f, 0.16f, 0.12f, 0.13f, NOSE_DARK)
-        drawPart(parent, -0.04f, 0.86f, 0.748f, 0.045f, 0.018f, 0.012f, NOSE_HIGHLIGHT)
-        drawPart(parent, 0f, 0.63f, 0.61f, 0.11f, 0.15f, 0.06f, TONGUE_PINK)
-        drawDogEye(parent, -0.22f)
-        drawDogEye(parent, 0.22f)
-        drawPart(parent, -0.50f, 0.98f, -0.02f, 0.25f, 0.44f, 0.23f, DOG_EAR_BROWN, rotateZ = -24f - pose.earBounceDegrees)
-        drawPart(parent, 0.50f, 0.98f, -0.02f, 0.25f, 0.44f, 0.23f, DOG_EAR_BROWN, rotateZ = 24f + pose.earBounceDegrees)
-        drawPart(parent, 0.69f, -0.10f, -0.31f, 0.17f, 0.46f, 0.16f, DOG_TAN, rotateZ = -48f + pose.tailWagDegrees)
-        drawPart(parent, 0.93f, 0.16f, -0.32f, 0.13f, 0.28f, 0.13f, DOG_CREAM, rotateZ = -58f + pose.tailWagDegrees)
-    }
-
-    private fun drawDogLeg(
-        parent: FloatArray,
-        x: Float,
-        y: Float,
-        z: Float,
-        rotateZ: Float,
-    ) {
-        val angle = Math.toRadians(rotateZ.toDouble()).toFloat()
-        val directionX = sin(angle)
-        val directionY = cos(angle)
-        drawPart(
-            parent,
-            x + directionX * 0.16f,
-            y - directionY * 0.16f,
-            z,
-            0.19f,
-            0.34f,
-            0.19f,
-            DOG_TAN,
-            rotateZ = rotateZ,
-        )
-        drawPart(
-            parent,
-            x + directionX * 0.34f,
-            y - directionY * 0.34f,
-            z + 0.05f,
-            0.23f,
-            0.12f,
-            0.27f,
-            DOG_CREAM,
-            rotateZ = rotateZ * 0.35f,
-        )
-    }
-
-    private fun drawDogEye(
-        parent: FloatArray,
-        x: Float,
-    ) {
-        drawPart(parent, x, 0.98f, 0.47f, 0.115f, 0.145f, 0.075f, EYE_DARK)
-        drawPart(parent, x - 0.028f, 1.025f, 0.535f, 0.026f, 0.034f, 0.020f, WHITE)
-    }
-
-    private fun drawGoat(
-        parent: FloatArray,
-        pose: Goat3DPose,
-        teamColor: LudoPawsTeamColor,
-    ) {
-        drawPart(parent, -0.34f, -0.16f, -0.10f, 0.38f, 0.40f, 0.44f, GOAT_IVORY)
-        drawPart(parent, 0.34f, -0.16f, -0.10f, 0.38f, 0.40f, 0.44f, GOAT_IVORY)
-        drawPart(parent, 0f, -0.03f, 0f, 0.69f, 0.67f, 0.58f, GOAT_CREAM)
-        drawTeamBib(parent, -0.05f, 0.53f, 0.39f, 0.37f, teamColor.glColor)
-        drawGoatLeg(parent, -0.39f, -0.33f, -0.10f, -pose.legSwingDegrees - pose.legTuckDegrees * 0.45f)
-        drawGoatLeg(parent, 0.39f, -0.33f, -0.10f, pose.legSwingDegrees + pose.legTuckDegrees * 0.45f)
-        drawGoatLeg(parent, -0.21f, -0.38f, 0.42f, pose.legSwingDegrees - pose.legTuckDegrees)
-        drawGoatLeg(parent, 0.21f, -0.38f, 0.42f, -pose.legSwingDegrees + pose.legTuckDegrees)
-        drawPart(parent, 0f, 0.42f, 0.02f, 0.49f, 0.095f, 0.45f, teamColor.glColor)
-        drawPart(parent, 0f, 0.33f, 0.47f, 0.095f, 0.12f, 0.065f, TAG_GOLD)
-        drawPart(parent, 0f, 0.48f, -0.02f, 0.42f, 0.39f, 0.40f, GOAT_CREAM)
-        drawPart(parent, 0f, 0.99f, 0.02f, 0.62f, 0.62f, 0.54f, GOAT_CREAM, rotateZ = pose.headTiltDegrees)
-        drawGoatCoatTufts(parent, pose.headTiltDegrees)
-        drawPart(parent, 0f, 0.91f, 0.43f, 0.14f, 0.20f, 0.12f, GOAT_IVORY)
-        drawPart(parent, 0f, 0.76f, 0.50f, 0.29f, 0.20f, 0.24f, GOAT_MUZZLE)
-        drawPart(parent, 0f, 0.77f, 0.68f, 0.12f, 0.075f, 0.07f, GOAT_NOSE_PINK)
-        drawPart(parent, -0.025f, 0.80f, 0.741f, 0.025f, 0.012f, 0.01f, WHITE)
-        drawGoatEye(parent, -0.20f)
-        drawGoatEye(parent, 0.20f)
-        drawPart(parent, -0.56f, 0.91f, 0.02f, 0.33f, 0.16f, 0.17f, GOAT_EAR_TAN, rotateZ = -20f - pose.earFlickDegrees)
-        drawPart(parent, 0.56f, 0.91f, 0.02f, 0.33f, 0.16f, 0.17f, GOAT_EAR_TAN, rotateZ = 20f + pose.earFlickDegrees)
-        drawPart(parent, -0.56f, 0.91f, 0.13f, 0.23f, 0.075f, 0.06f, GOAT_EAR_INNER, rotateZ = -20f - pose.earFlickDegrees)
-        drawPart(parent, 0.56f, 0.91f, 0.13f, 0.23f, 0.075f, 0.06f, GOAT_EAR_INNER, rotateZ = 20f + pose.earFlickDegrees)
-        drawPart(parent, -0.40f, 0.05f, 0.50f, 0.13f, 0.075f, 0.025f, GOAT_FUR_SHADE, rotateZ = -12f)
-        drawPart(parent, 0.40f, 0.05f, 0.50f, 0.13f, 0.075f, 0.025f, GOAT_FUR_SHADE, rotateZ = 12f)
-        drawPart(parent, -0.34f, 0.22f, 0.51f, 0.15f, 0.08f, 0.025f, GOAT_FUR_LIGHT, rotateZ = 18f)
-        drawPart(parent, 0.34f, 0.22f, 0.51f, 0.15f, 0.08f, 0.025f, GOAT_FUR_LIGHT, rotateZ = -18f)
-        drawPart(parent, -0.28f, -0.27f, 0.54f, 0.13f, 0.07f, 0.025f, GOAT_FUR_LIGHT, rotateZ = -12f)
-        drawPart(parent, 0.28f, -0.27f, 0.54f, 0.13f, 0.07f, 0.025f, GOAT_FUR_LIGHT, rotateZ = 12f)
-        drawGoatHorn(parent, -1f)
-        drawGoatHorn(parent, 1f)
-        drawPart(parent, 0f, 0.59f, 0.58f, 0.13f, 0.15f, 0.13f, GOAT_BEARD, rotateZ = pose.beardSwingDegrees * 0.5f)
-        drawPart(parent, -0.20f, 1.49f, -0.02f, 0.12f, 0.15f, 0.12f, GOAT_IVORY, rotateZ = -22f)
-        drawPart(parent, 0f, 1.53f, -0.01f, 0.13f, 0.17f, 0.13f, GOAT_IVORY)
-        drawPart(parent, 0.20f, 1.49f, -0.02f, 0.12f, 0.15f, 0.12f, GOAT_IVORY, rotateZ = 22f)
-        drawPart(parent, 0.60f, 0.03f, -0.36f, 0.12f, 0.28f, 0.12f, GOAT_IVORY, rotateZ = -34f + pose.tailFlickDegrees)
-    }
-
-    private fun drawGoatCoatTufts(
-        parent: FloatArray,
-        headTiltDegrees: Float,
-    ) {
-        drawPart(parent, -0.28f, 1.43f, 0.38f, 0.16f, 0.09f, 0.035f, GOAT_FUR_LIGHT, rotateZ = -24f + headTiltDegrees)
-        drawPart(parent, -0.14f, 1.48f, 0.42f, 0.15f, 0.10f, 0.035f, GOAT_FUR_SHADE, rotateZ = -10f + headTiltDegrees)
-        drawPart(parent, 0.02f, 1.49f, 0.43f, 0.17f, 0.11f, 0.035f, GOAT_FUR_LIGHT, rotateZ = 8f + headTiltDegrees)
-        drawPart(parent, 0.18f, 1.45f, 0.40f, 0.15f, 0.09f, 0.035f, GOAT_FUR_SHADE, rotateZ = 22f + headTiltDegrees)
-        drawPart(parent, -0.37f, 0.84f, 0.43f, 0.14f, 0.09f, 0.025f, GOAT_FUR_LIGHT, rotateZ = -24f)
-        drawPart(parent, 0.37f, 0.84f, 0.43f, 0.14f, 0.09f, 0.025f, GOAT_FUR_LIGHT, rotateZ = 24f)
-    }
-
-    private fun drawGoatLeg(
-        parent: FloatArray,
-        x: Float,
-        y: Float,
-        z: Float,
-        rotateZ: Float,
-    ) {
-        val angle = Math.toRadians(rotateZ.toDouble()).toFloat()
-        val directionX = sin(angle)
-        val directionY = cos(angle)
-        drawPart(
-            parent,
-            x + directionX * 0.16f,
-            y - directionY * 0.16f,
-            z,
-            0.16f,
-            0.34f,
-            0.16f,
-            GOAT_CREAM,
-            rotateZ = rotateZ,
-        )
-        drawPart(
-            parent,
-            x + directionX * 0.34f,
-            y - directionY * 0.34f,
-            z + 0.03f,
-            0.19f,
-            0.11f,
-            0.22f,
-            GOAT_HOOF_DARK,
-            rotateZ = rotateZ * 0.35f,
-        )
-    }
-
-    private fun drawGoatHorn(
-        parent: FloatArray,
-        side: Float,
-    ) {
-        drawPart(parent, 0.29f * side, 1.43f, -0.08f, 0.105f, 0.16f, 0.11f, GOAT_HORN, rotateX = -8f, rotateZ = 15f * side)
-        drawPart(parent, 0.32f * side, 1.53f, -0.09f, 0.075f, 0.10f, 0.08f, GOAT_HORN_TIP, rotateX = -8f, rotateZ = 12f * side)
-    }
-
-    private fun drawGoatEye(
-        parent: FloatArray,
-        x: Float,
-    ) {
-        drawPart(parent, x, 1.04f, 0.43f, 0.15f, 0.16f, 0.09f, WHITE)
-        drawPart(parent, x, 1.04f, 0.505f, 0.105f, 0.12f, 0.04f, GOAT_EYE_GOLD)
-        drawPart(parent, x, 1.04f, 0.54f, 0.075f, 0.045f, 0.025f, EYE_DARK)
-        drawPart(parent, x - 0.028f, 1.08f, 0.56f, 0.024f, 0.03f, 0.014f, WHITE)
-    }
-
-    private fun drawCat(
-        parent: FloatArray,
-        pose: Cat3DPose,
-        teamColor: LudoPawsTeamColor,
-    ) {
-        drawPart(parent, -0.34f, -0.28f, -0.13f, 0.40f, 0.50f, 0.48f, CAT_SILVER)
-        drawPart(parent, 0.34f, -0.28f, -0.13f, 0.40f, 0.50f, 0.48f, CAT_SILVER)
-        drawPart(parent, 0f, -0.02f, 0f, 0.68f, 0.75f, 0.56f, CAT_SILVER)
-        drawTeamBib(parent, -0.12f, 0.52f, 0.37f, 0.38f, teamColor.glColor)
-        drawCatLeg(parent, -0.34f, -0.36f, -0.13f, -pose.legSwingDegrees - pose.legTuckDegrees * 0.45f)
-        drawCatLeg(parent, 0.34f, -0.36f, -0.13f, pose.legSwingDegrees + pose.legTuckDegrees * 0.45f)
-        drawCatLeg(parent, -0.20f, -0.39f, 0.42f, pose.legSwingDegrees - pose.legTuckDegrees)
-        drawCatLeg(parent, 0.20f, -0.39f, 0.42f, -pose.legSwingDegrees + pose.legTuckDegrees)
-        drawPart(parent, 0f, 0.42f, 0.02f, 0.49f, 0.09f, 0.46f, teamColor.glColor)
-        drawPart(parent, 0f, 0.34f, 0.47f, 0.085f, 0.11f, 0.06f, TAG_GOLD)
-        drawPart(parent, 0f, 0.90f, 0.02f, 0.58f, 0.55f, 0.53f, CAT_SILVER, rotateZ = pose.headTiltDegrees)
-        drawPart(parent, -0.17f, 0.79f, 0.47f, 0.24f, 0.20f, 0.19f, CAT_CREAM)
-        drawPart(parent, 0.17f, 0.79f, 0.47f, 0.24f, 0.20f, 0.19f, CAT_CREAM)
-        drawPart(parent, 0f, 0.80f, 0.63f, 0.11f, 0.085f, 0.085f, CAT_NOSE_PINK)
-        drawPart(parent, -0.035f, 0.825f, 0.704f, 0.026f, 0.012f, 0.01f, NOSE_HIGHLIGHT)
-        drawPart(parent, 0f, 0.65f, 0.58f, 0.10f, 0.08f, 0.06f, CAT_CREAM)
-        drawCatEye(parent, -0.21f)
-        drawCatEye(parent, 0.21f)
-        drawCatEar(parent, -0.39f, -18f - pose.earTwitchDegrees)
-        drawCatEar(parent, 0.39f, 18f + pose.earTwitchDegrees)
-        drawPart(parent, -0.17f, 1.19f, 0.43f, 0.045f, 0.18f, 0.035f, CAT_STRIPE_DARK, rotateZ = -13f)
-        drawPart(parent, 0f, 1.23f, 0.45f, 0.042f, 0.18f, 0.035f, CAT_STRIPE_DARK)
-        drawPart(parent, 0.17f, 1.19f, 0.43f, 0.045f, 0.18f, 0.035f, CAT_STRIPE_DARK, rotateZ = 13f)
-        drawCatWhiskers(parent, -1f)
-        drawCatWhiskers(parent, 1f)
-        drawPart(parent, 0.67f, -0.12f, -0.31f, 0.15f, 0.48f, 0.14f, CAT_SILVER, rotateZ = -50f + pose.tailSwayDegrees)
-        drawPart(parent, 0.94f, 0.18f, -0.31f, 0.12f, 0.32f, 0.12f, CAT_STRIPE_DARK, rotateZ = -62f + pose.tailSwayDegrees)
-    }
-
-    private fun drawCatLeg(
-        parent: FloatArray,
-        x: Float,
-        y: Float,
-        z: Float,
-        rotateZ: Float,
-    ) {
-        val angle = Math.toRadians(rotateZ.toDouble()).toFloat()
-        val directionX = sin(angle)
-        val directionY = cos(angle)
-        drawPart(
-            parent,
-            x + directionX * 0.15f,
-            y - directionY * 0.15f,
-            z,
-            0.17f,
-            0.32f,
-            0.17f,
-            CAT_SILVER,
-            rotateZ = rotateZ,
-        )
-        drawPart(
-            parent,
-            x + directionX * 0.32f,
-            y - directionY * 0.32f,
-            z + 0.055f,
-            0.21f,
-            0.115f,
-            0.25f,
-            CAT_CREAM,
-            rotateZ = rotateZ * 0.35f,
-        )
-    }
-
-    private fun drawCatEye(
-        parent: FloatArray,
-        x: Float,
-    ) {
-        drawPart(parent, x, 1.00f, 0.47f, 0.12f, 0.15f, 0.075f, CAT_EYE_GREEN)
-        drawPart(parent, x, 1.00f, 0.536f, 0.038f, 0.105f, 0.022f, CAT_PUPIL_DARK)
-        drawPart(parent, x - 0.028f, 1.055f, 0.56f, 0.022f, 0.026f, 0.012f, WHITE)
-    }
-
-    private fun drawCatEar(
-        parent: FloatArray,
-        x: Float,
-        rotateZ: Float,
-    ) {
-        drawPart(parent, x, 1.29f, -0.02f, 0.22f, 0.42f, 0.20f, CAT_SILVER, rotateZ = rotateZ)
-        drawPart(parent, x * 1.01f, 1.30f, 0.11f, 0.11f, 0.27f, 0.07f, CAT_EAR_PINK, rotateZ = rotateZ)
-    }
-
-    private fun drawCatWhiskers(
-        parent: FloatArray,
-        side: Float,
-    ) {
-        val x = 0.34f * side
-        drawPart(parent, x, 0.79f, 0.57f, 0.018f, 0.34f, 0.018f, CAT_WHISKER, rotateZ = 78f * side)
-        drawPart(parent, x, 0.70f, 0.56f, 0.018f, 0.31f, 0.018f, CAT_WHISKER, rotateZ = 66f * side)
-    }
-
-    private fun drawTeamBib(
-        parent: FloatArray,
-        centerY: Float,
-        frontZ: Float,
-        width: Float,
-        height: Float,
-        teamColor: FloatArray,
-    ) {
-        drawPart(
-            parent,
-            0f,
-            centerY,
-            frontZ,
-            width + 0.045f,
-            height + 0.045f,
-            0.125f,
-            BIB_TRIM,
-        )
-        drawPart(
-            parent,
-            0f,
-            centerY,
-            frontZ + 0.025f,
-            width,
-            height,
-            0.13f,
-            teamColor,
-        )
-    }
-
     private fun drawPart(
         parent: FloatArray,
         translateX: Float,
@@ -1597,6 +979,7 @@ internal class LudoPaws3DSceneRenderer {
         rotateX: Float = 0f,
         rotateY: Float = 0f,
         rotateZ: Float = 0f,
+        geometry: MeshGeometry? = null,
     ) {
         System.arraycopy(parent, 0, model, 0, 16)
         Matrix.translateM(
@@ -1638,7 +1021,12 @@ internal class LudoPaws3DSceneRenderer {
         normalMatrix[6] = inverseModel[2]
         normalMatrix[7] = inverseModel[6]
         normalMatrix[8] = inverseModel[10]
-        sphere.draw(
+        val mesh = if (geometry == null) sphere else customMeshes.getOrPut(geometry) {
+            CharacterMesh(geometry, uMvpLocation, uColorLocation, uLightDirectionLocation, uNormalMatrixLocation)
+        }
+        GLES30.glUniform2f(uLimbBendLocation, drawContext.limbBendY, drawContext.limbBendZ)
+        GLES30.glUniform2f(uMaterialLocation, drawContext.surface.kind, drawContext.surface.gloss)
+        mesh.draw(
             normalMatrix = normalMatrix,
             mvp = mvp,
             color = color,
@@ -1658,87 +1046,6 @@ internal class LudoPaws3DSceneRenderer {
         val t = progress.coerceIn(0f, 1f)
         return t * t * (3f - 2f * t)
     }
-
-    private fun idleDurationMillis(
-        species: LudoPaws3DSpecies,
-    ): Long =
-        when (species) {
-            LudoPaws3DSpecies.DOG -> Dog3DMotionTimeline.IDLE_DURATION_MILLIS
-            LudoPaws3DSpecies.GOAT -> Goat3DMotionTimeline.IDLE_DURATION_MILLIS
-            LudoPaws3DSpecies.DUCK -> Duck3DMotionTimeline.IDLE_DURATION_MILLIS
-            LudoPaws3DSpecies.CAT -> Cat3DMotionTimeline.IDLE_DURATION_MILLIS
-        }
-
-    private fun homeDurationMillis(
-        species: LudoPaws3DSpecies,
-    ): Long =
-        when (species) {
-            LudoPaws3DSpecies.DOG -> Dog3DMotionTimeline.HOME_DURATION_MILLIS
-            LudoPaws3DSpecies.GOAT -> Goat3DMotionTimeline.HOME_DURATION_MILLIS
-            LudoPaws3DSpecies.DUCK -> Duck3DMotionTimeline.HOME_DURATION_MILLIS
-            LudoPaws3DSpecies.CAT -> Cat3DMotionTimeline.HOME_DURATION_MILLIS
-        }
-
-    private fun createProgram(
-        vertexSource: String,
-        fragmentSource: String,
-    ): Int {
-        val vertex =
-            compileShader(
-                GLES30.GL_VERTEX_SHADER,
-                normalizeShaderSource(vertexSource),
-            )
-        val fragment =
-            compileShader(
-                GLES30.GL_FRAGMENT_SHADER,
-                normalizeShaderSource(fragmentSource),
-            )
-        return GLES30.glCreateProgram().also { created ->
-            GLES30.glAttachShader(created, vertex)
-            GLES30.glAttachShader(created, fragment)
-            GLES30.glLinkProgram(created)
-            val status = IntArray(1)
-            GLES30.glGetProgramiv(
-                created,
-                GLES30.GL_LINK_STATUS,
-                status,
-                0,
-            )
-            check(status[0] == GLES30.GL_TRUE) {
-                "3D pawn program link failed: ${GLES30.glGetProgramInfoLog(created)}"
-            }
-            GLES30.glDeleteShader(vertex)
-            GLES30.glDeleteShader(fragment)
-        }
-    }
-
-    private fun normalizeShaderSource(source: String): String {
-        // Some GLES drivers reject any empty/indented prefix before #version.
-        // Find the directive explicitly instead of relying on multiline-string
-        // indentation behavior, and make it the first character passed to GLES.
-        val versionIndex = source.indexOf("#version")
-        check(versionIndex >= 0) { "3D pawn shader is missing its #version directive" }
-        return source.substring(versionIndex).trimStart()
-    }
-
-    private fun compileShader(
-        type: Int,
-        source: String,
-    ): Int =
-        GLES30.glCreateShader(type).also { shader ->
-            GLES30.glShaderSource(shader, source)
-            GLES30.glCompileShader(shader)
-            val status = IntArray(1)
-            GLES30.glGetShaderiv(
-                shader,
-                GLES30.GL_COMPILE_STATUS,
-                status,
-                0,
-            )
-            check(status[0] == GLES30.GL_TRUE) {
-                "3D pawn shader compile failed: ${GLES30.glGetShaderInfoLog(shader)}"
-            }
-        }
 
     private fun legalAttentionScale(
         state: LudoPaws3DSceneState,
@@ -1778,7 +1085,7 @@ internal class LudoPaws3DSceneRenderer {
 
     private data class RenderPawn(
         val key: LudoPaws3DPawnKey,
-        val species: LudoPaws3DSpecies,
+        val character: RegisteredCharacter,
         val teamColor: LudoPawsTeamColor,
         val seat: Int,
         val x: Float,
@@ -1795,151 +1102,11 @@ internal class LudoPaws3DSceneRenderer {
         val fromPosition: Int,
     )
 
-    private enum class SceneMotion {
-        IDLE,
-        HOP,
-        HOME,
-    }
-
     private data class MotionFrame(
-        val kind: SceneMotion,
+        val kind: CharacterMotion,
         val progress: Float,
+        val hopPlayback: CharacterHopPlayback = CharacterHopPlayback.ISOLATED,
     )
-
-    private class SphereMesh(
-        latitudeSegments: Int,
-        longitudeSegments: Int,
-        private val uMvpLocation: Int,
-        private val uColorLocation: Int,
-        private val uLightDirectionLocation: Int,
-        private val uNormalMatrixLocation: Int,
-    ) {
-        private val vertexBuffer: FloatBuffer
-        private val indexBuffer: ShortBuffer
-        private val indexCount: Int
-
-        init {
-            val vertices = mutableListOf<Float>()
-            val indices = mutableListOf<Short>()
-
-            for (lat in 0..latitudeSegments) {
-                val theta =
-                    PI * lat.toDouble() / latitudeSegments.toDouble()
-                val sinTheta = sin(theta).toFloat()
-                val cosTheta = cos(theta).toFloat()
-                for (lon in 0..longitudeSegments) {
-                    val phi =
-                        2.0 * PI * lon.toDouble() / longitudeSegments.toDouble()
-                    val x = sinTheta * cos(phi).toFloat()
-                    val y = cosTheta
-                    val z = sinTheta * sin(phi).toFloat()
-                    vertices += x
-                    vertices += y
-                    vertices += z
-                    vertices += x
-                    vertices += y
-                    vertices += z
-                }
-            }
-
-            val row = longitudeSegments + 1
-            for (lat in 0 until latitudeSegments) {
-                for (lon in 0 until longitudeSegments) {
-                    val first = lat * row + lon
-                    val second = first + row
-                    indices += first.toShort()
-                    indices += second.toShort()
-                    indices += (first + 1).toShort()
-                    indices += second.toShort()
-                    indices += (second + 1).toShort()
-                    indices += (first + 1).toShort()
-                }
-            }
-
-            vertexBuffer =
-                ByteBuffer
-                    .allocateDirect(vertices.size * Float.SIZE_BYTES)
-                    .order(ByteOrder.nativeOrder())
-                    .asFloatBuffer()
-                    .apply {
-                        vertices.forEach(::put)
-                        position(0)
-                    }
-            indexBuffer =
-                ByteBuffer
-                    .allocateDirect(indices.size * Short.SIZE_BYTES)
-                    .order(ByteOrder.nativeOrder())
-                    .asShortBuffer()
-                    .apply {
-                        indices.forEach(::put)
-                        position(0)
-                    }
-            indexCount = indices.size
-        }
-
-        fun draw(
-            normalMatrix: FloatArray,
-            mvp: FloatArray,
-            color: FloatArray,
-        ) {
-            GLES30.glUniformMatrix3fv(
-                uNormalMatrixLocation,
-                1,
-                false,
-                normalMatrix,
-                0,
-            )
-            GLES30.glUniformMatrix4fv(
-                uMvpLocation,
-                1,
-                false,
-                mvp,
-                0,
-            )
-            GLES30.glUniform4fv(
-                uColorLocation,
-                1,
-                color,
-                0,
-            )
-            GLES30.glUniform3f(
-                uLightDirectionLocation,
-                0.40f,
-                -1.0f,
-                -0.65f,
-            )
-
-            vertexBuffer.position(0)
-            GLES30.glEnableVertexAttribArray(0)
-            GLES30.glVertexAttribPointer(
-                0,
-                3,
-                GLES30.GL_FLOAT,
-                false,
-                6 * Float.SIZE_BYTES,
-                vertexBuffer,
-            )
-            vertexBuffer.position(3)
-            GLES30.glEnableVertexAttribArray(1)
-            GLES30.glVertexAttribPointer(
-                1,
-                3,
-                GLES30.GL_FLOAT,
-                false,
-                6 * Float.SIZE_BYTES,
-                vertexBuffer,
-            )
-            indexBuffer.position(0)
-            GLES30.glDrawElements(
-                GLES30.GL_TRIANGLES,
-                indexCount,
-                GLES30.GL_UNSIGNED_SHORT,
-                indexBuffer,
-            )
-            GLES30.glDisableVertexAttribArray(0)
-            GLES30.glDisableVertexAttribArray(1)
-        }
-    }
 
     private companion object {
         // 0.72 -> 1.20 is a 1.67x visual enlargement. Logical radius, path,
@@ -1949,79 +1116,5 @@ internal class LudoPaws3DSceneRenderer {
         val SHADOW_OUTER = floatArrayOf(0.025f, 0.030f, 0.040f, 0.07f)
         val SHADOW_INNER = floatArrayOf(0.020f, 0.025f, 0.035f, 0.16f)
 
-        val WHITE = floatArrayOf(1f, 1f, 1f, 1f)
-        val EYE_DARK = floatArrayOf(0.025f, 0.030f, 0.035f, 1f)
-        val NOSE_DARK = floatArrayOf(0.05f, 0.04f, 0.04f, 1f)
-        val NOSE_HIGHLIGHT = floatArrayOf(0.48f, 0.43f, 0.40f, 1f)
-        val BIB_TRIM = floatArrayOf(0.96f, 0.91f, 0.78f, 1f)
-        val TAG_GOLD = floatArrayOf(0.97f, 0.72f, 0.11f, 1f)
-
-        val DUCK_YELLOW = floatArrayOf(1.00f, 0.78f, 0.08f, 1f)
-        val DUCK_BELLY = floatArrayOf(1.00f, 0.88f, 0.34f, 1f)
-        val DUCK_ORANGE = floatArrayOf(1.00f, 0.42f, 0.03f, 1f)
-        val DUCK_BILL_LOWER = floatArrayOf(0.91f, 0.31f, 0.025f, 1f)
-        val DUCK_BILL_SHADOW = floatArrayOf(0.58f, 0.22f, 0.025f, 1f)
-
-        val DOG_TAN = floatArrayOf(0.78f, 0.40f, 0.16f, 1f)
-        val DOG_CREAM = floatArrayOf(0.98f, 0.84f, 0.65f, 1f)
-        val DOG_EAR_BROWN = floatArrayOf(0.39f, 0.16f, 0.07f, 1f)
-        val TONGUE_PINK = floatArrayOf(1.00f, 0.35f, 0.46f, 1f)
-
-        val GOAT_IVORY = floatArrayOf(0.88f, 0.86f, 0.78f, 1f)
-        val GOAT_CREAM = floatArrayOf(0.96f, 0.93f, 0.82f, 1f)
-        val GOAT_WARM_GRAY = floatArrayOf(0.58f, 0.55f, 0.49f, 1f)
-        val GOAT_MUZZLE = floatArrayOf(0.95f, 0.84f, 0.75f, 1f)
-        val GOAT_NOSE_PINK = floatArrayOf(0.84f, 0.48f, 0.46f, 1f)
-        val GOAT_EAR_TAN = floatArrayOf(0.66f, 0.58f, 0.47f, 1f)
-        val GOAT_EAR_INNER = floatArrayOf(0.87f, 0.57f, 0.53f, 1f)
-        val GOAT_FUR_LIGHT = floatArrayOf(1.00f, 0.98f, 0.91f, 1f)
-        val GOAT_FUR_SHADE = floatArrayOf(0.84f, 0.81f, 0.72f, 1f)
-        val GOAT_BEARD = floatArrayOf(0.62f, 0.49f, 0.34f, 1f)
-        val GOAT_HORN = floatArrayOf(0.76f, 0.69f, 0.54f, 1f)
-        val GOAT_HORN_TIP = floatArrayOf(0.55f, 0.49f, 0.38f, 1f)
-        val GOAT_HOOF_DARK = floatArrayOf(0.14f, 0.13f, 0.12f, 1f)
-        val GOAT_EYE_GOLD = floatArrayOf(0.75f, 0.60f, 0.25f, 1f)
-
-        val CAT_SILVER = floatArrayOf(0.60f, 0.63f, 0.68f, 1f)
-        val CAT_CREAM = floatArrayOf(0.90f, 0.87f, 0.80f, 1f)
-        val CAT_STRIPE_DARK = floatArrayOf(0.25f, 0.28f, 0.33f, 1f)
-        val CAT_NOSE_PINK = floatArrayOf(0.95f, 0.49f, 0.56f, 1f)
-        val CAT_EAR_PINK = floatArrayOf(0.91f, 0.55f, 0.61f, 1f)
-        val CAT_EYE_GREEN = floatArrayOf(0.45f, 0.78f, 0.48f, 1f)
-        val CAT_PUPIL_DARK = floatArrayOf(0.02f, 0.025f, 0.03f, 1f)
-        val CAT_WHISKER = floatArrayOf(0.92f, 0.92f, 0.92f, 1f)
-
-        const val VERTEX_SHADER = """
-            #version 300 es
-            layout(location = 0) in vec3 aPosition;
-            layout(location = 1) in vec3 aNormal;
-            uniform mat4 uMvp;
-            uniform mat3 uNormalMatrix;
-            out vec3 vNormal;
-            void main() {
-                vNormal = normalize(uNormalMatrix * aNormal);
-                gl_Position = uMvp * vec4(aPosition, 1.0);
-            }
-        """
-
-        const val FRAGMENT_SHADER = """
-            #version 300 es
-            precision mediump float;
-            uniform vec4 uColor;
-            uniform vec3 uLightDirection;
-            in vec3 vNormal;
-            out vec4 outColor;
-            void main() {
-                vec3 normal = normalize(vNormal);
-                vec3 light = normalize(-uLightDirection);
-                vec3 viewDir = vec3(0.0, 0.0, 1.0);
-                vec3 halfDir = normalize(light + viewDir);
-                float diffuse = max(dot(normal, light), 0.0);
-                float specular = pow(max(dot(normal, halfDir), 0.0), 28.0) * 0.18;
-                float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.2) * 0.08;
-                vec3 rgb = uColor.rgb * (0.36 + diffuse * 0.64) + vec3((specular + rim) * uColor.a);
-                outColor = vec4(rgb, uColor.a);
-            }
-        """
     }
 }
