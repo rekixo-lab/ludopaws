@@ -456,7 +456,6 @@ internal fun MainActivity.onlineLobbyPanel():
                     ),
                     dp(18),
                 )
-                // The complete searching board keeps the same regular plywood skin as setup.
                 // These are layout-only groups: the page shows standalone controls.
                 background = null
                 elevation = 0f
@@ -693,7 +692,7 @@ internal fun MainActivity.onlineLobbyPanel():
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
-                // Keep the searching box aligned with the setup card's vertical position.
+                // Align standalone searching controls with standalone setup controls.
                 topMargin = dp(if (gameMode != GameMode.ONLINE) 10 else if (isCompactOnline()) 64 else 72)
             },
         )

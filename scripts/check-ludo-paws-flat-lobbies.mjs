@@ -8,6 +8,7 @@ const online = read("feature/online/presentation/components/OnlineLobbyUi.kt");
 const friends = read("feature/friends/presentation/FriendsActivity.kt");
 const kit = read("feature/friends/presentation/FriendsVisualKit.kt");
 const opponent = read("feature/online/presentation/components/OnlineMatchmakingSearchView.kt");
+const hero = read("feature/online/presentation/art/OnlineLobbyArtView.kt");
 
 function region(text, start, end, label) {
   const from = text.indexOf(start);
@@ -35,6 +36,11 @@ for (const part of ["playerCountSelectionBackground(", "playGamesSignInBackgroun
   assert.ok(online.includes(part), "Online feature must remain operational: " + part);
 }
 assert.ok(online.includes("gameMode != GameMode.ONLINE"), "Team Up hero must have correct top spacing");
+const heroArtwork = region(hero, "override fun onDraw(", "private fun drawShield(", "Team Up hero drawing");
+assert.doesNotMatch(heroArtwork, /LinearGradient\(/, "Team Up hero must not repaint a panel background");
+assert.doesNotMatch(heroArtwork, /canvas\.drawRoundRect\(/, "Team Up hero must not draw a rectangular card border");
+assert.match(heroArtwork, /canvas\.drawCircle\(/, "Standalone Team Up globe artwork must remain");
+
 
 const page = region(friends, "val content = LinearLayout(this).apply", "contentHost.addView(content, contentLayoutParams)", "Friends page host");
 assert.match(page, /background\s*=\s*null/, "Friends must not have a page-wide background");
