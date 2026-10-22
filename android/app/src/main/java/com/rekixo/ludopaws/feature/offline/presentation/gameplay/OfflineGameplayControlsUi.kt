@@ -262,6 +262,7 @@ private fun OfflineGameActivity.startOfflineRematch() {
         }
     selectedCharacterIds = characterIds
     selectedColorsBySeat = finished.players.map { it.color }
+    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
     persistActiveCharacterSetup()
 
     showGame(
