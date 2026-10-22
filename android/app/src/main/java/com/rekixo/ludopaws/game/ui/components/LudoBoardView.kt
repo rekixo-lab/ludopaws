@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws
 
 import android.animation.ValueAnimator
+import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Bitmap
@@ -1781,117 +1782,11 @@ class LudoBoardView @JvmOverloads constructor(
                 else -> Color.rgb(108, 117, 125)
             }
 
-        return when (boardThemeId) {
-            "board_diwali" ->
-                brighten(
-                    classic,
-                    1.08f,
-                )
-            "board_denim" ->
-                mixWith(
-                    classic,
-                    0xFF2D83C5.toInt(),
-                    .20f,
-                )
-            "board_neon" ->
-                brighten(
-                    classic,
-                    1.22f,
-                )
-            "board_pirate" ->
-                mixWith(
-                    classic,
-                    0xFFC9A86A.toInt(),
-                    .18f,
-                )
-            "board_alien" ->
-                mixWith(
-                    classic,
-                    0xFF4EDA73.toInt(),
-                    .20f,
-                )
-            "board_penguin" ->
-                mixWith(
-                    classic,
-                    0xFFBDEBFF.toInt(),
-                    .24f,
-                )
-            else ->
-                classic
-        }
+        return BoardRegistry.resolve(boardThemeId).teamColor(classic)
     }
 
-    private fun boardSurfaceColor(): Int =
-        when (boardThemeId) {
-            "board_checkers" -> 0xFFF5EEE2.toInt()
-            "board_chess" -> 0xFFF1E3C4.toInt()
-            "board_diwali" -> 0xFFFFE7A0.toInt()
-            "board_denim" -> 0xFFD8EEFA.toInt()
-            "board_neon" -> 0xFF10131C.toInt()
-            "board_pirate" -> 0xFFE8D5A9.toInt()
-            "board_alien" -> 0xFF18243B.toInt()
-            "board_penguin" -> 0xFFE5F8FF.toInt()
-            else -> 0xFFF8F8F8.toInt()
-        }
-
-    private fun neutralCellColor(): Int =
-        when (boardThemeId) {
-            "board_neon" -> 0xFF1E2638.toInt()
-            "board_alien" -> 0xFF24324A.toInt()
-            "board_diwali" -> 0xFFFFF6DC.toInt()
-            "board_pirate" -> 0xFFFFF2D2.toInt()
-            "board_penguin" -> 0xFFF5FCFF.toInt()
-            else -> Color.WHITE
-        }
-
-    private fun brighten(
-        color: Int,
-        factor: Float,
-    ): Int =
-        Color.rgb(
-            (Color.red(color) * factor)
-                .toInt()
-                .coerceIn(0,255),
-            (Color.green(color) * factor)
-                .toInt()
-                .coerceIn(0,255),
-            (Color.blue(color) * factor)
-                .toInt()
-                .coerceIn(0,255),
-        )
-
-    private fun mixWith(
-        base: Int,
-        tint: Int,
-        amount: Float,
-    ): Int {
-        val keep =
-            1f -
-                amount
-        return Color.rgb(
-            (
-                Color.red(base) *
-                    keep +
-                    Color.red(tint) *
-                    amount
-                )
-                .toInt(),
-            (
-                Color.green(base) *
-                    keep +
-                    Color.green(tint) *
-                    amount
-                )
-                .toInt(),
-            (
-                Color.blue(base) *
-                    keep +
-                    Color.blue(tint) *
-                    amount
-                )
-                .toInt(),
-        )
-    }
+    private fun boardSurfaceColor(): Int = BoardRegistry.resolve(boardThemeId).surfaceColor
+    private fun neutralCellColor(): Int = BoardRegistry.resolve(boardThemeId).neutralCellColor
 
     private fun density(value: Float): Float =
         value * resources.displayMetrics.density

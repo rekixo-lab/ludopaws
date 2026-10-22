@@ -13,6 +13,7 @@ import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
+import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
@@ -23,11 +24,10 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        // These are the four live, selectable 3D characters from the free Starter Paws pack.
+        // These are the registered live, selectable 3D characters from the free Starter Paws pack.
         val starterCharacters =
-            listOf("cat", "dog", "goat", "duck").mapNotNull(
-                LudoPawsCharacterCatalog::character,
-            )
+            LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
+                .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
         addView(
             this@pawsCatalogContent.pawsCharacterGrid(starterCharacters),
             LinearLayout.LayoutParams(

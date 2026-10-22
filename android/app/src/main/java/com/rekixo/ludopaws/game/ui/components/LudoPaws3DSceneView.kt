@@ -11,6 +11,7 @@ import android.opengl.EGLSurface
 import android.os.SystemClock
 import android.util.AttributeSet
 import android.util.Log
+import android.view.Choreographer
 import android.view.TextureView
 import android.view.View
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimationCue
@@ -71,6 +72,18 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
 
     @Volatile
     private var operational = false
+
+    // Only the display callback runs on the UI thread. All GL work stays on LudoPaws3D.
+    private val displayFrames by lazy { Choreographer.getInstance() }
+    private val displayCallback = object : Choreographer.FrameCallback {
+        override fun doFrame(frameTimeNanos: Long) {
+            val loop = renderLoop ?: return
+            if (!isShown || visibility != VISIBLE || windowVisibility != VISIBLE) return
+            val refreshHz = display?.refreshRate?.takeIf { it > 0f } ?: 60f
+            loop.onDisplayFrame(frameTimeNanos, (1_000_000_000.0 / refreshHz).toLong())
+            displayFrames.postFrameCallback(this)
+        }
+    }
 
     var onOperationalChanged: ((Boolean) -> Unit)? = null
 
@@ -428,12 +441,9 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     snapshot.players.firstOrNull {
                         it.playerId == reaction.playerId
                     } ?: return@forEach
-                val species =
-                    LudoPaws3DCharacterPolicy.speciesForSeat(
-                        characterIdsBySeat = current.characterIdsBySeat,
-                        seat = player.seat,
-                        fallbackColor = player.color,
-                    ) ?: return@forEach
+                val characterId = LudoPaws3DCharacterPolicy.characterIdForSeat(
+                    current.characterIdsBySeat, player.seat, player.color,
+                )
                 val targets =
                     targetTokens(
                         player = player,
@@ -441,7 +451,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     )
                 val duration =
                     LudoPaws3DReactionMotion.durationMillis(
-                        species = species,
+                        characterId = characterId,
                         cue = reaction.animationCue,
                     )
                 targets.forEach { tokenIndex ->
@@ -566,11 +576,11 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     }
 
     private fun updateRenderVisibility() {
-        renderLoop?.setPresentationVisible(
-            isShown &&
-                visibility == VISIBLE &&
-                windowVisibility == VISIBLE,
-        )
+        val loop = renderLoop ?: return
+        val visible = isShown && visibility == VISIBLE && windowVisibility == VISIBLE
+        loop.setPresentationVisible(visible)
+        displayFrames.removeFrameCallback(displayCallback)
+        if (visible && renderLoop != null) displayFrames.postFrameCallback(displayCallback)
     }
 
     private fun startRenderLoop(
@@ -591,9 +601,11 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             renderLoop = it
             it.start()
         }
+        updateRenderVisibility()
     }
 
     private fun stopRenderLoop() {
+        displayFrames.removeFrameCallback(displayCallback)
         val loop =
             renderLoop
                 ?: run {
@@ -627,6 +639,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     ) : Thread("LudoPaws3D") {
         private val visibilityLock = ReentrantLock()
         private val visibilityChanged = visibilityLock.newCondition()
+        private val displayPacer = LudoPaws3DDisplayPacer()
+        private var pendingFrameNanos = 0L
 
         @Volatile
         private var running = true
@@ -650,9 +664,22 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
 
         fun setPresentationVisible(visible: Boolean) {
             if (presentationVisible == visible) return
-            presentationVisible = visible
-            if (visible) {
-                visibilityLock.withLock {
+            visibilityLock.withLock {
+                presentationVisible = visible
+                pendingFrameNanos = 0L
+                displayPacer.reset()
+                visibilityChanged.signalAll()
+            }
+        }
+
+        fun onDisplayFrame(frameTimeNanos: Long, refreshPeriodNanos: Long) {
+            visibilityLock.withLock {
+                if (!running || !presentationVisible) return
+                val delay = LudoPaws3DRenderCadencePolicy.frameDelayMillis(
+                    sceneState, frameTimeNanos / 1_000_000L,
+                )
+                if (displayPacer.shouldRender(frameTimeNanos, refreshPeriodNanos, delay)) {
+                    pendingFrameNanos = frameTimeNanos
                     visibilityChanged.signalAll()
                 }
             }
@@ -811,12 +838,13 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             }
         }
 
-        private fun awaitPresentationVisible(): Boolean {
+        private fun awaitPresentationVisible(): Long? {
             visibilityLock.withLock {
-                while (running && !presentationVisible) {
+                while (running && (!presentationVisible || pendingFrameNanos == 0L)) {
                     visibilityChanged.await()
                 }
-                return running
+                if (!running) return null
+                return pendingFrameNanos.also { pendingFrameNanos = 0L }
             }
         }
 
@@ -831,9 +859,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                 setOperational(true)
 
                 while (running) {
-                    if (!awaitPresentationVisible()) break
-
-                    val frameStartedAtMillis = SystemClock.uptimeMillis()
+                    val frameTimeNanos = awaitPresentationVisible() ?: break
+                    val frameStartedAtMillis = frameTimeNanos / 1_000_000L
                     val width = targetWidth.coerceAtLeast(1)
                     val height = targetHeight.coerceAtLeast(1)
                     if (
@@ -859,19 +886,6 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                         nowMillis = frameStartedAtMillis,
                     )
                     if (!egl.swapBuffers()) error("EGL swapBuffers failed")
-
-                    val frameDelayMillis =
-                        LudoPaws3DRenderCadencePolicy.frameDelayMillis(
-                            state = frameState,
-                            nowMillis = frameStartedAtMillis,
-                        )
-                    val frameWorkMillis =
-                        (SystemClock.uptimeMillis() - frameStartedAtMillis)
-                            .coerceAtLeast(0L)
-                    val sleepMillis = frameDelayMillis - frameWorkMillis
-                    if (sleepMillis > 0L) {
-                        SystemClock.sleep(sleepMillis)
-                    }
                 }
             } catch (interrupted: InterruptedException) {
                 // Normal shutdown path.
@@ -979,6 +993,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     context,
                 ),
             ) { "EGL makeCurrent failed" }
+            check(EGL14.eglSwapInterval(display, 1)) { "EGL vsync setup failed" }
         }
 
         fun swapBuffers(): Boolean =

@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.store.presentation.components
 
+import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
 import android.graphics.Canvas
 import android.graphics.Bitmap
 import android.graphics.BitmapShader
@@ -502,55 +503,9 @@ private class ClassicBoardIconView(
         canvas.drawPath(path, fillPaint)
     }
 
-    private fun themeSurfaceColor(): Int =
-        when (previewThemeId) {
-            "board_checkers" -> 0xFFF5EEE2.toInt()
-            "board_chess" -> 0xFFF1E3C4.toInt()
-            "board_diwali" -> 0xFFFFE7A0.toInt()
-            "board_denim" -> 0xFFD8EEFA.toInt()
-            "board_neon" -> 0xFF10131C.toInt()
-            "board_pirate" -> 0xFFE8D5A9.toInt()
-            "board_alien" -> 0xFF18243B.toInt()
-            "board_penguin" -> 0xFFE5F8FF.toInt()
-            else -> 0xFFF8F8F8.toInt()
-        }
-
-    private fun themeNeutralCellColor(): Int =
-        when (previewThemeId) {
-            "board_neon" -> 0xFF1E2638.toInt()
-            "board_alien" -> 0xFF24324A.toInt()
-            "board_diwali" -> 0xFFFFF6DC.toInt()
-            "board_pirate" -> 0xFFFFF2D2.toInt()
-            "board_penguin" -> 0xFFF5FCFF.toInt()
-            else -> Color.WHITE
-        }
-
-    private fun themeColor(color: Int): Int =
-        when (previewThemeId) {
-            "board_diwali" -> brighten(color, 1.08f)
-            "board_denim" -> mixWith(color, 0xFF2D83C5.toInt(), 0.20f)
-            "board_neon" -> brighten(color, 1.22f)
-            "board_pirate" -> mixWith(color, 0xFFC9A86A.toInt(), 0.18f)
-            "board_alien" -> mixWith(color, 0xFF4EDA73.toInt(), 0.20f)
-            "board_penguin" -> mixWith(color, 0xFFBDEBFF.toInt(), 0.24f)
-            else -> color
-        }
-
-    private fun brighten(color: Int, factor: Float): Int =
-        Color.rgb(
-            (Color.red(color) * factor).toInt().coerceIn(0, 255),
-            (Color.green(color) * factor).toInt().coerceIn(0, 255),
-            (Color.blue(color) * factor).toInt().coerceIn(0, 255),
-        )
-
-    private fun mixWith(color: Int, target: Int, ratio: Float): Int {
-        val inverse = 1f - ratio
-        return Color.rgb(
-            (Color.red(color) * inverse + Color.red(target) * ratio).toInt().coerceIn(0, 255),
-            (Color.green(color) * inverse + Color.green(target) * ratio).toInt().coerceIn(0, 255),
-            (Color.blue(color) * inverse + Color.blue(target) * ratio).toInt().coerceIn(0, 255),
-        )
-    }
+    private fun themeSurfaceColor(): Int = BoardRegistry.resolve(previewThemeId).surfaceColor
+    private fun themeNeutralCellColor(): Int = BoardRegistry.resolve(previewThemeId).neutralCellColor
+    private fun themeColor(color: Int): Int = BoardRegistry.resolve(previewThemeId).teamColor(color)
 
     private fun boundary(index: Int, cell: Float): Float {
         val yardSpan = cell * 5f

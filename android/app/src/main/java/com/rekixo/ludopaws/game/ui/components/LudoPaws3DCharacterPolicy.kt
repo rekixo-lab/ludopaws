@@ -32,6 +32,7 @@ internal object LudoPaws3DCharacterPolicy {
         val snapshot: MatchSnapshot?,
         val characterIdsBySeat: List<String>,
         val speciesByColor: Map<String, LudoPaws3DSpecies>,
+        val characterIdsByColor: Map<String, String>,
     )
 
     private val renderAssignments =
@@ -48,6 +49,7 @@ internal object LudoPaws3DCharacterPolicy {
             "goat" -> LudoPaws3DSpecies.GOAT
             "duck" -> LudoPaws3DSpecies.DUCK
             "cat" -> LudoPaws3DSpecies.CAT
+            "donkey" -> LudoPaws3DSpecies.GOAT
             else -> null
         }
 
@@ -94,6 +96,11 @@ internal object LudoPaws3DCharacterPolicy {
                 snapshot = snapshot,
                 characterIdsBySeat = characterIdsBySeat,
                 speciesByColor = mapping,
+                characterIdsByColor = snapshot?.players?.associate { player ->
+                    player.color to (LudoPawsCharacterCatalog.character(
+                        characterIdsBySeat.getOrNull(player.seat).orEmpty(),
+                    )?.id ?: fallbackCharacterId(player.color))
+                }.orEmpty(),
             ),
         )
     }
@@ -114,6 +121,20 @@ internal object LudoPaws3DCharacterPolicy {
             ?.speciesByColor
             ?.get(color)
             ?: fallbackSpeciesForColor(color)
+
+    fun characterIdForSeat(characterIdsBySeat: List<String>, seat: Int, fallbackColor: String): String =
+        LudoPawsCharacterCatalog.character(characterIdsBySeat.getOrNull(seat).orEmpty())?.id
+            ?: fallbackCharacterId(fallbackColor)
+
+    fun characterIdForColor(color: String): String =
+        renderAssignments.get()?.characterIdsByColor?.get(color) ?: fallbackCharacterId(color)
+
+    private fun fallbackCharacterId(color: String): String = when (color) {
+        "GREEN" -> "goat"
+        "YELLOW" -> "duck"
+        "BLUE" -> "cat"
+        else -> "dog"
+    }
 
     private fun fallbackSpeciesForColor(
         color: String,

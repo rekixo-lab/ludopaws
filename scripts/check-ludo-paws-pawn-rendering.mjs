@@ -51,7 +51,9 @@ const cadenceTestsPath =
 
 const board = read(boardPath);
 const canonicalBoard = read(canonicalBoardPath);
-const boardChrome = read(boardChromePath);
+const boardChrome = read(boardChromePath) + "\n" + read(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/boards/content/classic/ClassicBoardRenderer.kt",
+);
 const footprintPolicy = read(footprintPolicyPath);
 const footprintTests = read(footprintTestsPath);
 const reactiveBoard = read(reactiveBoardPath);
@@ -255,10 +257,9 @@ for (const token of [
   ".radiusScale(",
   "LudoPawsCaptureReturnPlacement",
   "captureReturnVisual(",
-  "Dog3DMotionTimeline",
-  "Goat3DMotionTimeline",
-  "Duck3DMotionTimeline",
-  "Cat3DMotionTimeline",
+  "CharacterRegistry.resolve",
+  "pawn.character.renderer.sample",
+  "pawn.character.renderer.draw",
 ]) {
   requireText(
     renderer,
@@ -374,7 +375,9 @@ for (const retired of [
 
 for (const retainedMotion of ["Dog", "Goat", "Duck", "Cat"]) {
   const path =
-    `android/app/src/main/java/com/rekixo/ludopaws/feature/characters/prototype/${retainedMotion}3DMotion.kt`;
+    `android/app/src/main/java/com/rekixo/ludopaws/feature/characters/content/${retainedMotion.toLowerCase()}/${retainedMotion}3DMotion.kt`;
+  const characterRenderer = read(`android/app/src/main/java/com/rekixo/ludopaws/feature/characters/content/${retainedMotion.toLowerCase()}/${retainedMotion}Renderer.kt`);
+  requireText(characterRenderer, `${retainedMotion}3DMotionTimeline`, "Character renderer must use its own motion timeline");
   if (!fs.existsSync(path)) {
     throw new Error(
       `Production renderer still consumes this pure motion timeline, so it must remain: ${path}`,

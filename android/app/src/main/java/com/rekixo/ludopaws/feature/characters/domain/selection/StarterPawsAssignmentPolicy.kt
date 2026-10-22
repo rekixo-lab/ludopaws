@@ -3,7 +3,7 @@ package com.rekixo.ludopaws.feature.characters.domain.selection
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 
 /**
- * Presentation-only assignment policy for the canonical four-character 3D pack.
+ * Presentation-only assignment policy for the expandable starter-character 3D pack.
  * It never participates in dice, legal-move, turn, capture, CPU, or winner logic.
  */
 object StarterPawsAssignmentPolicy {

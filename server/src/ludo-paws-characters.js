@@ -9,6 +9,7 @@ export const LUDO_PAWS_CHARACTER_IDS = Object.freeze([
   "goat",
   "duck",
   "cat",
+  "donkey",
 ]);
 
 const CHARACTER_IDS = new Set(LUDO_PAWS_CHARACTER_IDS);
@@ -16,6 +17,7 @@ const LEGACY_CHARACTER_ALIASES = new Map([
   ["squirrel", "dog"],
   ["hedgehog", "goat"],
   ["sheep", "cat"],
+  ["lion", "donkey"],
 ]);
 
 function canonicalCharacterId(value) {
@@ -26,7 +28,7 @@ function canonicalCharacterId(value) {
 /**
  * Normalizes presentation-only Ludo Paws identity coming from an Android client.
  * The wire field/schema stay stable while old starter ids are migrated onto the
- * canonical 3D Dog/Goat/Duck/Cat roster.
+ * canonical registered 3D animal roster.
  */
 export function normalizeCharacterId(value) {
   if (value == null || String(value).trim() === "") {

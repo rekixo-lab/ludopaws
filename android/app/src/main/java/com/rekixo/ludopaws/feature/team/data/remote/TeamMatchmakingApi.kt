@@ -25,7 +25,7 @@ class TeamMatchmakingApi(
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
-                .put("characterId", characterId)
+                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
                 .put("rulesetKey", "TEAM_UP_V5"),
         )
 

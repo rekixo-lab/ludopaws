@@ -190,7 +190,7 @@ class GameApi(
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
-                .put("characterId", characterId)
+                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
                 .put("targetPlayerCount", playerCount)
                 .put("matchMode", "FRIENDS")
                 .put("rulesetKey", "CLASSIC_V5"),
@@ -211,7 +211,7 @@ class GameApi(
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
-                .put("characterId", characterId)
+                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
                 .put("playerCount", playerCount)
                 .put("rulesetKey", rulesetKey),
         )
@@ -258,7 +258,7 @@ class GameApi(
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
-                .put("characterId", characterId)
+                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
                 .put("rulesetKey", rulesetKey),
         )
 
@@ -278,7 +278,7 @@ class GameApi(
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
-                .put("characterId", characterId),
+                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId)),
         )
 
     fun state(matchId: String, playerToken: String): JSONObject =

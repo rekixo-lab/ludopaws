@@ -14,6 +14,13 @@ object LudoPawsCharacterIdentityContract {
     const val WIRE_FIELD = "characterId"
     const val SCHEMA_VERSION = 1
 
+    /** Donkey is available locally while the production server still has its old roster.
+     * Remove this fallback only with the matching server rollout; never overwrite local selection. */
+    fun resolveForRequest(characterId: String?): String {
+        val canonical=resolveRemote(characterId)
+        return if(canonical=="donkey") LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID else canonical
+    }
+
     fun resolveRemote(characterId: String?): String {
         val canonical =
             LudoPawsCharacterCatalog
