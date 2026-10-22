@@ -52,7 +52,7 @@ for (const relative of expectedFiles) {
   if (!source.includes("PlywoodAlertDialogBuilder(")) {
     throw new Error("Plywood dialog gate: not migrated " + relative);
   }
-  found.set(relative, (source.match(/PlywoodAlertDialogBuilder\\(/g) ?? []).length);
+  found.set(relative, (source.match(/PlywoodAlertDialogBuilder\(/g) ?? []).length);
 }
 const count = [...found.values()].reduce((a, b) => a + b, 0);
 if (count !== 29) {
@@ -90,8 +90,8 @@ function scan(directory, files = []) {
 // in the Android app's Kotlin source; not just our existing eight migrated files.
 for (const file of scan(appSource)) {
   const source = fs.readFileSync(file, "utf8");
-  if (/\\b(?:android\\.app\\.)?AlertDialog\\s*(?:\\.\\s*)?Builder\\s*\\(/.test(source) ||
-      /\\bPopupMenu\\s*\\(/.test(source)) {
+  if (/\b(?:android\.app\.)?AlertDialog\s*(?:\.\s*)?Builder\s*\(/.test(source) ||
+      /\bPopupMenu\s*\(/.test(source)) {
     throw new Error("Plywood dialog gate: native unthemed popup remains in " + file);
   }
 }
