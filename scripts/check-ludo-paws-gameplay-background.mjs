@@ -30,7 +30,7 @@ for (const marker of [
   'fun useGameplayBackground()',
   'fun useUiBackground()',
   'applySharedBackdrop()',
-  'plywoodBackground(context, cornerRadiusDp = 22.5f)',
+  'plywoodBackground(context, cornerRadiusDp = 27f)',
   'background !is PlywoodTextureDrawable',
 ]) {
   if (!backdrop.includes(marker)) throw new Error('Unified plywood gate: backdrop missing ' + marker);

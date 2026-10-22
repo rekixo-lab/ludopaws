@@ -35,10 +35,10 @@ class ArcadeBackdropView @JvmOverloads constructor(
     }
 
     private fun applySharedBackdrop() {
-        // Full-screen plain plywood with a 22.5dp corner radius (150% of its 15dp default).
+        // Full-screen plain plywood with a 27dp corner radius (20% above the previous 22.5dp).
         // Reuse the same drawable when switching screens.
         if (background !is PlywoodTextureDrawable) {
-            background = plywoodBackground(context, cornerRadiusDp = 22.5f)
+            background = plywoodBackground(context, cornerRadiusDp = 27f)
         }
     }
 }
