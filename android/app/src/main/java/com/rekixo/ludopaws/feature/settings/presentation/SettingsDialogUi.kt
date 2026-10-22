@@ -486,7 +486,7 @@ internal fun showSettingsDialog(
             text = "Privacy Policy"
             textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
             setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
-            isSingleLine = true
+            setSingleLine(true)
             contentDescription = "Open Privacy Policy"
             setOnClickListener {
                 GameSoundFeedback.click(context)
@@ -497,7 +497,7 @@ internal fun showSettingsDialog(
             text = "How to Play"
             textSize = if (resources.configuration.screenWidthDp < 380) 11.5f else 13.5f
             setPadding(settingsDp(context, 4), 0, settingsDp(context, 4), 0)
-            isSingleLine = true
+            setSingleLine(true)
             contentDescription = "How to play Ludo Paws"
             setOnClickListener {
                 GameSoundFeedback.click(context)
