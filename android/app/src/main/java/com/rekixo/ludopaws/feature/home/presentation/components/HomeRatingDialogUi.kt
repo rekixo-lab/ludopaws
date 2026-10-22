@@ -41,17 +41,26 @@ internal object RatingStarFillPolicy {
         (progress - starIndex).coerceIn(0f, 1f)
 }
 
+/** Golden fluid surface rises inside each outlined star, bottom to top. */
+internal object RatingLiquidFillPolicy {
+    fun surfaceY(fraction: Float): Float =
+        82f - 75f * fraction.coerceIn(0f, 1f)
+
+    fun waveHeight(fraction: Float): Float =
+        2.6f * sin(Math.PI.toFloat() * fraction.coerceIn(0f, 1f))
+}
+
 internal fun HomeActivity.showHomeRatingDialog() {
     if (isFinishing || isDestroyed) return
 
     val dialog = baseDialog(this)
     val compact = LudoProofTheme.isCompactWidth(this)
     val reduceMotion = GameSettingsStore(this).snapshot().reduceMotionEnabled
-    val side = dp(if (compact) 15 else 22)
+    val side = dp(if (compact) 12 else 16)
     val panel = LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_HORIZONTAL
-        setPadding(side, dp(12), side, dp(20))
+        setPadding(side, dp(9), side, dp(12))
         clipChildren = false
         clipToPadding = false
         background = GradientDrawable(
@@ -61,17 +70,47 @@ internal fun HomeActivity.showHomeRatingDialog() {
                 0xFF071B4D.toInt(),
             ),
         ).apply {
-            cornerRadius = dp(25).toFloat()
+            cornerRadius = dp(22).toFloat()
             setStroke(dp(2), 0xFFFFD96A.toInt())
         }
         elevation = dp(12).toFloat()
     }
 
-    // Close stays accessible and does not interrupt rating choices.
+    // A single, compact chrome row replaces the former oversized star badge.
     val closeRow = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        gravity = Gravity.CENTER_VERTICAL
     }
+    val medallion = TextView(this).apply {
+        text = "★"
+        textSize = 22f
+        setTextColor(0xFFFFE981.toInt())
+        gravity = Gravity.CENTER
+        includeFontPadding = false
+        background = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(0xFF8656FF.toInt(), 0xFF253FC0.toInt(), 0xFF152064.toInt()),
+        ).apply {
+            shape = GradientDrawable.OVAL
+            setStroke(dp(1), 0xFFFFE28E.toInt())
+        }
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+    closeRow.addView(
+        medallion,
+        LinearLayout.LayoutParams(dp(30), dp(30)).apply { marginEnd = dp(9) },
+    )
+    closeRow.addView(
+        TextView(this).apply {
+            text = "RATE & REVIEW"
+            textSize = 11f
+            letterSpacing = .09f
+            setTextColor(0xFF8FE9FF.toInt())
+            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+            gravity = Gravity.CENTER_VERTICAL
+        },
+        LinearLayout.LayoutParams(0, dp(30), 1f),
+    )
     closeRow.addView(
         TextView(this).apply {
             text = "×"
@@ -84,48 +123,20 @@ internal fun HomeActivity.showHomeRatingDialog() {
             background = ratingCloseDrawable(this@showHomeRatingDialog)
             setOnClickListener { dialog.dismiss() }
         },
-        LinearLayout.LayoutParams(dp(36), dp(36)),
+        LinearLayout.LayoutParams(dp(30), dp(30)),
     )
-    panel.addView(closeRow, LinearLayout.LayoutParams(
-        LinearLayout.LayoutParams.MATCH_PARENT,
-        LinearLayout.LayoutParams.WRAP_CONTENT,
-    ))
+    panel.addView(
+        closeRow,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ),
+    )
 
-    val medallion = TextView(this).apply {
-        text = "★"
-        textSize = if (compact) 40f else 46f
-        setTextColor(0xFFFFE981.toInt())
-        gravity = Gravity.CENTER
-        includeFontPadding = false
-        background = GradientDrawable(
-            GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0xFF8656FF.toInt(), 0xFF253FC0.toInt(), 0xFF152064.toInt()),
-        ).apply {
-            shape = GradientDrawable.OVAL
-            setStroke(dp(2), 0xFFFFE28E.toInt())
-        }
-        elevation = dp(6).toFloat()
-        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-    }
-    panel.addView(
-        medallion,
-        LinearLayout.LayoutParams(dp(if (compact) 67 else 76), dp(if (compact) 67 else 76))
-            .apply { bottomMargin = dp(9) },
-    )
-    panel.addView(
-        TextView(this).apply {
-            text = "A LITTLE LOVE FOR LUDO PAWS"
-            textSize = if (compact) 10f else 11f
-            letterSpacing = .12f
-            setTextColor(0xFF8FE9FF.toInt())
-            gravity = Gravity.CENTER
-            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-        },
-    )
     panel.addView(
         TextView(this).apply {
             text = getString(R.string.rate_dialog_title)
-            textSize = if (compact) 24f else 27f
+            textSize = if (compact) 19f else 21f
             setTextColor(0xFFFFEAA4.toInt())
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
             gravity = Gravity.CENTER
@@ -134,12 +145,12 @@ internal fun HomeActivity.showHomeRatingDialog() {
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(7) },
+        ).apply { topMargin = dp(3) },
     )
     panel.addView(
         TextView(this).apply {
             text = getString(R.string.rate_dialog_question)
-            textSize = if (compact) 17f else 19f
+            textSize = if (compact) 14f else 15f
             setTextColor(Color.WHITE)
             setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
             gravity = Gravity.CENTER
@@ -147,19 +158,19 @@ internal fun HomeActivity.showHomeRatingDialog() {
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(6) },
+        ).apply { topMargin = dp(3) },
     )
     panel.addView(
         TextView(this).apply {
             text = "Tap a star to choose your rating"
-            textSize = if (compact) 11.5f else 12.5f
+            textSize = if (compact) 10.5f else 11f
             setTextColor(0xFFB9DDFB.toInt())
             gravity = Gravity.CENTER
         },
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(6) },
+        ).apply { topMargin = dp(3) },
     )
 
     var selectedRating = RatingStarFillPolicy.MAX_STARS
@@ -173,18 +184,18 @@ internal fun HomeActivity.showHomeRatingDialog() {
         gravity = Gravity.CENTER
         clipChildren = false
         clipToPadding = false
-        setPadding(dp(5), dp(6), dp(5), dp(6))
+        setPadding(dp(3), dp(2), dp(3), dp(2))
         background = GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(0xB5091440.toInt(), 0xB71A2C71.toInt()),
         ).apply {
-            cornerRadius = dp(17).toFloat()
+            cornerRadius = dp(14).toFloat()
             setStroke(dp(1), 0x887DCBFF.toInt())
         }
     }
     val ratingCaption = TextView(this).apply {
         text = "5 / 5  •  PAWSOME!"
-        textSize = if (compact) 12.5f else 13.5f
+        textSize = if (compact) 11.5f else 12f
         setTextColor(0xFFFFE28E.toInt())
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
         gravity = Gravity.CENTER
@@ -194,7 +205,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
     val ctaText = TextView(this).apply {
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
         setTextColor(Color.WHITE)
-        textSize = if (compact) 12f else 14f
+        textSize = if (compact) 11.5f else 12.5f
         gravity = Gravity.CENTER_VERTICAL
         maxLines = 1
         setSingleLine(true)
@@ -218,6 +229,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         displayedProgress = progress.coerceIn(0f, RatingStarFillPolicy.MAX_STARS.toFloat())
         stars.forEachIndexed { index, star ->
             val fraction = RatingStarFillPolicy.fraction(displayedProgress, index)
+            star.wavePhase = displayedProgress * 7.5f
             star.fillFraction = fraction
             if (allowPop && fraction > .06f && !popped[index]) {
                 popped[index] = true
@@ -244,7 +256,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         }
         val distance = abs(destination - displayedProgress)
         starAnimator = ValueAnimator.ofFloat(displayedProgress, destination).apply {
-            duration = if (intro) 1750L else (180f + distance * 190f).toLong()
+            duration = if (intro) 2500L else (230f + distance * 260f).toLong()
             interpolator = LinearInterpolator()
             addUpdateListener {
                 applyProgress(it.animatedValue as Float, allowPop = true)
@@ -268,7 +280,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         stars += star
         starContainer.addView(
             star,
-            LinearLayout.LayoutParams(0, dp(if (compact) 53 else 62), 1f).apply {
+            LinearLayout.LayoutParams(0, dp(if (compact) 43 else 47), 1f).apply {
                 marginStart = dp(1)
                 marginEnd = dp(1)
             },
@@ -280,7 +292,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
         ).apply {
-            topMargin = dp(if (compact) 18 else 22)
+            topMargin = dp(if (compact) 11 else 13)
         },
     )
     panel.addView(
@@ -288,7 +300,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
-        ).apply { topMargin = dp(8) },
+        ).apply { topMargin = dp(4) },
     )
 
     val cta = LinearLayout(this).apply {
@@ -309,8 +321,8 @@ internal fun HomeActivity.showHomeRatingDialog() {
             HomeGooglePlayIconView(this@showHomeRatingDialog).apply {
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },
-            LinearLayout.LayoutParams(dp(29), dp(35)).apply {
-                marginEnd = dp(8)
+            LinearLayout.LayoutParams(dp(24), dp(28)).apply {
+                marginEnd = dp(6)
             },
         )
         addView(
@@ -321,7 +333,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
                 addView(
                     TextView(this@showHomeRatingDialog).apply {
                         text = "CONTINUE TO GOOGLE PLAY"
-                        textSize = if (compact) 9f else 10f
+                        textSize = if (compact) 8.5f else 9.2f
                         letterSpacing = .07f
                         setTextColor(0xFFF4F7FF.toInt())
                     },
@@ -338,11 +350,11 @@ internal fun HomeActivity.showHomeRatingDialog() {
         cta,
         LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(if (compact) 62 else 68),
+            dp(if (compact) 49 else 54),
         ).apply {
-            topMargin = dp(17)
-            leftMargin = dp(if (compact) 3 else 12)
-            rightMargin = dp(if (compact) 3 else 12)
+            topMargin = dp(10)
+            leftMargin = dp(if (compact) 0 else 6)
+            rightMargin = dp(if (compact) 0 else 6)
         },
     )
 
@@ -355,7 +367,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
             isClickable = true
             isFocusable = true
             contentDescription = "Not now"
-            setPadding(dp(12), dp(14), dp(12), dp(4))
+            setPadding(dp(8), dp(7), dp(8), 0)
             setOnClickListener { dialog.dismiss() }
         },
         LinearLayout.LayoutParams(
@@ -375,21 +387,24 @@ internal fun HomeActivity.showHomeRatingDialog() {
         stars.forEach { it.animate().cancel() }
     }
     dialog.setContentView(panel)
-    sizeDialog(dialog, .92f)
+    sizeDialog(dialog, .88f)
+    // Prepare transparent entrance BEFORE showing the window: no first-frame flash.
+    if (!reduceMotion) {
+        panel.alpha = 0f
+        panel.scaleX = .90f
+        panel.scaleY = .90f
+        panel.translationY = dp(16).toFloat()
+        medallion.scaleX = .72f
+        medallion.scaleY = .72f
+    }
     dialog.show()
 
     if (!reduceMotion) {
-        panel.alpha = 0f
-        panel.scaleX = .84f
-        panel.scaleY = .84f
-        panel.translationY = dp(24).toFloat()
         panel.animate()
             .alpha(1f).scaleX(1f).scaleY(1f).translationY(0f)
             .setDuration(500L)
             .setInterpolator(OvershootInterpolator(.90f))
             .start()
-        medallion.scaleX = .68f
-        medallion.scaleY = .68f
         medallion.animate().scaleX(1f).scaleY(1f)
             .setStartDelay(180L)
             .setDuration(600L)
@@ -398,7 +413,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
         // Start after layout but before the user sees a completed star row.
         starContainer.postDelayed({
             if (dialog.isShowing) animateRating(selectedRating, intro = true)
-        }, 270L)
+        }, 430L)
         shimmerAnimator = ValueAnimator.ofFloat(-.35f, 1.35f).apply {
             duration = 2750L
             repeatCount = ValueAnimator.INFINITE
@@ -463,6 +478,7 @@ private fun openPlayStoreRating(
  * Tinted-to-gold star. The filled portion is clipped from the LEFT edge,
  * so each star visibly fills left-to-right rather than simply changing tint.
  */
+/** Five empty navy outlines receive a visible rising gold-liquid wave in sequence. */
 private class RatingStarView(context: Context) : View(context) {
     var fillFraction = 0f
         set(value) {
@@ -472,19 +488,23 @@ private class RatingStarView(context: Context) : View(context) {
                 invalidate()
             }
         }
+    var wavePhase = 0f
+        set(value) {
+            field = value
+            if (fillFraction in .001f..0.999f) invalidate()
+        }
 
     private val tintPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
-        color = 0xFF273B76.toInt()
+        color = 0xFF253466.toInt()
     }
     private val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 4.2f
         strokeJoin = Paint.Join.ROUND
-        color = 0xFF7B91CA.toInt()
+        color = 0xFF8096CC.toInt()
     }
     private val gold = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
         shader = LinearGradient(
             0f, 0f, 100f, 100f,
             intArrayOf(0xFFFFFFD3.toInt(), 0xFFFFE764.toInt(), 0xFFFFA51E.toInt()),
@@ -493,12 +513,18 @@ private class RatingStarView(context: Context) : View(context) {
     }
     private val goldBorder = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
-        strokeWidth = 3f
+        strokeWidth = 3.4f
         strokeJoin = Paint.Join.ROUND
-        color = 0xFFFFE999.toInt()
+        color = 0xFFFFEEAA.toInt()
     }
-    private val highlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xD9FFFFFF.toInt()
+    private val waveHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 2.6f
+        strokeCap = Paint.Cap.ROUND
+        color = 0xFFFFF8C4.toInt()
+    }
+    private val sparkle = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xEAFFFFFF.toInt()
     }
     private val star = Path().apply {
         for (index in 0 until 10) {
@@ -510,6 +536,8 @@ private class RatingStarView(context: Context) : View(context) {
         }
         close()
     }
+    private val fluid = Path()
+    private val surface = Path()
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -519,18 +547,47 @@ private class RatingStarView(context: Context) : View(context) {
         canvas.translate((width - size) / 2f, (height - size) / 2f)
         canvas.scale(size / 100f, size / 100f)
 
+        // Empty star is visibly a recessed navy silhouette and pale outline.
         canvas.drawPath(star, tintPaint)
-        canvas.drawPath(star, line)
         if (fillFraction > 0f) {
-            canvas.save()
-            canvas.clipRect(0f, 0f, 100f * fillFraction, 100f)
-            canvas.drawPath(star, gold)
-            canvas.drawPath(star, goldBorder)
-            if (fillFraction > .35f) {
-                canvas.drawCircle(39f, 33f, 3.7f, highlight)
+            val y = RatingLiquidFillPolicy.surfaceY(fillFraction)
+            val amplitude = RatingLiquidFillPolicy.waveHeight(fillFraction)
+            fluid.reset()
+            surface.reset()
+            for (step in 0..26) {
+                val x = step * 4f
+                val waveY = y + sin(x * .18f + wavePhase) * amplitude
+                if (step == 0) {
+                    fluid.moveTo(x, waveY)
+                    surface.moveTo(x, waveY)
+                } else {
+                    fluid.lineTo(x, waveY)
+                    surface.lineTo(x, waveY)
+                }
             }
+            fluid.lineTo(104f, 104f)
+            fluid.lineTo(0f, 104f)
+            fluid.close()
+
+            // Clip twice: inside the star silhouette AND below the moving
+            // liquid surface. This paints a real filling shape, not a tint.
+            canvas.save()
+            canvas.clipPath(star)
+            canvas.clipPath(fluid)
+            canvas.drawPath(star, gold)
             canvas.restore()
+
+            if (fillFraction > .02f && fillFraction < .98f) {
+                canvas.save()
+                canvas.clipPath(star)
+                canvas.drawPath(surface, waveHighlight)
+                canvas.restore()
+            }
+            if (fillFraction >= .99f) {
+                canvas.drawCircle(39f, 33f, 3.7f, sparkle)
+            }
         }
+        canvas.drawPath(star, if (fillFraction >= .99f) goldBorder else line)
         canvas.restore()
     }
 }

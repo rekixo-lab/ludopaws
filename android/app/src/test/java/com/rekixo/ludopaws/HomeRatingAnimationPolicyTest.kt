@@ -5,6 +5,22 @@ import org.junit.Test
 
 class HomeRatingAnimationPolicyTest {
     @Test
+    fun liquidGoldLevelRisesFromStarBottomToTop() {
+        assertEquals(82f, RatingLiquidFillPolicy.surfaceY(0f), 0.0001f)
+        assertEquals(44.5f, RatingLiquidFillPolicy.surfaceY(.5f), 0.0001f)
+        assertEquals(7f, RatingLiquidFillPolicy.surfaceY(1f), 0.0001f)
+    }
+
+    @Test
+    fun liquidWaveSettlesOnceTheStarIsFull() {
+        assertEquals(0f, RatingLiquidFillPolicy.waveHeight(0f), 0.0001f)
+        assertEquals(2.6f, RatingLiquidFillPolicy.waveHeight(.5f), 0.0001f)
+        assertEquals(0f, RatingLiquidFillPolicy.waveHeight(1f), 0.0001f)
+        assertEquals(82f, RatingLiquidFillPolicy.surfaceY(-50f), 0.0001f)
+        assertEquals(7f, RatingLiquidFillPolicy.surfaceY(50f), 0.0001f)
+    }
+
+    @Test
     fun starsFillOneByOneLeftToRight() {
         assertEquals(0f, RatingStarFillPolicy.fraction(0f, 0), 0.0001f)
         assertEquals(.5f, RatingStarFillPolicy.fraction(.5f, 0), 0.0001f)

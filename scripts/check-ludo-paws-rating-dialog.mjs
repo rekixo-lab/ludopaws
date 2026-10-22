@@ -9,8 +9,15 @@ for (const token of [
   "showHomeRatingDialog()",
   "GameSettingsStore(this).snapshot().reduceMotionEnabled",
   "RatingStarFillPolicy.fraction(displayedProgress, index)",
-  "canvas.clipRect(0f, 0f, 100f * fillFraction, 100f)",
-  "duration = if (intro) 1750L",
+  "canvas.clipPath(star)",
+  "canvas.clipPath(fluid)",
+  "RatingLiquidFillPolicy.surfaceY(fillFraction)",
+  "RatingLiquidFillPolicy.waveHeight(fillFraction)",
+  "canvas.drawPath(surface, waveHighlight)",
+  "dialog.show()",
+  "sizeDialog(dialog, .88f)",
+  "LinearLayout.LayoutParams(0, dp(if (compact) 43 else 47), 1f)",
+  "duration = if (intro) 2500L",
   "ValueAnimator.ofFloat(displayedProgress, destination)",
   "OvershootInterpolator",
   "shimmerAnimator?.cancel()",
@@ -32,8 +39,13 @@ for (const token of [
 }
 if (!home.includes("showHomeRatingDialog()")) throw new Error("Home rating entry point disconnected");
 if (!test.includes("starsFillOneByOneLeftToRight") ||
-    !test.includes("clampsFilledStarBoundaries")) throw new Error("Missing rating fill regression tests");
+    !test.includes("clampsFilledStarBoundaries") ||
+    !test.includes("liquidGoldLevelRisesFromStarBottomToTop") ||
+    !test.includes("liquidWaveSettlesOnceTheStarIsFull")) throw new Error("Missing rating fill regression tests");
 if (source.includes("isFilled:") || source.includes("ratingPrimaryButtonDrawable(")) {
   throw new Error("Old instant-filled rating UI is still present");
 }
-console.log("Ludo Paws premium rating dialog gate passed.");
+if (source.includes("canvas.clipRect(0f, 0f, 100f * fillFraction")) {
+  throw new Error("Rating popup gate: must use a rising liquid surface, not the old horizontal wipe");
+}
+console.log("Ludo Paws compact liquid-gold rating popup gate passed.");
