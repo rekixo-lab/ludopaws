@@ -374,14 +374,16 @@ class LudoPawsBoardView @JvmOverloads constructor(
                     val bodyHeight = radius * heightRatio
                     val leanSide = if (position in 0 until LudoPathEncoding.HOME_POSITION)
                         LudoPawsPawnFacingPolicy.sideRoad(screen.first, screen.second, size) else 0
-                    val leanOverhang = bodyHeight * .22f
+                    val rise = LudoPawsPawnFacingPolicy.roadRise(leanSide)
+                    val headX = screen.first + rise.first * bodyHeight
+                    val headY = footY + rise.second * bodyHeight
                     val bounds = if (classicPawnFallbackVisible) {
                         RectF(screen.first - radius, screen.second - radius,
                             screen.first + radius, screen.second + radius)
-                    } else RectF(screen.first - halfWidth - if (leanSide < 0) leanOverhang else 0f,
-                        footY - bodyHeight * 1.14f,
-                        screen.first + halfWidth + if (leanSide > 0) leanOverhang else 0f,
-                        footY + radius * .18f)
+                    } else RectF(minOf(screen.first, headX) - halfWidth,
+                        minOf(footY - radius * .25f, headY - radius * .45f),
+                        maxOf(screen.first, headX) + halfWidth,
+                        footY + radius * .45f)
                     val legal = player.playerId == localPlayerId &&
                         state.players.getOrNull(state.turnSeat)?.playerId == localPlayerId &&
                         state.pendingRoll?.status == "RESOLVED" &&

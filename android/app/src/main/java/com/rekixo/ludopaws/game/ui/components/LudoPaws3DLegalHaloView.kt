@@ -153,7 +153,9 @@ internal class LudoPaws3DLegalPulseView(
             val bodyHeight = radius * LudoPawsPawnLayout.silhouetteHeight(id)
             val side = if (position in 0 until LudoPathEncoding.HOME_POSITION)
                 LudoPawsPawnFacingPolicy.sideRoad(point.first, point.second, size) else 0
-            val x = point.first + side * bodyHeight * .12f
+            val rise = LudoPawsPawnFacingPolicy.roadRise(side)
+            val x = point.first + rise.first * bodyHeight * .5f
+            val cueY = y + rise.second * bodyHeight * .5f
 
             // Mark the occupied tile once, even when multiple legal pawns share it.
             if (position in 0 until LudoPathEncoding.HOME_POSITION &&
@@ -173,7 +175,7 @@ internal class LudoPaws3DLegalPulseView(
             // Intermittent small finger outline points at the body, with no destination preview.
             if (SystemClock.uptimeMillis() % 3600L < 1400L) {
                 val hx = x + radius * .72f
-                val hy = y - bodyHeight * .55f + radius * .08f * breath
+                val hy = cueY + radius * .08f * breath
                 sparklePaint.color = Color.argb(sparkleAlpha, 255, 240, 184)
                 sparklePaint.strokeWidth = density(1.4f)
                 canvas.drawPath(Path().apply {
@@ -197,9 +199,9 @@ internal class LudoPaws3DLegalPulseView(
             val glintRise = radius * (0.08f * breath)
             canvas.drawLine(
                 x - radius * 0.24f,
-                y - radius * 0.42f - glintRise,
+                cueY - radius * .15f - glintRise,
                 x + radius * 0.08f,
-                y - radius * 0.12f - glintRise,
+                cueY + radius * .15f - glintRise,
                 glintPaint,
             )
 
@@ -207,8 +209,8 @@ internal class LudoPaws3DLegalPulseView(
             // readable at a glance without becoming a follow-circle.
             sparklePaint.strokeWidth = (radius * 0.075f).coerceAtLeast(density(0.8f))
             sparklePaint.color = Color.argb(sparkleAlpha, 255, 224, 120)
-            val sparkleX = x + radius * 0.38f
-            val sparkleY = y - bodyHeight * .88f - radius * .08f * breath
+            val sparkleX = point.first + rise.first * bodyHeight * .85f + radius * .38f
+            val sparkleY = y + rise.second * bodyHeight * .88f - radius * .08f * breath
             val longArm = radius * (0.18f + 0.06f * breath)
             val shortArm = radius * (0.11f + 0.035f * breath)
             canvas.drawLine(

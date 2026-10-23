@@ -27,8 +27,12 @@ internal object LudoPawsPawnFacingPolicy {
         }
     }
 
-    fun restingRoadYaw(x: Float, y: Float, size: Float): Float = -90f * sideRoad(x, y, size)
-    fun roadLean(x: Float, y: Float, size: Float): Float = -12f * sideRoad(x, y, size)
+    fun restingRoadYaw(x: Float, y: Float, size: Float): Float = -60f * sideRoad(x, y, size)
+    fun roadLean(x: Float, y: Float, size: Float): Float = -65f * sideRoad(x, y, size)
+
+    /** Projected foot-to-head direction, matching the complete model's 65-degree frame. */
+    fun roadRise(side: Int): Pair<Float, Float> =
+        if (side == 0) 0f to -1f else side * .9063078f to -.4226183f
 
     fun yawForVisibleDelta(
         dx: Float,
