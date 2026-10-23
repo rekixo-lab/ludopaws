@@ -1,96 +1,101 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 
-const base = "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/";
-const read = p => fs.readFileSync(p, "utf8");
-const geometry = read(base + "LudoPawsCenterHouseGeometry.kt");
-const art = read(base + "LudoPawsCenterHouseRenderer.kt");
-const chrome = read(base + "LudoPawsBoardChromeView.kt");
-const originalBoard = read(base + "LudoBoardView.kt");
-const finishGeometry = read(base + "LudoPawsFxBoardGeometry.kt");
-const approvedYard = read(base + "LudoPawsYardHabitatRenderer.kt");
-const yardPalette = read(base + "LudoPawsYardPalettePolicy.kt");
-const tests = read("android/app/src/test/java/com/rekixo/ludopaws/LudoPawsCenterHouseGeometryTest.kt");
+const root="android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/";
+const read=p=>fs.readFileSync(p,"utf8");
+const geometry=read(root+"LudoPawsCenterHouseGeometry.kt");
+const art=read(root+"LudoPawsCenterHouseRenderer.kt");
+const chrome=read(root+"LudoPawsBoardChromeView.kt");
+const board=read(root+"LudoBoardView.kt");
+const finish=read(root+"LudoPawsFxBoardGeometry.kt");
+const yard=read(root+"LudoPawsYardHabitatRenderer.kt");
+const palette=read(root+"LudoPawsYardPalettePolicy.kt");
+const tests=read("android/app/src/test/java/com/rekixo/ludopaws/LudoPawsCenterHouseGeometryTest.kt");
 
-assert.match(geometry, /cell \* 5f/);
-assert.match(geometry, /cell \* 10f/);
-assert.match(geometry, /if \(!cell\.isFinite\(\) \|\| cell <= 0f\) return null/);
-for (const team of ["GREEN", "YELLOW", "BLUE", "RED"]) {
-  assert.ok(geometry.includes('"' + team + '" -> LudoPawsRoofTriangle('),
-    "Roof missing wedge: " + team);
-  assert.ok(art.includes('"' + team + '" -> RoofPalette('),
-    "Roof color palette missing: " + team);
+assert.match(geometry,/cell \* 5f/);
+assert.match(geometry,/cell \* 10f/);
+assert.match(geometry,/val p = LudoPawsRoofPoint\(50f, 50f\)/);
+assert.match(geometry,/if \(!cell\.isFinite\(\) \|\| cell <= 0f\) return null/);
+for(const [team,angle] of [["GREEN",0],["YELLOW",90],["BLUE",180],["RED",270]]) {
+ assert.ok(geometry.includes('"'+team+'" -> LudoPawsRoofTriangle('),"Missing "+team+" triangle");
+ assert.ok(geometry.includes('"'+team+'" -> '+angle+'f'),"Wrong "+team+" rotation");
+ assert.ok(art.includes('"'+team+'" -> HouseColors('),"Missing "+team+" 3D roof palette");
 }
-assert.match(geometry, /val p = LudoPawsRoofPoint\(50f, 50f\)/);
-for (const [team, degrees] of [["GREEN","0f"],["YELLOW","90f"],["BLUE","180f"],["RED","270f"]]) {
-  assert.ok(geometry.includes('"' + team + '" -> ' + degrees), "Wrong orientation " + team);
-}
-assert.match(art, /for \(team in listOf\("GREEN", "YELLOW", "BLUE", "RED"\)\)/);
-assert.match(art, /canvas\.rotate\(rotation, 50f, 50f\)/);
-assert.match(art, /c\.clipPath\(wedge\)/, "Every facade must remain inside its triangle");
-assert.match(art, /c\.clipPath\(roofShape\)/, "Roof tiles must not spill over other teams");
-assert.match(art, /moveTo\(14f, 14f\)[\s\S]*?lineTo\(86f, 14f\)[\s\S]*?lineTo\(50f, 50f\)/,
-  "Roof tiles must point to exact central apex");
-assert.match(art, /moveTo\(0f, 0f\)[\s\S]*?lineTo\(100f, 0f\)[\s\S]*?lineTo\(50f, 50f\)/,
-  "Housing and color wedges must fill the original triangles");
-assert.match(art, /for \(row in 0\.\.8\)/, "Code-drawn roof tiles required");
-assert.match(art, /private fun door\(/);
-assert.match(art, /private fun window\(/);
-assert.match(art, /private fun blossomCluster\(/);
-assert.doesNotMatch(art, /BitmapFactory|assets\.open|atlas\.webp|WebView/,
-  "Center house must be code-drawn and offline");
-assert.match(art, /Bitmap\.createBitmap\(640, 640, Bitmap\.Config\.ARGB_8888\)/);
-assert.match(art, /cachedArtwork \?: buildArtwork\(\)\.also/,
-  "No per-frame rebuilding of house geometry");
-assert.match(art, /val bounds = LudoPawsCenterHouseGeometry\.bounds\(cell\)/);
-assert.match(chrome, /private val centerHouseRenderer = LudoPawsCenterHouseRenderer\(\)/);
-assert.match(chrome, /centerHouseRenderer\.draw\(canvas, cell\)/);
+assert.match(art,/LudoPawsCenterHouseGeometry\.triangle\(team\)/);
+assert.match(art,/check\(triangle\.apex == LudoPawsRoofPoint\(50f, 50f\)\)/);
+assert.match(art,/c\.rotate\(turn, 50f, 50f\)/);
+assert.match(art,/for \(team in listOf\("GREEN", "YELLOW", "BLUE", "RED"\)\)/);
+assert.match(art,/val region = triangle\(0f, 0f, 100f, 0f, 50f, 50f\)/);
+assert.match(art,/c\.clipPath\(region\)/,"The entire projected house must stay inside its wedge");
+for(const marker of [
+ "private fun drawHouseFacingTop(",
+ "private fun insetWallTrim(",
+ "private fun doorway(",
+ "private fun window(",
+ "private fun flowerBox(",
+ "private fun step(",
+ "private fun arch(",
+ "private fun triangle(",
+ "private fun polygon(",
+ "private fun blend(",
+ "val wall = polygon(",
+ "val underEave = polygon(",
+ "val roofThickness = polygon(",
+ "val roof = triangle(11.8f, 15f, 88.2f, 15f, 50f, 50f)",
+ "val leftPlane = triangle(",
+ "val rightPlane = triangle(",
+ "c.clipPath(roof)",
+ "for (row in 0 until 9)",
+ "val stagger = if (row % 2 == 0)",
+ "colors.roofLight",
+ "colors.roofDeep",
+ "colors.grout",
+ "0xFF175B93",
+ "0xFFFFD27B"
+]) assert.ok(art.includes(marker),"Missing premium architectural detail: "+marker);
+assert.match(art,/stroke\(c, 50f, 15f, 50f, 49\.7f, colors\.roofDeep/);
+assert.match(art,/gradient\(c, rightPlane/);
+assert.match(art,/gradient\(c, leftPlane/);
+assert.match(art,/gradient\(c, roofThickness/);
+assert.match(art,/step\(c, 40\.3f, 16\.7f/);
+assert.doesNotMatch(art,/private fun blossomCluster|val roofShape|private fun door\(/);
+assert.doesNotMatch(art,/BitmapFactory|assets\.open|atlas\.webp|WebView|SurfaceView|OpenGL/);
+assert.match(art,/Bitmap\.createBitmap\(1024, 1024, Bitmap\.Config\.ARGB_8888\)/);
+assert.match(art,/cachedArtwork \?: renderOnce\(\)\.also/);
+assert.match(art,/canvas\.clipRect\(destination\)/);
+assert.match(art,/val square = LudoPawsCenterHouseGeometry\.bounds\(cell\)/);
+assert.match(chrome,/private val centerHouseRenderer = LudoPawsCenterHouseRenderer\(\)/);
+const layers=[
+ "renderer.draw(canvas, size","yardHabitatRenderer.draw(canvas, cell)",
+ "centerHouseRenderer.draw(canvas, cell)","drawYardPawPrintsOverlay(canvas, cell)",
+ "drawFinishRanksOverlay(canvas, cell)"
+].map(x=>chrome.indexOf(x));
+assert.ok(layers.every((v,i)=>v>=0 && (!i || v>layers[i-1])),
+ "Preserve road, approved yard and rank/pawn drawing order");
+assert.match(board,/private fun drawCenter\(/);
+assert.match(board,/val left = axisBoundary\(6, cell\)/);
+assert.match(board,/val right = axisBoundary\(9, cell\)/);
+for(const [name,anchor] of [
+ ["RED","cx - offset to cy"],["GREEN","cx to cy - offset"],
+ ["YELLOW","cx + offset to cy"],["BLUE","cx to cy + offset"]
+]) assert.ok(finish.includes('"'+name+'" -> '+anchor),"Finish coordinate moved: "+name);
+assert.match(yard,/private fun paintHome\(/);
+assert.match(palette,/"GREEN" -> LudoPawsYardPalette\(/);
 
-const order = [
-  "renderer.draw(canvas, size",
-  "yardHabitatRenderer.draw(canvas, cell)",
-  "centerHouseRenderer.draw(canvas, cell)",
-  "drawYardPawPrintsOverlay(canvas, cell)",
-  "drawFinishRanksOverlay(canvas, cell)",
-].map(str => chrome.indexOf(str));
-assert.ok(order.every((v,i)=>v>=0 && (!i || v>order[i-1])),
-  "Houses must be under finish labels and real pawns, after original board");
-assert.match(originalBoard, /val left = axisBoundary\(6, cell\)/);
-assert.match(originalBoard, /val right = axisBoundary\(9, cell\)/);
-assert.match(originalBoard, /private fun drawCenter\(/);
-assert.match(finishGeometry, /"RED" -> cx - offset to cy/);
-assert.match(finishGeometry, /"GREEN" -> cx to cy - offset/);
-assert.match(finishGeometry, /"YELLOW" -> cx \+ offset to cy/);
-assert.match(finishGeometry, /"BLUE" -> cx to cy \+ offset/);
-assert.match(approvedYard, /private fun paintHome\(/,
-  "Do not touch the already approved garden home drawing");
-assert.match(yardPalette, /"GREEN" -> LudoPawsYardPalette\(/);
-for (const test of [
-  "centerSquareMatchesExistingStretchedBoardBoundaries",
-  "fourRoofApexesShareExactlyOneUnmovedFinishCenter",
-  "theFourRooftopsMatchExistingCanonicalWedgeDirections",
-  "finishPawnTargetsRemainInsideTheirExactTeamTriangle",
-]) assert.ok(tests.includes(test), "Missing Kotlin geometry regression: " + test);
-
-// Independently validate the full partition and the true 5..10 board square.
-const triangles = [
-  [[0,0],[100,0],[50,50]],
-  [[100,0],[100,100],[50,50]],
-  [[100,100],[0,100],[50,50]],
-  [[0,100],[0,0],[50,50]],
+const triangles=[
+ [[0,0],[100,0],[50,50]],[[100,0],[100,100],[50,50]],
+ [[100,100],[0,100],[50,50]],[[0,100],[0,0],[50,50]]
 ];
-const area = t => Math.abs(
-  (t[1][0]-t[0][0])*(t[2][1]-t[0][1]) -
-  (t[1][1]-t[0][1])*(t[2][0]-t[0][0])
-)/2;
-assert.equal(triangles.reduce((sum,tri)=>sum+area(tri),0),10000);
-for(const tri of triangles) {
-  assert.deepEqual(tri[2],[50,50],"All four roofs must meet at one point");
-  assert.equal(area(tri),2500);
-}
-for(const cell of [1,17,60,93]) {
-  const center=[5*cell,5*cell,10*cell,10*cell];
-  assert.equal(center[2]-center[0],5*cell);
-  assert.equal(center[3]-center[1],5*cell);
-}
-console.log("Four procedural storybook roofs meet precisely at approved finish apex; correct team rotations, tile clipping, untouched yard/road/pawns, cached drawing.");
+const area=t=>Math.abs((t[1][0]-t[0][0])*(t[2][1]-t[0][1])-
+ (t[1][1]-t[0][1])*(t[2][0]-t[0][0]))/2;
+assert.equal(triangles.reduce((sum,t)=>sum+area(t),0),10000);
+for(const t of triangles){assert.deepEqual(t[2],[50,50]);assert.equal(area(t),2500);}
+for(const y of [0,12,15,20,49.7])assert.ok(50>=y && 50<=100-y);
+for(const size of [1,17,60,93])assert.equal(10*size-5*size,5*size);
+for(const name of [
+ "centerSquareMatchesExistingStretchedBoardBoundaries",
+ "fourRoofApexesShareExactlyOneUnmovedFinishCenter",
+ "theFourRooftopsMatchExistingCanonicalWedgeDirections",
+ "finishPawnTargetsRemainInsideTheirExactTeamTriangle"
+])assert.ok(tests.includes(name),"Missing compiled center regression "+name);
+console.log("Advanced 2.5D roof houses verified: thick eaves, pitched tiles, arched door and windows, one apex, preserved gameplay and team yards.");

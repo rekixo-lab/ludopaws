@@ -12,287 +12,405 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 /**
- * Four small storybook houses inside the existing four CENTER finish triangles.
+ * Four richly layered 2.5D storybook houses, drawn with Kotlin Canvas.
  *
- * The outer edge of each wedge has an ivory house facade with a door, windows
- * and sparse flowers. A tiled, team-colored roof grows to the EXACT common
- * center apex. The neighboring roof edges coincide: no new gaps, false center,
- * oversized house rectangles or overlapping roads.
+ * The board's 5x5-cell center retains its EXACT four gameplay triangles.
+ * Each roof meets the same (50,50) apex; the walls, windows and entry face
+ * outward toward each team's approach lane.
  *
- * Visual layer only: rendered between classic board chrome and finish-rank
- * labels, below genuine pawns/finish FX. No changes to gameplay geometry.
- *
- * All vector detail is rasterized once to a 640px immutable-by-convention
- * bitmap; no paths, shaders, shingles or decorations allocate per frame.
+ * This is NOT four rectangular sprites painted on top of the Ludo paths.
+ * Every architectural detail (facade, beveled eaves, roof tiles, greenery,
+ * doorway) is clipped to its own original triangular region. One pre-rendered
+ * 1024x1024 bitmap keeps all roof gradients and tile paths off hot frames.
+ * The game still renders finish pawns and rank labels above the art.
  */
 internal class LudoPawsCenterHouseRenderer {
-    private data class RoofPalette(
-        val base: Int,
-        val bright: Int,
-        val shade: Int,
-        val deep: Int,
-        val mortar: Int,
-        val wall: Int,
+    private data class HouseColors(
+        val roof: Int,
+        val roofLight: Int,
+        val roofShade: Int,
+        val roofDeep: Int,
+        val grout: Int,
+        val accent: Int,
     )
 
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    private val brush = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         strokeJoin = Paint.Join.ROUND
         strokeCap = Paint.Cap.ROUND
     }
-    private val displayPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var cachedArtwork: Bitmap? = null
 
     fun draw(canvas: Canvas, cell: Float) {
-        val bounds = LudoPawsCenterHouseGeometry.bounds(cell) ?: return
-        val art = cachedArtwork ?: buildArtwork().also { cachedArtwork = it }
-        canvas.drawBitmap(
-            art, null,
-            RectF(bounds.left, bounds.top, bounds.right, bounds.bottom),
-            displayPaint,
-        )
+        val square = LudoPawsCenterHouseGeometry.bounds(cell) ?: return
+        val art = cachedArtwork ?: renderOnce().also { cachedArtwork = it }
+        val destination = RectF(square.left, square.top, square.right, square.bottom)
+        val save = canvas.save()
+        canvas.clipRect(destination)
+        canvas.drawBitmap(art, null, destination, bitmapPaint)
+        canvas.restoreToCount(save)
     }
 
-    private fun buildArtwork(): Bitmap {
-        val result = Bitmap.createBitmap(640, 640, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(result)
-        canvas.scale(6.4f, 6.4f)
-        // The original triangles use this same clockwise color order.
+    private fun renderOnce(): Bitmap {
+        val art = Bitmap.createBitmap(1024, 1024, Bitmap.Config.ARGB_8888)
+        val c = Canvas(art)
+        c.scale(10.24f, 10.24f)
+
+        // The roof colors match the released board, not the home yard positions.
         for (team in listOf("GREEN", "YELLOW", "BLUE", "RED")) {
-            val rotation = requireNotNull(LudoPawsCenterHouseGeometry.rotationDegrees(team))
-            val palette = requireNotNull(palette(team))
-            val restore = canvas.save()
-            canvas.rotate(rotation, 50f, 50f)
-            drawTopFacingHouse(canvas, palette)
-            canvas.restoreToCount(restore)
+            val triangle = requireNotNull(LudoPawsCenterHouseGeometry.triangle(team))
+            val turn = requireNotNull(LudoPawsCenterHouseGeometry.rotationDegrees(team))
+            val colors = requireNotNull(colorsFor(team))
+            check(triangle.apex == LudoPawsRoofPoint(50f, 50f))
+            val save = c.save()
+            c.rotate(turn, 50f, 50f)
+            drawHouseFacingTop(c, colors)
+            c.restoreToCount(save)
         }
-
-        // Thin diagonal join reads as four separate roof edges without making
-        // a dark cross or hiding the single shared central apex.
-        for ((x, y) in listOf(0f to 0f, 100f to 0f, 100f to 100f, 0f to 100f)) {
-            line(canvas, x, y, 50f, 50f, 0x50302118, .52f)
+        // Dark, thin joints hide any subpixel antialiasing seams, but no opaque
+        // disk is placed on the four-way finish apex where the pawns arrive.
+        val corners = arrayOf(
+            0f to 0f, 100f to 0f, 100f to 100f, 0f to 100f,
+        )
+        for ((x, y) in corners) {
+            stroke(c, x, y, 50f, 50f, 0x602A211F, 0.64f)
         }
-        return result
+        return art
     }
 
-    private fun drawTopFacingHouse(c: Canvas, roof: RoofPalette) {
-        val wedge = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(100f, 0f)
-            lineTo(50f, 50f)
-            close()
-        }
-        val saved = c.save()
-        c.clipPath(wedge)
+    private fun drawHouseFacingTop(c: Canvas, colors: HouseColors) {
+        val region = triangle(0f, 0f, 100f, 0f, 50f, 50f)
+        val save = c.save()
+        c.clipPath(region)
 
-        // Full triangular color underpaint meets adjacent wedges seamlessly.
-        fill(c, wedge, roof.deep)
-        gradient(c, wedge, 0f, 0f, 100f, 50f, roof.bright, roof.shade)
+        // Opaque undercoat makes the entire wedge continuous to the apex.
+        fill(c, region, colors.roofDeep)
+        gradient(c, region, 0f, 0f, 83f, 48f, colors.roofLight, colors.roofShade)
 
-        // The facade stays along the OUTER edge of the center square. Its
-        // inner edge is covered by roof shingles, never drawn onto a road.
-        val facade = Path().apply {
-            moveTo(0f, 0f)
-            lineTo(100f, 0f)
-            lineTo(86f, 14f)
-            lineTo(14f, 14f)
-            close()
-        }
-        gradient(c, facade, 50f, 0f, 50f, 17f, 0xFFFFF1D8.toInt(), roof.wall)
-        rect(c, 0f, 0f, 100f, 1.9f, 0x7DFFF9DE)
-        // Little porch stones outside the central door.
-        round(c, 39f, 12.0f, 61f, 15.1f, .8f, 0xFFCAB497.toInt())
-        round(c, 41f, 10.6f, 59f, 12.8f, .65f, 0xFFFFE9BF.toInt())
-        window(c, 29f, 7.1f)
-        window(c, 71f, 7.1f)
-        door(c, 50f, 5.0f)
-        blossomCluster(c, 20f, 12.3f)
-        blossomCluster(c, 80f, 12.3f)
+        // 1. Broad ivory wall with a darker cast shadow underneath the eaves.
+        val wall = polygon(
+            0f, 0f, 100f, 0f, 80f, 20f, 20f, 20f,
+        )
+        gradient(c, wall, 4f, 0f, 5f, 21f, 0xFFFFF9E7.toInt(), 0xFFE3C4A1.toInt())
+        // Corner stone bases, paneled wall and pale sunlit plaster.
+        stroke(c, 1f, 0.9f, 99f, 0.9f, 0xBFFFF5DC.toInt(), 1.1f)
+        stroke(c, 12f, 9f, 20.3f, 18.7f, 0x44AD8256, 0.78f)
+        stroke(c, 88f, 9f, 79.7f, 18.7f, 0x44AD8256, 0.78f)
+        insetWallTrim(c)
 
-        // Entire triangular roof lies between the TWO exact wedge diagonals.
-        // Vertex (50,50) is shared by all four houses, with zero offset.
-        val roofShape = Path().apply {
-            moveTo(14f, 14f)
-            lineTo(86f, 14f)
-            lineTo(50f, 50f)
-            close()
-        }
-        gradient(c, roofShape, 19f, 17f, 77f, 41f, roof.bright, roof.base)
+        // Oversized arched entrance and windows: readable at actual phone
+        // size, rather than tiny repeated badges around a flat roof emblem.
+        window(c, 24f, 7.5f, 1.06f)
+        window(c, 76f, 7.5f, 1.06f)
+        doorway(c)
 
-        // Gentle left/right plane highlights suggest a small pitched roof,
-        // not a flat printed team-color triangle.
-        val leftPlane = Path().apply {
-            moveTo(14f, 14f)
-            lineTo(50f, 14f)
-            lineTo(50f, 50f)
-            close()
-        }
-        gradient(c, leftPlane, 16f, 14f, 50f, 49f, 0x3DFFFFFF, 0x04FFFFFF)
-        val rightPlane = Path().apply {
-            moveTo(50f, 14f)
-            lineTo(86f, 14f)
-            lineTo(50f, 50f)
-            close()
-        }
-        gradient(c, rightPlane, 51f, 14f, 77f, 47f, 0x00000000, 0x38000000)
+        // Tiny supporting plants are behind the roof eave, not a solid
+        // ornamental hedge all the way around the triangle.
+        flowerBox(c, 10.5f, 14.5f, .88f)
+        flowerBox(c, 89.5f, 14.5f, .88f)
 
-        // Roof-tile grout and the shifted vertical joints are CLIPPED to the
-        // triangle; rows tighten naturally near the common roof apex.
-        val roofSave = c.save()
-        c.clipPath(roofShape)
-        for (row in 0..8) {
-            val y = 17.4f + row * 3.73f
-            val width = 100f - y * 2f
-            if (width <= 0f) continue
-            val left = y
-            val right = 100f - y
-            line(c, left, y + .65f, right, y + .65f, roof.shade, .96f)
-            line(c, left, y - .27f, right, y - .27f, 0x83FFFFFF.toInt(), .54f)
-            val step = 7.2f
-            var joint = left + if (row % 2 == 0) 3.2f else 6.5f
-            while (joint < right) {
-                line(c, joint, y - 3.25f, joint + .65f, y + .48f,
-                    roof.mortar, .57f)
-                joint += step
+        // 2. Thick 3D roof overhang and its deep cast shadow on the wall.
+        // The FULL wedge underneath remains colored and meets the finish.
+        val underEave = polygon(
+            10f, 17.5f, 90f, 17.5f, 50f, 50f, 50f, 47f,
+        )
+        fill(c, underEave, 0x59372020)
+        val roofThickness = polygon(
+            11.0f, 16.3f, 89.0f, 16.3f, 88.2f, 20.1f,
+            50f, 50f, 11.8f, 20.1f,
+        )
+        gradient(c, roofThickness, 16f, 18f, 84f, 43f,
+            colors.roofShade, colors.roofDeep)
+
+        // 3. Top surface is a pair of pitched planes. The left catches warm
+        // light; the right is cooler/darker. Both taper to the common point.
+        val roof = triangle(11.8f, 15f, 88.2f, 15f, 50f, 50f)
+        gradient(c, roof, 14f, 15f, 82f, 48f, colors.roofLight, colors.roof)
+        val leftPlane = triangle(11.8f, 15f, 50f, 15f, 50f, 50f)
+        gradient(c, leftPlane, 24f, 15f, 50f, 44f,
+            0x72FFFFFF, 0x00FFFFFF)
+        val rightPlane = triangle(50f, 15f, 88.2f, 15f, 50f, 50f)
+        gradient(c, rightPlane, 50f, 15f, 81f, 46f,
+            0x08000000, 0x680B0911)
+
+        // 4. Individual, slightly beveled terracotta-style shingles, not a
+        // flat checkerboard. Each row gets shorter toward the shared apex.
+        // The tile polygons and all highlights are hard-clipped to roof.
+        val shingles = c.save()
+        c.clipPath(roof)
+        for (row in 0 until 9) {
+            val y0 = 16.5f + row * 3.76f
+            val y1 = (y0 + 3.76f).coerceAtMost(49.7f)
+            if (y0 >= 49.7f) break
+            val left0 = y0 - 3.2f
+            val right0 = 103.2f - y0
+            val left1 = y1 - 3.2f
+            val right1 = 103.2f - y1
+            val columns = if (row < 4) 9 else if (row < 7) 7 else 5
+            val stagger = if (row % 2 == 0) 0f else .5f
+            for (col in 0 until columns) {
+                val u0 = ((col + stagger) / columns).coerceAtMost(1f)
+                val u1 = ((col + 1f + stagger) / columns).coerceAtMost(1f)
+                if (u1 <= u0) continue
+                val x00 = left0 + (right0 - left0) * u0
+                val x01 = left0 + (right0 - left0) * u1
+                val x10 = left1 + (right1 - left1) * u0
+                val x11 = left1 + (right1 - left1) * u1
+                val tile = polygon(
+                    x00 + .20f, y0 + .12f,
+                    x01 - .20f, y0 + .12f,
+                    x11 - .20f, y1 - .19f,
+                    x10 + .20f, y1 - .19f,
+                )
+                val base = when ((row + col) % 4) {
+                    0 -> colors.roof
+                    1 -> colors.roofLight
+                    else -> colors.accent
+                }
+                gradient(c, tile, x00, y0, x11, y1,
+                    blend(base, colors.roofLight, .29f),
+                    blend(base, colors.roofShade, .38f))
+                stroke(c, x10 + .19f, y1 - .12f, x11 - .19f, y1 - .12f,
+                    colors.grout, .66f)
+                stroke(c, x00 + .5f, y0 + .45f, x01 - .4f, y0 + .45f,
+                    0x84FFFFFF.toInt(), .35f)
             }
         }
-        c.restoreToCount(roofSave)
+        c.restoreToCount(shingles)
 
-        // Neat tile-roof eaves and two sloping gable edges.
-        line(c, 14f, 14.1f, 86f, 14.1f, roof.deep, 2.20f)
-        line(c, 15f, 13.55f, 85f, 13.55f, roof.bright, 1.10f)
-        line(c, 14f, 14f, 50f, 50f, roof.deep, 1.13f)
-        line(c, 86f, 14f, 50f, 50f, roof.deep, 1.13f)
-        line(c, 14.8f, 14.8f, 49.5f, 49.5f, 0x79FFFFFF, .53f)
-        line(c, 50f, 15.2f, 50f, 49f, 0x55FFF5D9, .50f)
+        // 5. Physical-looking eaves: deep side profile, golden top edge and
+        // a light ridge that goes all the way to the exact shared tip.
+        stroke(c, 11f, 18.0f, 89f, 18.0f, colors.roofDeep, 2.30f)
+        stroke(c, 11.8f, 15.0f, 88.2f, 15.0f, colors.roofShade, 2.40f)
+        stroke(c, 12.7f, 14.0f, 87.3f, 14.0f, colors.roofLight, 1.34f)
+        stroke(c, 11.8f, 15f, 50f, 50f, colors.roofDeep, 1.46f)
+        stroke(c, 88.2f, 15f, 50f, 50f, colors.roofDeep, 1.46f)
+        stroke(c, 12.3f, 14.9f, 49.9f, 49.7f, 0x79FFFFFF, .62f)
+        stroke(c, 50f, 15f, 50f, 49.7f, colors.roofDeep, 1.55f)
+        stroke(c, 49.5f, 15.2f, 49.5f, 49.1f, 0xBDFFECC7.toInt(), .70f)
 
-        // Clip restores exactly the parent CENTER bounds.
+        // A small front stair/threshold interrupts the roof's bottom edge at
+        // the DOOR only. Drawn last to read as a projecting stone entry.
+        step(c, 40.3f, 16.7f, 59.7f, 19.6f,
+            0xFFAB9077.toInt(), 0xFFFFE9C8.toInt())
+        step(c, 42.8f, 15.7f, 57.2f, 18.2f,
+            0xFFB69C81.toInt(), 0xFFFFF6DE.toInt())
+        c.restoreToCount(save)
+    }
+
+    private fun insetWallTrim(c: Canvas) {
+        // Narrow pilasters with warm side shadows make the facade feel solid.
+        for (x in listOf(15.9f, 84.1f)) {
+            round(c, x - 1.35f, 1.5f, x + 1.35f, 16.9f,
+                .75f, 0xFFBDA380.toInt())
+            round(c, x - 1.05f, 1.5f, x + .65f, 16.5f,
+                .68f, 0xFFFFEED0.toInt())
+            stroke(c, x - .75f, 2f, x - .75f, 15.6f,
+                0x9BFFF8E7.toInt(), .50f)
+        }
+    }
+
+    private fun doorway(c: Canvas) {
+        // Three nested arched layers plus door planks, brass knob, recess and
+        // step cast-shadow. The opening is intentionally the facade's focal point.
+        val opening = arch(40.6f, 1.6f, 59.4f, 17.8f, 9.15f)
+        fill(c, opening, 0xFF6D381C.toInt())
+        val gold = arch(41.5f, 2.2f, 58.5f, 17.1f, 8.2f)
+        gradient(c, gold, 43f, 3f, 57f, 16f,
+            0xFFFFD27B.toInt(), 0xFFB96820.toInt())
+        val inside = arch(43.4f, 3.9f, 56.6f, 16.8f, 6.4f)
+        gradient(c, inside, 44f, 5f, 57f, 16f,
+            0xFF643111.toInt(), 0xFF9C4E1B.toInt())
+        for (x in listOf(46.6f, 50f, 53.4f)) {
+            stroke(c, x, 8f, x, 16.6f, 0x65401B0F, .52f)
+        }
+        stroke(c, 44.8f, 8f, 44.8f, 16f, 0x81F7AB64.toInt(), .46f)
+        dot(c, 53.4f, 11.2f, 1.12f, 0xFF60300D.toInt())
+        dot(c, 53.1f, 10.8f, .80f, 0xFFFFCC36.toInt())
+        dot(c, 52.85f, 10.5f, .28f, 0xFFFFF9C6.toInt())
+    }
+
+    private fun window(c: Canvas, x: Float, y: Float, size: Float) {
+        val saved = c.save()
+        c.translate(x, y)
+        c.scale(size, size)
+        fill(c, arch(-7.15f, -5.6f, 7.15f, 5.65f, 6.4f), 0xFF9D5222.toInt())
+        fill(c, arch(-6.1f, -4.9f, 6.1f, 4.95f, 5.7f), 0xFFFFC26A.toInt())
+        fill(c, arch(-4.9f, -3.85f, 4.9f, 3.92f, 4.8f), 0xFF175B93.toInt())
+        // Blue glass gradient and translucent reflection.
+        val glass = arch(-4.3f, -3.2f, 4.3f, 3.45f, 4f)
+        gradient(c, glass, -4f, -3.2f, 4f, 3.5f,
+            0xFF6DD9FE.toInt(), 0xFF1666AF.toInt())
+        stroke(c, -3.0f, -2.4f, 1.6f, 2.3f, 0x8EFFFFFF.toInt(), 1.3f)
+        stroke(c, 0f, -3.8f, 0f, 3.9f, 0xFFF6BA59.toInt(), 1.1f)
+        stroke(c, -4.5f, .85f, 4.5f, .85f, 0xFFE8A849.toInt(), .93f)
+        round(c, -7.1f, 4.1f, 7.1f, 6.25f, .75f, 0xFFC88335.toInt())
+        round(c, -6.9f, 4.0f, 6.9f, 5.1f, .60f, 0xFFFFDB90.toInt())
         c.restoreToCount(saved)
     }
 
-    private fun door(c: Canvas, x: Float, y: Float) {
-        round(c, x - 6.55f, y - 1.4f, x + 6.55f, 15.1f, 6.1f,
-            0xFF9A491F.toInt())
-        round(c, x - 5.60f, y - .20f, x + 5.60f, 14.5f, 5.2f,
-            0xFFF3A138.toInt())
-        round(c, x - 4.70f, y + .75f, x + 4.70f, 14.6f, 4.5f,
-            0xFF9A4C24.toInt())
-        line(c, x - 1.85f, y + 1.8f, x - 1.85f, 14.1f,
-            0x42602F19, .73f)
-        line(c, x + 1.85f, y + 1.8f, x + 1.85f, 14.1f,
-            0x3DFFE0A6, .72f)
-        dot(c, x + 2.8f, y + 7.3f, 1.10f, 0xFFFFDC53.toInt())
-        dot(c, x + 2.5f, y + 7.0f, .44f, Color.WHITE)
-    }
-
-    private fun window(c: Canvas, x: Float, y: Float) {
-        round(c, x - 6.2f, y - 4.7f, x + 6.2f, y + 6.0f, 4.0f,
-            0xFFAF611F.toInt())
-        round(c, x - 5.0f, y - 3.55f, x + 5.0f, y + 4.7f, 3.2f,
-            0xFFFFC169.toInt())
-        round(c, x - 4.1f, y - 2.7f, x + 4.1f, y + 3.6f, 2.7f,
-            0xFF217DAB.toInt())
-        round(c, x - 3.5f, y - 2.2f, x + 3.3f, y + 1.1f, 1.8f,
-            0xFF74C8E9.toInt())
-        line(c, x, y - 2.7f, x, y + 3.9f, 0xFFE8AB56.toInt(), .86f)
-        line(c, x - 4.0f, y + .3f, x + 4.0f, y + .3f,
-            0xFFE8AB56.toInt(), .86f)
-    }
-
-    private fun blossomCluster(c: Canvas, x: Float, y: Float) {
-        dot(c, x - 3f, y + .1f, 3.6f, 0xFF397F35.toInt())
-        dot(c, x + 2.0f, y - .5f, 3.8f, 0xFF4FB34C.toInt())
-        dot(c, x + 4.1f, y + .6f, 2.8f, 0xFF326D31.toInt())
-        flower(c, x - 1.7f, y, .64f, 0xFFFFE6E5.toInt())
-        flower(c, x + 3.4f, y - 1.5f, .58f, 0xFFFF5E52.toInt())
+    private fun flowerBox(c: Canvas, x: Float, y: Float, size: Float) {
+        val s = c.save()
+        c.translate(x, y)
+        c.scale(size, size)
+        // Dark underside and wooden trough are only a subtle accent.
+        oval(c, 0f, 2.2f, 7.7f, 2.6f, 0x653F2B22)
+        for (i in 0 until 5) {
+            val dx = (i - 2) * 2.15f
+            leaf(c, dx, -1.3f, 3.1f, 2.1f,
+                if (i % 2 == 0) 0xFF2C9147.toInt() else 0xFF63C75C.toInt())
+        }
+        flower(c, -3.6f, -2.3f, .83f, 0xFFFF6B5F.toInt())
+        flower(c, 1.4f, -2.7f, .79f, 0xFFFFFCF4.toInt())
+        flower(c, 4.6f, -1.8f, .60f, 0xFFFFB33D.toInt())
+        round(c, -6.25f, .9f, 6.25f, 3.3f, .7f, 0xFFB9772C.toInt())
+        round(c, -5.85f, 1.0f, 5.85f, 2f, .45f, 0xFFFFBE5B.toInt())
+        c.restoreToCount(s)
     }
 
     private fun flower(c: Canvas, x: Float, y: Float, size: Float, petal: Int) {
         for (i in 0 until 5) {
             val a = i * Math.PI * 2.0 / 5.0
-            val px = x + cos(a).toFloat() * 1.6f * size
-            val py = y + sin(a).toFloat() * 1.6f * size
-            dot(c, px, py, 1.36f * size, petal)
+            dot(c, x + cos(a).toFloat() * 2f * size,
+                y + sin(a).toFloat() * 2f * size, 1.6f * size, petal)
         }
-        dot(c, x, y, 1.05f * size, 0xFFFFD449.toInt())
+        dot(c, x, y, 1.35f * size, 0xFFFFD33E.toInt())
+        dot(c, x - .25f * size, y - .35f * size, .5f * size, 0xFFFFF7B5.toInt())
+    }
+
+    private fun step(
+        c: Canvas, l: Float, top: Float, r: Float, bottom: Float,
+        shade: Int, topColor: Int,
+    ) {
+        round(c, l, top + .85f, r, bottom + .85f, .85f, shade)
+        round(c, l + .7f, top, r - .7f, bottom - .35f, .8f, topColor)
+        stroke(c, l + 1.3f, top + .45f, r - 1.3f, top + .45f,
+            0xACFFFFFF.toInt(), .50f)
+    }
+
+    private fun arch(l: Float, top: Float, r: Float, bottom: Float, rise: Float): Path {
+        val x = (l + r) / 2f
+        val radius = (r - l) / 2f
+        val shoulder = top + rise
+        return Path().apply {
+            moveTo(l, bottom)
+            lineTo(l, shoulder)
+            cubicTo(l, top - .8f, x - radius * .25f, top, x, top)
+            cubicTo(x + radius * .25f, top, r, top - .8f, r, shoulder)
+            lineTo(r, bottom)
+            close()
+        }
+    }
+
+    private fun triangle(
+        x0: Float, y0: Float, x1: Float, y1: Float, x2: Float, y2: Float,
+    ): Path = Path().apply {
+        moveTo(x0, y0)
+        lineTo(x1, y1)
+        lineTo(x2, y2)
+        close()
+    }
+
+    private fun polygon(vararg points: Float): Path = Path().apply {
+        require(points.size >= 6 && points.size % 2 == 0)
+        moveTo(points[0], points[1])
+        var i = 2
+        while (i < points.size) {
+            lineTo(points[i], points[i + 1])
+            i += 2
+        }
+        close()
+    }
+
+    private fun blend(a: Int, b: Int, t: Float): Int {
+        val f = t.coerceIn(0f, 1f)
+        return Color.rgb(
+            (Color.red(a) * (1f - f) + Color.red(b) * f).toInt(),
+            (Color.green(a) * (1f - f) + Color.green(b) * f).toInt(),
+            (Color.blue(a) * (1f - f) + Color.blue(b) * f).toInt(),
+        )
     }
 
     private fun fill(c: Canvas, shape: Path, color: Int) {
-        paint.shader = null
-        paint.style = Paint.Style.FILL
-        paint.color = color
-        c.drawPath(shape, paint)
+        brush.shader = null
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawPath(shape, brush)
     }
 
     private fun gradient(
-        c: Canvas, shape: Path,
-        x1: Float, y1: Float, x2: Float, y2: Float,
-        start: Int, end: Int,
+        c: Canvas, path: Path,
+        x0: Float, y0: Float, x1: Float, y1: Float, from: Int, to: Int,
     ) {
-        paint.style = Paint.Style.FILL
-        paint.color = Color.WHITE
-        paint.shader = LinearGradient(x1, y1, x2, y2, start, end, Shader.TileMode.CLAMP)
-        c.drawPath(shape, paint)
-        paint.shader = null
+        brush.style = Paint.Style.FILL
+        brush.color = Color.WHITE
+        brush.shader = LinearGradient(x0, y0, x1, y1, from, to, Shader.TileMode.CLAMP)
+        c.drawPath(path, brush)
+        brush.shader = null
     }
 
-    private fun rect(c: Canvas, left: Float, top: Float, right: Float, bottom: Float, color: Int) {
-        paint.style = Paint.Style.FILL
-        paint.shader = null
-        paint.color = color
-        c.drawRect(left, top, right, bottom, paint)
+    private fun oval(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, color: Int) {
+        brush.shader = null
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawOval(x-rx, y-ry, x+rx, y+ry, brush)
     }
 
-    private fun round(
-        c: Canvas, left: Float, top: Float, right: Float, bottom: Float,
-        radius: Float, color: Int,
-    ) {
-        paint.style = Paint.Style.FILL
-        paint.shader = null
-        paint.color = color
-        c.drawRoundRect(left, top, right, bottom, radius, radius, paint)
+    private fun leaf(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, color: Int) {
+        oval(c, x, y, rx, ry, color)
+        oval(c, x-rx*.25f, y-ry*.29f, rx*.43f, ry*.45f, 0x46FFFFFF)
     }
 
     private fun dot(c: Canvas, x: Float, y: Float, radius: Float, color: Int) {
-        paint.style = Paint.Style.FILL
-        paint.shader = null
-        paint.color = color
-        c.drawCircle(x, y, radius, paint)
+        brush.shader = null
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawCircle(x, y, radius, brush)
     }
 
-    private fun line(
-        c: Canvas,
-        x1: Float, y1: Float, x2: Float, y2: Float,
-        color: Int, thickness: Float,
+    private fun round(
+        c: Canvas, l: Float, t: Float, r: Float, b: Float,
+        rad: Float, color: Int,
     ) {
-        paint.style = Paint.Style.STROKE
-        paint.shader = null
-        paint.color = color
-        paint.strokeWidth = thickness
-        c.drawLine(x1, y1, x2, y2, paint)
-        paint.style = Paint.Style.FILL
+        brush.shader = null
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawRoundRect(l, t, r, b, rad, rad, brush)
     }
 
-    private fun palette(team: String): RoofPalette? = when (team) {
-        "GREEN" -> RoofPalette(
-            base = 0xFF21B45C.toInt(), bright = 0xFF64EC85.toInt(),
-            shade = 0xFF138447.toInt(), deep = 0xFF09673B.toInt(),
-            mortar = 0x99516D3C.toInt(), wall = 0xFFE7CDAB.toInt(),
+    private fun stroke(
+        c: Canvas, x0: Float, y0: Float, x1: Float, y1: Float,
+        color: Int, width: Float,
+    ) {
+        brush.shader = null
+        brush.style = Paint.Style.STROKE
+        brush.color = color
+        brush.strokeWidth = width
+        c.drawLine(x0, y0, x1, y1, brush)
+        brush.style = Paint.Style.FILL
+    }
+
+    private fun colorsFor(team: String): HouseColors? = when (team) {
+        "GREEN" -> HouseColors(
+            roof = 0xFF27BD62.toInt(), roofLight = 0xFF86F7A0.toInt(),
+            roofShade = 0xFF0D8A48.toInt(), roofDeep = 0xFF07522F.toInt(),
+            grout = 0xBF145538.toInt(), accent = 0xFF43D975.toInt(),
         )
-        "YELLOW" -> RoofPalette(
-            base = 0xFFF4C12B.toInt(), bright = 0xFFFFE478.toInt(),
-            shade = 0xFFC18B1B.toInt(), deep = 0xFF996F14.toInt(),
-            mortar = 0x9B99762F.toInt(), wall = 0xFFEDD1A3.toInt(),
+        "YELLOW" -> HouseColors(
+            roof = 0xFFF3BC23.toInt(), roofLight = 0xFFFFE784.toInt(),
+            roofShade = 0xFFBA861A.toInt(), roofDeep = 0xFF76540E.toInt(),
+            grout = 0xB881641E.toInt(), accent = 0xFFF7D048.toInt(),
         )
-        "BLUE" -> RoofPalette(
-            base = 0xFF238FDE.toInt(), bright = 0xFF78D2FC.toInt(),
-            shade = 0xFF1863AB.toInt(), deep = 0xFF0A4B87.toInt(),
-            mortar = 0x9C315E96.toInt(), wall = 0xFFE5D1BA.toInt(),
+        "BLUE" -> HouseColors(
+            roof = 0xFF298DDA.toInt(), roofLight = 0xFF8CDEFC.toInt(),
+            roofShade = 0xFF145BA4.toInt(), roofDeep = 0xFF0C3B72.toInt(),
+            grout = 0xBF194A75.toInt(), accent = 0xFF48AAEF.toInt(),
         )
-        "RED" -> RoofPalette(
-            base = 0xFFEC4039.toInt(), bright = 0xFFFF8672.toInt(),
-            shade = 0xFFB4202E.toInt(), deep = 0xFF8A1623.toInt(),
-            mortar = 0x9B873B31.toInt(), wall = 0xFFEED4BA.toInt(),
+        "RED" -> HouseColors(
+            roof = 0xFFF03D3C.toInt(), roofLight = 0xFFFF8E78.toInt(),
+            roofShade = 0xFFB41D2C.toInt(), roofDeep = 0xFF751225.toInt(),
+            grout = 0xBF7E2933.toInt(), accent = 0xFFFF5F57.toInt(),
         )
         else -> null
     }
