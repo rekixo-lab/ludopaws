@@ -40,6 +40,7 @@ internal class LudoPawsCenterHouses3D {
     private val roofBase = roofs.map { tint(it, .84f) }
     private val tiledRoof = roofTiles()
     private val ridgeCap = raisedRidge()
+    private val fenceMeshes = gardenFence()
     private val shell = MeshBuilder().apply {
         // Extend the cream wall to meet the inset roof, giving the openings more headroom.
         // The existing facade transform maps these points to the roof's front edge.
@@ -297,8 +298,71 @@ internal class LudoPawsCenterHouses3D {
                 c.drawPart(garden, plant.x, flowerY, bloomZ + .007f,
                     .008f * plant.size, .008f * plant.size, .006f * plant.size, GOLD)
             }
+            // Low rails are inset and lean into the garden. The middle stays open at the steps.
+            c.surface = CharacterSurface.GARDEN_STONE
+            part(c, garden, fenceMeshes[0], 0f, 0f, 0f, 1f, 1f, 1f, FENCE_WOOD)
+            part(c, garden, fenceMeshes[1], 0f, 0f, 0f, 1f, 1f, 1f, FENCE_GRAIN)
+            part(c, garden, fenceMeshes[2], 0f, 0f, 0f, 1f, 1f, 1f, FENCE_PINS)
             drawCornerPillar(c, turns + side)
         }
+    }
+
+    /** Static, batched timber geometry for one edge; four rotations surround the square. */
+    private fun gardenFence(): List<MeshGeometry> {
+        val body = MeshBuilder()
+        val grain = MeshBuilder()
+        val pins = MeshBuilder()
+        fun cross(a: V, b: V) = v(a.y * b.z - a.z * b.y,
+            a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+        fun timber(a: V, b: V, width: Float, depth: Float, post: Boolean) {
+            val delta = b - a
+            val direction = delta * (1f / delta.length())
+            val across = if (post) v(1f, 0f) else v(0f, 1f)
+            val front = cross(direction, across).let {
+                // Both mirrored rail runs expose their grain toward the overhead camera.
+                it * ((if (it.z < 0f) -1f else 1f) / it.length())
+            }
+            val profile = listOf(v(-.72f, -1f), v(.72f, -1f), v(1f, -.72f), v(1f, .72f),
+                v(.72f, 1f), v(-.72f, 1f), v(-1f, .72f), v(-1f, -.72f))
+            fun corner(origin: V, point: V) = origin + across * (point.x * width) + front * (point.y * depth)
+            profile.indices.forEach { index ->
+                val p = profile[index]
+                val q = profile[(index + 1) % profile.size]
+                body.quad(corner(a, p), corner(b, p), corner(b, q), corner(a, q))
+                body.triangle(a, corner(a, q), corner(a, p))
+                body.triangle(b, corner(b, p), corner(b, q))
+            }
+            // Slightly broken longitudinal grooves follow each timber's actual 3D axis.
+            for (line in -1..1) {
+                val offset = across * (line * width * .40f) + front * (depth + .0007f)
+                val start = a + delta * (.10f + (line + 1) * .035f) + offset
+                val end = a + delta * (.86f - (line + 1) * .025f) + offset
+                val thin = across * .0008f
+                grain.quad(start - thin, start + thin, end + thin, end - thin)
+            }
+            if (post) {
+                for (t in floatArrayOf(.38f, .78f)) {
+                    val center = a + delta * t + front * (depth + .0015f)
+                    val horizontal = across * .0032f
+                    val vertical = direction * .0038f
+                    pins.quad(center - horizontal - vertical, center + horizontal - vertical,
+                        center + horizontal + vertical, center - horizontal + vertical)
+                }
+            }
+        }
+        for (side in intArrayOf(-1, 1)) {
+            // No wood crosses the +/- .214 entrance, wider than all three stone steps.
+            for (x in floatArrayOf(.23f, .57f, .91f)) {
+                timber(v(side * x, .971f, -.030f), v(side * x, .916f, .105f),
+                    .016f, .011f, post = true)
+            }
+            for (height in floatArrayOf(.023f, .078f)) {
+                val inwardY = .971f - (height + .030f) * (.055f / .135f)
+                timber(v(side * .23f, inwardY, height), v(side * .968f, inwardY, height),
+                    .009f, .011f, post = false)
+            }
+        }
+        return listOf(body.build(), grain.build(), pins.build())
     }
 
     private fun drawCornerPillar(c: CharacterDrawContext, quarterTurns: Int) {
@@ -528,6 +592,9 @@ internal class LudoPawsCenterHouses3D {
         val PILLAR_BASE = rgb(0xA7997E)
         val PILLAR_WALL = rgb(0xC7B99C)
         val PILLAR_MORTAR = rgb(0x817861)
+        val FENCE_WOOD = rgb(0xB78045)
+        val FENCE_GRAIN = rgb(0x79502E)
+        val FENCE_PINS = rgb(0xD4AB70)
         val FLOWER_CREAM = rgb(0xF4EBCB)
         val FLOWER_PINK = rgb(0xDF96A0)
     }
