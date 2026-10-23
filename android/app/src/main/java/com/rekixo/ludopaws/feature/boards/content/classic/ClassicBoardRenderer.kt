@@ -392,6 +392,16 @@ internal class ClassicBoardRenderer : BoardRenderer {
             shadow.offset(unit * .012f, unit * .045f)
             fillPaint.color = 0x7052381D
             canvas.drawRoundRect(shadow, unit * .035f, unit * .035f, fillPaint)
+            // Visible short feet separate a bench from a flat stripe on the deck.
+            fillPaint.color = 0xFF603B21.toInt()
+            val alongX = rect.width() > rect.height()
+            for (fraction in floatArrayOf(.18f, .82f)) {
+                val x = if (alongX) rect.left + rect.width() * fraction else rect.centerX()
+                val y = if (alongX) rect.centerY() else rect.top + rect.height() * fraction
+                canvas.drawRoundRect(RectF(x - unit * .025f, y,
+                    x + unit * .025f, y + unit * .10f),
+                    unit * .01f, unit * .01f, fillPaint)
+            }
             fillPaint.color = 0xFF70441F.toInt()
             canvas.drawRoundRect(rect, unit * .025f, unit * .025f, fillPaint)
             val seat = RectF(rect.left, rect.top, rect.right, rect.bottom - unit * .03f)
@@ -399,6 +409,19 @@ internal class ClassicBoardRenderer : BoardRenderer {
                 intArrayOf(0xFFFFDA89.toInt(), 0xFFBB7C34.toInt()), null, Shader.TileMode.CLAMP)
             canvas.drawRoundRect(seat, unit * .025f, unit * .025f, fillPaint)
             fillPaint.shader = null
+            strokePaint.strokeWidth = unit * .012f
+            strokePaint.color = 0xFFFFE4A2.toInt()
+            canvas.drawLine(seat.left + unit * .02f, seat.top + unit * .012f,
+                seat.right - unit * .02f, seat.top + unit * .012f, strokePaint)
+            strokePaint.strokeWidth = unit * .008f
+            strokePaint.color = 0x806C421E.toInt()
+            if (alongX) {
+                canvas.drawLine(seat.left + unit * .02f, seat.centerY(),
+                    seat.right - unit * .02f, seat.centerY(), strokePaint)
+            } else {
+                canvas.drawLine(seat.centerX(), seat.top + unit * .02f,
+                    seat.centerX(), seat.bottom - unit * .02f, strokePaint)
+            }
         }
         if (horizontal) {
             for (bottom in listOf(false, true)) {
@@ -414,10 +437,27 @@ internal class ClassicBoardRenderer : BoardRenderer {
             }
         }
         // Colored entry rest stops retain their team identity as a small woven mat.
-        val mat = RectF(raw.centerX() - unit * .21f, raw.centerY() - unit * .18f,
-            raw.centerX() + unit * .21f, raw.centerY() + unit * .18f)
-        fillPaint.color = team ?: 0xFF648B68.toInt()
+        val matHalfWidth = unit * if (horizontal) .27f else .23f
+        val matHalfHeight = unit * if (horizontal) .23f else .27f
+        val mat = RectF(raw.centerX() - matHalfWidth, raw.centerY() - matHalfHeight,
+            raw.centerX() + matHalfWidth, raw.centerY() + matHalfHeight)
+        val matShadow = RectF(mat)
+        matShadow.offset(unit * .012f, unit * .025f)
+        fillPaint.color = 0x50432C19
+        canvas.drawRoundRect(matShadow, unit * .035f, unit * .035f, fillPaint)
+        // Neutral stops use a distinct muted teal rather than looking like green entries.
+        val matColor = team ?: 0xFF467E8B.toInt()
+        fillPaint.shader = LinearGradient(mat.left, mat.top, mat.right, mat.bottom,
+            intArrayOf(mixStone(matColor, Color.WHITE, .12f), darken(matColor, .80f)),
+            null, Shader.TileMode.CLAMP)
         canvas.drawRoundRect(mat, unit * .035f, unit * .035f, fillPaint)
+        fillPaint.shader = null
+        strokePaint.strokeWidth = unit * .006f
+        strokePaint.color = 0x35FFF2CC
+        for (thread in 1 until 9) {
+            val ty = mat.top + mat.height() * thread / 9f
+            canvas.drawLine(mat.left + unit * .025f, ty, mat.right - unit * .025f, ty, strokePaint)
+        }
         strokePaint.strokeWidth = unit * .015f
         strokePaint.color = 0xC0FFF0C6.toInt()
         val seam = RectF(mat)
