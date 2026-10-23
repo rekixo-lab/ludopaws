@@ -39,6 +39,23 @@ internal object CharacterShaders {
             out vec4 outColor;
             void main() {
                 vec3 normal = normalize(vNormal);
+                // Architecture uses a soft screen-space key from above-left.
+                // Keep this separate from the established animal material lighting.
+                if (uMaterial.x > 6.5 && uMaterial.x < 8.5) {
+                    vec3 houseLight = normalize(vec3(-0.45, -0.65, 1.05));
+                    float key = max(dot(normal, houseLight), 0.0);
+                    float bounce = max(dot(normal, normalize(vec3(0.5, 0.3, 1.0))), 0.0);
+                    bool wall = uMaterial.x < 7.5;
+                    // Walls stay cream even when their facade faces away from the key.
+                    // Roofs retain enough side-to-side contrast to read as convex slopes.
+                    float illumination = wall ? 0.86 + key * 0.10 + bounce * 0.03
+                                              : 0.62 + key * 0.32 + bounce * 0.04;
+                    float crest = wall ? 0.0 : smoothstep(0.10, 0.74, vLocalPosition.z) * 0.035;
+                    vec3 halfLight = normalize(houseLight + vec3(0.0, 0.0, 1.0));
+                    float sheen = pow(max(dot(normal, halfLight), 0.0), 28.0) * uMaterial.y;
+                    outColor = vec4(uColor.rgb * (illumination + crest) + vec3(sheen), uColor.a);
+                    return;
+                }
                 vec3 light = normalize(-uLightDirection);
                 bool softFurLighting = uMaterial.x > 5.5 && uMaterial.x < 6.5;
                 // Model Y is flipped into screen space. Soft fur key light comes from above.

@@ -19,11 +19,12 @@ internal class LudoPawsCenterHouses3D {
         rgb(0x268DE2), rgb(0xED3936), rgb(0x41B854), rgb(0xF3C43B),
     )
     private val roofShades = roofs.map { base ->
-        Array(4) { shade -> tint(base, .88f + shade * .08f) }
+        Array(4) { shade -> tint(base, .94f + shade * .045f) }
     }
-    private val roofEdges = roofs.map { tint(it, .58f) }
-    private val roofBase = roofs.map { tint(it, .72f) }
+    private val roofEdges = roofs.map { tint(it, .68f) }
+    private val roofBase = roofs.map { tint(it, .84f) }
     private val tiledRoof = roofTiles()
+    private val ridgeCap = raisedRidge()
     private val shell = MeshBuilder().apply {
         // Facade coordinates: Y=-1 is the gable, Y=0 the doorstep.
         prism(listOf(v(-.94f, -.15f), v(0f, -1f), v(.94f, -.15f),
@@ -43,9 +44,9 @@ internal class LudoPawsCenterHouses3D {
     }.build()
     private val roofBody = MeshBuilder().apply {
         for (side in intArrayOf(-1, 1)) {
-            val a = v(0f, 0f, .48f)
-            val b = v(side * .94f, .94f, .089f)
-            val c = v(0f, .60f, .48f)
+            val a = roofApex()
+            val b = roofEave(side)
+            val c = roofFront()
             triangle(a, b, c)
             val down = v(0f, 0f, -.035f)
             quad(a, a + down, b + down, b)
@@ -64,7 +65,8 @@ internal class LudoPawsCenterHouses3D {
         // The approved stretched mapping puts logical boundaries 6 and 9 at 5/15 and 10/15.
         // Half the center square is consequently 2.5 base cells, not 1.5 cells.
         val halfSpan = size / 6f
-        context.surface = CharacterSurface.MATTE
+        val previousSurface = context.surface
+        context.surface = CharacterSurface.HOUSE_WALL
         context.life = null
         context.limbBendY = 0f
         context.limbBendZ = 0f
@@ -80,18 +82,21 @@ internal class LudoPawsCenterHouses3D {
             Matrix.translateM(facade, 0, 0f, 1f, .02f)
             Matrix.rotateM(facade, 0, -48.990913f, 1f, 0f, 0f)
             Matrix.scaleM(facade, 0, 1f, .60959f, 1f)
+            context.surface = CharacterSurface.HOUSE_WALL
             part(context, facade, shell, 0f, 0f, 0f, 1f, 1f, 1f, CREAM)
 
-            // Roofs meet at exactly (0,0,.48) before the common perspective rotation.
+            // All four roof planes climb to the same higher center summit.
+            context.surface = CharacterSurface.HOUSE_ROOF
             part(context, house, roofBody, 0f, 0f, 0f, 1f, 1f, 1f, roofBase[index])
             tiledRoof.forEachIndexed { shade, mesh ->
                 part(context, house, mesh, 0f, 0f, 0f, 1f, 1f, 1f, roofShades[index][shade])
             }
-            beam(context, house, v(-.94f, .94f, .089f), v(0f, .60f, .48f), .018f, roofEdges[index])
-            beam(context, house, v(.94f, .94f, .089f), v(0f, .60f, .48f), .018f, roofEdges[index])
-            beam(context, house, v(0f, 0f, .49f), v(0f, .60f, .49f), .012f, roofShades[index][3])
+            beam(context, house, roofEave(-1), roofFront(), .018f, roofEdges[index])
+            beam(context, house, roofEave(1), roofFront(), .018f, roofEdges[index])
+            part(context, house, ridgeCap, 0f, 0f, 0f, 1f, 1f, 1f, roofShades[index][3])
 
             // Gold arched surround, recessed dark interior, then the moving wooden leaf.
+            context.surface = CharacterSurface.HOUSE_WALL
             part(context, facade, arch, 0f, -.025f, .016f, .195f, .76f, .025f, GOLD)
             part(context, facade, arch, 0f, -.025f, .033f, .163f, .69f, .018f, INTERIOR)
             System.arraycopy(facade, 0, hinge, 0, 16)
@@ -124,6 +129,7 @@ internal class LudoPawsCenterHouses3D {
             // A little stone threshold stays inside the center square.
             part(context, facade, cube, 0f, -.008f, .075f, .25f, .025f, .045f, STONE)
         }
+        context.surface = previousSurface
     }
 
     private fun doorOpenness(index: Int, state: LudoPaws3DSceneState, now: Long): Float {
@@ -174,9 +180,9 @@ internal class LudoPawsCenterHouses3D {
     private fun roofTiles(): List<MeshGeometry> {
         val batches = Array(4) { MeshBuilder() }
         for (side in intArrayOf(-1, 1)) {
-            val apex = v(0f, 0f, .48f)
-            val eave = v(side * .94f, .94f, .089f)
-            val ridge = v(0f, .60f, .48f)
+            val apex = roofApex()
+            val eave = roofEave(side)
+            val ridge = roofFront()
             // Rows converge exactly toward the shared apex. Insets reveal dark tile seams.
             for (row in 0 until 7) {
                 val t0 = row / 7f
@@ -199,6 +205,37 @@ internal class LudoPawsCenterHouses3D {
         }
         return batches.map { it.build() }
     }
+
+    /** Rounded ridge tiles catch an upper-left highlight instead of reading as a dark crease. */
+    private fun raisedRidge(): MeshGeometry = MeshBuilder().apply {
+        val apex = roofApex()
+        val front = roofFront()
+        fun point(row: Int, segment: Int): V {
+            val t = row / 8f
+            val center = apex + (front - apex) * t
+            val angle = segment * PI.toFloat() / 8f
+            // The tapered center joins all four colored caps at one exact point.
+            val radius = if (row == 0) 0f else .025f - t * .004f
+            return center + v(cos(angle) * radius, 0f, .020f + sin(angle) * radius)
+        }
+        for (row in 0 until 8) {
+            for (segment in 0 until 8) {
+                quad(point(row, segment), point(row + 1, segment),
+                    point(row + 1, segment + 1), point(row, segment + 1))
+            }
+            // Side skirts seat the rounded cap into both roof planes, without a floating gap.
+            for (edge in intArrayOf(0, 8)) {
+                val a = point(row, edge)
+                val b = point(row + 1, edge)
+                val down = v(0f, 0f, -.045f)
+                quad(a, b, b + down, a + down)
+            }
+        }
+        // Close the exposed gable end so the ridge reads as solid roof trim.
+        for (segment in 0 until 8) {
+            triangle(front + v(0f, 0f, -.025f), point(8, segment + 1), point(8, segment))
+        }
+    }.build()
 
     private data class V(val x: Float, val y: Float, val z: Float) {
         operator fun plus(other: V) = V(x + other.x, y + other.y, z + other.z)
@@ -248,6 +285,10 @@ internal class LudoPawsCenterHouses3D {
 
     private companion object {
         fun v(x: Float, y: Float, z: Float = 0f) = V(x, y, z)
+        // One geometry definition keeps the body, tiles, edging and cap aligned.
+        fun roofApex() = v(0f, 0f, .70f)
+        fun roofEave(side: Int) = v(side * .94f, .94f, .089f)
+        fun roofFront() = v(0f, .60f, .48f)
         fun rgb(hex: Int) = floatArrayOf(((hex shr 16) and 255) / 255f,
             ((hex shr 8) and 255) / 255f, (hex and 255) / 255f, 1f)
         fun tint(base: FloatArray, factor: Float) = floatArrayOf(
