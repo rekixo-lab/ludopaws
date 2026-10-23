@@ -201,22 +201,6 @@ internal class LudoPawsCenterHouses3D {
             }
             context.drawPart(hinge, .244f, -.30f, .041f, .022f, .028f, .025f, GOLD)
 
-            for (side in intArrayOf(-1, 1)) {
-                val x = side * .49f
-                part(context, facade, arch, x, -.10f, .014f, .14f, .42f, .022f, GOLD)
-                part(context, facade, arch, x, -.12f, .04f, .108f, .35f, .015f, GLASS)
-                part(context, facade, cube, x, -.28f, .061f, .009f, .15f, .009f, GOLD)
-                part(context, facade, cube, x, -.28f, .061f, .108f, .013f, .009f, GOLD)
-                part(context, facade, cube, x, -.07f, .064f, .16f, .044f, .045f, TERRACOTTA)
-                // Compact flower boxes keep the small center readable.
-                for (flower in -1..1) {
-                    val fx = x + flower * .082f
-                    context.drawPart(facade, fx, -.13f, .085f, .065f, .055f, .035f, LEAF)
-                    context.drawPart(facade, fx, -.17f, .107f, .028f, .035f, .016f,
-                        if (flower == 0) WHITE else roofShades[index][3])
-                    context.drawPart(facade, fx, -.17f, .124f, .011f, .013f, .008f, GOLD)
-                }
-            }
             // A little stone threshold stays inside the center square.
             part(context, facade, cube, 0f, -.008f, .075f, .25f, .025f, .045f, STONE)
         }

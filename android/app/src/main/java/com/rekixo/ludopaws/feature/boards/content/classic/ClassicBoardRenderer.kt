@@ -310,6 +310,13 @@ internal class ClassicBoardRenderer : BoardRenderer {
         row: Int,
         col: Int,
     ) {
+        if ((row to col) in NEUTRAL_SAFE_CELLS || (row to col) in COLORED_ENTRIES) {
+            val raw = RectF(axisBoundary(col, cell), axisBoundary(row, cell),
+                axisBoundary(col + 1, cell), axisBoundary(row + 1, cell))
+            val team = COLORED_ROADS[row to col]?.let { theme.teamColor(it) }
+            drawSafeCourtyard(canvas, raw, team)
+            return
+        }
         COLORED_ROADS[row to col]?.let { color ->
             drawStoneRoadCell(canvas, cell, row, col, theme.teamColor(color))
             return
@@ -337,65 +344,85 @@ internal class ClassicBoardRenderer : BoardRenderer {
         fillPaint.shader = null
         canvas.restoreToCount(saved)
 
-        // Opaque gravel must not hide the four neutral safe-cell markers underneath.
-        if ((row to col) in NEUTRAL_SAFE_CELLS) {
-            val star = Path()
-            repeat(10) { index ->
-                val angle = Math.toRadians(index * 36.0 - 90.0)
-                val radius = cell * .27f * if (index % 2 == 0) 1f else .45f
-                val x = raw.centerX() + kotlin.math.cos(angle).toFloat() * radius
-                val y = raw.centerY() + kotlin.math.sin(angle).toFloat() * radius
-                if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
-            }
-            star.close()
-            drawWoodenStar(canvas, star, raw, cell)
-        }
     }
 
-    /** Carved timber safe marker, entirely contained within the original road cell. */
-    private fun drawWoodenStar(canvas: Canvas, star: Path, raw: RectF, cell: Float) {
-        val radius = cell * .27f
-        val depth = cell * .035f
+    /** Open timber rest stop: low seats at the sides, clear approaches and center. */
+    private fun drawSafeCourtyard(canvas: Canvas, raw: RectF, team: Int?) {
+        val unit = min(raw.width(), raw.height())
+        val gap = maxOf(dp(1.1f), unit * .045f)
+        val area = RectF(raw.left + gap, raw.top + gap, raw.right - gap, raw.bottom - gap)
         val saved = canvas.save()
-        canvas.clipRect(raw.left + dp(1.1f), raw.top + dp(1.1f),
-            raw.right - dp(1.1f), raw.bottom - dp(1.1f))
-        canvas.save()
-        canvas.translate(depth * .5f, depth * 1.5f)
-        fillPaint.color = 0x65412712
-        canvas.drawPath(star, fillPaint)
-        canvas.restore()
-        canvas.save()
-        canvas.translate(0f, depth)
-        fillPaint.color = 0xFF70401D.toInt()
-        canvas.drawPath(star, fillPaint)
-        canvas.restore()
-        fillPaint.shader = LinearGradient(raw.centerX() - radius, raw.centerY() - radius,
-            raw.centerX() + radius, raw.centerY() + radius,
-            intArrayOf(0xFFFFDF91.toInt(), 0xFFD49643.toInt(), 0xFF925323.toInt()),
-            floatArrayOf(0f, .45f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawPath(star, fillPaint)
+        canvas.clipRect(area)
         fillPaint.shader = null
-        canvas.save()
-        canvas.clipPath(star)
-        strokePaint.strokeWidth = cell * .008f
-        strokePaint.color = 0x685E3416
-        repeat(7) { index ->
-            val y = raw.centerY() - radius + radius * (index + .5f) / 3.5f
-            val grain = Path().apply {
-                moveTo(raw.centerX() - radius, y)
-                cubicTo(raw.centerX() - radius * .3f, y - radius * .16f,
-                    raw.centerX() + radius * .2f, y + radius * .18f,
-                    raw.centerX() + radius, y + radius * .06f)
-            }
-            canvas.drawPath(grain, strokePaint)
+        fillPaint.color = 0xFF634126.toInt()
+        canvas.drawRect(area, fillPaint)
+        val floor = RectF(area.left + unit * .035f, area.top + unit * .035f,
+            area.right - unit * .035f, area.bottom - unit * .07f)
+        fillPaint.shader = LinearGradient(floor.left, floor.top, floor.right, floor.bottom,
+            intArrayOf(0xFFFFE2A0.toInt(), 0xFFD6A967.toInt(), 0xFFBC874C.toInt()),
+            floatArrayOf(0f, .5f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawRect(floor, fillPaint)
+        fillPaint.shader = null
+        val plankHeight = unit * .20f
+        strokePaint.strokeWidth = unit * .012f
+        var y = floor.top + plankHeight
+        while (y < floor.bottom) {
+            strokePaint.color = 0x806A431F.toInt()
+            canvas.drawLine(floor.left, y, floor.right, y, strokePaint)
+            strokePaint.color = 0x80FFECC0.toInt()
+            canvas.drawLine(floor.left, y + unit * .017f, floor.right,
+                y + unit * .017f, strokePaint)
+            y += plankHeight
         }
-        canvas.restore()
-        strokePaint.strokeWidth = cell * .018f
-        strokePaint.shader = LinearGradient(raw.left, raw.centerY() - radius,
-            raw.left, raw.centerY() + radius,
-            intArrayOf(0xFFFFE5A4.toInt(), 0xFF865022.toInt()), null, Shader.TileMode.CLAMP)
-        canvas.drawPath(star, strokePaint)
-        strokePaint.shader = null
+        // Fine grain follows the boards and remains quieter than the border lines.
+        strokePaint.strokeWidth = unit * .006f
+        strokePaint.color = 0x405F3A19
+        repeat(12) { index ->
+            val gy = floor.top + floor.height() * (index + .5f) / 12f
+            canvas.drawPath(Path().apply {
+                moveTo(floor.left, gy)
+                cubicTo(floor.centerX() - unit * .1f, gy - unit * .025f,
+                    floor.centerX() + unit * .12f, gy + unit * .025f, floor.right, gy)
+            }, strokePaint)
+        }
+        // Benches flank the travel direction; the two lane approaches stay open.
+        val horizontal = raw.height() > raw.width()
+        fun bench(rect: RectF) {
+            val shadow = RectF(rect)
+            shadow.offset(unit * .012f, unit * .045f)
+            fillPaint.color = 0x7052381D
+            canvas.drawRoundRect(shadow, unit * .035f, unit * .035f, fillPaint)
+            fillPaint.color = 0xFF70441F.toInt()
+            canvas.drawRoundRect(rect, unit * .025f, unit * .025f, fillPaint)
+            val seat = RectF(rect.left, rect.top, rect.right, rect.bottom - unit * .03f)
+            fillPaint.shader = LinearGradient(seat.left, seat.top, seat.right, seat.bottom,
+                intArrayOf(0xFFFFDA89.toInt(), 0xFFBB7C34.toInt()), null, Shader.TileMode.CLAMP)
+            canvas.drawRoundRect(seat, unit * .025f, unit * .025f, fillPaint)
+            fillPaint.shader = null
+        }
+        if (horizontal) {
+            for (bottom in listOf(false, true)) {
+                val top = if (bottom) floor.bottom - unit * .14f else floor.top + unit * .025f
+                bench(RectF(floor.left + floor.width() * .20f, top,
+                    floor.right - floor.width() * .20f, top + unit * .11f))
+            }
+        } else {
+            for (right in listOf(false, true)) {
+                val left = if (right) floor.right - unit * .14f else floor.left + unit * .025f
+                bench(RectF(left, floor.top + floor.height() * .20f,
+                    left + unit * .11f, floor.bottom - floor.height() * .20f))
+            }
+        }
+        // Colored entry rest stops retain their team identity as a small woven mat.
+        val mat = RectF(raw.centerX() - unit * .21f, raw.centerY() - unit * .18f,
+            raw.centerX() + unit * .21f, raw.centerY() + unit * .18f)
+        fillPaint.color = team ?: 0xFF648B68.toInt()
+        canvas.drawRoundRect(mat, unit * .035f, unit * .035f, fillPaint)
+        strokePaint.strokeWidth = unit * .015f
+        strokePaint.color = 0xC0FFF0C6.toInt()
+        val seam = RectF(mat)
+        seam.inset(unit * .035f, unit * .035f)
+        canvas.drawRoundRect(seam, unit * .02f, unit * .02f, strokePaint)
         fillPaint.color = Color.WHITE
         canvas.restoreToCount(saved)
     }
@@ -449,21 +476,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
         canvas.drawPath(topPath, rockReliefPaint)
         canvas.drawPath(topPath, stoneGrainPaint)
 
-        // The opaque stone face must preserve the existing colored safe-entry star.
-        if ((row to col) in COLORED_ENTRIES) {
-            val star = Path()
-            repeat(10) { index ->
-                val angle = Math.toRadians(index * 36.0 - 90.0)
-                val radius = cell * .27f * if (index % 2 == 0) 1f else .43f
-                val x = raw.centerX() + kotlin.math.cos(angle).toFloat() * radius
-                val y = raw.centerY() + kotlin.math.sin(angle).toFloat() * radius
-                if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
-            }
-            star.close()
-            fillPaint.color = team
-            canvas.drawPath(star, fillPaint)
-            fillPaint.color = Color.WHITE
-        }
     }
 
     private fun chamferedStone(rect: RectF, corner: Float, seed: Long): Path = Path().apply {
