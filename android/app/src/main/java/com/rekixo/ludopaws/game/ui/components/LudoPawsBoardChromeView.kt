@@ -16,6 +16,8 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var renderer = BoardRendererRegistry.create(definition)
     // Identical code-drawn homes with team-color palettes; road and center untouched.
     private val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
+    // Four code-drawn storybook roofs meeting at the existing finish apex.
+    private val centerHouseRenderer = LudoPawsCenterHouseRenderer()
 
     init {
         isClickable = false
@@ -44,6 +46,9 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         // Four full 5x5 color homes: same illustrated layout, four team tints.
         // Overdraw old yard backgrounds, below prints and actual 3D pawns.
         yardHabitatRenderer.draw(canvas, cell)
+        // Only the four existing 5x5 CENTER triangles get tiled roofs, doors
+        // and windows. Finish pawns, ranks and FX remain ABOVE this surface.
+        centerHouseRenderer.draw(canvas, cell)
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
         footprintSource?.drawYardPawPrintsOverlay(canvas, cell)
         footprintSource?.drawFinishRanksOverlay(canvas, cell)
