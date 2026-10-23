@@ -258,6 +258,7 @@ internal class LudoPaws3DSceneRenderer {
             LudoPawsPawnLayout.stackPlacements(
                 snapshot = snapshot,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             )
 
         val renderPawns =

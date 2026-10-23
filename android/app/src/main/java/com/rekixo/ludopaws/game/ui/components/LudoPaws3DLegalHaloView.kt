@@ -107,15 +107,8 @@ internal class LudoPaws3DLegalPulseView(
         val cell =
             size /
                 LudoPawsFxBoardGeometry.BOARD_SIZE
-        val stackPlacements =
-            LudoPawsPawnLayout.stackPlacements(
-                snapshot = state,
-                cell = cell,
-            )
-        val turns =
-            perspectiveColor
-                ?.let(OfflinePlayerLayout::rotationQuarterTurns)
-                ?: 0
+        val turns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0
+        val stackPlacements = LudoPawsPawnLayout.stackPlacements(state, cell, turns)
 
         val breath = pulse.coerceIn(0f, 1f)
         val glintAlpha = (65 + breath * 110f).toInt().coerceIn(0, 255)

@@ -73,6 +73,12 @@ class LudoPawsBoardView @JvmOverloads constructor(
         strokeWidth = resources.displayMetrics.density * 2f
     }
 
+    private val selectionFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x28FFE393 }
+    private val selectionLabel = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        textAlign = Paint.Align.CENTER
+        isFakeBoldText = true
+    }
+
     private data class PawnTarget(
         val playerId: String, val tokenIndex: Int, val bounds: RectF,
         val legal: Boolean, val footY: Float, val label: String,
@@ -294,7 +300,18 @@ class LudoPawsBoardView @JvmOverloads constructor(
             it.playerId == localPlayerId && it.tokenIndex == focusedToken
         } else null
         highlighted?.let {
+            canvas.drawRoundRect(it.bounds, density(12f), density(12f), selectionFill)
             canvas.drawRoundRect(it.bounds, density(12f), density(12f), pressPaint)
+            // Foreground identity marker makes the exact pressed pawn clear in a crowd.
+            val r = density(8f)
+            val x = it.bounds.centerX().coerceIn(r, width - r)
+            val y = (it.bounds.top + r).coerceIn(r, height - r)
+            selectionLabel.color = 0xFFFFD978.toInt()
+            canvas.drawCircle(x, y, r, selectionLabel)
+            selectionLabel.color = 0xFF3F2B15.toInt()
+            selectionLabel.textSize = r * 1.35f
+            canvas.drawText((it.tokenIndex + 1).toString(), x,
+                y - (selectionLabel.ascent() + selectionLabel.descent()) * .5f, selectionLabel)
         }
     }
 
@@ -329,8 +346,8 @@ class LudoPawsBoardView @JvmOverloads constructor(
         val size = min(width, height).toFloat()
         if (size <= 0f) return emptyList()
         val cell = size / LudoPawsFxBoardGeometry.BOARD_SIZE
-        val stacks = LudoPawsPawnLayout.stackPlacements(state, cell)
         val turns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0
+        val stacks = LudoPawsPawnLayout.stackPlacements(state, cell, turns)
         return buildList {
             for (player in state.players) {
                 for ((index, position) in player.tokens.withIndex()) {

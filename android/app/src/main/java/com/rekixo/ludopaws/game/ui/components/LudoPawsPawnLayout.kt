@@ -29,6 +29,7 @@ object LudoPawsPawnLayout {
     private data class StackPlacementCache(
         val snapshotRef: WeakReference<MatchSnapshot>,
         val cellBits: Int,
+        val turns: Int,
         val placements: Map<LudoPawsPawnVisualKey, LudoPawsPawnStackPlacement>,
     )
 
@@ -95,14 +96,43 @@ object LudoPawsPawnLayout {
         val logicalWidth = if (x in cell * 5f..cell * 10f) cell * 5f / 3f else cell * 5f / 6f
         val logicalHeight = if (y in cell * 5f..cell * 10f) cell * 5f / 3f else cell * 5f / 6f
         val height = if (turns % 2 == 0) logicalHeight else logicalWidth
-        val columns = ceil(sqrt(occupancy.coerceAtLeast(1) * logicalWidth / logicalHeight))
-            .toInt().coerceIn(1, occupancy.coerceAtLeast(1))
-        val rows = ceil(occupancy.coerceAtLeast(1).toFloat() / columns).toInt()
-        val screenRows = if (turns % 2 == 0) rows else columns
+        val width = if (turns % 2 == 0) logicalWidth else logicalHeight
+        val screenRows = roadRows(occupancy, width >= height).size
         val heightRatio = silhouetteHeight(characterId)
         // Move the feet toward the lower edge of their slot without shrinking the animal.
         val footDrop = minOf(original * heightRatio * .44f, height / screenRows * .38f)
         return RoadPresentation(original, footDrop)
+    }
+
+    private fun roadRows(occupancy: Int, wide: Boolean): List<Int> = when (occupancy) {
+        1 -> listOf(1)
+        2 -> if (wide) listOf(2) else listOf(1, 1)
+        3 -> if (wide) listOf(3) else listOf(1, 2)
+        4 -> listOf(2, 2)
+        5 -> if (wide) listOf(3, 2) else listOf(2, 1, 2)
+        else -> {
+            val columns = if (wide) ceil(sqrt(occupancy * 2.0)).toInt()
+                else ceil(sqrt(occupancy / 2.0)).toInt()
+            val full = occupancy / columns
+            List(full) { columns } + if (occupancy % columns > 0) listOf(occupancy % columns) else emptyList()
+        }
+    }
+
+    private fun roadStackOffset(slot: Int, occupancy: Int, width: Float, height: Float): Pair<Float, Float> {
+        val rows = roadRows(occupancy, width >= height)
+        var remaining = slot
+        var row = 0
+        while (row < rows.lastIndex && remaining >= rows[row]) {
+            remaining -= rows[row]
+            row++
+        }
+        val count = rows[row]
+        // Center each row independently, with a small stagger so rear faces peek through.
+        val stagger = if (count > 1 && rows.size > 1) (if (row % 2 == 0) -.035f else .035f) * width else 0f
+        val x = ((remaining + .5f) / count - .5f) * width * .94f + stagger
+        val y = ((row + .5f) / rows.size - .5f) * height * .84f +
+            if (count > 1 && width < height) (if (remaining % 2 == 0) -.025f else .025f) * height else 0f
+        return x to y
     }
 
     internal fun silhouetteHeight(characterId: String): Float = when (characterId) {
@@ -152,13 +182,15 @@ object LudoPawsPawnLayout {
     internal fun stackPlacements(
         snapshot: MatchSnapshot,
         cell: Float,
+        perspectiveQuarterTurns: Int = 0,
     ): Map<LudoPawsPawnVisualKey, LudoPawsPawnStackPlacement> {
+        val turns = (perspectiveQuarterTurns % 4 + 4) % 4
         val cellBits = java.lang.Float.floatToIntBits(cell)
         val cached = stackPlacementCache.get()
         if (
             cached != null &&
             cached.snapshotRef.get() === snapshot &&
-            cached.cellBits == cellBits
+            cached.cellBits == cellBits && cached.turns == turns
         ) {
             return cached.placements
         }
@@ -202,11 +234,17 @@ object LudoPawsPawnLayout {
                             center.second in cell * 5f..cell * 10f
                         val width = if (center.first in cell * 5f..cell * 10f) 5f / 3f else 5f / 6f
                         val height = if (center.second in cell * 5f..cell * 10f) 5f / 3f else 5f / 6f
-                        val columns = ceil(sqrt(occupancy * width / height)).toInt().coerceIn(1, occupancy)
-                        val rows = ceil(occupancy.toFloat() / columns).toInt()
                         val offset = if (onRoad && occupancy > 1) {
-                            ((slot % columns + .5f) / columns - .5f) * width * .88f to
-                                ((slot / columns + .5f) / rows - .5f) * height * .88f
+                            val screenWidth = if (turns % 2 == 0) width else height
+                            val screenHeight = if (turns % 2 == 0) height else width
+                            val screen = roadStackOffset(slot, occupancy, screenWidth, screenHeight)
+                            // Return canonical offsets; renderer/touch apply the board rotation once.
+                            when (turns) {
+                                1 -> screen.second to -screen.first
+                                2 -> -screen.first to -screen.second
+                                3 -> -screen.second to screen.first
+                                else -> screen
+                            }
                         } else stackOffsetFraction(slot, occupancy)
                         put(
                             key,
@@ -224,6 +262,7 @@ object LudoPawsPawnLayout {
             StackPlacementCache(
                 snapshotRef = WeakReference(snapshot),
                 cellBits = cellBits,
+                turns = turns,
                 placements = placements,
             ),
         )
