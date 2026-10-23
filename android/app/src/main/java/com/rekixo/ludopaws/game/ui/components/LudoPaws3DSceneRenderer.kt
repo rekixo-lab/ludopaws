@@ -40,6 +40,7 @@ internal class LudoPaws3DSceneRenderer {
     private val customMeshes = mutableMapOf<MeshGeometry, CharacterMesh>()
 
     private val lifeByPawn = mutableMapOf<LudoPaws3DPawnKey, LudoPaws3DLifeMotion>()
+    private val centerHouses = LudoPawsCenterHouses3D()
     private val drawContext = object : CharacterDrawContext() {
         override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
             scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
@@ -234,6 +235,19 @@ internal class LudoPaws3DSceneRenderer {
             state.perspectiveColor
                 ?.let(OfflinePlayerLayout::rotationQuarterTurns)
                 ?: 0
+        // Clip decorative volume (including an outward-swinging door) to the
+        // exact stretched center square so no home-lane or road cell is covered.
+        val centerStart = floor(size / 3f).toInt()
+        val centerEnd = kotlin.math.ceil(size * 2f / 3f).toInt()
+        val boardBottom = height - (height - width).coerceAtLeast(0)
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glScissor(centerStart, boardBottom - centerEnd,
+            centerEnd - centerStart, centerEnd - centerStart)
+        centerHouses.draw(drawContext, size, turns, state, nowMillis)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        // Houses retain their internal depth, while all authoritative pawns remain
+        // visible above the center artwork, including the four finish positions.
+        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
         val occupancy =
             occupancyByCenter(
                 snapshot = snapshot,

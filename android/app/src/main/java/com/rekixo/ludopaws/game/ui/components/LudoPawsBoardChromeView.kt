@@ -44,9 +44,8 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         // Four full 5x5 color homes: same illustrated layout, four team tints.
         // Overdraw old yard backgrounds, below prints and actual 3D pawns.
         yardHabitatRenderer.draw(canvas, cell)
-        // Center stays in its ORIGINAL four-color-triangle state. The base
-        // LudoBoardView owns the finish triangles and pawn coordinates;
-        // no custom roof, house, image or facade is drawn here.
+        // The base owns the four finish triangles and pawn coordinates. Joined
+        // animated houses are rendered above them by the shared 3D scene.
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
         footprintSource?.drawYardPawPrintsOverlay(canvas, cell)
         footprintSource?.drawFinishRanksOverlay(canvas, cell)
