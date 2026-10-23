@@ -762,7 +762,7 @@ private class StaticHouseRecorder : CharacterDrawContext() {
         if (rotateY != 0f) Matrix.rotateM(transform, 0, rotateY, 0f, 1f, 0f)
         if (rotateZ != 0f) Matrix.rotateM(transform, 0, rotateZ, 0f, 0f, 1f)
         Matrix.scaleM(transform, 0, scaleX, scaleY, scaleZ)
-        check(Matrix.invertM(inverse, 0, transform))
+        check(Matrix.invertM(inverse, 0, transform, 0))
         val count = geometry.vertices.size / 6
         val chunk = if (color[3] < 1f) {
             Chunk(color.copyOf(), surface).also { transparent.add(it) }
