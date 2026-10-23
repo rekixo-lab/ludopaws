@@ -26,8 +26,9 @@ internal class LudoPawsCenterHouses3D {
     private val tiledRoof = roofTiles()
     private val ridgeCap = raisedRidge()
     private val shell = MeshBuilder().apply {
-        // Facade coordinates: Y=-1 is the gable, Y=0 the doorstep.
-        prism(listOf(v(-.94f, -.15f), v(0f, -1f), v(.94f, -.15f),
+        // Extend the cream wall to meet the inset roof, giving the openings more headroom.
+        // The existing facade transform maps these points to the roof's front edge.
+        prism(listOf(v(-.90f, -.25f), v(0f, -1.15f), v(.90f, -.25f),
             v(.86f, 0f), v(-.86f, 0f)), -.055f, 0f)
     }.build()
     private val arch = MeshBuilder().apply {
@@ -287,8 +288,9 @@ internal class LudoPawsCenterHouses3D {
         fun v(x: Float, y: Float, z: Float = 0f) = V(x, y, z)
         // One geometry definition keeps the body, tiles, edging and cap aligned.
         fun roofApex() = v(0f, 0f, .70f)
-        fun roofEave(side: Int) = v(side * .94f, .94f, .089f)
-        fun roofFront() = v(0f, .60f, .48f)
+        // Pull the entire gable edge inward; its Z stays on the extended facade plane.
+        fun roofEave(side: Int) = v(side * .90f, .90f, .135f)
+        fun roofFront() = v(0f, .54f, .549f)
         fun rgb(hex: Int) = floatArrayOf(((hex shr 16) and 255) / 255f,
             ((hex shr 8) and 255) / 255f, (hex and 255) / 255f, 1f)
         fun tint(base: FloatArray, factor: Float) = floatArrayOf(
