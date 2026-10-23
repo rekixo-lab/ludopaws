@@ -44,16 +44,62 @@ internal class LudoPawsCenterHouses3D {
     private val cube = MeshBuilder().apply {
         prism(listOf(v(-1f, -1f), v(1f, -1f), v(1f, 1f), v(-1f, 1f)), -1f, 1f)
     }.build()
-    private val grassTexture = MeshBuilder().apply {
-        // Deterministic flat flecks: no motion or raised blades in the standing areas.
-        for (row in -11..11) {
-            for (col in -11..11) {
-                val x = col * .085f
-                val y = row * .085f
-                if (kotlin.math.abs(x) < .67f && kotlin.math.abs(y) < .67f) continue
-                if (Math.floorMod(col * 13 + row * 7, 3) != 0) continue
-                quad(v(x - .018f, y, -.075f), v(x, y - .008f, -.075f),
-                    v(x + .025f, y, -.075f), v(x, y + .008f, -.075f))
+    private val terrain = MeshBuilder().apply {
+        // Real surface relief with flat arrival courts, not a painted rectangle.
+        val subdivisions = 32
+        fun point(row: Int, col: Int): V {
+            val x = -.96f + col * 1.92f / subdivisions
+            val y = -.96f + row * 1.92f / subdivisions
+            return v(x, y, gardenHeight(x, y))
+        }
+        for (row in 0 until subdivisions) {
+            for (col in 0 until subdivisions) {
+                quad(point(row, col), point(row, col + 1),
+                    point(row + 1, col + 1), point(row + 1, col))
+            }
+        }
+    }.build()
+    private val turfEdge = MeshBuilder().apply {
+        val corners = listOf(v(-1f, -1f), v(1f, -1f), v(1f, 1f), v(-1f, 1f))
+        corners.indices.forEach { index ->
+            val a = corners[index]
+            val b = corners[(index + 1) % corners.size]
+            // A sloped turf lip exposes depth even with the board's overhead camera.
+            quad(v(a.x * .96f, a.y * .96f, -.025f),
+                v(b.x * .96f, b.y * .96f, -.025f),
+                v(b.x * .98f, b.y * .98f, -.075f),
+                v(a.x * .98f, a.y * .98f, -.075f))
+        }
+    }.build()
+    private val pathStone = MeshBuilder().apply {
+        val outline = listOf(v(-.75f, -1f), v(.65f, -.95f), v(1f, -.5f),
+            v(.95f, .7f), v(.5f, 1f), v(-.65f, .95f), v(-1f, .4f), v(-.95f, -.45f))
+        outline.indices.forEach { index ->
+            val a = outline[index]
+            val b = outline[(index + 1) % outline.size]
+            val topA = v(a.x * .82f, a.y * .82f, 1f)
+            val topB = v(b.x * .82f, b.y * .82f, 1f)
+            triangle(v(0f, 0f, 1f), topA, topB)
+            quad(topA, topB, v(b.x, b.y, -.5f), v(a.x, a.y, -.5f))
+        }
+    }.build()
+    private val grassBlades = MeshBuilder().apply {
+        // One cached mesh per corner: curled blades stay out of paths and arrival slots.
+        for (row in 0..4) {
+            for (col in 0..4) {
+                val x = .735f + col * .045f
+                val y = .735f + row * .045f
+                val base = v(x, y, gardenHeight(x, y) + .003f)
+                repeat(3) { blade ->
+                    val angle = (row * 17 + col * 31 + blade * 113) * PI.toFloat() / 180f
+                    val spread = v(cos(angle) * .020f, sin(angle) * .020f, 0f)
+                    val width = v(-sin(angle) * .004f, cos(angle) * .004f, 0f)
+                    val height = .045f + (row + col + blade) % 3 * .012f
+                    val middle = base + spread * .45f + v(0f, -.011f, height * .65f)
+                    val tip = base + spread + v(0f, -.025f, height)
+                    quad(base - width, base + width, middle + width * .6f, middle - width * .6f)
+                    triangle(middle - width * .6f, middle + width * .6f, tip)
+                }
             }
         }
     }.build()
@@ -158,30 +204,51 @@ internal class LudoPawsCenterHouses3D {
             Matrix.rotateM(garden, 0, (turns * 90 + side * 90).toFloat(), 0f, 0f, 1f)
             Matrix.scaleM(garden, 0, halfSpan, halfSpan, halfSpan)
             if (side == 0) {
-                part(c, garden, cube, 0f, 0f, -.10f, 1f, 1f, .02f, GRASS)
-                part(c, garden, grassTexture, 0f, 0f, 0f, 1f, 1f, 1f, GRASS_FLECK)
+                c.surface = CharacterSurface.GARDEN_GROUND
+                part(c, garden, cube, 0f, 0f, -.13f, .995f, .995f, .04f, EARTH)
+                part(c, garden, turfEdge, 0f, 0f, 0f, 1f, 1f, 1f, TURF_EDGE)
+                part(c, garden, terrain, 0f, 0f, 0f, 1f, 1f, 1f, GRASS)
             }
-            // Wide, flat lawn court reserved for four arrivals; no plants or raised rims.
-            part(c, garden, cube, 0f, .875f, -.068f, .66f, .115f, .004f, COURTYARD_GRASS)
-            // The middle remains a short walk from the home lane to the doorway.
+            // Low irregular slabs: chamfered tops, visible side faces and contact shade.
             repeat(3) { step ->
                 val y = .785f + step * .082f
-                part(c, garden, cube, 0f, y, -.052f, .092f, .031f, .009f, PATH_EDGE)
-                part(c, garden, cube, 0f, y - .002f, -.040f, .082f, .025f, .005f, STONE)
+                c.surface = CharacterSurface.GARDEN_GROUND
+                c.drawPart(garden, .012f, y + .012f, -.020f, .111f, .043f, .003f, CONTACT_SHADE)
+                c.surface = CharacterSurface.GARDEN_STONE
+                part(c, garden, pathStone, if (step == 1) -.008f else .004f, y, -.004f,
+                    .103f, .037f, .018f, if (step == 1) PATH_STONE_LIGHT else STONE)
             }
-            // One low corner bed per rotation. Courtyard slots stop well before these corners.
-            c.drawPart(garden, .84f, .84f, -.028f, .115f, .115f, .012f, BED_SOIL)
+            c.surface = CharacterSurface.GARDEN_GROUND
+            part(c, garden, grassBlades, 0f, 0f, 0f, 1f, 1f, 1f, GRASS_TIPS)
+            // Corner mounds carry shrubs with actual rounded crowns and overlapping leaf clusters.
+            // All four standing spots and the open middle walk remain free of planting.
             for (plant in 0..2) {
-                val x = .79f + plant * .052f
-                val y = if (plant == 1) .875f else .81f
-                c.drawPart(garden, x, y, .002f, .057f, .047f, .025f, LEAF)
+                val x = .77f + plant * .065f
+                val y = if (plant == 1) .87f else .79f
+                val ground = gardenHeight(x, y)
+                c.surface = CharacterSurface.GARDEN_GROUND
+                c.drawPart(garden, x + .016f, y + .018f, ground + .004f,
+                    .078f, .060f, .004f, CONTACT_SHADE)
+                c.surface = CharacterSurface.GARDEN_LEAF
+                c.drawPart(garden, x, y, ground + .025f, .074f, .061f, .050f, LEAF_DARK)
+                for (lobe in 0..3) {
+                    val angle = lobe * PI.toFloat() * .5f
+                    c.drawPart(garden, x + cos(angle) * .032f, y + sin(angle) * .024f - .009f,
+                        ground + .066f, .043f, .036f, .038f,
+                        if (lobe % 2 == 0) LEAF else LEAF_LIGHT)
+                }
+                // A short stem and cupped, tilted petals sit above the foliage.
+                val flowerY = y - .028f
+                beam(c, garden, v(x, y, ground + .025f),
+                    v(x, flowerY, ground + .12f), .005f, LEAF_DARK)
                 val bloom = if (plant == 1) FLOWER_PINK else WHITE
                 repeat(5) { petal ->
                     val angle = petal * 2f * PI.toFloat() / 5f
-                    c.drawPart(garden, x + cos(angle) * .019f, y + sin(angle) * .019f,
-                        .033f, .017f, .017f, .009f, bloom)
+                    c.drawPart(garden, x + cos(angle) * .021f, flowerY + sin(angle) * .018f,
+                        ground + .126f, .019f, .017f, .012f, bloom,
+                        rotateX = sin(angle) * 22f, rotateY = cos(angle) * 22f)
                 }
-                c.drawPart(garden, x, y, .043f, .012f, .012f, .006f, GOLD)
+                c.drawPart(garden, x, flowerY, ground + .139f, .013f, .012f, .010f, GOLD)
             }
         }
     }
@@ -359,11 +426,24 @@ internal class LudoPawsCenterHouses3D {
         val LEAF = rgb(0x409D35)
         val WHITE = rgb(0xFFF5D9)
         val STONE = rgb(0xEAD9B8)
-        val GRASS = rgb(0x8ABD63)
-        val GRASS_FLECK = rgb(0x9BCB73)
-        val COURTYARD_GRASS = rgb(0x95C66D)
-        val PATH_EDGE = rgb(0xBBA782)
-        val BED_SOIL = rgb(0x768C46)
+        // Courts stay level; only the corner beds gain terrain relief.
+        fun gardenHeight(x: Float, y: Float): Float {
+            val ax = kotlin.math.abs(x)
+            val ay = kotlin.math.abs(y)
+            if (ax < .69f || ay < .69f) return -.025f
+            val dx = ax - .825f
+            val dy = ay - .825f
+            val edgeFade = ((.96f - maxOf(ax, ay)) / .06f).coerceIn(0f, 1f)
+            return -.025f + kotlin.math.exp(-(dx * dx + dy * dy) / .012f) * .085f * edgeFade
+        }
+        val GRASS = rgb(0x79AE4B)
+        val GRASS_TIPS = rgb(0x9BCB5C)
+        val TURF_EDGE = rgb(0x527D31)
+        val EARTH = rgb(0x76513A)
+        val CONTACT_SHADE = rgb(0x405C2C)
+        val LEAF_DARK = rgb(0x286B29)
+        val LEAF_LIGHT = rgb(0x69B646)
+        val PATH_STONE_LIGHT = rgb(0xF0DFC0)
         val FLOWER_PINK = rgb(0xF18CA0)
     }
 }

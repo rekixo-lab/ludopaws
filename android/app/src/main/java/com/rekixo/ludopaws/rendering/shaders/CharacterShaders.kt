@@ -39,6 +39,26 @@ internal object CharacterShaders {
             out vec4 outColor;
             void main() {
                 vec3 normal = normalize(vNormal);
+                // Garden relief needs stronger directional modelling than the cream walls.
+                // Rough mineral/soil grain is filtered at small on-board pixel sizes.
+                if (uMaterial.x > 8.5 && uMaterial.x < 11.5) {
+                    vec3 light = normalize(vec3(-0.45, -0.65, 1.05));
+                    float key = max(dot(normal, light), 0.0);
+                    float fill = max(dot(normal, normalize(vec3(0.6, 0.2, 0.8))), 0.0);
+                    vec3 p = vLocalPosition;
+                    float footprint = max(length(dFdx(p)), length(dFdy(p)));
+                    float detail = 1.0 / (1.0 + footprint * footprint * 16000.0);
+                    bool ground = uMaterial.x < 9.5;
+                    bool foliage = uMaterial.x > 10.5;
+                    float grain = sin(p.x * 137.0 + sin(p.y * 79.0)) * sin(p.y * 163.0 + p.z * 31.0);
+                    float textureTone = 1.0 + grain * detail * (ground ? 0.075 : 0.035);
+                    float broadTone = ground ? sin(p.x * 24.0) * sin(p.y * 19.0) * 0.035 : 0.0;
+                    float diffuse = 0.43 + key * 0.48 + fill * 0.09;
+                    float sheen = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0),
+                        foliage ? 22.0 : 36.0) * uMaterial.y;
+                    outColor = vec4(uColor.rgb * (textureTone + broadTone) * diffuse + vec3(sheen), uColor.a);
+                    return;
+                }
                 // Architecture uses a soft screen-space key from above-left.
                 // Keep this separate from the established animal material lighting.
                 if (uMaterial.x > 6.5 && uMaterial.x < 8.5) {
