@@ -5,6 +5,8 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import android.util.LruCache
@@ -68,12 +70,12 @@ internal class LudoPawsYardHabitatRenderer {
         // Underpaint every pixel; the four yards meet roads without gaps.
         rect(c, 0f, 0f, 100f, 100f, palette.rimDark)
         roundRect(c, 0.7f, 0.7f, 99.3f, 99.3f, 7.0f, palette.rim)
-        outline(c, 1.1f, 1.1f, 98.9f, 98.9f, 7.1f, palette.rimLight, 1.5f)
+        outline(c, 1.1f, 1.1f, 98.9f, 98.9f, 7.1f, palette.rimLight, .85f)
 
         // Colored "grass" perimeter is ~13% wide; keep it open rather than
         // packing every tile with flowers. The ground takes ~72% of the square.
         gradient(c, RectF(2.1f, 2.1f, 97.9f, 97.9f),
-            palette.bandLight, palette.bandDark, 6.4f)
+            palette.bandLight, mix(palette.bandDark, palette.bandLight, .24f), 6.4f)
 
         // Sparse background grass marks are limited to the OUTER band.
         val rng = Random(742)
@@ -95,8 +97,19 @@ internal class LudoPawsYardHabitatRenderer {
         roundRect(c, 10.4f, 10.8f, 89.6f, 89.7f, 11.6f, palette.recessShadow)
         roundRect(c, 11.4f, 11.1f, 88.6f, 88.7f, 11.4f, palette.lipDark)
         roundRect(c, 12.3f, 12.3f, 87.7f, 87.6f, 10.8f, palette.lipLight)
+        stoneCurb(c, palette)
         gradient(c, RectF(14.0f, 14.1f, 86.0f, 85.8f),
-            palette.sandTop, palette.sandBottom, 9.5f)
+            mix(palette.sandTop, 0xFFF0E5CF.toInt(), .50f),
+            mix(palette.sandBottom, 0xFFD8C5A4.toInt(), .62f), 9.5f)
+        val groundClip = c.save()
+        c.clipPath(Path().apply { addRoundRect(RectF(14f, 14.1f, 86f, 85.8f), 9.5f, 9.5f, Path.Direction.CW) })
+        // Broad daylight and a soft rim shadow give the open earth a shallow bowl shape.
+        brush.shader = RadialGradient(31f, 27f, 70f,
+            intArrayOf(0x30FFF9E7, 0x00FFF9E7, 0x205D4933),
+            floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
+        c.drawRect(14f, 14.1f, 86f, 85.8f, brush)
+        brush.shader = null
+        c.restoreToCount(groundClip)
         outline(c, 14.1f, 14.1f, 85.9f, 85.7f,
             9.4f, 0x5BFFF6C8, 0.8f)
 
@@ -104,11 +117,12 @@ internal class LudoPawsYardHabitatRenderer {
         // ENTIRE 20..80% interior free of scenery and obvious painted slots.
         // Only faint earthen stippling hints at texture, never dark spots.
         val dust = Random(2009)
-        repeat(35) {
+        repeat(420) {
             val x = 16f + dust.nextFloat() * 68f
             val y = 16f + dust.nextFloat() * 68f
-            val radius = 0.13f + dust.nextFloat() * 0.46f
-            ellipse(c, x, y, radius * 1.30f, radius, palette.sandSpeck)
+            val radius = 0.06f + dust.nextFloat() * 0.16f
+            ellipse(c, x, y, radius * 1.45f, radius,
+                if (it % 3 == 0) 0x35FFF8E8 else palette.sandSpeck)
         }
 
         // Small fence pieces and plants are around CORNERS and outer ring,
@@ -131,14 +145,31 @@ internal class LudoPawsYardHabitatRenderer {
             Triple(6.3f, 68f, 0.91f), Triple(93.4f, 69f, 0.84f),
             Triple(34f, 94f, 0.78f), Triple(66f, 94f, 0.95f),
         )
-        for ((x, y, size) in flowers) flower(c, x, y, size)
+        for ((x, y, size) in flowers) flower(c, x, y, size * .78f)
         rock(c, 45f, 5.6f, 1f)
         rock(c, 94f, 55f, 0.85f)
         rock(c, 5.5f, 58f, 0.75f)
         rock(c, 59f, 94.5f, 1.05f)
 
-        // Delicate glossy outer edge reads cleanly at the actual phone size.
-        outline(c, 0.9f, 0.9f, 99.1f, 99.1f, 7f, palette.rimLight, 0.70f)
+        // A fine matte edge keeps the team tint without a bright plastic-looking frame.
+        outline(c, 0.9f, 0.9f, 99.1f, 99.1f, 7f, palette.rimLight, .45f)
+    }
+
+    private fun stoneCurb(c: Canvas, palette: LudoPawsYardPalette) {
+        // Low sandstone blocks stay outside the entire 20..80% character clearing.
+        repeat(4) { edge ->
+            val saved = c.save()
+            c.rotate(edge * 90f, 50f, 50f)
+            repeat(8) { block ->
+                val x = 20f + block * 7.6f
+                val warmStone = mix(0xFFD9C9A8.toInt(), palette.bandLight, .09f)
+                roundRect(c, x - 3.45f, 11.3f, x + 3.7f, 14.5f, .7f, 0x40534230)
+                gradient(c, RectF(x - 3.5f, 10.8f, x + 3.4f, 13.9f),
+                    mix(warmStone, Color.WHITE, .27f), warmStone, .65f)
+                line(c, x - 2.7f, 11.25f, x + 2.5f, 11.25f, 0x65FFF6DE, .22f)
+            }
+            c.restoreToCount(saved)
+        }
     }
 
     private fun cornerFoliage(c: Canvas, palette: LudoPawsYardPalette) {
@@ -165,10 +196,11 @@ internal class LudoPawsYardHabitatRenderer {
             val py = y - 1.0f * size + sin(t).toFloat() * 1.7f * size
             val leafSaved = c.save()
             c.rotate(a, px, py)
-            ellipse(c, px, py, 1.7f * size, 3.0f * size,
-                if (i % 2 == 0) colors.leafLight else colors.leafShade)
-            ellipse(c, px - 0.4f * size, py - 0.9f * size,
-                0.65f * size, 1.35f * size, 0x51E8FFBC)
+            val leaf = if (i % 2 == 0) colors.leafLight else colors.leafShade
+            litOval(c, px, py, 1.7f * size, 3.0f * size,
+                mix(leaf, 0xFFE2EAB5.toInt(), .20f), mix(leaf, 0xFF214B29.toInt(), .22f))
+            line(c, px, py + 1.8f * size, px - .12f * size, py - 1.9f * size,
+                0x6393B86E, .20f * size)
             c.restoreToCount(leafSaved)
         }
         c.restoreToCount(saved)
@@ -188,6 +220,7 @@ internal class LudoPawsYardHabitatRenderer {
         line(c, x1, y1, x2, y2, 0xFFB26A2F.toInt(), 4.6f)
         line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFF7BB62.toInt(), 2.8f)
         line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0x9CFFE6A8.toInt(), 0.62f)
+        line(c, x1 + .3f, y1 + .2f, x2 - .3f, y2 + .2f, 0x426B492B, .24f)
     }
 
     private fun timberPost(c: Canvas, x: Float, y: Float) {
@@ -206,9 +239,8 @@ internal class LudoPawsYardHabitatRenderer {
             val a = i * (Math.PI * 2.0 / 5.0)
             val px = x + cos(a).toFloat() * 2.05f * size
             val py = y + sin(a).toFloat() * 2.05f * size
-            ellipse(c, px, py, 1.55f * size, 1.70f * size, Color.WHITE)
-            ellipse(c, px - 0.32f * size, py - 0.36f * size,
-                0.70f * size, 0.74f * size, 0xD7FFFFFF.toInt())
+            litOval(c, px, py, 1.55f * size, 1.70f * size,
+                0xFFFFF9E8.toInt(), 0xFFD8CBB0.toInt())
         }
         ellipse(c, x, y, 1.45f * size, 1.45f * size, 0xFFFFB424.toInt())
         ellipse(c, x - 0.34f * size, y - 0.48f * size,
@@ -218,9 +250,8 @@ internal class LudoPawsYardHabitatRenderer {
     private fun rock(c: Canvas, x: Float, y: Float, scale: Float) {
         ellipse(c, x + 0.5f * scale, y + 1.3f * scale,
             2.5f * scale, 1.2f * scale, 0x493F4A3B)
-        ellipse(c, x, y, 2.1f * scale, 1.65f * scale, 0xFF777E75.toInt())
-        ellipse(c, x - 0.42f * scale, y - 0.55f * scale,
-            1.32f * scale, 0.82f * scale, 0xFFC5C6B6.toInt())
+        litOval(c, x, y, 2.1f * scale, 1.65f * scale,
+            0xFFD6D1BC.toInt(), 0xFF7C8273.toInt())
     }
 
     private fun tuft(
@@ -248,6 +279,26 @@ internal class LudoPawsYardHabitatRenderer {
         c.drawRoundRect(bounds, radius, radius, brush)
         brush.shader = null
     }
+
+    private fun litOval(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, light: Int, dark: Int) {
+        brush.style = Paint.Style.FILL
+        brush.color = Color.WHITE
+        val saved = c.save()
+        c.translate(x, y)
+        c.scale(rx, ry)
+        brush.shader = RadialGradient(-.32f, -.40f, 1.45f,
+            intArrayOf(light, mix(light, dark, .45f), dark),
+            floatArrayOf(0f, .55f, 1f), Shader.TileMode.CLAMP)
+        c.drawOval(-1f, -1f, 1f, 1f, brush)
+        brush.shader = null
+        c.restoreToCount(saved)
+    }
+
+    private fun mix(a: Int, b: Int, fraction: Float): Int = Color.rgb(
+        (Color.red(a) + (Color.red(b) - Color.red(a)) * fraction).toInt(),
+        (Color.green(a) + (Color.green(b) - Color.green(a)) * fraction).toInt(),
+        (Color.blue(a) + (Color.blue(b) - Color.blue(a)) * fraction).toInt(),
+    )
 
     private fun rect(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
         brush.style = Paint.Style.FILL
