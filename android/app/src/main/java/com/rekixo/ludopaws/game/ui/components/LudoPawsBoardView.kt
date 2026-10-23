@@ -469,7 +469,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
         parent?.requestSendAccessibilityEvent(this, event)
     }
 
-    override fun dispatchHoverEvent(event: MotionEvent): Boolean {
+    public override fun dispatchHoverEvent(event: MotionEvent): Boolean {
         val manager = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
         if (!manager.isTouchExplorationEnabled) return super.dispatchHoverEvent(event)
         val target = targetAt(event.x, event.y)?.takeIf { it.playerId == localPlayerId }
