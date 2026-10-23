@@ -66,6 +66,9 @@ internal class LudoPawsCenterHouses3D {
         // The approved stretched mapping puts logical boundaries 6 and 9 at 5/15 and 10/15.
         // Half the center square is consequently 2.5 base cells, not 1.5 cells.
         val halfSpan = size / 6f
+        // Scale the complete group about its shared center. Leave a perimeter strip
+        // even around the flowers, thresholds and fully outward-swinging doors.
+        val artworkHalfSpan = halfSpan * .75f
         val previousSurface = context.surface
         context.surface = CharacterSurface.HOUSE_WALL
         context.life = null
@@ -75,7 +78,7 @@ internal class LudoPawsCenterHouses3D {
             Matrix.setIdentityM(house, 0)
             Matrix.translateM(house, 0, size * .5f, size * .5f, 0f)
             Matrix.rotateM(house, 0, (quarterTurns * 90 + index * 90).toFloat(), 0f, 0f, 1f)
-            Matrix.scaleM(house, 0, halfSpan, halfSpan, halfSpan)
+            Matrix.scaleM(house, 0, artworkHalfSpan, artworkHalfSpan, artworkHalfSpan)
 
             // A shallow projected facade gives the top-down board a readable storybook front.
             // Actual thickness, normals, roof planes and hinge rotation remain full 3D geometry.
