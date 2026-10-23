@@ -15,6 +15,16 @@ internal class LudoPawsCenterHouses3D {
     private val facade = FloatArray(16)
     private val hinge = FloatArray(16)
     private val garden = FloatArray(16)
+    private data class CornerBloom(
+        val x: Float, val y: Float, val height: Float, val size: Float, val pink: Boolean,
+    )
+    private val cornerBlooms = listOf(
+        CornerBloom(.765f, .785f, .068f, .76f, false),
+        CornerBloom(.825f, .845f, .096f, .94f, true),
+        CornerBloom(.885f, .795f, .078f, .82f, false),
+        CornerBloom(.875f, .890f, .060f, .62f, true),
+        CornerBloom(.775f, .885f, .050f, .57f, false),
+    )
     private val colors = arrayOf("BLUE", "RED", "GREEN", "YELLOW")
     private val roofs = arrayOf(
         rgb(0x268DE2), rgb(0xED3936), rgb(0x41B854), rgb(0xF3C43B),
@@ -220,35 +230,47 @@ internal class LudoPawsCenterHouses3D {
             }
             c.surface = CharacterSurface.GARDEN_GROUND
             part(c, garden, grassBlades, 0f, 0f, 0f, 1f, 1f, 1f, GRASS_TIPS)
-            // Corner mounds carry shrubs with actual rounded crowns and overlapping leaf clusters.
-            // All four standing spots and the open middle walk remain free of planting.
-            for (plant in 0..2) {
-                val x = .77f + plant * .065f
-                val y = if (plant == 1) .87f else .79f
-                val ground = gardenHeight(x, y)
-                c.surface = CharacterSurface.GARDEN_GROUND
-                c.drawPart(garden, x + .016f, y + .018f, ground + .004f,
-                    .078f, .060f, .004f, CONTACT_SHADE)
-                c.surface = CharacterSurface.GARDEN_LEAF
-                c.drawPart(garden, x, y, ground + .025f, .074f, .061f, .050f, LEAF_DARK)
-                for (lobe in 0..3) {
-                    val angle = lobe * PI.toFloat() * .5f
-                    c.drawPart(garden, x + cos(angle) * .032f, y + sin(angle) * .024f - .009f,
-                        ground + .066f, .043f, .036f, .038f,
-                        if (lobe % 2 == 0) LEAF else LEAF_LIGHT)
+            // One continuous planted bed: low leaves overlap the turf and neighbouring plants.
+            // Individual dark oval bases made the old flowers look like separate placed objects.
+            c.surface = CharacterSurface.GARDEN_LEAF
+            cornerBlooms.forEachIndexed { index, plant ->
+                val ground = gardenHeight(plant.x, plant.y)
+                c.drawPart(garden, plant.x, plant.y, ground - .006f,
+                    .065f, .058f, .027f, LEAF_BASE)
+                repeat(4) { leaf ->
+                    val angle = (index * 37 + leaf * 93) * PI.toFloat() / 180f
+                    val x = plant.x + cos(angle) * .034f
+                    val y = plant.y + sin(angle) * .028f
+                    // Each spreading leaf is planted in the actual terrain, not suspended above it.
+                    c.drawPart(garden, x, y, gardenHeight(x, y) + .010f,
+                        .039f, .020f, .013f, if (leaf % 2 == 0) LEAF_BASE else LEAF,
+                        rotateZ = angle * 180f / PI.toFloat())
                 }
-                // A short stem and cupped, tilted petals sit above the foliage.
-                val flowerY = y - .028f
-                beam(c, garden, v(x, y, ground + .025f),
-                    v(x, flowerY, ground + .12f), .005f, LEAF_DARK)
-                val bloom = if (plant == 1) FLOWER_PINK else WHITE
+            }
+            cornerBlooms.forEachIndexed { index, plant ->
+                val ground = gardenHeight(plant.x, plant.y)
+                val flowerY = plant.y - .012f - index % 2 * .009f
+                val bloomZ = ground + plant.height
+                // Short, differently sized stems emerge through the shared foliage.
+                beam(c, garden, v(plant.x, plant.y, ground - .004f),
+                    v(plant.x, flowerY, bloomZ - .006f), .0035f, LEAF_DARK)
+                c.drawPart(garden, plant.x - .014f, plant.y - .003f,
+                    ground + plant.height * .45f, .026f, .012f, .009f, LEAF_LIGHT,
+                    rotateZ = -32f + index * 11f)
+                // A green calyx joins petals directly to the stem; smaller blooms nest in leaves.
+                c.drawPart(garden, plant.x, flowerY, bloomZ - .010f,
+                    .020f * plant.size, .018f * plant.size, .012f, LEAF)
                 repeat(5) { petal ->
-                    val angle = petal * 2f * PI.toFloat() / 5f
-                    c.drawPart(garden, x + cos(angle) * .021f, flowerY + sin(angle) * .018f,
-                        ground + .126f, .019f, .017f, .012f, bloom,
-                        rotateX = sin(angle) * 22f, rotateY = cos(angle) * 22f)
+                    val angle = (petal * 72 + index * 29) * PI.toFloat() / 180f
+                    c.drawPart(garden, plant.x + cos(angle) * .015f * plant.size,
+                        flowerY + sin(angle) * .013f * plant.size, bloomZ,
+                        .015f * plant.size, .013f * plant.size, .008f * plant.size,
+                        if (plant.pink) FLOWER_PINK else FLOWER_CREAM,
+                        rotateX = sin(angle) * 18f, rotateY = cos(angle) * 18f,
+                        rotateZ = angle * 180f / PI.toFloat())
                 }
-                c.drawPart(garden, x, flowerY, ground + .139f, .013f, .012f, .010f, GOLD)
+                c.drawPart(garden, plant.x, flowerY, bloomZ + .007f,
+                    .008f * plant.size, .008f * plant.size, .006f * plant.size, GOLD)
             }
         }
     }
@@ -441,9 +463,11 @@ internal class LudoPawsCenterHouses3D {
         val TURF_EDGE = rgb(0x527D31)
         val EARTH = rgb(0x76513A)
         val CONTACT_SHADE = rgb(0x405C2C)
+        val LEAF_BASE = rgb(0x57943B)
         val LEAF_DARK = rgb(0x286B29)
         val LEAF_LIGHT = rgb(0x69B646)
         val PATH_STONE_LIGHT = rgb(0xF0DFC0)
-        val FLOWER_PINK = rgb(0xF18CA0)
+        val FLOWER_CREAM = rgb(0xF4EBCB)
+        val FLOWER_PINK = rgb(0xDF96A0)
     }
 }
