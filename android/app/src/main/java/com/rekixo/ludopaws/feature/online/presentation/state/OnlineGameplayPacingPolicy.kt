@@ -84,8 +84,13 @@ internal object OnlineGameplayPacingPolicy {
         val extraTurn = previousActor == currentActor
         val captureDuration =
             if (hasCapture) LudoPawsGameplayPacingPolicy.captureReturnDurationMillis(speed) else 0L
-        val delay = forwardDuration +
-            captureDuration +
+        // Do not consume the next remote player's server turn with a local finish show.
+        // Only a completed match holds the result overlay for the full entry sequence.
+        val delay = if (current.status == "FINISHED" &&
+            LudoPawsHomeEntryPolicy.newlyComplete(previous, current)) {
+            LudoPawsGameplayPacingPolicy.forwardAnimationDurationMillis(speed, forward?.visualSteps ?: 1) +
+                LudoPawsHomeEntryPolicy.DURATION_MS
+        } else forwardDuration + captureDuration +
             LudoPawsGameplayPacingPolicy.postMoveBreathMillis(speed, extraTurn)
 
         return OnlineGameplayPacingTransition(
@@ -105,7 +110,7 @@ internal fun MainActivity.applyOnlineGameplayPacing(
         lastOnlineGameplayPacingKey = null
         return
     }
-    if (current.status != "ACTIVE") {
+    if (current.status !in setOf("ACTIVE", "FINISHED")) {
         onlineGameplayActionBlockedUntilMillis = 0L
         lastOnlineGameplayPacingKey = null
         return
@@ -139,7 +144,11 @@ internal fun MainActivity.applyOnlineGameplayPacing(
         LudoPawsGameplayPacingPolicy.remainingPresentationDelayMillis(
             totalDelayMillis = transition.delayMillis,
             alreadyPresentedMillis = alreadyPresentedMillis,
-        )
+        ).let { remaining ->
+            // A late server confirmation must not skip the authoritative finish show.
+            if (current.status == "FINISHED" && LudoPawsHomeEntryPolicy.newlyComplete(previous, current))
+                maxOf(remaining, LudoPawsHomeEntryPolicy.DURATION_MS) else remaining
+        }
     onlineGameplayActionBlockedUntilMillis = maxOf(
         onlineGameplayActionBlockedUntilMillis,
         now + remainingDelay,

@@ -32,12 +32,17 @@ internal object CharacterShaders {
             #version 300 es
             precision highp float;
             uniform vec4 uColor;
+            uniform vec4 uEntryClip;
+            uniform float uEntryFade;
             uniform vec2 uMaterial;
             uniform vec3 uLightDirection;
             in vec3 vNormal;
             in vec3 vLocalPosition;
             out vec4 outColor;
             void main() {
+                if (uEntryClip.z > uEntryClip.x &&
+                    (gl_FragCoord.x < uEntryClip.x || gl_FragCoord.x > uEntryClip.z ||
+                     gl_FragCoord.y < uEntryClip.y || gl_FragCoord.y > uEntryClip.w)) discard;
                 vec3 normal = normalize(vNormal);
                 // Garden relief needs stronger directional modelling than the cream walls.
                 // Rough mineral/soil grain is filtered at small on-board pixel sizes.
@@ -56,7 +61,7 @@ internal object CharacterShaders {
                     float diffuse = 0.39 + key * 0.57 + fill * 0.10;
                     float sheen = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0),
                         foliage ? 22.0 : 36.0) * uMaterial.y;
-                    outColor = vec4(uColor.rgb * (textureTone + broadTone) * diffuse + vec3(sheen), uColor.a);
+                    outColor = vec4(uColor.rgb * (textureTone + broadTone) * diffuse + vec3(sheen), uColor.a * uEntryFade);
                     return;
                 }
                 // Architecture uses a soft screen-space key from above-left.
@@ -73,7 +78,7 @@ internal object CharacterShaders {
                     float crest = wall ? 0.0 : smoothstep(0.10, 0.74, vLocalPosition.z) * 0.035;
                     vec3 halfLight = normalize(houseLight + vec3(0.0, 0.0, 1.0));
                     float sheen = pow(max(dot(normal, halfLight), 0.0), 28.0) * uMaterial.y;
-                    outColor = vec4(uColor.rgb * (illumination + crest) + vec3(sheen), uColor.a);
+                    outColor = vec4(uColor.rgb * (illumination + crest) + vec3(sheen), uColor.a * uEntryFade);
                     return;
                 }
                 vec3 light = normalize(-uLightDirection);
@@ -106,7 +111,7 @@ internal object CharacterShaders {
                 float fill = max(dot(normal, normalize(vec3(-0.7, 0.2, 0.6))), 0.0) * 0.12;
                 float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.2) * 0.08;
                 vec3 rgb = baseColor * coatTone * ((softFurLighting ? 0.49 : 0.44) + diffuse * 0.55 + fill + sky) + vec3((specular + rim) * uColor.a);
-                outColor = vec4(rgb, uColor.a);
+                outColor = vec4(rgb, uColor.a * uEntryFade);
             }
         """
 }

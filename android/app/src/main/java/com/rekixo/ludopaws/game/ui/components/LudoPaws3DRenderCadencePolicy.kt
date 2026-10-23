@@ -43,6 +43,9 @@ internal object LudoPaws3DRenderCadencePolicy {
         state: LudoPaws3DSceneState,
         nowMillis: Long,
     ): Boolean {
+        if (state.homeEntries.values.any {
+                it.startedAtMillis > 0L && it.elapsed(nowMillis) < LudoPawsHomeEntryPolicy.DURATION_MS
+            }) return true
         val forward = state.forwardMotion
         val forwardTailMillis =
             if (forward?.toPosition == LudoPathEncoding.HOME_POSITION) {

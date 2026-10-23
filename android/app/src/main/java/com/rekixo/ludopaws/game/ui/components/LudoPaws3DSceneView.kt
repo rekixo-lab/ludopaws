@@ -44,6 +44,7 @@ internal data class LudoPaws3DSceneState(
     val captureReturns: Map<LudoPaws3DPawnKey, LudoPaws3DCaptureReturnState> = emptyMap(),
     val pendingPreviewEventIndex: Int? = null,
     val activeReactions: Map<LudoPaws3DPawnKey, LudoPaws3DActiveReaction> = emptyMap(),
+    val homeEntries: Map<String, LudoPawsHomeEntry> = emptyMap(),
 )
 
 /**
@@ -394,6 +395,35 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                 emptyMap()
             }
 
+        val homeEntries = if (sameMatch) previousState.homeEntries.toMutableMap()
+            else mutableMapOf()
+        state?.let { current ->
+            current.players.filter(LudoPawsHomeEntryPolicy::complete).forEach { player ->
+                val existing = homeEntries[player.playerId]
+                val knownRank = current.finishOrderPlayerIds.indexOf(player.playerId).let {
+                    if (current.winnerPlayerId == player.playerId ||
+                        (current.winnerTeamId != null && current.winnerTeamId == player.teamId)) 1
+                    else if (it >= 0) it + 1 else 0
+                }
+                if (existing != null) {
+                    if (knownRank > 0 && existing.rank != knownRank)
+                        homeEntries[player.playerId] = existing.copy(rank = knownRank)
+                } else {
+                    val before = previousSnapshot?.takeIf { it.matchId == current.matchId }
+                        ?.players?.firstOrNull { it.playerId == player.playerId }
+                    val liveArrival = before != null && !LudoPawsHomeEntryPolicy.complete(before)
+                    val arrivalAt = if (forward?.playerId == player.playerId)
+                        maxOf(now, forwardStartedAtMillis + forwardDurationMillis) else now
+                    val observedRank = if (liveArrival) homeEntries.size + 1 else 0
+                    homeEntries[player.playerId] = LudoPawsHomeEntry(
+                        if (liveArrival) arrivalAt else 0L,
+                        if (current.matchMode == "TEAM_UP" && current.winnerTeamId == null) 0
+                        else if (knownRank > 0) knownRank else observedRank,
+                    )
+                }
+            }
+        }
+
         authoritativeSnapshot = state
         sceneState =
             LudoPaws3DSceneState(
@@ -409,6 +439,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                 forwardDurationMillis = forwardDurationMillis,
                 captureReturns = retainedCaptureReturns + newCaptureReturns,
                 activeReactions = retainedReactions,
+                homeEntries = homeEntries,
             )
     }
 

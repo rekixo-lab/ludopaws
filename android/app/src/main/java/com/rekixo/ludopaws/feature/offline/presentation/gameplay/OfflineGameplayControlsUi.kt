@@ -45,7 +45,7 @@ private fun OfflineGameActivity.ensureOfflineResultActions(
             OFFLINE_RESULT_ACTIONS_TAG,
         )
 
-    if (state.status != "FINISHED") {
+    if (state.status != "FINISHED" || SystemClock.uptimeMillis() < gameplayActionBlockedUntilMillis) {
         existing?.visibility = View.GONE
         return
     }
@@ -307,7 +307,7 @@ internal fun OfflineGameActivity.renderGame(
 
     if (state.status == "FINISHED") {
         val winnerName = winner?.displayName ?: "Player"
-        resultPanel.visibility = View.VISIBLE
+        resultPanel.visibility = if (blockedRemainingMillis > 0L) View.GONE else View.VISIBLE
         // Phase 11 compatibility marker retained for the integration gate:
         // You brought all 4 paws home.
         resultTitleText.text = if (state.players.size == 2) "${winnerName.uppercase()} WINS" else "MATCH COMPLETE"

@@ -13,6 +13,10 @@ import kotlin.math.sqrt
 internal class LudoPawsCenterHouses3D {
     private val house = FloatArray(16)
     private val facade = FloatArray(16)
+    private val plaqueTransform = FloatArray(16)
+    private val finishLettering by lazy {
+        listOf("WINNER", "2ND", "3RD", "4TH", "HOME").associateWith(::lettering)
+    }
     private val hinge = FloatArray(16)
     private val garden = FloatArray(16)
     private data class CornerBloom(
@@ -55,6 +59,21 @@ internal class LudoPawsCenterHouses3D {
         outline.add(v(1f, 0f))
         prism(outline, -.5f, .5f)
     }.build()
+    private val entryJamb = MeshBuilder().apply {
+        val outline = mutableListOf(v(-1f, 0f), v(-1f, -.65f))
+        for (step in 0..16) {
+            val angle = PI.toFloat() - step * PI.toFloat() / 16f
+            outline.add(v(cos(angle), -.65f - sin(angle) * .35f))
+        }
+        outline.add(v(1f, 0f))
+        outline.indices.forEach { index ->
+            val next = (index + 1) % outline.size
+            fun outer(i: Int) = v(outline[i].x * .195f, outline[i].y * .76f - .025f, .041f)
+            fun inner(i: Int) = v(outline[i].x * .163f, outline[i].y * .69f - .025f, .055f)
+            quad(outer(index), outer(next), inner(next), inner(index))
+        }
+    }.build()
+
     private val cube = MeshBuilder().apply {
         prism(listOf(v(-1f, -1f), v(1f, -1f), v(1f, 1f), v(-1f, 1f)), -1f, 1f)
     }.build()
@@ -202,8 +221,42 @@ internal class LudoPawsCenterHouses3D {
 
             // A little stone threshold stays inside the center square.
             part(context, facade, cube, 0f, -.008f, .075f, .25f, .025f, .045f, STONE)
+            val player = state.snapshot?.players?.firstOrNull { it.color == colors[index] }
+            val entry = player?.let { state.homeEntries[it.playerId] }
+            if (entry != null) {
+                val reveal = LudoPawsHomeEntryPolicy.plaque(entry.elapsed(nowMillis))
+                if (reveal > 0f) drawFinishPlaque(context, house, index, entry.rank, reveal)
+            }
         }
         context.surface = previousSurface
+    }
+
+    /** Foreground jamb occludes entering bodies while leaving the doorway aperture empty. */
+    fun drawEntryForeground(
+        c: CharacterDrawContext, size: Float, turns: Int, state: LudoPaws3DSceneState, now: Long,
+    ) {
+        val previous = c.surface
+        c.life = null
+        c.limbBendY = 0f
+        c.limbBendZ = 0f
+        repeat(4) { index ->
+            val player = state.snapshot?.players?.firstOrNull { it.color == colors[index] } ?: return@repeat
+            val entry = state.homeEntries[player.playerId] ?: return@repeat
+            val elapsed = entry.elapsed(now)
+            if ((0..3).none { LudoPawsHomeEntryPolicy.walk(elapsed, it) in .55f..0.9999f })
+                return@repeat
+            Matrix.setIdentityM(house, 0)
+            Matrix.translateM(house, 0, size * .5f, size * .5f, 0f)
+            Matrix.rotateM(house, 0, (turns * 90 + index * 90).toFloat(), 0f, 0f, 1f)
+            Matrix.scaleM(house, 0, size / 6f * .75f, size / 6f * .75f, size / 6f * .75f)
+            System.arraycopy(house, 0, facade, 0, 16)
+            Matrix.translateM(facade, 0, 0f, 1f, .02f)
+            Matrix.rotateM(facade, 0, -48.990913f, 1f, 0f, 0f)
+            Matrix.scaleM(facade, 0, 1f, .60959f, 1f)
+            c.surface = CharacterSurface.HOUSE_WALL
+            part(c, facade, entryJamb, 0f, 0f, 0f, 1f, 1f, 1f, GOLD)
+        }
+        c.surface = previous
     }
 
     private fun drawGarden(c: CharacterDrawContext, size: Float, halfSpan: Float, turns: Int) {
@@ -347,7 +400,73 @@ internal class LudoPawsCenterHouses3D {
         return listOf(body.build(), grain.build(), pins.build())
     }
 
+    private fun drawFinishPlaque(
+        c: CharacterDrawContext, parent: FloatArray, color: Int, rank: Int, reveal: Float,
+    ) {
+        System.arraycopy(parent, 0, plaqueTransform, 0, 16)
+        Matrix.translateM(plaqueTransform, 0, 0f, 1.13f, .02f + reveal * .04f)
+        val pop = .82f + .18f * reveal
+        Matrix.scaleM(plaqueTransform, 0, pop, pop, pop)
+        c.surface = CharacterSurface.GARDEN_STONE
+        // Solid chamfered sign, recessed team-color face and extruded gold characters.
+        part(c, plaqueTransform, stoneBlock, 0f, .014f, -.018f, .74f, .19f, .035f, CONTACT_SHADE)
+        part(c, plaqueTransform, stoneBlock, 0f, 0f, .015f, .72f, .18f, .034f, GOLD)
+        part(c, plaqueTransform, stoneBlock, 0f, 0f, .052f, .67f, .137f, .012f, roofEdges[color])
+        val title = when (rank) {
+            1 -> "WINNER"
+            2 -> "2ND"
+            3 -> "3RD"
+            4 -> "4TH"
+            else -> "HOME"
+        }
+        c.surface = CharacterSurface.HOUSE_WALL
+        part(c, plaqueTransform, finishLettering.getValue(title), 0f, 0f, .068f,
+            1f, 1f, 1f, GOLD)
+        // Corner studs catch highlights, without covering the lettering.
+        for (side in intArrayOf(-1, 1)) {
+            c.drawPart(plaqueTransform, side * .62f, .095f, .072f, .014f, .014f, .012f, WHITE)
+        }
+    }
+
+    /** Batched solid letter blocks; thickness and normals are actual mesh geometry. */
+    private fun lettering(text: String): MeshGeometry {
+        val glyphs = mapOf(
+            'W' to listOf("10001","10001","10001","10101","10101","11011","10001"),
+            'I' to listOf("11111","00100","00100","00100","00100","00100","11111"),
+            'N' to listOf("10001","11001","11001","10101","10011","10011","10001"),
+            'E' to listOf("11111","10000","10000","11110","10000","10000","11111"),
+            'R' to listOf("11110","10001","10001","11110","10100","10010","10001"),
+            '2' to listOf("01110","10001","00001","00010","00100","01000","11111"),
+            '3' to listOf("11110","00001","00001","01110","00001","00001","11110"),
+            '4' to listOf("10010","10010","10010","11111","00010","00010","00010"),
+            'D' to listOf("11110","10001","10001","10001","10001","10001","11110"),
+            'T' to listOf("11111","00100","00100","00100","00100","00100","00100"),
+            'H' to listOf("10001","10001","10001","11111","10001","10001","10001"),
+            'O' to listOf("01110","10001","10001","10001","10001","10001","01110"),
+            'M' to listOf("10001","11011","10101","10101","10001","10001","10001"),
+        )
+        val pixel = .033f
+        val width = (text.length * 6 - 1) * pixel
+        return MeshBuilder().apply {
+            text.forEachIndexed { letter, ch ->
+                glyphs.getValue(ch).forEachIndexed { row, line ->
+                    line.forEachIndexed { column, filled ->
+                        if (filled == '1') {
+                            val x = (letter * 6 + column) * pixel - width * .5f
+                            val y = (row - 3.5f) * pixel
+                            prism(listOf(v(x, y), v(x + pixel, y),
+                                v(x + pixel, y + pixel), v(x, y + pixel)), 0f, .032f)
+                        }
+                    }
+                }
+            }
+        }.build()
+    }
+
     private fun doorOpenness(index: Int, state: LudoPaws3DSceneState, now: Long): Float {
+        val finished = state.snapshot?.players?.firstOrNull { it.color == colors[index] }
+            ?.let { state.homeEntries[it.playerId] }
+        if (finished != null) return LudoPawsHomeEntryPolicy.door(finished.elapsed(now))
         val phase = ((now + index * 3_100L) % 14_000L).toFloat()
         val idle = envelope(phase, 850f, 1_650f, 2_550f)
         val motion = state.forwardMotion ?: return idle

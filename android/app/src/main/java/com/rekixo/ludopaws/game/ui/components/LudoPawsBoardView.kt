@@ -57,6 +57,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
     private var classicPawnFallbackVisible = true
     private var characterIds: List<String> = emptyList()
     private var inputBlockedUntil = 0L
+    private val homeDepartureAt = mutableMapOf<String, Long>()
     private var submittedRoll: String? = null
     private var downRoll: String? = null
     private var pointerId = -1
@@ -180,11 +181,28 @@ class LudoPawsBoardView @JvmOverloads constructor(
                 LudoPawsGameplayPacingPolicy.remainingPresentationDelayMillis(
                     LudoPawsGameplayPacingPolicy.interactionDelayAfterMoveMillis(
                         old, state, GameSettingsStore(context).snapshot().gameSpeed,
+                        includeHomeEntry = false,
                     ), alreadyPresentedMillis,
                 )
         } else if (old?.matchId != state?.matchId) {
             inputBlockedUntil = 0L
             submittedRoll = null
+        }
+        if (old?.matchId != state?.matchId) homeDepartureAt.clear()
+        state?.players?.filter(LudoPawsHomeEntryPolicy::complete)?.forEach { player ->
+            if (player.playerId !in homeDepartureAt) {
+                val before = old?.players?.firstOrNull { it.playerId == player.playerId }
+                val live = before != null && !LudoPawsHomeEntryPolicy.complete(before)
+                val motion = LudoPawsPawnAnimationPolicy.plans(old, state)
+                    .firstOrNull { it.playerId == player.playerId && it.kind == LudoPawsPawnMotionKind.FORWARD }
+                val arrivalDelay = motion?.let {
+                    LudoPawsGameplayPacingPolicy.forwardAnimationDurationMillis(
+                        GameSettingsStore(context).snapshot().gameSpeed, it.visualSteps)
+                } ?: 0L
+                homeDepartureAt[player.playerId] = if (live)
+                    SystemClock.uptimeMillis() + (arrivalDelay - alreadyPresentedMillis).coerceAtLeast(0L) +
+                        LudoPawsHomeEntryPolicy.WALK_START_MS else 0L
+            }
         }
         snapshot = state
         characterIds = characterIdsBySeat.toList()
@@ -350,6 +368,8 @@ class LudoPawsBoardView @JvmOverloads constructor(
         val stacks = LudoPawsPawnLayout.stackPlacements(state, cell, turns)
         return buildList {
             for (player in state.players) {
+                if (homeDepartureAt[player.playerId]?.let { SystemClock.uptimeMillis() >= it } == true)
+                    continue
                 for ((index, position) in player.tokens.withIndex()) {
                     val center = LudoPawsFxBoardGeometry.tokenCenter(
                         player.color, index, position, cell, turns,
