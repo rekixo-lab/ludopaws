@@ -82,7 +82,7 @@ object LudoPawsPawnLayout {
 
     internal data class RoadPresentation(val radius: Float, val footDrop: Float)
 
-    /** Same screen-space fit for the renderer, touch targets and legal-move cues. */
+    /** Shared foot placement; preserve the approved animal size on every road. */
     internal fun roadPresentation(
         x: Float, y: Float, cell: Float, position: Int, occupancy: Int,
         characterId: String, turns: Int,
@@ -94,18 +94,15 @@ object LudoPawsPawnLayout {
         }
         val logicalWidth = if (x in cell * 5f..cell * 10f) cell * 5f / 3f else cell * 5f / 6f
         val logicalHeight = if (y in cell * 5f..cell * 10f) cell * 5f / 3f else cell * 5f / 6f
-        val width = if (turns % 2 == 0) logicalWidth else logicalHeight
         val height = if (turns % 2 == 0) logicalHeight else logicalWidth
         val columns = ceil(sqrt(occupancy.coerceAtLeast(1) * logicalWidth / logicalHeight))
             .toInt().coerceIn(1, occupancy.coerceAtLeast(1))
         val rows = ceil(occupancy.coerceAtLeast(1).toFloat() / columns).toInt()
-        val screenColumns = if (turns % 2 == 0) columns else rows
         val screenRows = if (turns % 2 == 0) rows else columns
         val heightRatio = silhouetteHeight(characterId)
-        // Reserve space for the maximum 14% legal breathing expansion.
-        val radius = minOf(original, width / screenColumns * .82f / (2f * .95f * 1.14f),
-            height / screenRows * .86f / (heightRatio * 1.14f))
-        return RoadPresentation(radius, radius * heightRatio * .44f)
+        // Move the feet toward the lower edge of their slot without shrinking the animal.
+        val footDrop = minOf(original * heightRatio * .44f, height / screenRows * .38f)
+        return RoadPresentation(original, footDrop)
     }
 
     internal fun silhouetteHeight(characterId: String): Float = when (characterId) {
