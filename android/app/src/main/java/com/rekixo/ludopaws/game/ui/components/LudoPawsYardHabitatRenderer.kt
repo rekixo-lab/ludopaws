@@ -135,6 +135,7 @@ internal class LudoPawsYardHabitatRenderer {
     private fun duckPond(c: Canvas) {
         background(c, 0xFF53DDDF.toInt(), 0xFF0784CC.toInt())
         // Soft deep-water center, bright shallow turquoise shore.
+        p.color=Color.WHITE
         p.shader = RadialGradient(50f,47f,72f, intArrayOf(
             0x004DDDF5, 0x3A047DB4, 0xC429BFB9.toInt()
         ), floatArrayOf(0f,.57f,1f), Shader.TileMode.CLAMP)
@@ -339,6 +340,8 @@ internal class LudoPawsYardHabitatRenderer {
     }
 
     private fun vignette(c: Canvas) {
+        p.color=Color.WHITE
+        p.style=Paint.Style.FILL
         p.shader = RadialGradient(
             50f,45f,73f,
             intArrayOf(0x00FFFFFF,0x00FFFFFF,0x350E3322),
@@ -350,6 +353,8 @@ internal class LudoPawsYardHabitatRenderer {
     }
 
     private fun background(c:Canvas,top:Int,bottom:Int) {
+        p.color=Color.WHITE
+        p.style=Paint.Style.FILL
         p.shader=LinearGradient(0f,0f,100f,100f,top,bottom,Shader.TileMode.CLAMP)
         c.drawRect(0f,0f,100f,100f,p)
         p.shader=null
