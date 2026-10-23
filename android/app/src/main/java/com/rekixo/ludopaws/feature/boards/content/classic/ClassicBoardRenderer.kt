@@ -400,7 +400,9 @@ internal class ClassicBoardRenderer : BoardRenderer {
         Color.colorToHSV(team, hsv)
         hsv[1] = (hsv[1] * 1.18f).coerceAtMost(1f)
         hsv[2] = (hsv[2] * 1.09f).coerceAtMost(1f)
-        val pigment = mixStone(Color.HSVToColor(hsv), 0xFFF1E9DA.toInt(), .055f)
+        // A softer brick-red avoids the saturated scarlet glare on all six red road cells.
+        val pigment = if (COLORED_ROADS[row to col] == RED) 0xFFDA6667.toInt()
+            else mixStone(Color.HSVToColor(hsv), 0xFFF1E9DA.toInt(), .055f)
         val bodyPath = chamferedStone(body, corner, shapeSeed)
         fillPaint.color = Color.WHITE
         fillPaint.shader = LinearGradient(body.left, body.top, body.right, body.bottom,
