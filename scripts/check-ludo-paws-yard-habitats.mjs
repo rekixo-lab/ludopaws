@@ -63,8 +63,18 @@ assert.ok(art.includes("BitmapFactory.decodeStream"),
   "Premium yard illustration needs a decoded bitmap");
 assert.ok(art.includes("if (!drawPremiumHabitat(canvas, habitat, rect))"),
   "Illustration must retain safe vector fallback");
-assert.ok(art.includes("Rect(index * panel, 0, (index + 1) * panel, atlas.height)"),
+assert.ok(art.includes("index * panel + inset"),
   "Premium artwork panels must stay independently selectable");
+assert.ok(art.includes("val inset = (panel * 0.03f)"),
+  "Reduce heavy outer frame without exposing a team-color strip");
+assert.match(art, /drawOpenPlayArea\(canvas, rect, habitat\)/,
+  "Calm space is required where four 3D animals are displayed");
+assert.match(art, /yard\.width\(\) \* 0\.55f/,
+  "Central clearing must feather smoothly into detailed edge foliage");
+assert.match(art, /Color\.argb\(0, red, green, blue\)/,
+  "Keep decorative habitat edges, do not paint a hard central rectangle");
+assert.doesNotMatch(art, /private fun landingPad\(/,
+  "Never draw permanent white disks beneath the real animals");
 assert.match(art, /canvas\.clipRect\(rect\)/,
     "Premium habitat must cover the entire square home");
 assert.doesNotMatch(art, /canvas\.clipPath\(clip\)/,
@@ -72,7 +82,10 @@ assert.doesNotMatch(art, /canvas\.clipPath\(clip\)/,
 assert.match(art, /LudoPawsYardHabitatGeometry\.face\(color, cell\)/);
 assert.match(art, /LudoPawsFxBoardGeometry\.tokenCenter\(/);
 assert.match(art, /position = -1/);
-assert.match(art, /landingPad\(canvas, center\.first, center\.second, cell\)/);
+assert.doesNotMatch(art, /landingPad\(canvas,/,
+    "Don't create distracting oval placeholders under 3D characters");
+assert.match(art, /NO bright permanent landingPad circles/,
+    "3D ground contact and empty-slot footprints remain authoritative");
 assert.match(art, /Bitmap\.createBitmap\(384, 384, Bitmap\.Config\.ARGB_8888\)/);
 assert.doesNotMatch(art, /BitmapFactory\.decodeResource|drawText\(.*(DOG|GOAT|CAT|DUCK)/);
 assert.match(chrome, /yardHabitatRenderer\.draw\(canvas, cell, habitatsByColor\)/);
@@ -105,4 +118,4 @@ for (const marker of [
     assert.ok(tests.includes(marker), "Missing habitat regression: " + marker);
 }
 
-console.log("Ludo Paws five modular yard habitats cover all four FULL 5x5 homes, no color strips or rounded corner gaps, cached artwork below pawns, road and center unchanged.");
+console.log("Ludo Paws five modular yard habitats: clean open centers, detailed perimeter, no white pawn disks, full 5x5 home coverage, no gameplay changes.");

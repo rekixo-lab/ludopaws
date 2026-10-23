@@ -27,8 +27,12 @@ import kotlin.random.Random
  * The habitat atlas includes its own garden/pond/farm edge decoration, so
  * leaving the old broad colored rim visible would create double borders.
  *
+ * The five detailed illustrations stay around the habitat's perimeter. A
+ * translucent biome-colored clearing calms the middle where four real 3D
+ * characters stand. No fake white paw pedestals compete with the characters.
+ *
  * The small scene bitmaps are lazily cached per habitat (5 * 384² RGBA < 3 MiB).
- * Dense hand-illustrated details are drawn once, not every animation frame.
+ * Dense procedural details are drawn once, not every animation frame.
  */
 internal class LudoPawsYardHabitatRenderer(private val context: Context) {
     /**
@@ -64,9 +68,18 @@ internal class LudoPawsYardHabitatRenderer(private val context: Context) {
         val atlas = paintedAtlas ?: return false
         val panel = atlas.width / 5
         val index = atlasIndex(habitat)
+        // Trim only the outermost 3% of the source where the old thick,
+        // dark atlas edging doubled up against the four Ludo board seams.
+        // This fills the same COMPLETE yard without resizing pawn positions.
+        val inset = (panel * 0.03f).toInt().coerceAtLeast(1)
         canvas.drawBitmap(
             atlas,
-            Rect(index * panel, 0, (index + 1) * panel, atlas.height),
+            Rect(
+                index * panel + inset,
+                inset,
+                (index + 1) * panel - inset,
+                atlas.height - inset,
+            ),
             destination,
             bitmapPaint,
         )
@@ -76,6 +89,7 @@ internal class LudoPawsYardHabitatRenderer(private val context: Context) {
     private val cache = LruCache<LudoPawsYardHabitat, Bitmap>(5)
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val habitatBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val clearingPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         strokeCap = Paint.Cap.ROUND
@@ -112,27 +126,49 @@ internal class LudoPawsYardHabitatRenderer(private val context: Context) {
             if (!drawPremiumHabitat(canvas, habitat, rect)) {
                 canvas.drawBitmap(bitmap(habitat), null, rect, bitmapPaint)
             }
-            // Four softly inset, readable resting pads exactly share the real
-            // pawn/footprint geometry. These are not permanent animal pictures.
-            for (slot in 0..3) {
-                val center = LudoPawsFxBoardGeometry.tokenCenter(
-                    color = color,
-                    tokenIndex = slot,
-                    position = -1,
-                    cell = cell,
-                ) ?: continue
-                landingPad(canvas, center.first, center.second, cell)
-            }
+            drawOpenPlayArea(canvas, rect, habitat)
+            // NO bright permanent landingPad circles. The 3D scene already
+            // provides a grounded shadow for each pawn, and the authoritative
+            // yard-footprint overlay marks only slots actually vacated.
             canvas.restoreToCount(save)
         }
     }
 
-    private fun landingPad(canvas: Canvas, x: Float, y: Float, cell: Float) {
-        val radius = cell * .39f
-        oval(canvas, x, y + cell * .035f, radius * 1.17f, radius * .92f, 0x37071921)
-        oval(canvas, x, y, radius * 1.13f, radius * .88f, 0x90FFF8E8.toInt())
-        oval(canvas, x, y - cell * .025f, radius, radius * .76f, 0xCDFCF8EF.toInt())
-        ring(canvas, x, y - cell * .025f, radius * .92f, radius * .70f, 0x76FFFFFF, .52f)
+    /**
+     * A soft illustrated clearing, not a solid flat overlay. Real detail is
+     * strongest around the edge, with calm ground/water under the 3D animals.
+     * The center has the highest veil opacity; there is no rectangular seam,
+     * border strip, white disk or fake animal in the backing art.
+     */
+    private fun drawOpenPlayArea(
+        canvas: Canvas,
+        yard: RectF,
+        habitat: LudoPawsYardHabitat,
+    ) {
+        val tint = when (habitat) {
+            LudoPawsYardHabitat.DOG_GARDEN -> 0xFF96BD6B.toInt()  // sunlit grass
+            LudoPawsYardHabitat.GOAT_MEADOW -> 0xFFE8CF97.toInt() // sandy meadow
+            LudoPawsYardHabitat.DUCK_POND -> 0xFF44BAE7.toInt()   // open water
+            LudoPawsYardHabitat.CAT_COURTYARD -> 0xFFD8C5B5.toInt() // warm paving
+            LudoPawsYardHabitat.DONKEY_FARM -> 0xFFDEBC7E.toInt() // farm earth
+        }
+        val red = Color.red(tint)
+        val green = Color.green(tint)
+        val blue = Color.blue(tint)
+        clearingPaint.shader = RadialGradient(
+            yard.centerX(),
+            yard.centerY(),
+            yard.width() * 0.55f,
+            intArrayOf(
+                Color.argb(177, red, green, blue),
+                Color.argb(114, red, green, blue),
+                Color.argb(0, red, green, blue),
+            ),
+            floatArrayOf(0f, 0.55f, 1f),
+            Shader.TileMode.CLAMP,
+        )
+        canvas.drawRect(yard, clearingPaint)
+        clearingPaint.shader = null
     }
 
     private fun bitmap(habitat: LudoPawsYardHabitat): Bitmap {
