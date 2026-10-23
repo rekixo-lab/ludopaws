@@ -247,6 +247,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
                                 tokenIndex = tokenIndex,
                                 position = position,
                                 cell = cell,
+                                perspectiveQuarterTurns = turns,
                             )
                             ?: return@mapNotNull null
                     val placement =

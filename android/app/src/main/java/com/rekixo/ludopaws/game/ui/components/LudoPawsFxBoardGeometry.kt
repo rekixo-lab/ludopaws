@@ -19,6 +19,7 @@ internal object LudoPawsFxBoardGeometry {
         tokenIndex: Int,
         position: Int,
         cell: Float,
+        perspectiveQuarterTurns: Int = 0,
     ): Pair<Float, Float>? {
         val renderPosition =
             LudoPathEncoding
@@ -29,6 +30,7 @@ internal object LudoPawsFxBoardGeometry {
                 color = color,
                 tokenIndex = tokenIndex,
                 cell = cell,
+                perspectiveQuarterTurns = perspectiveQuarterTurns,
             )
         }
 
@@ -134,6 +136,7 @@ internal object LudoPawsFxBoardGeometry {
         color: String,
         tokenIndex: Int,
         cell: Float,
+        perspectiveQuarterTurns: Int,
     ): Pair<Float, Float>? {
         val origin =
             when (color) {
@@ -155,8 +158,17 @@ internal object LudoPawsFxBoardGeometry {
         val colFraction =
             if (tokenIndex % 2 == 0) 0.25f else 0.75f
 
-        return (whiteLeft + whiteSize * colFraction) to
-            (whiteTop + whiteSize * rowFraction)
+        // Eight percent of the full five-cell yard, expressed before board rotation.
+        // Inverse-rotate screen-down so every perspective still moves feet down on screen.
+        val distance = cell * .40f
+        val offset = when (Math.floorMod(perspectiveQuarterTurns, 4)) {
+            1 -> distance to 0f
+            2 -> 0f to -distance
+            3 -> -distance to 0f
+            else -> 0f to distance
+        }
+        return (whiteLeft + whiteSize * colFraction + offset.first) to
+            (whiteTop + whiteSize * rowFraction + offset.second)
     }
 
     private fun centerForCell(

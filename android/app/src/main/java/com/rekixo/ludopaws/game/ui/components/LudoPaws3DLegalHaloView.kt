@@ -135,6 +135,7 @@ internal class LudoPaws3DLegalPulseView(
                         tokenIndex = tokenIndex,
                         position = position,
                         cell = cell,
+                        perspectiveQuarterTurns = turns,
                     )
                     ?: return@forEach
             val placement =

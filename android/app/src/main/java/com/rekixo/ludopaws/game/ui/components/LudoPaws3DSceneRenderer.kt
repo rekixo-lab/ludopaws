@@ -252,6 +252,7 @@ internal class LudoPaws3DSceneRenderer {
             occupancyByCenter(
                 snapshot = snapshot,
                 cell = cell,
+                turns = turns,
             )
         val stackPlacements =
             LudoPawsPawnLayout.stackPlacements(
@@ -284,6 +285,7 @@ internal class LudoPaws3DSceneRenderer {
                                         tokenIndex = tokenIndex,
                                         capture = capture,
                                         cell = cell,
+                                        turns = turns,
                                         nowMillis = nowMillis,
                                     )
                                 }
@@ -340,6 +342,7 @@ internal class LudoPaws3DSceneRenderer {
                                             tokenIndex = tokenIndex,
                                             position = currentPosition,
                                             cell = cell,
+                                            perspectiveQuarterTurns = turns,
                                         ),
                                     )
                                 occupancy[occupancyKey] ?: 1
@@ -596,6 +599,7 @@ internal class LudoPaws3DSceneRenderer {
         tokenIndex: Int,
         capture: LudoPaws3DCaptureReturnState,
         cell: Float,
+        turns: Int,
         nowMillis: Long,
     ): CaptureVisual? {
         if (capture.durationMillis <= 0L) return null
@@ -611,6 +615,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = capture.motion.fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val toBase =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -618,6 +623,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = -1,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val fromOffset =
             LudoPawsPawnLayout.tokenOffsetFraction(
@@ -659,6 +665,7 @@ internal class LudoPaws3DSceneRenderer {
         state: LudoPaws3DSceneState,
         nowMillis: Long,
     ): Pair<Float, Float>? {
+        val turns = state.perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0
         val motion =
             state.forwardMotion
                 ?.takeIf {
@@ -671,6 +678,7 @@ internal class LudoPaws3DSceneRenderer {
                     tokenIndex = tokenIndex,
                     position = currentPosition,
                     cell = cell,
+                    perspectiveQuarterTurns = turns,
                 )
         val elapsed =
             (nowMillis - state.forwardStartedAtMillis)
@@ -686,6 +694,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = currentPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             )
         }
 
@@ -717,6 +726,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val to =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -724,6 +734,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = toPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return from
 
         // Stay on the cell-center path; characters may hold translation during planted
@@ -854,6 +865,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val to =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -861,6 +873,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = toPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val visibleFrom =
             rotatePoint(
@@ -885,6 +898,7 @@ internal class LudoPaws3DSceneRenderer {
     private fun occupancyByCenter(
         snapshot: MatchSnapshot,
         cell: Float,
+        turns: Int,
     ): Map<String, Int> {
         val counts = mutableMapOf<String, Int>()
         snapshot.players.forEach { player ->
@@ -896,6 +910,7 @@ internal class LudoPaws3DSceneRenderer {
                             tokenIndex = tokenIndex,
                             position = position,
                             cell = cell,
+                            perspectiveQuarterTurns = turns,
                         ),
                     )
                 counts[key] = (counts[key] ?: 0) + 1

@@ -1668,41 +1668,18 @@ class LudoBoardView @JvmOverloads constructor(
         return null
     }
 
-    // YARD TOKEN LOCK: the four resting-token slots are tied to the fixed 4x4 white home.
-    // Keep the 0.5-cell inset and 25%/75% slot fractions unchanged unless the board is redesigned.
+    // Share yard foot anchors with the 3D renderer, including perspective-aware headroom.
     private fun yardTokenCenter(
         color: String,
         tokenIndex: Int,
         cell: Float,
-    ): Pair<Float, Float>? {
-        val origin =
-            when (color) {
-                "RED" -> 0 to 0
-                "GREEN" -> 0 to 9
-                "YELLOW" -> 9 to 9
-                "BLUE" -> 9 to 0
-                else -> return null
-            }
-
-        val yardRect =
-            RectF(
-                axisBoundary(origin.second, cell),
-                axisBoundary(origin.first, cell),
-                axisBoundary(origin.second + 6, cell),
-                axisBoundary(origin.first + 6, cell),
-            )
-        val whiteLeft = yardRect.left + cell * 0.5f
-        val whiteTop = yardRect.top + cell * 0.5f
-        val whiteSize = cell * 4f
-
-        val rowFraction =
-            if (tokenIndex < 2) 0.25f else 0.75f
-        val colFraction =
-            if (tokenIndex % 2 == 0) 0.25f else 0.75f
-
-        return (whiteLeft + whiteSize * colFraction) to
-            (whiteTop + whiteSize * rowFraction)
-    }
+    ): Pair<Float, Float>? = LudoPawsFxBoardGeometry.tokenCenter(
+        color = color,
+        tokenIndex = tokenIndex,
+        position = -1,
+        cell = cell,
+        perspectiveQuarterTurns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
+    )
 
     private fun tokenOffset(
         slot: Int,
