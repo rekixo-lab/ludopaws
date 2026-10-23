@@ -1,15 +1,11 @@
 package com.rekixo.ludopaws
 
-import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RadialGradient
-import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.util.LruCache
@@ -18,472 +14,288 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 /**
- * Five independently interchangeable, animal-free habitat artworks.
+ * A clean, entirely code-drawn home square inspired by the approved yard art.
  *
- * Paint all four COMPLETE YARD QUADRANTS (including their former color strips).
- * Road, home lanes, center, stars, hit targets and all authoritative pawns
- * remain untouched. 3D animals draw ABOVE this board view.
+ * One composition is reused for all four Ludo team colors:
+ * - square-to-square opaque cover: never exposes the old plain color strip
+ * - a raised colored turf border and recessed golden-sand inner play space
+ * - small corner timber fence details, sparse leaves, stones and daisies
+ * - NO animals, pawn pads, central grass clutter, WebP atlas or image loading
  *
- * The habitat atlas includes its own garden/pond/farm edge decoration, so
- * leaving the old broad colored rim visible would create double borders.
+ * All four 5x5 physical-cell quadrants are painted, including inactive yards,
+ * so two-player games retain a cohesive four-corner board design.
+ * Rendering does not modify any pawn, path, home-slot or center geometry.
  *
- * The five detailed illustrations stay around the habitat's perimeter. A
- * translucent biome-colored clearing calms the middle where four real 3D
- * characters stand. No fake white paw pedestals compete with the characters.
- *
- * The small scene bitmaps are lazily cached per habitat (5 * 384² RGBA < 3 MiB).
- * Dense procedural details are drawn once, not every animation frame.
+ * Each static vector scene is rasterized once into a 512px bitmap per team.
+ * Each frame then performs just four cached drawBitmap operations.
  */
-internal class LudoPawsYardHabitatRenderer(private val context: Context) {
-    /**
-     * High-quality offline illustration atlas; five equal-width panels in
-     * order Dog / Goat / Duck / Cat / Donkey. Loaded once, not per frame.
-     * The original cached vector scenes remain a safe fallback.
-     */
-    private val paintedAtlas: Bitmap? by lazy(LazyThreadSafetyMode.NONE) {
-        runCatching {
-            context.assets.open("yard_habitats/atlas.webp").use { stream ->
-                BitmapFactory.decodeStream(stream)?.takeIf { bitmap ->
-                    bitmap.width >= 5 &&
-                        bitmap.width % 5 == 0 &&
-                        bitmap.height > 0
-                }
-            }
-        }.getOrNull()
-    }
-
-    private fun atlasIndex(habitat: LudoPawsYardHabitat): Int = when (habitat) {
-        LudoPawsYardHabitat.DOG_GARDEN -> 0
-        LudoPawsYardHabitat.GOAT_MEADOW -> 1
-        LudoPawsYardHabitat.DUCK_POND -> 2
-        LudoPawsYardHabitat.CAT_COURTYARD -> 3
-        LudoPawsYardHabitat.DONKEY_FARM -> 4
-    }
-
-    private fun drawPremiumHabitat(
-        canvas: Canvas,
-        habitat: LudoPawsYardHabitat,
-        destination: RectF,
-    ): Boolean {
-        val atlas = paintedAtlas ?: return false
-        val panel = atlas.width / 5
-        val index = atlasIndex(habitat)
-        // Trim only the outermost 3% of the source where the old thick,
-        // dark atlas edging doubled up against the four Ludo board seams.
-        // This fills the same COMPLETE yard without resizing pawn positions.
-        val inset = (panel * 0.03f).toInt().coerceAtLeast(1)
-        canvas.drawBitmap(
-            atlas,
-            Rect(
-                index * panel + inset,
-                inset,
-                (index + 1) * panel - inset,
-                atlas.height - inset,
-            ),
-            destination,
-            bitmapPaint,
-        )
-        return true
-    }
-
-    private val cache = LruCache<LudoPawsYardHabitat, Bitmap>(5)
-    private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
-    private val habitatBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val clearingPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
+internal class LudoPawsYardHabitatRenderer {
+    private val bitmapCache = LruCache<String, Bitmap>(4)
+    private val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val brush = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun draw(
         canvas: Canvas,
         cell: Float,
         habitatsByColor: Map<String, LudoPawsYardHabitat>,
     ) {
-        if (cell <= 0f || habitatsByColor.isEmpty()) return
-        // Stable canonical layout; parent view rotation already follows player
-        // perspective, so never rotate or permute habitats a second time here.
+        if (!cell.isFinite() || cell <= 0f) return
+        // The animal map is preserved for future optional animal-specific
+        // decorations. Today's selected base design depends ONLY on team color.
+        // The parent Chrome view already handles the player's perspective.
         for (color in listOf("RED", "GREEN", "YELLOW", "BLUE")) {
-            val habitat = habitatsByColor[color] ?: continue
             val face = LudoPawsYardHabitatGeometry.face(color, cell) ?: continue
+            val palette = LudoPawsYardPalettePolicy.forTeam(color) ?: continue
             val rect = RectF(face.left, face.top, face.right, face.bottom)
-            val save = canvas.save()
-            // Square-to-square clip meets the road at the exact approved
-            // 5-cell yard boundary. Rounded clips reveal colored triangular
-            // corner slivers, so do NOT reintroduce a roundRect mask here.
+            val saved = canvas.save()
+            // No rounded top-level clip: rounded corners would uncover the
+            // old color quadrant beneath this full 5x5 replacement.
             canvas.clipRect(rect)
-            // Opaque scene-colored underlay protects against transparent
-            // edge pixels in WebP without exposing the old team-color band.
-            habitatBackgroundPaint.color = when (habitat) {
-                LudoPawsYardHabitat.DOG_GARDEN -> 0xFF6DAA43.toInt()
-                LudoPawsYardHabitat.GOAT_MEADOW -> 0xFFC3B46B.toInt()
-                LudoPawsYardHabitat.DUCK_POND -> 0xFF149FC5.toInt()
-                LudoPawsYardHabitat.CAT_COURTYARD -> 0xFFD6B4B9.toInt()
-                LudoPawsYardHabitat.DONKEY_FARM -> 0xFFD4AE63.toInt()
-            }
-            canvas.drawRect(rect, habitatBackgroundPaint)
-            if (!drawPremiumHabitat(canvas, habitat, rect)) {
-                canvas.drawBitmap(bitmap(habitat), null, rect, bitmapPaint)
-            }
-            drawOpenPlayArea(canvas, rect, habitat)
-            // NO bright permanent landingPad circles. The 3D scene already
-            // provides a grounded shadow for each pawn, and the authoritative
-            // yard-footprint overlay marks only slots actually vacated.
-            canvas.restoreToCount(save)
+            canvas.drawBitmap(cachedBitmap(color, palette), null, rect, imagePaint)
+            canvas.restoreToCount(saved)
         }
     }
 
-    /**
-     * A soft illustrated clearing, not a solid flat overlay. Real detail is
-     * strongest around the edge, with calm ground/water under the 3D animals.
-     * The center has the highest veil opacity; there is no rectangular seam,
-     * border strip, white disk or fake animal in the backing art.
-     */
-    private fun drawOpenPlayArea(
-        canvas: Canvas,
-        yard: RectF,
-        habitat: LudoPawsYardHabitat,
+    private fun cachedBitmap(color: String, palette: LudoPawsYardPalette): Bitmap {
+        bitmapCache.get(color)?.let { return it }
+        val bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
+        val scene = Canvas(bitmap)
+        scene.scale(5.12f, 5.12f)
+        paintHome(scene, palette)
+        bitmapCache.put(color, bitmap)
+        return bitmap
+    }
+
+    private fun paintHome(c: Canvas, palette: LudoPawsYardPalette) {
+        // Underpaint every pixel; the four yards meet roads without gaps.
+        rect(c, 0f, 0f, 100f, 100f, palette.rimDark)
+        roundRect(c, 0.7f, 0.7f, 99.3f, 99.3f, 7.0f, palette.rim)
+        outline(c, 1.1f, 1.1f, 98.9f, 98.9f, 7.1f, palette.rimLight, 1.5f)
+
+        // Colored "grass" perimeter is ~13% wide; keep it open rather than
+        // packing every tile with flowers. The ground takes ~72% of the square.
+        gradient(c, RectF(2.1f, 2.1f, 97.9f, 97.9f),
+            palette.bandLight, palette.bandDark, 6.4f)
+
+        // Sparse background grass marks are limited to the OUTER band.
+        val rng = Random(742)
+        repeat(54) {
+            val edge = it % 4
+            val along = 3f + rng.nextFloat() * 94f
+            val depth = 2.3f + rng.nextFloat() * 6.6f
+            val (x, y) = when (edge) {
+                0 -> along to depth
+                1 -> (100f - depth) to along
+                2 -> along to (100f - depth)
+                else -> depth to along
+            }
+            tuft(c, x, y, 0.45f + rng.nextFloat() * 0.45f,
+                palette.leafShade, 0x38FFFFFF)
+        }
+
+        // Soft inset gives the same carved dark-green lip as the reference.
+        roundRect(c, 10.4f, 10.8f, 89.6f, 89.7f, 11.6f, palette.recessShadow)
+        roundRect(c, 11.4f, 11.1f, 88.6f, 88.7f, 11.4f, palette.lipDark)
+        roundRect(c, 12.3f, 12.3f, 87.7f, 87.6f, 10.8f, palette.lipLight)
+        gradient(c, RectF(14.0f, 14.1f, 86.0f, 85.8f),
+            palette.sandTop, palette.sandBottom, 9.5f)
+        outline(c, 14.1f, 14.1f, 85.9f, 85.7f,
+            9.4f, 0x5BFFF6C8, 0.8f)
+
+        // The four animals stand at canonical 30/70% positions. Leave the
+        // ENTIRE 20..80% interior free of scenery and obvious painted slots.
+        // Only faint earthen stippling hints at texture, never dark spots.
+        val dust = Random(2009)
+        repeat(35) {
+            val x = 16f + dust.nextFloat() * 68f
+            val y = 16f + dust.nextFloat() * 68f
+            val radius = 0.13f + dust.nextFloat() * 0.46f
+            ellipse(c, x, y, radius * 1.30f, radius, palette.sandSpeck)
+        }
+
+        // Small fence pieces and plants are around CORNERS and outer ring,
+        // with no props behind faces or paws in the wide inner clearing.
+        for (horizontal in listOf(false, true)) {
+            for (vertical in listOf(false, true)) {
+                val save = c.save()
+                if (horizontal) { c.translate(100f, 0f); c.scale(-1f, 1f) }
+                if (vertical) { c.translate(0f, 100f); c.scale(1f, -1f) }
+                cornerFoliage(c, palette)
+                cornerTimber(c)
+                c.restoreToCount(save)
+            }
+        }
+
+        // A handful of flowers and stones on the OUTER band, not on the sand.
+        val flowers = listOf(
+            Triple(34f, 6.0f, 0.82f), Triple(66f, 6.3f, 0.90f),
+            Triple(6.0f, 33f, 0.80f), Triple(94f, 32f, 0.80f),
+            Triple(6.3f, 68f, 0.91f), Triple(93.4f, 69f, 0.84f),
+            Triple(34f, 94f, 0.78f), Triple(66f, 94f, 0.95f),
+        )
+        for ((x, y, size) in flowers) flower(c, x, y, size)
+        rock(c, 45f, 5.6f, 1f)
+        rock(c, 94f, 55f, 0.85f)
+        rock(c, 5.5f, 58f, 0.75f)
+        rock(c, 59f, 94.5f, 1.05f)
+
+        // Delicate glossy outer edge reads cleanly at the actual phone size.
+        outline(c, 0.9f, 0.9f, 99.1f, 99.1f, 7f, palette.rimLight, 0.70f)
+    }
+
+    private fun cornerFoliage(c: Canvas, palette: LudoPawsYardPalette) {
+        // A few broad cartoon leaves, not a continuous dense jungle carpet.
+        for ((x, y, angle, size) in listOf(
+            listOf(4.2f, 4.2f, -38f, 1.20f),
+            listOf(21.7f, 7.7f, 40f, 0.82f),
+            listOf(7.0f, 22f, -42f, 0.75f),
+        )) {
+            leafFan(c, x, y, angle, size, palette)
+        }
+    }
+
+    private fun leafFan(
+        c: Canvas, x: Float, y: Float, angle: Float,
+        size: Float, colors: LudoPawsYardPalette,
     ) {
-        val tint = when (habitat) {
-            LudoPawsYardHabitat.DOG_GARDEN -> 0xFF96BD6B.toInt()  // sunlit grass
-            LudoPawsYardHabitat.GOAT_MEADOW -> 0xFFE8CF97.toInt() // sandy meadow
-            LudoPawsYardHabitat.DUCK_POND -> 0xFF44BAE7.toInt()   // open water
-            LudoPawsYardHabitat.CAT_COURTYARD -> 0xFFD8C5B5.toInt() // warm paving
-            LudoPawsYardHabitat.DONKEY_FARM -> 0xFFDEBC7E.toInt() // farm earth
+        val saved = c.save()
+        c.rotate(angle, x, y)
+        for (i in 0..3) {
+            val a = -64f + i * 39f
+            val t = Math.toRadians(a.toDouble())
+            val px = x + cos(t).toFloat() * 2.0f * size
+            val py = y - 1.0f * size + sin(t).toFloat() * 1.7f * size
+            val leafSaved = c.save()
+            c.rotate(a, px, py)
+            ellipse(c, px, py, 1.7f * size, 3.0f * size,
+                if (i % 2 == 0) colors.leafLight else colors.leafShade)
+            ellipse(c, px - 0.4f * size, py - 0.9f * size,
+                0.65f * size, 1.35f * size, 0x51E8FFBC)
+            c.restoreToCount(leafSaved)
         }
-        val red = Color.red(tint)
-        val green = Color.green(tint)
-        val blue = Color.blue(tint)
-        clearingPaint.shader = RadialGradient(
-            yard.centerX(),
-            yard.centerY(),
-            yard.width() * 0.55f,
-            intArrayOf(
-                Color.argb(177, red, green, blue),
-                Color.argb(114, red, green, blue),
-                Color.argb(0, red, green, blue),
-            ),
-            floatArrayOf(0f, 0.55f, 1f),
-            Shader.TileMode.CLAMP,
-        )
-        canvas.drawRect(yard, clearingPaint)
-        clearingPaint.shader = null
-    }
-
-    private fun bitmap(habitat: LudoPawsYardHabitat): Bitmap {
-        cache.get(habitat)?.let { return it }
-        val b = Bitmap.createBitmap(384, 384, Bitmap.Config.ARGB_8888)
-        val scene = Canvas(b)
-        scene.scale(3.84f, 3.84f)
-        drawScene(scene, habitat)
-        cache.put(habitat, b)
-        return b
-    }
-
-    private fun drawScene(canvas: Canvas, habitat: LudoPawsYardHabitat) {
-        when (habitat) {
-            LudoPawsYardHabitat.DOG_GARDEN -> dogGarden(canvas)
-            LudoPawsYardHabitat.GOAT_MEADOW -> goatMeadow(canvas)
-            LudoPawsYardHabitat.DUCK_POND -> duckPond(canvas)
-            LudoPawsYardHabitat.CAT_COURTYARD -> catCourtyard(canvas)
-            LudoPawsYardHabitat.DONKEY_FARM -> donkeyFarm(canvas)
-        }
-        vignette(canvas)
-    }
-
-    private fun dogGarden(c: Canvas) {
-        background(c, 0xFFC3EE78.toInt(), 0xFF3AAB54.toInt())
-        patches(c, 102, 0x304F7926, 1.7f, 4.8f)
-        // A winding warm footpath beneath the garden, partly revealed between paw pads.
-        val path = Path().apply {
-            moveTo(-9f, 83f)
-            cubicTo(26f, 72f, 24f, 32f, 69f, 28f)
-            cubicTo(88f, 25f, 102f, 18f, 108f, -8f)
-        }
-        stroke(c, path, 0x505A7C35, 22f)
-        stroke(c, path, 0xFFF5D890.toInt(), 15f)
-        stroke(c, path, 0xAFFFF2C3.toInt(), 7f)
-        foliageBorder(c, 0xFF2E9237.toInt(), 0xFF6FCC45.toInt(), seed = 112)
-        gardenFlowers(c, seed = 121, count = 25, petal = 0xFFF8FEF2.toInt())
-        gardenFlowers(c, seed = 122, count = 13, petal = 0xFFFFC9CD.toInt())
-    }
-
-    private fun goatMeadow(c: Canvas) {
-        background(c, 0xFFFFE6A0.toInt(), 0xFF90CB65.toInt())
-        // Sunlit hillside bands and small natural rock outcrops.
-        hill(c, 62f, 0xFFB6D67A.toInt(), .24f)
-        hill(c, 83f, 0xFF78B75C.toInt(), .32f)
-        patches(c, 118, 0x3E81744D, 1f, 3.1f)
-        for ((x,y,s) in listOf(Triple(4f,18f,1f),Triple(92f,78f,.8f),Triple(81f,7f,.65f))) {
-            stone(c,x,y,s)
-        }
-        foliageBorder(c, 0xFF559843.toInt(), 0xFFC0DD64.toInt(), seed = 213)
-        val r = Random(218)
-        repeat(55) {
-            val x = r.nextFloat() * 100f
-            val y = r.nextFloat() * 100f
-            grass(c,x,y,.5f+r.nextFloat()*.7f,0x9B487F36.toInt())
-        }
-        gardenFlowers(c, seed = 219, count = 22, petal = 0xFFFCF7DD.toInt())
-        gardenFlowers(c, seed = 221, count = 12, petal = 0xFFFFB4E3.toInt())
-    }
-
-    private fun duckPond(c: Canvas) {
-        background(c, 0xFF53DDDF.toInt(), 0xFF0784CC.toInt())
-        // Soft deep-water center, bright shallow turquoise shore.
-        p.color=Color.WHITE
-        p.shader = RadialGradient(50f,47f,72f, intArrayOf(
-            0x004DDDF5, 0x3A047DB4, 0xC429BFB9.toInt()
-        ), floatArrayOf(0f,.57f,1f), Shader.TileMode.CLAMP)
-        c.drawRect(0f,0f,100f,100f,p)
-        p.shader = null
-        val ripples = listOf(Triple(28f,22f,17f),Triple(67f,26f,12f),
-            Triple(52f,54f,21f),Triple(23f,77f,11f),Triple(78f,78f,19f))
-        for ((x,y,r) in ripples) {
-            ring(c,x,y,r,r*.30f,0x71DAFAFF, .90f)
-            ring(c,x+2f,y+3f,r*.73f,r*.18f,0x58ECFFFF,.72f)
-        }
-        lilyPad(c,13f,53f,8f,225f)
-        lilyPad(c,86f,42f,10f,40f)
-        lilyPad(c,72f,91f,9f,310f)
-        lilyPad(c,19f,9f,8f,140f)
-        waterLotus(c,88f,78f,1f)
-        waterLotus(c,8f,34f,.65f)
-        foliageBorder(c,0xFF08755A.toInt(),0xFF4FCB70.toInt(),seed=320,amount=28)
-        val r=Random(327)
-        repeat(29){
-            val edge=if(r.nextBoolean()) 2f else 98f
-            val x=if(r.nextBoolean()) edge else r.nextFloat()*100f
-            val y=if(x==edge) r.nextFloat()*100f else edge
-            reed(c,x,y,.6f+r.nextFloat()*.6f)
-        }
-        patches(c,30,0x3ADDFBFA,1f,2f)
-    }
-
-    private fun catCourtyard(c: Canvas) {
-        background(c, 0xFFFFE4E3.toInt(), 0xFFD5B2DD.toInt())
-        // Cozy flower courtyard with irregular pale stepping stones.
-        val r=Random(416)
-        repeat(28){
-            val x=r.nextFloat()*100f
-            val y=r.nextFloat()*100f
-            oval(c,x,y,3.3f+r.nextFloat()*3f,2.2f+r.nextFloat()*1.9f,0x4BFFF9F2)
-        }
-        val walkway=Path().apply{
-            moveTo(-12f,72f);cubicTo(35f,60f,56f,30f,117f,29f)
-        }
-        stroke(c,walkway,0x337C6B7B,16f)
-        stroke(c,walkway,0xB9FFF4E8.toInt(),12f)
-        patches(c,74,0x2D9A638D,1f,3f)
-        foliageBorder(c,0xFF55864A.toInt(),0xFFA4CC71.toInt(),seed=418)
-        gardenFlowers(c,420,31,0xFFF9FBFF.toInt())
-        gardenFlowers(c,421,20,0xFFFFA3D4.toInt())
-        gardenFlowers(c,422,10,0xFFDDB8FF.toInt())
-    }
-
-    private fun donkeyFarm(c: Canvas) {
-        background(c, 0xFFFFE8AA.toInt(), 0xFFC99E56.toInt())
-        // Orchard/farm path with warm wooden edging and tall ripe wheat.
-        hill(c,69f,0xFFE4BE70.toInt(),.19f)
-        val field=Path().apply{
-            moveTo(2f,105f);cubicTo(11f,79f,39f,44f,64f,29f)
-            cubicTo(84f,16f,91f,10f,108f,-7f)
-        }
-        stroke(c,field,0x677E6935,24f)
-        stroke(c,field,0xFFEDD29A.toInt(),16f)
-        stroke(c,field,0xAFFFF0C6.toInt(),7f)
-        patches(c,92,0x397B6337,1f,3.3f)
-        foliageBorder(c,0xFF628542.toInt(),0xFFB3B95A.toInt(),seed=522)
-        for ((x,y) in listOf(6f to 28f,10f to 71f,94f to 13f,92f to 66f,58f to 95f)) {
-            wheat(c,x,y,1.0f)
-        }
-        gardenFlowers(c,529,14,0xFFFFF4CE.toInt())
-        val r=Random(537)
-        repeat(21){grass(c,r.nextFloat()*100f,r.nextFloat()*100f,.6f,0x886E9449.toInt())}
-    }
-
-    /** Low-cost granular textures are baked into each cached bitmap. */
-    private fun patches(c: Canvas, seed: Int, color: Int, smallest: Float, largest: Float) {
-        val r=Random(seed)
-        repeat(310) {
-            val x=r.nextFloat()*100f
-            val y=r.nextFloat()*100f
-            val s=smallest+r.nextFloat()*(largest-smallest)
-            oval(c,x,y,s*(.28f+r.nextFloat()*.42f),s*.22f,color)
-        }
-    }
-
-    private fun foliageBorder(c: Canvas, dark: Int, light: Int, seed: Int, amount: Int=37) {
-        val r=Random(seed)
-        repeat(amount){
-            val edge=r.nextInt(4)
-            val pos=r.nextFloat()*100f
-            val x=when(edge){0->r.nextFloat()*9f;1->91f+r.nextFloat()*9f;else->pos}
-            val y=when(edge){2->r.nextFloat()*9f;3->91f+r.nextFloat()*9f;else->pos}
-            bush(c,x,y,.65f+r.nextFloat()*.6f,dark,light)
-        }
-        for ((x,y) in listOf(0f to 0f,100f to 0f,0f to 100f,100f to 100f)) {
-            bush(c,x,y,1.65f,dark,light)
-        }
-    }
-
-    private fun bush(c: Canvas, x: Float, y: Float, size: Float, dark: Int, light: Int) {
-        oval(c,x,y+1.8f*size,8f*size,5f*size,0x470B3119)
-        val shades=intArrayOf(dark,light,0xFFB7E971.toInt(),dark,light)
-        for (i in 0 until 9) {
-            val t=i*6.283185f/9f
-            val xx=x+cos(t)*5f*size
-            val yy=y+sin(t)*3.7f*size
-            leaf(c,xx,yy,3.4f*size,2.4f*size,t*57.2958f,shades[i%shades.size])
-        }
-        oval(c,x-1.2f*size,y-1.6f*size,2.1f*size,1.6f*size,0x88BFF38C.toInt())
-    }
-
-    private fun leaf(c: Canvas, x: Float, y: Float, rx: Float, ry: Float, angle: Float, color: Int) {
-        val saved=c.save()
-        c.rotate(angle,x,y)
-        oval(c,x,y+.4f,rx,ry,0x42252C18)
-        oval(c,x,y,rx,ry,color)
-        oval(c,x-rx*.2f,y-ry*.3f,rx*.54f,ry*.28f,0x48FFFFFF)
         c.restoreToCount(saved)
     }
 
-    private fun gardenFlowers(c: Canvas, seed: Int, count: Int, petal: Int) {
-        val r=Random(seed)
-        repeat(count){
-            val edge=r.nextInt(4)
-            val t=r.nextFloat()*100f
-            val x=if(edge==0) r.nextFloat()*16f else if(edge==1) 84f+r.nextFloat()*16f else t
-            val y=if(edge==2) r.nextFloat()*15f else if(edge==3) 85f+r.nextFloat()*15f else t
-            flower(c,x,y,.6f+r.nextFloat()*.75f,petal)
+    private fun cornerTimber(c: Canvas) {
+        // Wooden rail with bevel/highlight, plus two top-facing round posts.
+        timberRail(c, 5.4f, 17.2f, 17.2f, 5.4f)
+        timberRail(c, 17f, 5.4f, 23.6f, 5.4f)
+        timberRail(c, 5.4f, 17.2f, 5.4f, 23.1f)
+        timberPost(c, 5.4f, 17.2f)
+        timberPost(c, 17.2f, 5.4f)
+    }
+
+    private fun timberRail(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float) {
+        line(c, x1, y1 + 0.7f, x2, y2 + 0.7f, 0x904B2F17.toInt(), 5.5f)
+        line(c, x1, y1, x2, y2, 0xFFB26A2F.toInt(), 4.6f)
+        line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFF7BB62.toInt(), 2.8f)
+        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0x9CFFE6A8.toInt(), 0.62f)
+    }
+
+    private fun timberPost(c: Canvas, x: Float, y: Float) {
+        ellipse(c, x + 0.55f, y + 1.65f, 3.0f, 3.15f, 0x66562B16)
+        roundRect(c, x - 2.55f, y - 1.6f, x + 2.55f, y + 2.6f,
+            1.75f, 0xFFA05B2D.toInt())
+        ellipse(c, x, y - 1.0f, 2.7f, 2.5f, 0xFF8C4E26.toInt())
+        ellipse(c, x, y - 1.3f, 2.38f, 2.18f, 0xFFFFCF7C.toInt())
+        ellipse(c, x - 0.48f, y - 1.89f, 1.18f, 0.80f, 0xB1FFF1BC.toInt())
+    }
+
+    private fun flower(c: Canvas, x: Float, y: Float, size: Float) {
+        ellipse(c, x + 0.6f * size, y + 0.8f * size,
+            3.4f * size, 2.3f * size, 0x4D315E20)
+        for (i in 0 until 5) {
+            val a = i * (Math.PI * 2.0 / 5.0)
+            val px = x + cos(a).toFloat() * 2.05f * size
+            val py = y + sin(a).toFloat() * 2.05f * size
+            ellipse(c, px, py, 1.55f * size, 1.70f * size, Color.WHITE)
+            ellipse(c, px - 0.32f * size, py - 0.36f * size,
+                0.70f * size, 0.74f * size, 0xD7FFFFFF.toInt())
         }
+        ellipse(c, x, y, 1.45f * size, 1.45f * size, 0xFFFFB424.toInt())
+        ellipse(c, x - 0.34f * size, y - 0.48f * size,
+            0.68f * size, 0.63f * size, 0xFFFFEA9D.toInt())
     }
 
-    private fun flower(c: Canvas,x:Float,y:Float,s:Float,petal:Int) {
-        for(i in 0..4){
-            val a=i*6.283185f/5f
-            oval(c,x+cos(a)*2.0f*s,y+sin(a)*2.0f*s,1.9f*s,1.5f*s,petal)
-        }
-        oval(c,x,y,1.55f*s,1.55f*s,0xFFFFC645.toInt())
-        oval(c,x-.35f*s,y-.35f*s,.55f*s,.55f*s,0xFFFFE99D.toInt())
+    private fun rock(c: Canvas, x: Float, y: Float, scale: Float) {
+        ellipse(c, x + 0.5f * scale, y + 1.3f * scale,
+            2.5f * scale, 1.2f * scale, 0x493F4A3B)
+        ellipse(c, x, y, 2.1f * scale, 1.65f * scale, 0xFF777E75.toInt())
+        ellipse(c, x - 0.42f * scale, y - 0.55f * scale,
+            1.32f * scale, 0.82f * scale, 0xFFC5C6B6.toInt())
     }
 
-    private fun hill(c: Canvas, y:Float, color:Int, depth:Float) {
-        val path=Path().apply{
-            moveTo(-10f,100f);lineTo(-10f,y)
-            cubicTo(23f,y-17f,45f,y+depth*19f,67f,y-4f)
-            cubicTo(87f,y-12f,100f,y+7f,110f,y)
-            lineTo(110f,110f);close()
-        }
-        p.color=color
-        c.drawPath(path,p)
+    private fun tuft(
+        c: Canvas, x: Float, y: Float, scale: Float, dark: Int, shine: Int,
+    ) {
+        line(c, x, y + 1.05f * scale, x - 1.8f * scale,
+            y - 2.5f * scale, dark, 1.05f * scale)
+        line(c, x, y + 1.05f * scale, x + 0.1f * scale,
+            y - 3.0f * scale, dark, 1.0f * scale)
+        line(c, x, y + 1.05f * scale, x + 1.85f * scale,
+            y - 2.0f * scale, dark, 1.05f * scale)
+        ellipse(c, x, y - 1.6f * scale,
+            0.25f * scale, 0.52f * scale, shine)
     }
 
-    private fun stone(c:Canvas,x:Float,y:Float,s:Float) {
-        oval(c,x,y+2f*s,9f*s,5f*s,0x573D5538)
-        oval(c,x,y,8.2f*s,5.4f*s,0xFF8F9890.toInt())
-        oval(c,x-2f*s,y-1.8f*s,4.2f*s,2.1f*s,0xFFCCD1B7.toInt())
-        oval(c,x+3f*s,y+1f*s,2f*s,2.3f*s,0xFF6C7976.toInt())
-    }
-
-    private fun grass(c:Canvas,x:Float,y:Float,s:Float,color:Int) {
-        line(c,x,y+2f*s,x-2.5f*s,y-3f*s,color,.8f*s)
-        line(c,x,y+2f*s,x+.6f*s,y-5f*s,color,.9f*s)
-        line(c,x,y+2f*s,x+3f*s,y-2f*s,color,.8f*s)
-    }
-
-    private fun lilyPad(c:Canvas,x:Float,y:Float,r:Float,rotation:Float) {
-        val saved=c.save()
-        c.rotate(rotation,x,y)
-        oval(c,x,y+1f,r*1.05f,r*.55f,0x740B6E65)
-        oval(c,x,y,r,r*.55f,0xFF6EB848.toInt())
-        oval(c,x-2f,y-1.7f,r*.52f,r*.22f,0xFFB7E575.toInt())
-        val cut=Path().apply{
-            moveTo(x,y);lineTo(x+r*1.12f,y-2f);lineTo(x+r*.78f,y+r*.46f);close()
-        }
-        p.color=0xFF2CB6C4.toInt();c.drawPath(cut,p)
-        line(c,x-r*.6f,y,x+r*.52f,y,0x76578B3D,.5f)
-        c.restoreToCount(saved)
-    }
-
-    private fun waterLotus(c:Canvas,x:Float,y:Float,s:Float) {
-        oval(c,x,y+3f*s,7.5f*s,3.2f*s,0x7707778C)
-        for(i in 0..5){
-            val angle=i*60f
-            val saved=c.save()
-            c.rotate(angle,x,y)
-            oval(c,x,y-3.1f*s,2.2f*s,5.4f*s,0xFFF28BC1.toInt())
-            oval(c,x,y-3.4f*s,1.2f*s,3.8f*s,0xFFFFCDE6.toInt())
-            c.restoreToCount(saved)
-        }
-        oval(c,x,y,2f*s,1.6f*s,0xFFFFDC64.toInt())
-    }
-
-    private fun reed(c:Canvas,x:Float,y:Float,s:Float) {
-        line(c,x,y,x-1.6f*s,y-11f*s,0xFF337E51.toInt(),.95f*s)
-        line(c,x,y,x+3.2f*s,y-8f*s,0xFF428D51.toInt(),.90f*s)
-        oval(c,x-1.9f*s,y-10f*s,1.05f*s,2.6f*s,0xFFC48B41.toInt())
-    }
-
-    private fun wheat(c:Canvas,x:Float,y:Float,s:Float){
-        line(c,x,y+9f*s,x+1f*s,y-11f*s,0xFF7D8A39.toInt(),1f*s)
-        for(i in 0..5){
-            val yy=y-9f*s+i*2.4f*s
-            val xx=x+1f*s-i*.13f*s
-            oval(c,xx-1.5f*s,yy,.9f*s,2f*s,0xFFE5B65A.toInt())
-            oval(c,xx+1.5f*s,yy,.9f*s,2f*s,0xFFF3D17C.toInt())
-        }
-    }
-
-    private fun vignette(c: Canvas) {
-        p.color=Color.WHITE
-        p.style=Paint.Style.FILL
-        p.shader = RadialGradient(
-            50f,45f,73f,
-            intArrayOf(0x00FFFFFF,0x00FFFFFF,0x350E3322),
-            floatArrayOf(0f,.73f,1f),
-            Shader.TileMode.CLAMP,
+    private fun gradient(
+        c: Canvas, bounds: RectF, top: Int, bottom: Int, radius: Float,
+    ) {
+        brush.style = Paint.Style.FILL
+        brush.color = Color.WHITE
+        brush.shader = LinearGradient(
+            bounds.left, bounds.top, bounds.right, bounds.bottom,
+            top, bottom, Shader.TileMode.CLAMP,
         )
-        c.drawRect(0f,0f,100f,100f,p)
-        p.shader=null
+        c.drawRoundRect(bounds, radius, radius, brush)
+        brush.shader = null
     }
 
-    private fun background(c:Canvas,top:Int,bottom:Int) {
-        p.color=Color.WHITE
-        p.style=Paint.Style.FILL
-        p.shader=LinearGradient(0f,0f,100f,100f,top,bottom,Shader.TileMode.CLAMP)
-        c.drawRect(0f,0f,100f,100f,p)
-        p.shader=null
+    private fun rect(c: Canvas, l: Float, t: Float, r: Float, b: Float, color: Int) {
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawRect(l, t, r, b, brush)
     }
 
-    private fun oval(c:Canvas,x:Float,y:Float,rx:Float,ry:Float,color:Int){
-        p.style=Paint.Style.FILL
-        p.color=color
-        c.drawOval(x-rx,y-ry,x+rx,y+ry,p)
+    private fun roundRect(
+        c: Canvas, l: Float, t: Float, r: Float, b: Float, radius: Float, color: Int,
+    ) {
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawRoundRect(l, t, r, b, radius, radius, brush)
     }
 
-    private fun line(c:Canvas,x0:Float,y0:Float,x1:Float,y1:Float,color:Int,width:Float){
-        p.style=Paint.Style.STROKE
-        p.color=color
-        p.strokeWidth=width
-        c.drawLine(x0,y0,x1,y1,p)
-        p.style=Paint.Style.FILL
+    private fun outline(
+        c: Canvas, l: Float, t: Float, r: Float, b: Float, radius: Float,
+        color: Int, width: Float,
+    ) {
+        brush.style = Paint.Style.STROKE
+        brush.color = color
+        brush.strokeWidth = width
+        c.drawRoundRect(l, t, r, b, radius, radius, brush)
+        brush.style = Paint.Style.FILL
     }
 
-    private fun ring(c:Canvas,x:Float,y:Float,rx:Float,ry:Float,color:Int,width:Float){
-        p.style=Paint.Style.STROKE
-        p.color=color
-        p.strokeWidth=width
-        c.drawOval(x-rx,y-ry,x+rx,y+ry,p)
-        p.style=Paint.Style.FILL
+    private fun ellipse(
+        c: Canvas, x: Float, y: Float, rx: Float, ry: Float, color: Int,
+    ) {
+        brush.style = Paint.Style.FILL
+        brush.color = color
+        c.drawOval(x - rx, y - ry, x + rx, y + ry, brush)
     }
 
-    private fun stroke(c:Canvas,path:Path,color:Int,width:Float){
-        p.style=Paint.Style.STROKE
-        p.color=color
-        p.strokeWidth=width
-        c.drawPath(path,p)
-        p.style=Paint.Style.FILL
+    private fun line(
+        c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, color: Int,
+        stroke: Float,
+    ) {
+        brush.style = Paint.Style.STROKE
+        brush.color = color
+        brush.strokeWidth = stroke
+        c.drawLine(x1, y1, x2, y2, brush)
+        brush.style = Paint.Style.FILL
     }
 }
