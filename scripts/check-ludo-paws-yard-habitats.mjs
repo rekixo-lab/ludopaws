@@ -65,7 +65,10 @@ assert.ok(art.includes("if (!drawPremiumHabitat(canvas, habitat, rect))"),
   "Illustration must retain safe vector fallback");
 assert.ok(art.includes("Rect(index * panel, 0, (index + 1) * panel, atlas.height)"),
   "Premium artwork panels must stay independently selectable");
-assert.match(art, /canvas\.clipPath\(clip\)/);
+assert.match(art, /canvas\.clipRect\(rect\)/,
+    "Premium habitat must cover the entire square home");
+assert.doesNotMatch(art, /canvas\.clipPath\(clip\)/,
+    "Rounded clipping re-exposes team-color corners");
 assert.match(art, /LudoPawsYardHabitatGeometry\.face\(color, cell\)/);
 assert.match(art, /LudoPawsFxBoardGeometry\.tokenCenter\(/);
 assert.match(art, /position = -1/);
