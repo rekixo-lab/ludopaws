@@ -152,12 +152,17 @@ internal fun showQuickChatPopup(
         clipChildren = false
         clipToPadding = false
         setPadding(dp(9), dp(8), dp(9), dp(9))
-        // Match the rating stars' translucent blue surface; the board stays visible.
+        // A busier board needs more separation than the rating stars' 20% tint.
+        // Keep translucency local to the picker; surrounding gameplay remains undimmed.
         background = transparentDarkBlueStrokeBackground(
             context = context,
             cornerRadiusDp = 20f,
-        )
-        elevation = 0f
+        ).apply {
+            orientation = android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM
+            colors = intArrayOf(0xA30D2945.toInt(), 0xB30B2036.toInt())
+            setStroke(dp(1), 0x886DAFDD.toInt())
+        }
+        elevation = dp(3).toFloat()
     }
 
     QuickChatEmojiCatalog.EMOJIS.chunked(6).forEach { rowEmojis ->
@@ -205,7 +210,7 @@ internal fun showQuickChatPopup(
     val arrow = TextView(context).apply {
         textSize = 18f
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-        setTextColor(0xB0247FCB.toInt())
+        setTextColor(0xB36DAFDD.toInt())
         gravity = Gravity.CENTER
         includeFontPadding = false
     }
