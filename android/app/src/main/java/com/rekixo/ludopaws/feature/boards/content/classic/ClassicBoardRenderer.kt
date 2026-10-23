@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
 import java.util.Random
@@ -46,6 +47,10 @@ internal class ClassicBoardRenderer : BoardRenderer {
                 )
         }
 
+
+    private val stoneGrainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = BitmapShader(createStoneGrainBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+    }
 
     override fun draw(canvas: Canvas, size: Float, density: Float, definition: BoardDefinition) {
         this.density = density
@@ -287,6 +292,10 @@ internal class ClassicBoardRenderer : BoardRenderer {
         row: Int,
         col: Int,
     ) {
+        COLORED_ROADS[row to col]?.let { color ->
+            drawStoneRoadCell(canvas, cell, row, col, theme.teamColor(color))
+            return
+        }
         val raw =
             RectF(
                 axisBoundary(col, cell),
@@ -413,6 +422,80 @@ internal class ClassicBoardRenderer : BoardRenderer {
         drawGrain(canvas, face, radius)
     }
 
+    /** Opaque stone treatment only for the four colored lanes and their colored entry cells. */
+    private fun drawStoneRoadCell(canvas: Canvas, cell: Float, row: Int, col: Int, team: Int) {
+        val raw = RectF(axisBoundary(col, cell), axisBoundary(row, cell),
+            axisBoundary(col + 1, cell), axisBoundary(row + 1, cell))
+        val unit = min(raw.width(), raw.height())
+        val gap = unit * .038f
+        val depth = unit * .11f
+        val body = RectF(raw.left + gap, raw.top + gap + depth * .42f,
+            raw.right - gap, raw.bottom - gap)
+        val face = RectF(raw.left + gap, raw.top + gap,
+            raw.right - gap, raw.bottom - gap - depth)
+        val corner = unit * .105f
+        // Muted mineral pigment keeps each team's hue, with a light natural-stone face.
+        val pigment = mixStone(team, 0xFFF1E9DA.toInt(), .34f)
+        val bodyPath = chamferedStone(body, corner)
+        fillPaint.color = Color.WHITE
+        fillPaint.shader = LinearGradient(body.left, body.top, body.right, body.bottom,
+            intArrayOf(mixStone(pigment, Color.WHITE, .10f), darken(pigment, .70f)),
+            null, Shader.TileMode.CLAMP)
+        canvas.drawPath(bodyPath, fillPaint)
+        fillPaint.shader = null
+
+        // A wide sloping bevel, rather than the glossy capsule used by neutral road cells.
+        fillPaint.shader = LinearGradient(face.left, face.top, face.right, face.bottom,
+            intArrayOf(mixStone(pigment, Color.WHITE, .40f), pigment, darken(pigment, .78f)),
+            floatArrayOf(0f, .43f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawPath(chamferedStone(face, corner), fillPaint)
+        fillPaint.shader = null
+        val bevel = unit * .068f
+        val top = RectF(face.left + bevel, face.top + bevel,
+            face.right - bevel, face.bottom - bevel)
+        val topPath = chamferedStone(top, corner * .67f)
+        fillPaint.shader = LinearGradient(top.left, top.top, top.right, top.bottom,
+            intArrayOf(mixStone(pigment, Color.WHITE, .17f), pigment, darken(pigment, .94f)),
+            floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawPath(topPath, fillPaint)
+        fillPaint.shader = null
+        canvas.drawPath(topPath, stoneGrainPaint)
+
+        // The opaque stone face must preserve the existing colored safe-entry star.
+        if ((row to col) in COLORED_ENTRIES) {
+            val star = Path()
+            repeat(10) { index ->
+                val angle = Math.toRadians(index * 36.0 - 90.0)
+                val radius = cell * .27f * if (index % 2 == 0) 1f else .43f
+                val x = raw.centerX() + kotlin.math.cos(angle).toFloat() * radius
+                val y = raw.centerY() + kotlin.math.sin(angle).toFloat() * radius
+                if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
+            }
+            star.close()
+            fillPaint.color = team
+            canvas.drawPath(star, fillPaint)
+            fillPaint.color = Color.WHITE
+        }
+    }
+
+    private fun chamferedStone(rect: RectF, corner: Float): Path = Path().apply {
+        moveTo(rect.left + corner, rect.top)
+        lineTo(rect.right - corner, rect.top)
+        lineTo(rect.right, rect.top + corner)
+        lineTo(rect.right, rect.bottom - corner)
+        lineTo(rect.right - corner, rect.bottom)
+        lineTo(rect.left + corner, rect.bottom)
+        lineTo(rect.left, rect.bottom - corner)
+        lineTo(rect.left, rect.top + corner)
+        close()
+    }
+
+    private fun mixStone(a: Int, b: Int, amount: Float): Int = Color.rgb(
+        (Color.red(a) * (1f - amount) + Color.red(b) * amount).toInt(),
+        (Color.green(a) * (1f - amount) + Color.green(b) * amount).toInt(),
+        (Color.blue(a) * (1f - amount) + Color.blue(b) * amount).toInt(),
+    )
+
     private fun drawCenterDepth(
         canvas: Canvas,
         cell: Float,
@@ -517,6 +600,50 @@ internal class ClassicBoardRenderer : BoardRenderer {
         val GREEN = Color.rgb(0, 169, 80)
         val YELLOW = Color.rgb(255, 216, 27)
         val BLUE = Color.rgb(48, 151, 215)
+
+        // Logical coordinates mirror the released lanes. No white road cell is included.
+        val COLORED_ENTRIES = setOf(6 to 1, 1 to 8, 8 to 13, 13 to 6)
+        val COLORED_ROADS = buildMap<Pair<Int, Int>, Int> {
+            for (index in 1..5) {
+                put(7 to index, RED)
+                put(index to 7, GREEN)
+                put(7 to (14 - index), YELLOW)
+                put((14 - index) to 7, BLUE)
+            }
+            put(6 to 1, RED)
+            put(1 to 8, GREEN)
+            put(8 to 13, YELLOW)
+            put(13 to 6, BLUE)
+        }
+
+        private fun createStoneGrainBitmap(): Bitmap {
+            val bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+            val random = Random(0x53544F4EL)
+            repeat(1_100) {
+                val tone = if (random.nextBoolean()) 255 else 38
+                paint.color = Color.argb(6 + random.nextInt(15), tone, tone, tone)
+                val x = random.nextFloat() * 128f
+                val y = random.nextFloat() * 128f
+                val radius = .16f + random.nextFloat() * .58f
+                canvas.drawOval(x - radius, y - radius * .6f, x + radius, y + radius * .6f, paint)
+            }
+            // Faint short mineral veins, not dark cracks or painted stepping markers.
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = .45f
+            repeat(16) { index ->
+                paint.color = if (index % 2 == 0) 0x0DFFFFFF else 0x0A3D3830
+                val x = random.nextFloat() * 128f
+                val y = random.nextFloat() * 128f
+                canvas.drawPath(Path().apply {
+                    moveTo(x, y)
+                    rQuadTo(3f, -1.8f, 7f, -.8f)
+                    rQuadTo(2f, 1.1f, 5f, -.9f)
+                }, paint)
+            }
+            return bitmap
+        }
 
         private fun createGrainBitmap(): Bitmap {
             val size = 128
