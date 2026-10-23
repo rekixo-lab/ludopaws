@@ -84,9 +84,11 @@ internal class LudoPawsCenterHouseRenderer {
         val save = c.save()
         c.clipPath(region)
 
-        // Opaque undercoat makes the entire wedge continuous to the apex.
-        fill(c, region, colors.roofDeep)
-        gradient(c, region, 0f, 0f, 83f, 48f, colors.roofLight, colors.roofShade)
+        // The wide wedge is the HOUSE, not an oversized second roof. Warm
+        // plaster remains visible around the new compact colored roof.
+        fill(c, region, 0xFFE3C5A3.toInt())
+        gradient(c, region, 0f, 0f, 72f, 45f,
+            0xFFFFF5DB.toInt(), 0xFFDFC09B.toInt())
 
         // 1. Broad ivory wall with a darker cast shadow underneath the eaves.
         val wall = polygon(
@@ -110,44 +112,72 @@ internal class LudoPawsCenterHouseRenderer {
         flowerBox(c, 10.5f, 14.5f, .88f)
         flowerBox(c, 89.5f, 14.5f, .88f)
 
-        // 2. Thick 3D roof overhang and its deep cast shadow on the wall.
-        // The FULL wedge underneath remains colored and meets the finish.
+        // 2. The roof is NOW a compact triangle INSIDE the original wedge.
+        // Base moved toward the apex and both ends drawn inward symmetrically.
+        // IMPORTANT: only roof geometry is changed; door/windows/steps stay.
+        val roofBounds = LudoPawsCenterHouseGeometry.compactRoof()
+        val left = roofBounds.start.x
+        val right = roofBounds.end.x
+        val baseY = roofBounds.start.y
+        val peakX = roofBounds.apex.x
+        val peakY = roofBounds.apex.y
+        val spanY = peakY - baseY
+
+        // Small cast shadow + thick eave following the *new* roof, not the
+        // old 76-unit span. No leftover roof edges beside the cream wall.
         val underEave = polygon(
-            10f, 17.5f, 90f, 17.5f, 50f, 50f, 50f, 47f,
+            left - 1.0f, baseY + 2.7f,
+            right + 1.0f, baseY + 2.7f,
+            peakX, peakY, peakX, peakY - 1.9f,
         )
         fill(c, underEave, 0x59372020)
         val roofThickness = polygon(
-            11.0f, 16.3f, 89.0f, 16.3f, 88.2f, 20.1f,
-            50f, 50f, 11.8f, 20.1f,
+            left - 0.75f, baseY + 1.4f,
+            right + 0.75f, baseY + 1.4f,
+            right, baseY + 3.7f,
+            peakX, peakY,
+            left, baseY + 3.7f,
         )
-        gradient(c, roofThickness, 16f, 18f, 84f, 43f,
-            colors.roofShade, colors.roofDeep)
+        gradient(c, roofThickness, left, baseY + 1.0f,
+            right, peakY - 4f, colors.roofShade, colors.roofDeep)
 
-        // 3. Top surface is a pair of pitched planes. The left catches warm
-        // light; the right is cooler/darker. Both taper to the common point.
-        val roof = triangle(11.8f, 15f, 88.2f, 15f, 50f, 50f)
-        gradient(c, roof, 14f, 15f, 82f, 48f, colors.roofLight, colors.roof)
-        val leftPlane = triangle(11.8f, 15f, 50f, 15f, 50f, 50f)
-        gradient(c, leftPlane, 24f, 15f, 50f, 44f,
+        // 3. Separate light and shaded roof planes. The center ridge still
+        // reaches exactly (50,50), shared by all four colored finish wedges.
+        val roof = triangle(left, baseY, right, baseY, peakX, peakY)
+        gradient(c, roof, left, baseY, right, peakY - 2f,
+            colors.roofLight, colors.roof)
+        val leftPlane = triangle(left, baseY, peakX, baseY, peakX, peakY)
+        gradient(c, leftPlane, left, baseY, peakX, peakY - 3f,
             0x72FFFFFF, 0x00FFFFFF)
-        val rightPlane = triangle(50f, 15f, 88.2f, 15f, 50f, 50f)
-        gradient(c, rightPlane, 50f, 15f, 81f, 46f,
+        val rightPlane = triangle(peakX, baseY, right, baseY, peakX, peakY)
+        gradient(c, rightPlane, peakX, baseY, right, peakY - 3f,
             0x08000000, 0x680B0911)
 
-        // 4. Individual, slightly beveled terracotta-style shingles, not a
-        // flat checkerboard. Each row gets shorter toward the shared apex.
-        // The tile polygons and all highlights are hard-clipped to roof.
+        // 4. The tiles scale WITH the smaller roof instead of keeping the
+        // old 9-row wide triangle that caused clutter and stray grout lines.
         val shingles = c.save()
         c.clipPath(roof)
-        for (row in 0 until 9) {
-            val y0 = 16.5f + row * 3.76f
-            val y1 = (y0 + 3.76f).coerceAtMost(49.7f)
-            if (y0 >= 49.7f) break
-            val left0 = y0 - 3.2f
-            val right0 = 103.2f - y0
-            val left1 = y1 - 3.2f
-            val right1 = 103.2f - y1
-            val columns = if (row < 4) 9 else if (row < 7) 7 else 5
+        val rowCount = 7
+        val rowHeight = (spanY - 1.8f) / rowCount
+        for (row in 0 until rowCount) {
+            val y0 = baseY + 1.3f + row * rowHeight
+            val y1 = (y0 + rowHeight).coerceAtMost(peakY - .25f)
+            if (y0 >= peakY - .25f) break
+
+            // Interpolate X from the ACTUAL straight roof edges so shrinking
+            // the base never leaves old-size tiles outside the new triangle.
+            val t0 = ((y0 - baseY) / spanY).coerceIn(0f, 1f)
+            val t1 = ((y1 - baseY) / spanY).coerceIn(0f, 1f)
+            val left0 = left + (peakX - left) * t0
+            val right0 = right + (peakX - right) * t0
+            val left1 = left + (peakX - left) * t1
+            val right1 = right + (peakX - right) * t1
+
+            val columns = when {
+                row < 3 -> 7
+                row < 5 -> 5
+                else -> 3
+            }
             val stagger = if (row % 2 == 0) 0f else .5f
             for (col in 0 until columns) {
                 val u0 = ((col + stagger) / columns).coerceAtMost(1f)
@@ -179,19 +209,24 @@ internal class LudoPawsCenterHouseRenderer {
         }
         c.restoreToCount(shingles)
 
-        // 5. Physical-looking eaves: deep side profile, golden top edge and
-        // a light ridge that goes all the way to the exact shared tip.
-        stroke(c, 11f, 18.0f, 89f, 18.0f, colors.roofDeep, 2.30f)
-        stroke(c, 11.8f, 15.0f, 88.2f, 15.0f, colors.roofShade, 2.40f)
-        stroke(c, 12.7f, 14.0f, 87.3f, 14.0f, colors.roofLight, 1.34f)
-        stroke(c, 11.8f, 15f, 50f, 50f, colors.roofDeep, 1.46f)
-        stroke(c, 88.2f, 15f, 50f, 50f, colors.roofDeep, 1.46f)
-        stroke(c, 12.3f, 14.9f, 49.9f, 49.7f, 0x79FFFFFF, .62f)
-        stroke(c, 50f, 15f, 50f, 49.7f, colors.roofDeep, 1.55f)
-        stroke(c, 49.5f, 15.2f, 49.5f, 49.1f, 0xBDFFECC7.toInt(), .70f)
+        // 5. All raised edges follow the new roof footprint. The tip, not
+        // its base, remains anchored at the game's true central point.
+        stroke(c, left - 0.75f, baseY + 2.8f,
+            right + 0.75f, baseY + 2.8f, colors.roofDeep, 2.30f)
+        stroke(c, left, baseY, right, baseY, colors.roofShade, 2.40f)
+        stroke(c, left + .7f, baseY - 1.0f,
+            right - .7f, baseY - 1.0f, colors.roofLight, 1.34f)
+        stroke(c, left, baseY, peakX, peakY, colors.roofDeep, 1.46f)
+        stroke(c, right, baseY, peakX, peakY, colors.roofDeep, 1.46f)
+        stroke(c, left + .5f, baseY - .1f,
+            peakX - .1f, peakY - .3f, 0x79FFFFFF, .62f)
+        stroke(c, peakX, baseY, peakX, peakY - .3f,
+            colors.roofDeep, 1.55f)
+        stroke(c, peakX - .5f, baseY + .2f,
+            peakX - .5f, peakY - .9f, 0xBDFFECC7.toInt(), .70f)
 
-        // A small front stair/threshold interrupts the roof's bottom edge at
-        // the DOOR only. Drawn last to read as a projecting stone entry.
+        // The existing stair/door remain untouched in their original facade
+        // positions. The smaller roof now sits behind the visible entrance.
         step(c, 40.3f, 16.7f, 59.7f, 19.6f,
             0xFFAB9077.toInt(), 0xFFFFE9C8.toInt())
         step(c, 42.8f, 15.7f, 57.2f, 18.2f,

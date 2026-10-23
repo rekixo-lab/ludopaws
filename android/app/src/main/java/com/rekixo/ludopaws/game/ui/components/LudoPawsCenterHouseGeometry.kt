@@ -45,6 +45,20 @@ internal object LudoPawsCenterHouseGeometry {
         }
     }
 
+    /**
+     * Only the illustrated ROOF is smaller; the full 100x50 team wedge and
+     * its finish apex remain unchanged. The raised base exposes more facade.
+     *
+     * Original roof: (11.8,15)–(88.2,15)–(50,50), area 1337 normalized².
+     * Compact roof:  (25,22)–(75,22)–(50,50), area 700 normalized².
+     * Both sloping sides stay inside the team's fixed triangle.
+     */
+    fun compactRoof(): LudoPawsRoofTriangle = LudoPawsRoofTriangle(
+        start = LudoPawsRoofPoint(25f, 22f),
+        end = LudoPawsRoofPoint(75f, 22f),
+        apex = LudoPawsRoofPoint(50f, 50f),
+    )
+
     /** Rotate one top-facing house clockwise into the existing team wedge. */
     fun rotationDegrees(team: String): Float? = when (team) {
         "GREEN" -> 0f

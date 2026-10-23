@@ -41,11 +41,11 @@ for(const marker of [
  "val wall = polygon(",
  "val underEave = polygon(",
  "val roofThickness = polygon(",
- "val roof = triangle(11.8f, 15f, 88.2f, 15f, 50f, 50f)",
+ "val roof = triangle(left, baseY, right, baseY, peakX, peakY)",
  "val leftPlane = triangle(",
  "val rightPlane = triangle(",
  "c.clipPath(roof)",
- "for (row in 0 until 9)",
+ "for (row in 0 until rowCount)",
  "val stagger = if (row % 2 == 0)",
  "colors.roofLight",
  "colors.roofDeep",
@@ -53,7 +53,19 @@ for(const marker of [
  "0xFF175B93",
  "0xFFFFD27B"
 ]) assert.ok(art.includes(marker),"Missing premium architectural detail: "+marker);
-assert.match(art,/stroke\(c, 50f, 15f, 50f, 49\.7f, colors\.roofDeep/);
+assert.match(geometry,/fun compactRoof\(\): LudoPawsRoofTriangle/);
+assert.match(geometry,/start = LudoPawsRoofPoint\(25f, 22f\)/);
+assert.match(geometry,/end = LudoPawsRoofPoint\(75f, 22f\)/);
+assert.match(geometry,/apex = LudoPawsRoofPoint\(50f, 50f\)/);
+assert.match(art,/LudoPawsCenterHouseGeometry\.compactRoof\(\)/);
+assert.match(art,/val rowHeight = \(spanY - 1\.8f\) \/ rowCount/);
+assert.match(art,/val left0 = left \+ \(peakX - left\) \* t0/);
+assert.match(art,/val right0 = right \+ \(peakX - right\) \* t0/);
+assert.match(art,/stroke\(c, peakX, baseY, peakX, peakY - \.3f/);
+assert.doesNotMatch(art,/triangle\(11\.8f, 15f, 88\.2f, 15f/);
+assert.doesNotMatch(art,/val y0 = 16\.5f \+ row \* 3\.76f/);
+assert.match(tests,/compactRoofBaseMovesInwardAndItsApexRemainsAtTheExactFinishPoint/);
+assert.match(tests,/compactRoofStaysInsideEveryUnchangedColorWedge/);
 assert.match(art,/gradient\(c, rightPlane/);
 assert.match(art,/gradient\(c, leftPlane/);
 assert.match(art,/gradient\(c, roofThickness/);
@@ -98,4 +110,4 @@ for(const name of [
  "theFourRooftopsMatchExistingCanonicalWedgeDirections",
  "finishPawnTargetsRemainInsideTheirExactTeamTriangle"
 ])assert.ok(tests.includes(name),"Missing compiled center regression "+name);
-console.log("Advanced 2.5D roof houses verified: thick eaves, pitched tiles, arched door and windows, one apex, preserved gameplay and team yards.");
+console.log("Compact center roofs verified: symmetric smaller 50×28 shape, shared finish apex, roof tiles/eaves scaled to profile, unchanged doors, yard and roads.");

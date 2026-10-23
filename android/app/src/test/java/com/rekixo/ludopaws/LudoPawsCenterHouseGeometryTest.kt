@@ -68,6 +68,44 @@ class LudoPawsCenterHouseGeometryTest {
         }
     }
 
+    @Test fun compactRoofBaseMovesInwardAndItsApexRemainsAtTheExactFinishPoint() {
+        val roof = LudoPawsCenterHouseGeometry.compactRoof()
+        assertEquals(25f, roof.start.x, 0f)
+        assertEquals(22f, roof.start.y, 0f)
+        assertEquals(75f, roof.end.x, 0f)
+        assertEquals(22f, roof.end.y, 0f)
+        assertEquals(50f, roof.apex.x, 0f)
+        assertEquals(50f, roof.apex.y, 0f)
+        assertEquals(50f, roof.end.x - roof.start.x, 0f)
+        assertEquals(28f, roof.apex.y - roof.start.y, 0f)
+        assertEquals(50f, (roof.start.x + roof.end.x) / 2f, 0f)
+        val oldRoofArea = (88.2f - 11.8f) * (50f - 15f) / 2f
+        val newRoofArea = (roof.end.x - roof.start.x) *
+            (roof.apex.y - roof.start.y) / 2f
+        assertTrue(newRoofArea < oldRoofArea * .55f)
+        assertEquals(700f, newRoofArea, .001f)
+    }
+
+    @Test fun compactRoofStaysInsideEveryUnchangedColorWedge() {
+        val profile = LudoPawsCenterHouseGeometry.compactRoof()
+        for (team in listOf("GREEN", "YELLOW", "BLUE", "RED")) {
+            val angle = requireNotNull(LudoPawsCenterHouseGeometry.rotationDegrees(team))
+            val radians = Math.toRadians(angle.toDouble())
+            fun rotate(p: LudoPawsRoofPoint): LudoPawsRoofPoint {
+                val dx = p.x - 50f
+                val dy = p.y - 50f
+                return LudoPawsRoofPoint(
+                    50f + (dx * kotlin.math.cos(radians) - dy * kotlin.math.sin(radians)).toFloat(),
+                    50f + (dx * kotlin.math.sin(radians) + dy * kotlin.math.cos(radians)).toFloat(),
+                )
+            }
+            val wedge = requireNotNull(LudoPawsCenterHouseGeometry.triangle(team))
+            for (point in listOf(profile.start, profile.end, profile.apex).map(::rotate)) {
+                assertTrue("$team compact roof must not cross onto the road", contains(wedge, point))
+            }
+        }
+    }
+
     private fun contains(t: LudoPawsRoofTriangle, p: LudoPawsRoofPoint): Boolean {
         fun cross(a: LudoPawsRoofPoint, b: LudoPawsRoofPoint, c: LudoPawsRoofPoint): Float =
             (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
