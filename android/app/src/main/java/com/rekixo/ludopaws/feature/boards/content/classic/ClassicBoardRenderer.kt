@@ -310,13 +310,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
         row: Int,
         col: Int,
     ) {
-        if ((row to col) in NEUTRAL_SAFE_CELLS || (row to col) in COLORED_ENTRIES) {
-            val raw = RectF(axisBoundary(col, cell), axisBoundary(row, cell),
-                axisBoundary(col + 1, cell), axisBoundary(row + 1, cell))
-            val team = COLORED_ROADS[row to col]?.let { theme.teamColor(it) }
-            drawSafeCourtyard(canvas, raw, team)
-            return
-        }
         COLORED_ROADS[row to col]?.let { color ->
             drawStoneRoadCell(canvas, cell, row, col, theme.teamColor(color))
             return
@@ -343,126 +336,48 @@ internal class ClassicBoardRenderer : BoardRenderer {
         canvas.drawRect(surface, fillPaint)
         fillPaint.shader = null
         canvas.restoreToCount(saved)
-
+        if ((row to col) in NEUTRAL_SAFE_CELLS) drawSafeShield(canvas, raw, cell)
     }
 
-    /** Open timber rest stop: low seats at the sides, clear approaches and center. */
-    private fun drawSafeCourtyard(canvas: Canvas, raw: RectF, team: Int?) {
-        val unit = min(raw.width(), raw.height())
-        val gap = maxOf(dp(1.1f), unit * .045f)
-        val area = RectF(raw.left + gap, raw.top + gap, raw.right - gap, raw.bottom - gap)
+    /** Shield and checkmark identify neutral safe cells without covering their stone surface. */
+    private fun drawSafeShield(canvas: Canvas, raw: RectF, cell: Float) {
+        val cx = raw.centerX()
+        val cy = raw.centerY()
+        val r = cell * .28f
+        val shield = Path().apply {
+            moveTo(cx, cy - r)
+            lineTo(cx + r * .83f, cy - r * .65f)
+            lineTo(cx + r * .75f, cy + r * .12f)
+            quadTo(cx + r * .58f, cy + r * .70f, cx, cy + r)
+            quadTo(cx - r * .58f, cy + r * .70f, cx - r * .75f, cy + r * .12f)
+            lineTo(cx - r * .83f, cy - r * .65f)
+            close()
+        }
         val saved = canvas.save()
-        canvas.clipRect(area)
-        fillPaint.shader = null
-        fillPaint.color = 0xFF634126.toInt()
-        canvas.drawRect(area, fillPaint)
-        val floor = RectF(area.left + unit * .035f, area.top + unit * .035f,
-            area.right - unit * .035f, area.bottom - unit * .07f)
-        fillPaint.shader = LinearGradient(floor.left, floor.top, floor.right, floor.bottom,
-            intArrayOf(0xFFFFE2A0.toInt(), 0xFFD6A967.toInt(), 0xFFBC874C.toInt()),
-            floatArrayOf(0f, .5f, 1f), Shader.TileMode.CLAMP)
-        canvas.drawRect(floor, fillPaint)
-        fillPaint.shader = null
-        val plankHeight = unit * .20f
-        strokePaint.strokeWidth = unit * .012f
-        var y = floor.top + plankHeight
-        while (y < floor.bottom) {
-            strokePaint.color = 0x806A431F.toInt()
-            canvas.drawLine(floor.left, y, floor.right, y, strokePaint)
-            strokePaint.color = 0x80FFECC0.toInt()
-            canvas.drawLine(floor.left, y + unit * .017f, floor.right,
-                y + unit * .017f, strokePaint)
-            y += plankHeight
-        }
-        // Fine grain follows the boards and remains quieter than the border lines.
-        strokePaint.strokeWidth = unit * .006f
-        strokePaint.color = 0x405F3A19
-        repeat(12) { index ->
-            val gy = floor.top + floor.height() * (index + .5f) / 12f
-            canvas.drawPath(Path().apply {
-                moveTo(floor.left, gy)
-                cubicTo(floor.centerX() - unit * .1f, gy - unit * .025f,
-                    floor.centerX() + unit * .12f, gy + unit * .025f, floor.right, gy)
-            }, strokePaint)
-        }
-        // Benches flank the travel direction; the two lane approaches stay open.
-        val horizontal = raw.height() > raw.width()
-        fun bench(rect: RectF) {
-            val shadow = RectF(rect)
-            shadow.offset(unit * .012f, unit * .045f)
-            fillPaint.color = 0x7052381D
-            canvas.drawRoundRect(shadow, unit * .035f, unit * .035f, fillPaint)
-            // Visible short feet separate a bench from a flat stripe on the deck.
-            fillPaint.color = 0xFF603B21.toInt()
-            val alongX = rect.width() > rect.height()
-            for (fraction in floatArrayOf(.18f, .82f)) {
-                val x = if (alongX) rect.left + rect.width() * fraction else rect.centerX()
-                val y = if (alongX) rect.centerY() else rect.top + rect.height() * fraction
-                canvas.drawRoundRect(RectF(x - unit * .025f, y,
-                    x + unit * .025f, y + unit * .10f),
-                    unit * .01f, unit * .01f, fillPaint)
-            }
-            fillPaint.color = 0xFF70441F.toInt()
-            canvas.drawRoundRect(rect, unit * .025f, unit * .025f, fillPaint)
-            val seat = RectF(rect.left, rect.top, rect.right, rect.bottom - unit * .03f)
-            fillPaint.shader = LinearGradient(seat.left, seat.top, seat.right, seat.bottom,
-                intArrayOf(0xFFFFDA89.toInt(), 0xFFBB7C34.toInt()), null, Shader.TileMode.CLAMP)
-            canvas.drawRoundRect(seat, unit * .025f, unit * .025f, fillPaint)
-            fillPaint.shader = null
-            strokePaint.strokeWidth = unit * .012f
-            strokePaint.color = 0xFFFFE4A2.toInt()
-            canvas.drawLine(seat.left + unit * .02f, seat.top + unit * .012f,
-                seat.right - unit * .02f, seat.top + unit * .012f, strokePaint)
-            strokePaint.strokeWidth = unit * .008f
-            strokePaint.color = 0x806C421E.toInt()
-            if (alongX) {
-                canvas.drawLine(seat.left + unit * .02f, seat.centerY(),
-                    seat.right - unit * .02f, seat.centerY(), strokePaint)
-            } else {
-                canvas.drawLine(seat.centerX(), seat.top + unit * .02f,
-                    seat.centerX(), seat.bottom - unit * .02f, strokePaint)
-            }
-        }
-        if (horizontal) {
-            for (bottom in listOf(false, true)) {
-                val top = if (bottom) floor.bottom - unit * .14f else floor.top + unit * .025f
-                bench(RectF(floor.left + floor.width() * .20f, top,
-                    floor.right - floor.width() * .20f, top + unit * .11f))
-            }
-        } else {
-            for (right in listOf(false, true)) {
-                val left = if (right) floor.right - unit * .14f else floor.left + unit * .025f
-                bench(RectF(left, floor.top + floor.height() * .20f,
-                    left + unit * .11f, floor.bottom - floor.height() * .20f))
-            }
-        }
-        // Colored entry rest stops retain their team identity as a small woven mat.
-        val matHalfWidth = unit * if (horizontal) .27f else .23f
-        val matHalfHeight = unit * if (horizontal) .23f else .27f
-        val mat = RectF(raw.centerX() - matHalfWidth, raw.centerY() - matHalfHeight,
-            raw.centerX() + matHalfWidth, raw.centerY() + matHalfHeight)
-        val matShadow = RectF(mat)
-        matShadow.offset(unit * .012f, unit * .025f)
-        fillPaint.color = 0x50432C19
-        canvas.drawRoundRect(matShadow, unit * .035f, unit * .035f, fillPaint)
-        // Neutral stops use a distinct muted teal rather than looking like green entries.
-        val matColor = team ?: 0xFF467E8B.toInt()
-        fillPaint.shader = LinearGradient(mat.left, mat.top, mat.right, mat.bottom,
-            intArrayOf(mixStone(matColor, Color.WHITE, .12f), darken(matColor, .80f)),
+        canvas.clipRect(raw.left + dp(1.1f), raw.top + dp(1.1f),
+            raw.right - dp(1.1f), raw.bottom - dp(1.1f))
+        canvas.save()
+        canvas.translate(0f, cell * .025f)
+        fillPaint.color = 0x50314952
+        canvas.drawPath(shield, fillPaint)
+        canvas.restore()
+        fillPaint.shader = LinearGradient(cx - r, cy - r, cx + r, cy + r,
+            intArrayOf(0xFF55B7D6.toInt(), 0xFF22658D.toInt()),
             null, Shader.TileMode.CLAMP)
-        canvas.drawRoundRect(mat, unit * .035f, unit * .035f, fillPaint)
+        canvas.drawPath(shield, fillPaint)
         fillPaint.shader = null
-        strokePaint.strokeWidth = unit * .006f
-        strokePaint.color = 0x35FFF2CC
-        for (thread in 1 until 9) {
-            val ty = mat.top + mat.height() * thread / 9f
-            canvas.drawLine(mat.left + unit * .025f, ty, mat.right - unit * .025f, ty, strokePaint)
-        }
-        strokePaint.strokeWidth = unit * .015f
-        strokePaint.color = 0xC0FFF0C6.toInt()
-        val seam = RectF(mat)
-        seam.inset(unit * .035f, unit * .035f)
-        canvas.drawRoundRect(seam, unit * .02f, unit * .02f, strokePaint)
+        strokePaint.strokeWidth = cell * .025f
+        strokePaint.color = 0xFFE4F4F4.toInt()
+        canvas.drawPath(shield, strokePaint)
+        strokePaint.strokeWidth = cell * .045f
+        strokePaint.strokeCap = Paint.Cap.ROUND
+        strokePaint.color = Color.WHITE
+        canvas.drawPath(Path().apply {
+            moveTo(cx - r * .36f, cy)
+            lineTo(cx - r * .06f, cy + r * .30f)
+            lineTo(cx + r * .40f, cy - r * .28f)
+        }, strokePaint)
+        strokePaint.strokeCap = Paint.Cap.BUTT
         fillPaint.color = Color.WHITE
         canvas.restoreToCount(saved)
     }
@@ -516,6 +431,21 @@ internal class ClassicBoardRenderer : BoardRenderer {
         canvas.drawPath(topPath, rockReliefPaint)
         canvas.drawPath(topPath, stoneGrainPaint)
 
+        // Restore the original team-colored entry marker beside each starting yard.
+        if ((row to col) in COLORED_ENTRIES) {
+            val star = Path()
+            repeat(10) { index ->
+                val angle = Math.toRadians(index * 36.0 - 90.0)
+                val radius = cell * .27f * if (index % 2 == 0) 1f else .43f
+                val x = raw.centerX() + kotlin.math.cos(angle).toFloat() * radius
+                val y = raw.centerY() + kotlin.math.sin(angle).toFloat() * radius
+                if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
+            }
+            star.close()
+            fillPaint.color = team
+            canvas.drawPath(star, fillPaint)
+            fillPaint.color = Color.WHITE
+        }
     }
 
     private fun chamferedStone(rect: RectF, corner: Float, seed: Long): Path = Path().apply {
