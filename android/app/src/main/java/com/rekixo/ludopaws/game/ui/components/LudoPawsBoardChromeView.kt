@@ -14,6 +14,9 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var footprintSource: LudoBoardView? = null
     private var definition = BoardRegistry.resolve("board_classic")
     private var renderer = BoardRendererRegistry.create(definition)
+    // Independent, cached inner-yard artwork; never covers roads or center.
+    private val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
+    private var habitatsByColor: Map<String, LudoPawsYardHabitat> = emptyMap()
 
     init {
         isClickable = false
@@ -33,12 +36,28 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         invalidate()
     }
 
+    fun bindHabitats(
+        snapshot: MatchSnapshot?,
+        characterIdsBySeat: List<String>,
+    ) {
+        val next = LudoPawsYardHabitatPolicy.forMatch(
+            snapshot = snapshot,
+            characterIdsBySeat = characterIdsBySeat,
+        )
+        if (next == habitatsByColor) return
+        habitatsByColor = next
+        invalidate()
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val size = min(width, height).toFloat()
         if (size <= 0f) return
         val cell = size / 15f
         renderer.draw(canvas, size, resources.displayMetrics.density, definition)
+        // Per-player animal habitat lives in the FOUR white yard faces only.
+        // It is composed after the molded rims and before authoritative prints.
+        yardHabitatRenderer.draw(canvas, cell, habitatsByColor)
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
         footprintSource?.drawYardPawPrintsOverlay(canvas, cell)
         footprintSource?.drawFinishRanksOverlay(canvas, cell)
