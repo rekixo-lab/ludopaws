@@ -348,10 +348,56 @@ internal class ClassicBoardRenderer : BoardRenderer {
                 if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
             }
             star.close()
-            fillPaint.color = Color.rgb(45, 138, 204)
-            canvas.drawPath(star, fillPaint)
-            fillPaint.color = Color.WHITE
+            drawWoodenStar(canvas, star, raw, cell)
         }
+    }
+
+    /** Carved timber safe marker, entirely contained within the original road cell. */
+    private fun drawWoodenStar(canvas: Canvas, star: Path, raw: RectF, cell: Float) {
+        val radius = cell * .27f
+        val depth = cell * .035f
+        val saved = canvas.save()
+        canvas.clipRect(raw.left + dp(1.1f), raw.top + dp(1.1f),
+            raw.right - dp(1.1f), raw.bottom - dp(1.1f))
+        canvas.save()
+        canvas.translate(depth * .5f, depth * 1.5f)
+        fillPaint.color = 0x65412712
+        canvas.drawPath(star, fillPaint)
+        canvas.restore()
+        canvas.save()
+        canvas.translate(0f, depth)
+        fillPaint.color = 0xFF70401D.toInt()
+        canvas.drawPath(star, fillPaint)
+        canvas.restore()
+        fillPaint.shader = LinearGradient(raw.centerX() - radius, raw.centerY() - radius,
+            raw.centerX() + radius, raw.centerY() + radius,
+            intArrayOf(0xFFFFDF91.toInt(), 0xFFD49643.toInt(), 0xFF925323.toInt()),
+            floatArrayOf(0f, .45f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawPath(star, fillPaint)
+        fillPaint.shader = null
+        canvas.save()
+        canvas.clipPath(star)
+        strokePaint.strokeWidth = cell * .008f
+        strokePaint.color = 0x685E3416
+        repeat(7) { index ->
+            val y = raw.centerY() - radius + radius * (index + .5f) / 3.5f
+            val grain = Path().apply {
+                moveTo(raw.centerX() - radius, y)
+                cubicTo(raw.centerX() - radius * .3f, y - radius * .16f,
+                    raw.centerX() + radius * .2f, y + radius * .18f,
+                    raw.centerX() + radius, y + radius * .06f)
+            }
+            canvas.drawPath(grain, strokePaint)
+        }
+        canvas.restore()
+        strokePaint.strokeWidth = cell * .018f
+        strokePaint.shader = LinearGradient(raw.left, raw.centerY() - radius,
+            raw.left, raw.centerY() + radius,
+            intArrayOf(0xFFFFE5A4.toInt(), 0xFF865022.toInt()), null, Shader.TileMode.CLAMP)
+        canvas.drawPath(star, strokePaint)
+        strokePaint.shader = null
+        fillPaint.color = Color.WHITE
+        canvas.restoreToCount(saved)
     }
 
     /** Opaque stone treatment only for the four colored lanes and their colored entry cells. */

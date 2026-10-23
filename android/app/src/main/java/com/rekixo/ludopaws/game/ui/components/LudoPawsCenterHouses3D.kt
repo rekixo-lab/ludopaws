@@ -30,14 +30,14 @@ internal class LudoPawsCenterHouses3D {
     private val colors = arrayOf("BLUE", "RED", "GREEN", "YELLOW")
     // Match the red yard's soft coral-pink perimeter instead of saturated scarlet.
     private val roofs = arrayOf(
-        rgb(0x268DE2), rgb(0xF88474),
-        rgb(0x41B854), rgb(0xF3C43B),
+        rgb(0x148FEF), rgb(0xF87767),
+        rgb(0x27BE49), rgb(0xFFD02D),
     )
     private val roofShades = roofs.map { base ->
-        Array(4) { shade -> tint(base, .94f + shade * .045f) }
+        Array(4) { shade -> tint(base, .91f + shade * .055f) }
     }
     private val roofEdges = roofs.map { tint(it, .68f) }
-    private val roofBase = roofs.map { tint(it, .84f) }
+    private val roofBase = roofs.map { tint(it, .66f) }
     private val tiledRoof = roofTiles()
     private val ridgeCap = raisedRidge()
     private val fenceMeshes = gardenFence()
@@ -448,9 +448,9 @@ internal class LudoPawsCenterHouses3D {
             val eave = roofEave(side)
             val ridge = roofFront()
             // Rows converge exactly toward the shared apex. Insets reveal dark tile seams.
-            for (row in 0 until 7) {
-                val t0 = row / 7f
-                val t1 = (row + 1) / 7f
+            for (row in 0 until 6) {
+                val t0 = row / 6f
+                val t1 = (row + 1) / 6f
                 val columns = row + 1
                 for (column in 0 until columns) {
                     val u0 = column.toFloat() / columns
@@ -459,11 +459,23 @@ internal class LudoPawsCenterHouses3D {
                         ((eave - apex) * (1f - u) + (ridge - apex) * u) * t
                     val points = listOf(point(t0, u0), point(t1, u0), point(t1, u1), point(t0, u1))
                     val center = points.reduce { a, b -> a + b } * .25f
-                    val inset = points.map { center + (it - center) * .94f + v(0f, 0f, .004f) }
-                    val batch = batches[(row + column + if (side < 0) 1 else 0) % 4]
-                    // The first row starts at an apex, so its first and last corners coincide.
-                    batch.triangle(inset[0], inset[1], inset[2])
-                    if (row > 0) batch.triangle(inset[0], inset[2], inset[3])
+                    val lower = points.map { center + (it - center) * .93f + v(0f, 0f, .003f) }
+                    // Raised tile lips and sloping bevels have real normals, so the
+                    // light follows each tile instead of just alternating painted colors.
+                    val upper = lower.mapIndexed { index, point ->
+                        center + (point - center) * .88f +
+                            v(0f, 0f, if (index == 1 || index == 2) .024f else .012f)
+                    }
+                    val shade = (row * 3 + column + if (side < 0) 1 else 0) % 4
+                    val batch = batches[shade]
+                    batch.triangle(upper[0], upper[1], upper[2])
+                    if (row > 0) batch.triangle(upper[0], upper[2], upper[3])
+                    for (edge in 0 until 4) {
+                        val next = (edge + 1) % 4
+                        batches[if (edge == 1) 0 else shade].quad(
+                            lower[edge], lower[next], upper[next], upper[edge],
+                        )
+                    }
                 }
             }
         }
