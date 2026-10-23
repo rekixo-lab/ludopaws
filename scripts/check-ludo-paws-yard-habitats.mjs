@@ -3,6 +3,19 @@ import assert from "node:assert/strict";
 
 const root = "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/";
 const get = file => fs.readFileSync(root + file, "utf8");
+const atlasPath = "android/app/src/main/assets/yard_habitats/atlas.webp";
+assert.ok(fs.existsSync(atlasPath), "Premium real artwork atlas must ship in the Android APK");
+const atlasBytes = fs.readFileSync(atlasPath);
+assert.ok(atlasBytes.length >= 100_000 && atlasBytes.length <= 400_000,
+    "Premium artwork must have full quality without becoming a huge APK asset");
+assert.equal(atlasBytes.toString("ascii", 0, 4), "RIFF", "Premium atlas RIFF header");
+assert.equal(atlasBytes.toString("ascii", 8, 12), "WEBP", "Premium atlas WebP format");
+// Enforce the exact reviewed illustrated artwork rather than a blurred thumbnail.
+const { createHash } = await import("node:crypto");
+const artChecksum = createHash("sha256").update(atlasBytes).digest("hex");
+assert.equal(artChecksum,
+    "4e1c29b4645420c0804b98ea7b0afef36cf9b4ef91a33e319ca533c32e2d9f44",
+    "Premium yard art checksum changed: review replacement artwork before shipping");
 const policy = get("LudoPawsYardHabitatPolicy.kt");
 const art = get("LudoPawsYardHabitatRenderer.kt");
 const chrome = get("LudoPawsBoardChromeView.kt");
