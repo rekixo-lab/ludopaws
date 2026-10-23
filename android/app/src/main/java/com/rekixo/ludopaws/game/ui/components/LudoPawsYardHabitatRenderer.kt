@@ -57,12 +57,19 @@ internal class LudoPawsYardHabitatRenderer {
     }
 
     private fun cachedBitmap(color: String, palette: LudoPawsYardPalette): Bitmap {
+        sharedBitmaps[color]?.let { return it }
         bitmapCache.get(color)?.let { return it }
+        val bitmap = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        bitmap.eraseColor(palette.sandTop)
+        bitmapCache.put(color, bitmap)
+        return bitmap
+    }
+
+    private fun rasterize(palette: LudoPawsYardPalette): Bitmap {
         val bitmap = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888)
         val scene = Canvas(bitmap)
         scene.scale(5.12f, 5.12f)
         paintHome(scene, palette)
-        bitmapCache.put(color, bitmap)
         return bitmap
     }
 
@@ -343,4 +350,36 @@ internal class LudoPawsYardHabitatRenderer {
         c.drawLine(x1, y1, x2, y2, brush)
         brush.style = Paint.Style.FILL
     }
+    companion object {
+        @Volatile private var sharedBitmaps: Map<String, Bitmap> = emptyMap()
+        private val callbacks = mutableListOf<() -> Unit>()
+        private var preparing = false
+        private val worker = java.util.concurrent.Executors.newSingleThreadExecutor { work ->
+            Thread(work, "LudoPawsYards").apply { isDaemon = true }
+        }
+        fun prepare(onReady: () -> Unit) {
+            synchronized(callbacks) {
+                if (sharedBitmaps.size == 4) { onReady(); return }
+                callbacks += onReady
+                if (preparing) return
+                preparing = true
+            }
+            worker.execute {
+                val result = runCatching {
+                    val painter = LudoPawsYardHabitatRenderer()
+                    listOf("RED", "GREEN", "YELLOW", "BLUE").associateWith {
+                        painter.rasterize(requireNotNull(LudoPawsYardPalettePolicy.forTeam(it)))
+                    }
+                }
+                val pending = synchronized(callbacks) {
+                    result.onSuccess { sharedBitmaps = it }
+                    preparing = false
+                    callbacks.toList().also { callbacks.clear() }
+                }
+                result.onFailure { android.util.Log.e("YardTextures", "Yard preparation failed", it) }
+                pending.forEach { it() }
+            }
+        }
+    }
+
 }

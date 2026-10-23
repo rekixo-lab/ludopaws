@@ -38,7 +38,10 @@ class OfflineGameEngine(
             Context.MODE_PRIVATE,
         )
 
-    private var state: LocalState? = loadState()
+    private var state: LocalState? = synchronized(checkpoints) {
+        if (checkpoints.containsKey(mode)) checkpoints[mode]?.frozenCopy()
+        else loadState().also { checkpoints[mode] = it?.frozenCopy() }
+    }
 
     fun hasSavedGame(): Boolean = state != null
 
@@ -414,7 +417,13 @@ class OfflineGameEngine(
 
     fun clear() {
         state = null
-        prefs.edit().clear().apply()
+        synchronized(checkpoints) {
+            checkpoints[mode] = null
+            checkpointWriter.execute {
+                runCatching { check(prefs.edit().clear().commit()) }
+                    .onFailure { android.util.Log.e("OfflineSave", "Could not clear checkpoint", it) }
+            }
+        }
     }
 
     private fun requireActiveState(): LocalState {
@@ -513,8 +522,27 @@ class OfflineGameEngine(
         error("No active player remains before match completion")
     }
 
+    private fun LocalState.frozenCopy(): LocalState = copy(
+        players = players.map { it.copy(tokens = it.tokens.toMutableList()) }.toMutableList(),
+        consecutiveSixes = consecutiveSixes.toMutableList(),
+        openingRollConsumed = openingRollConsumed.toMutableList(),
+        pendingLegal = pendingLegal.toMutableSet(),
+        finishedPlayerIds = finishedPlayerIds.toMutableList(),
+        history = history.toMutableList(),
+    )
+
     private fun persist() {
-        val current = state ?: return
+        val current = state?.frozenCopy() ?: return
+        synchronized(checkpoints) {
+            checkpoints[mode] = current
+            checkpointWriter.execute {
+                runCatching { writeCheckpoint(current) }
+                    .onFailure { android.util.Log.e("OfflineSave", "Could not serialize checkpoint", it) }
+            }
+        }
+    }
+
+    private fun writeCheckpoint(current: LocalState) {
         val json =
             JSONObject()
                 .put("rulesetId", current.rulesetId)
@@ -587,9 +615,9 @@ class OfflineGameEngine(
             )
         }
 
-        prefs.edit()
-            .putString(KEY_STATE, json.toString())
-            .commit()
+        if (!prefs.edit().putString(KEY_STATE, json.toString()).commit()) {
+            android.util.Log.e("OfflineSave", "Could not persist checkpoint revision ${current.revision}")
+        }
     }
 
     private fun loadState(): LocalState? {
@@ -1045,6 +1073,10 @@ class OfflineGameEngine(
     )
 
     private companion object {
+        val checkpoints = mutableMapOf<GameMode, LocalState?>()
+        val checkpointWriter = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+            Thread(task, "LudoPawsCheckpoint").apply { isDaemon = true }
+        }
         const val PREFS_NAME = "ludoproof_offline_game"
         const val PREFS_NAME_COMPUTER = "ludoproof_computer_game"
         const val KEY_STATE = "state"

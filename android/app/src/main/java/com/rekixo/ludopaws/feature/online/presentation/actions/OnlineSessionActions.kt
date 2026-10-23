@@ -123,6 +123,7 @@ internal fun MainActivity.runNetwork(
             requestExecutor.execute {
                 try {
                     val response = action()
+                    GameJson.prepareEnvelope(response)
                     if (traceId != null) {
                         Log.d(
                             "LudoDicePerf",

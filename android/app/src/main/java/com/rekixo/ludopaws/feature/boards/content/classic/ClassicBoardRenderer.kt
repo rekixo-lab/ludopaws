@@ -43,7 +43,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
             style = Paint.Style.FILL
             shader =
                 BitmapShader(
-                    createGrainBitmap(),
+                    texture(0),
                     Shader.TileMode.REPEAT,
                     Shader.TileMode.REPEAT,
                 )
@@ -51,18 +51,18 @@ internal class ClassicBoardRenderer : BoardRenderer {
 
 
     private val stoneGrainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        shader = BitmapShader(createStoneGrainBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        shader = BitmapShader(texture(1), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
     }
 
-    private val pebbleShader = BitmapShader(
-        createPebbleBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
+    private var pebbleShader = BitmapShader(
+        texture(2), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
     )
     private val pebblePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         shader = pebbleShader
     }
     private val pebbleMatrix = Matrix()
-    private val rockReliefShader = BitmapShader(
-        createRockReliefBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
+    private var rockReliefShader = BitmapShader(
+        texture(3), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
     )
     private val rockReliefPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         shader = rockReliefShader
@@ -70,7 +70,23 @@ internal class ClassicBoardRenderer : BoardRenderer {
     }
     private val rockReliefMatrix = Matrix()
 
+    private var appliedTextures: Array<Bitmap>? = null
+    override fun prepare(onReady: () -> Unit) = prepareTextures(onReady)
+
+    private fun applyPreparedTextures() {
+        val ready = preparedTextures ?: return
+        if (appliedTextures === ready) return
+        appliedTextures = ready
+        grainPaint.shader = BitmapShader(ready[0], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        stoneGrainPaint.shader = BitmapShader(ready[1], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        pebbleShader = BitmapShader(ready[2], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        pebblePaint.shader = pebbleShader
+        rockReliefShader = BitmapShader(ready[3], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        rockReliefPaint.shader = rockReliefShader
+    }
+
     override fun draw(canvas: Canvas, size: Float, density: Float, definition: BoardDefinition) {
+        applyPreparedTextures()
         this.density = density
         theme = definition
         val cell = size / 15f
@@ -582,6 +598,34 @@ internal class ClassicBoardRenderer : BoardRenderer {
         value * density
 
     private companion object {
+        @Volatile private var preparedTextures: Array<Bitmap>? = null
+        private val neutralTexture = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        private val waiting = mutableListOf<() -> Unit>()
+        private var preparing = false
+        private val textureWorker = java.util.concurrent.Executors.newSingleThreadExecutor { work ->
+            Thread(work, "LudoPawsRoadTextures").apply { isDaemon = true }
+        }
+        private fun texture(index: Int): Bitmap = preparedTextures?.get(index) ?: neutralTexture
+        private fun prepareTextures(onReady: () -> Unit) {
+            synchronized(waiting) {
+                if (preparedTextures != null) { onReady(); return }
+                waiting += onReady
+                if (preparing) return
+                preparing = true
+            }
+            textureWorker.execute {
+                val result = runCatching { arrayOf(createGrainBitmap(), createStoneGrainBitmap(),
+                    createPebbleBitmap(), createRockReliefBitmap()) }
+                val callbacks = synchronized(waiting) {
+                    result.onSuccess { preparedTextures = it }
+                    preparing = false
+                    waiting.toList().also { waiting.clear() }
+                }
+                result.onFailure { android.util.Log.e("RoadTextures", "Texture preparation failed", it) }
+                callbacks.forEach { it() }
+            }
+        }
+
         val RED = Color.rgb(241, 37, 47)
         val GREEN = Color.rgb(0, 169, 80)
         val YELLOW = Color.rgb(255, 216, 27)

@@ -84,6 +84,12 @@ class LudoPawsPlayerCardView(
         )
     }
 
+    private data class Binding(
+        val player: PlayerSnapshot, val characterId: String?, val active: Boolean,
+        val computer: Boolean, val compact: Boolean, val localPlayer: Boolean, val portraitOnEnd: Boolean,
+    )
+    private var lastBinding: Binding? = null
+
     fun bind(
         player: PlayerSnapshot,
         characterId: String?,
@@ -93,6 +99,9 @@ class LudoPawsPlayerCardView(
         localPlayer: Boolean = true,
         portraitOnEnd: Boolean = false,
     ) {
+        val next = Binding(player, characterId, active, computer, compact, localPlayer, portraitOnEnd)
+        if (lastBinding == next) return
+        lastBinding = next
         layoutDirection =
             if (portraitOnEnd) {
                 View.LAYOUT_DIRECTION_RTL

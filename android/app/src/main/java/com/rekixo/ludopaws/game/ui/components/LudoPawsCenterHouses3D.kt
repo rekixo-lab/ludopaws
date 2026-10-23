@@ -4,6 +4,7 @@ import android.opengl.Matrix
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterDrawContext
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterSurface
 import com.rekixo.ludopaws.rendering.meshes.MeshGeometry
+import com.rekixo.ludopaws.rendering.meshes.SphereGeometry
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -160,12 +161,20 @@ internal class LudoPawsCenterHouses3D {
         }
     }.build()
 
+    private val staticArtwork by lazy {
+        val recorder = StaticHouseRecorder()
+        draw(recorder, 6f, 0, LudoPaws3DSceneState(), 0L, bakeStatic = true)
+        recorder.batches()
+    }
+    private val staticTransform = FloatArray(16)
+
     fun draw(
         context: CharacterDrawContext,
         size: Float,
         quarterTurns: Int,
         state: LudoPaws3DSceneState,
         nowMillis: Long,
+        bakeStatic: Boolean = false,
     ) {
         // The approved stretched mapping puts logical boundaries 6 and 9 at 5/15 and 10/15.
         // Half the center square is consequently 2.5 base cells, not 1.5 cells.
@@ -178,7 +187,22 @@ internal class LudoPawsCenterHouses3D {
         context.life = null
         context.limbBendY = 0f
         context.limbBendZ = 0f
-        drawGarden(context, size, halfSpan, quarterTurns)
+        if (bakeStatic) {
+            drawGarden(context, size, halfSpan, quarterTurns)
+        } else {
+            // Baking preserves each part's original material coordinates and normals.
+            // Only this uniform group transform changes with board size/perspective.
+            val batches = staticArtwork
+            Matrix.setIdentityM(staticTransform, 0)
+            Matrix.translateM(staticTransform, 0, size * .5f, size * .5f, 0f)
+            Matrix.rotateM(staticTransform, 0, quarterTurns * 90f, 0f, 0f, 1f)
+            Matrix.scaleM(staticTransform, 0, halfSpan, halfSpan, halfSpan)
+            Matrix.translateM(staticTransform, 0, -3f, -3f, 0f)
+            batches.forEach { batch ->
+                context.surface = batch.surface
+                part(context, staticTransform, batch.geometry, 0f, 0f, 0f, 1f, 1f, 1f, batch.color)
+            }
+        }
         repeat(4) { index ->
             Matrix.setIdentityM(house, 0)
             Matrix.translateM(house, 0, size * .5f, size * .5f, 0f)
@@ -191,23 +215,29 @@ internal class LudoPawsCenterHouses3D {
             Matrix.translateM(facade, 0, 0f, 1f, .02f)
             Matrix.rotateM(facade, 0, -48.990913f, 1f, 0f, 0f)
             Matrix.scaleM(facade, 0, 1f, .60959f, 1f)
-            context.surface = CharacterSurface.HOUSE_WALL
-            part(context, facade, shell, 0f, 0f, 0f, 1f, 1f, 1f, CREAM)
+            if (bakeStatic) {
+                context.surface = CharacterSurface.HOUSE_WALL
+                part(context, facade, shell, 0f, 0f, 0f, 1f, 1f, 1f, CREAM)
 
-            // All four roof planes climb to the same higher center summit.
-            context.surface = CharacterSurface.HOUSE_ROOF
-            part(context, house, roofBody, 0f, 0f, 0f, 1f, 1f, 1f, roofBase[index])
-            tiledRoof.forEachIndexed { shade, mesh ->
-                part(context, house, mesh, 0f, 0f, 0f, 1f, 1f, 1f, roofShades[index][shade])
+                // All four roof planes climb to the same higher center summit.
+                context.surface = CharacterSurface.HOUSE_ROOF
+                part(context, house, roofBody, 0f, 0f, 0f, 1f, 1f, 1f, roofBase[index])
+                tiledRoof.forEachIndexed { shade, mesh ->
+                    part(context, house, mesh, 0f, 0f, 0f, 1f, 1f, 1f, roofShades[index][shade])
+                }
+                beam(context, house, roofEave(-1), roofFront(), .018f, roofEdges[index])
+                beam(context, house, roofEave(1), roofFront(), .018f, roofEdges[index])
+                part(context, house, ridgeCap, 0f, 0f, 0f, 1f, 1f, 1f, roofShades[index][3])
+
+                // Gold arched surround, recessed dark interior, then the moving wooden leaf.
+                context.surface = CharacterSurface.HOUSE_WALL
+                part(context, facade, arch, 0f, -.025f, .016f, .195f, .76f, .025f, GOLD)
+                part(context, facade, arch, 0f, -.025f, .033f, .163f, .69f, .018f, INTERIOR)
+                // Threshold belongs to the static architecture, below the hinged leaf.
+                part(context, facade, cube, 0f, -.008f, .075f, .25f, .025f, .045f, STONE)
             }
-            beam(context, house, roofEave(-1), roofFront(), .018f, roofEdges[index])
-            beam(context, house, roofEave(1), roofFront(), .018f, roofEdges[index])
-            part(context, house, ridgeCap, 0f, 0f, 0f, 1f, 1f, 1f, roofShades[index][3])
-
-            // Gold arched surround, recessed dark interior, then the moving wooden leaf.
+            if (bakeStatic) return@repeat
             context.surface = CharacterSurface.HOUSE_WALL
-            part(context, facade, arch, 0f, -.025f, .016f, .195f, .76f, .025f, GOLD)
-            part(context, facade, arch, 0f, -.025f, .033f, .163f, .69f, .018f, INTERIOR)
             System.arraycopy(facade, 0, hinge, 0, 16)
             Matrix.translateM(hinge, 0, -.151f, -.025f, .057f)
             Matrix.rotateM(hinge, 0, -82f * doorOpenness(index, state, nowMillis), 0f, 1f, 0f)
@@ -219,8 +249,6 @@ internal class LudoPawsCenterHouses3D {
             }
             context.drawPart(hinge, .244f, -.30f, .041f, .022f, .028f, .025f, GOLD)
 
-            // A little stone threshold stays inside the center square.
-            part(context, facade, cube, 0f, -.008f, .075f, .25f, .025f, .045f, STONE)
             val player = state.snapshot?.players?.firstOrNull { it.color == colors[index] }
             val entry = player?.let { state.homeEntries[it.playerId] }
             if (entry != null) {
@@ -629,13 +657,38 @@ internal class LudoPawsCenterHouses3D {
         fun build() = MeshGeometry(vertices.toFloatArray(), indices.toShortArray())
     }
 
-    private companion object {
-        fun v(x: Float, y: Float, z: Float = 0f) = V(x, y, z)
+    companion object {
+        @Volatile private var prepared: LudoPawsCenterHouses3D? = null
+        private var preparing = false
+        private val artworkWorker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+            Thread(task, "LudoPawsArchitecture").apply { isDaemon = true }
+        }
+
+        @Synchronized
+        fun prepare() {
+            if (prepared != null || preparing) return
+            preparing = true
+            artworkWorker.execute {
+                val result = runCatching {
+                    LudoPawsCenterHouses3D().also { it.staticArtwork }
+                }
+                synchronized(this) {
+                    result.onSuccess { prepared = it }
+                    preparing = false
+                }
+                result.onFailure { android.util.Log.w("LudoPawsArchitecture", "Could not prewarm architecture", it) }
+            }
+        }
+
+        @Synchronized
+        fun acquire(): LudoPawsCenterHouses3D = prepared?.also { prepared = null } ?: LudoPawsCenterHouses3D()
+
+        private fun v(x: Float, y: Float, z: Float = 0f) = V(x, y, z)
         // One geometry definition keeps the body, tiles, edging and cap aligned.
-        fun roofApex() = v(0f, 0f, .70f)
+        private fun roofApex() = v(0f, 0f, .70f)
         // Pull the entire gable edge inward; its Z stays on the extended facade plane.
-        fun roofEave(side: Int) = v(side * .90f, .90f, .135f)
-        fun roofFront() = v(0f, .54f, .549f)
+        private fun roofEave(side: Int) = v(side * .90f, .90f, .135f)
+        private fun roofFront() = v(0f, .54f, .549f)
         fun rgb(hex: Int) = floatArrayOf(((hex shr 16) and 255) / 255f,
             ((hex shr 8) and 255) / 255f, (hex and 255) / 255f, 1f)
         fun tint(base: FloatArray, factor: Float) = floatArrayOf(
@@ -676,5 +729,67 @@ internal class LudoPawsCenterHouses3D {
         val FENCE_PINS = rgb(0xD4AB70)
         val FLOWER_CREAM = rgb(0xF4EBCB)
         val FLOWER_PINK = rgb(0xDF96A0)
+    }
+}
+
+/** Records immutable architecture once; translucent pieces retain their original draw order. */
+private class StaticHouseRecorder : CharacterDrawContext() {
+    data class Batch(val geometry: MeshGeometry, val color: FloatArray, val surface: CharacterSurface)
+    private data class Key(val color: List<Float>, val surface: CharacterSurface)
+    private class Chunk(val color: FloatArray, val surface: CharacterSurface) {
+        val vertices = ArrayList<Float>()
+        val locals = ArrayList<Float>()
+        val indices = ArrayList<Short>()
+    }
+    private val opaque = linkedMapOf<Key, MutableList<Chunk>>()
+    private val transparent = ArrayList<Chunk>()
+    private val transform = FloatArray(16)
+    private val inverse = FloatArray(16)
+
+    override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
+        scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
+        rotateX: Float, rotateY: Float, rotateZ: Float) =
+        drawGeometry(parent, SphereGeometry.standard, translateX, translateY, translateZ,
+            scaleX, scaleY, scaleZ, color, rotateX, rotateY, rotateZ)
+
+    override fun drawGeometry(parent: FloatArray, geometry: MeshGeometry,
+        translateX: Float, translateY: Float, translateZ: Float,
+        scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
+        rotateX: Float, rotateY: Float, rotateZ: Float) {
+        System.arraycopy(parent, 0, transform, 0, 16)
+        Matrix.translateM(transform, 0, translateX, translateY, translateZ)
+        if (rotateX != 0f) Matrix.rotateM(transform, 0, rotateX, 1f, 0f, 0f)
+        if (rotateY != 0f) Matrix.rotateM(transform, 0, rotateY, 0f, 1f, 0f)
+        if (rotateZ != 0f) Matrix.rotateM(transform, 0, rotateZ, 0f, 0f, 1f)
+        Matrix.scaleM(transform, 0, scaleX, scaleY, scaleZ)
+        check(Matrix.invertM(inverse, 0, transform))
+        val count = geometry.vertices.size / 6
+        val chunk = if (color[3] < 1f) {
+            Chunk(color.copyOf(), surface).also { transparent.add(it) }
+        } else {
+            val chunks = opaque.getOrPut(Key(color.toList(), surface)) { mutableListOf() }
+            chunks.lastOrNull()?.takeIf { it.vertices.size / 6 + count < 65536 }
+                ?: Chunk(color.copyOf(), surface).also { chunks.add(it) }
+        }
+        val offset = chunk.vertices.size / 6
+        for (i in geometry.vertices.indices step 6) {
+            val x = geometry.vertices[i]; val y = geometry.vertices[i + 1]; val z = geometry.vertices[i + 2]
+            chunk.vertices.add(transform[0] * x + transform[4] * y + transform[8] * z + transform[12])
+            chunk.vertices.add(transform[1] * x + transform[5] * y + transform[9] * z + transform[13])
+            chunk.vertices.add(transform[2] * x + transform[6] * y + transform[10] * z + transform[14])
+            val nx = geometry.vertices[i + 3]; val ny = geometry.vertices[i + 4]; val nz = geometry.vertices[i + 5]
+            val a = inverse[0] * nx + inverse[1] * ny + inverse[2] * nz
+            val b = inverse[4] * nx + inverse[5] * ny + inverse[6] * nz
+            val c = inverse[8] * nx + inverse[9] * ny + inverse[10] * nz
+            val length = sqrt(a * a + b * b + c * c).coerceAtLeast(.000001f)
+            chunk.vertices.add(a / length); chunk.vertices.add(b / length); chunk.vertices.add(c / length)
+            chunk.locals.add(x); chunk.locals.add(y); chunk.locals.add(z)
+        }
+        geometry.indices.forEach { chunk.indices.add(((it.toInt() and 65535) + offset).toShort()) }
+    }
+
+    fun batches(): List<Batch> = (opaque.values.flatten() + transparent).map {
+        Batch(MeshGeometry(it.vertices.toFloatArray(), it.indices.toShortArray(), it.locals.toFloatArray()),
+            it.color, it.surface)
     }
 }

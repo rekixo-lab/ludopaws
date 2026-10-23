@@ -39,10 +39,20 @@ internal class LudoPaws3DSceneRenderer {
     private lateinit var sphere: CharacterMesh
     private var uMaterialLocation = -1
     private var uLimbBendLocation = -1
+    private var boundSurface: CharacterSurface? = null
+    private var boundBendY = Float.NaN
+    private var boundBendZ = Float.NaN
     private val customMeshes = mutableMapOf<MeshGeometry, CharacterMesh>()
 
+    private val renderPawnScratch = ArrayList<RenderPawn>(16)
+    private val visiblePawnKeys = HashSet<LudoPaws3DPawnKey>(16)
+    private val pawnDepthOrder = compareBy<RenderPawn> { it.y }
+    private var occupancySnapshot: MatchSnapshot? = null
+    private var occupancyCell = 0f
+    private var occupancyTurns = -1
+    private var cachedOccupancy: Map<String, Int> = emptyMap()
     private val lifeByPawn = mutableMapOf<LudoPaws3DPawnKey, LudoPaws3DLifeMotion>()
-    private val centerHouses = LudoPawsCenterHouses3D()
+    private val centerHouses by lazy { LudoPawsCenterHouses3D.acquire() }
     private val drawContext = object : CharacterDrawContext() {
         override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
             scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
@@ -99,14 +109,26 @@ internal class LudoPaws3DSceneRenderer {
                 uLightDirectionLocation >= 0 &&
                 uNormalMatrixLocation >= 0,
         ) { "3D pawn shader is missing a required uniform" }
+        GLES30.glUseProgram(program)
+        GLES30.glUniform3f(uLightDirectionLocation, .40f, -1f, -.65f)
+        boundSurface = null
+        boundBendY = Float.NaN
+        boundBendZ = Float.NaN
         sphere =
             CharacterMesh(
                 geometry = SphereGeometry.standard,
                 uMvpLocation = uMvpLocation,
                 uColorLocation = uColorLocation,
-                uLightDirectionLocation = uLightDirectionLocation,
                 uNormalMatrixLocation = uNormalMatrixLocation,
             )
+    }
+
+    fun release() {
+        customMeshes.values.forEach { it.release() }
+        customMeshes.clear()
+        if (::sphere.isInitialized) sphere.release()
+        if (program != 0) GLES30.glDeleteProgram(program)
+        program = 0
     }
 
     /**
@@ -272,7 +294,8 @@ internal class LudoPaws3DSceneRenderer {
             )
 
         val renderPawns =
-            buildList {
+            renderPawnScratch.apply {
+                clear()
                 snapshot.players.forEach { player ->
                     val teamColor =
                         LudoPawsTeamIdentityPolicy.resolve(player.color)
@@ -428,13 +451,15 @@ internal class LudoPaws3DSceneRenderer {
                         )
                     }
                 }
-            }.sortedBy(RenderPawn::y)
+            }.also { it.sortWith(pawnDepthOrder) }
 
         // Shadows are drawn as a separate background pass so one pawn's shadow
         // can never darken another pawn that was already painted in front of it.
         // The board coordinates remain authoritative; this pass is visual only.
-        lifeByPawn.keys.retainAll(renderPawns.map { it.key }.toSet())
-        renderPawns.filter { it.entryProgress < .60f }.forEach(::drawContactShadow)
+        visiblePawnKeys.clear()
+        renderPawns.forEach { visiblePawnKeys.add(it.key) }
+        lifeByPawn.keys.retainAll(visiblePawnKeys)
+        renderPawns.forEach { if (it.entryProgress < .60f) drawContactShadow(it) }
 
         renderPawns.forEach { pawn ->
             // Preserve depth inside one animal but use painter ordering between
@@ -988,6 +1013,7 @@ internal class LudoPaws3DSceneRenderer {
         cell: Float,
         turns: Int,
     ): Map<String, Int> {
+        if (occupancySnapshot === snapshot && occupancyCell == cell && occupancyTurns == turns) return cachedOccupancy
         val counts = mutableMapOf<String, Int>()
         snapshot.players.forEach { player ->
             player.tokens.forEachIndexed { tokenIndex, position ->
@@ -1004,6 +1030,10 @@ internal class LudoPaws3DSceneRenderer {
                 counts[key] = (counts[key] ?: 0) + 1
             }
         }
+        occupancySnapshot = snapshot
+        occupancyCell = cell
+        occupancyTurns = turns
+        cachedOccupancy = counts
         return counts
     }
 
@@ -1154,10 +1184,17 @@ internal class LudoPaws3DSceneRenderer {
         normalMatrix[7] = inverseModel[6]
         normalMatrix[8] = inverseModel[10]
         val mesh = if (geometry == null) sphere else customMeshes.getOrPut(geometry) {
-            CharacterMesh(geometry, uMvpLocation, uColorLocation, uLightDirectionLocation, uNormalMatrixLocation)
+            CharacterMesh(geometry, uMvpLocation, uColorLocation, uNormalMatrixLocation)
         }
-        GLES30.glUniform2f(uLimbBendLocation, drawContext.limbBendY, drawContext.limbBendZ)
-        GLES30.glUniform2f(uMaterialLocation, drawContext.surface.kind, drawContext.surface.gloss)
+        if (boundBendY != drawContext.limbBendY || boundBendZ != drawContext.limbBendZ) {
+            boundBendY = drawContext.limbBendY
+            boundBendZ = drawContext.limbBendZ
+            GLES30.glUniform2f(uLimbBendLocation, boundBendY, boundBendZ)
+        }
+        if (boundSurface != drawContext.surface) {
+            boundSurface = drawContext.surface
+            GLES30.glUniform2f(uMaterialLocation, drawContext.surface.kind, drawContext.surface.gloss)
+        }
         mesh.draw(
             normalMatrix = normalMatrix,
             mvp = mvp,

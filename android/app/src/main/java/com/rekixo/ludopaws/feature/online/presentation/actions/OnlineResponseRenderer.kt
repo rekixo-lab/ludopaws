@@ -26,7 +26,7 @@ internal fun MainActivity.applyResponse(
 
     val envelope =
         try {
-            GameJson.envelope(response)
+            GameJson.preparedEnvelope(response)
         } catch (error: GameSchemaException) {
             if (silentValidationFailure) return
             diceView.stopRolling()
@@ -149,7 +149,9 @@ internal fun MainActivity.applyResponse(
         }
     }
 
-    boardView.bind(state, playerId)
+    if (boardView.visibility == View.VISIBLE || onlinePresentationRendererOverrideForTests != null) {
+        boardView.bind(state, playerId)
+    }
     val presentationOverride = onlinePresentationRendererOverrideForTests
     if (presentationOverride != null) {
         presentationOverride(previousState, state)

@@ -5,6 +5,7 @@ internal object CharacterShaders {
             #version 300 es
             layout(location = 0) in vec3 aPosition;
             layout(location = 1) in vec3 aNormal;
+            layout(location = 2) in vec3 aLocalPosition;
             uniform mat4 uMvp;
             uniform mat3 uNormalMatrix;
             uniform vec2 uLimbBend;
@@ -22,7 +23,7 @@ internal object CharacterShaders {
                 float dy = 1.0 + slope * uLimbBend.x;
                 float dz = slope * uLimbBend.y;
                 vec3 normal = vec3(aNormal.x, (aNormal.y - dz * aNormal.z) / max(0.1, dy), aNormal.z);
-                vLocalPosition = position;
+                vLocalPosition = aLocalPosition + vec3(0.0, uLimbBend.x, uLimbBend.y) * weight;
                 vNormal = normalize(uNormalMatrix * normal);
                 gl_Position = uMvp * vec4(position, 1.0);
             }
