@@ -63,28 +63,59 @@ internal object LudoPawsFxBoardGeometry {
         }
 
         if (renderPosition == LudoPathEncoding.HOME_POSITION) {
-            return finishGardenCenter(color, tokenIndex, cell)
+            return finishGardenCenter(color, tokenIndex, cell, perspectiveQuarterTurns)
         }
 
         return null
     }
 
     /** Stable visual-only courtyard slots; arrival FX and both pawn renderers share them. */
-    fun finishGardenCenter(color: String, tokenIndex: Int, cell: Float): Pair<Float, Float> {
+    fun finishGardenCenter(
+        color: String, tokenIndex: Int, cell: Float, perspectiveQuarterTurns: Int = 0,
+    ): Pair<Float, Float> {
         val left = axisBoundary(6, cell)
         val right = axisBoundary(9, cell)
         val center = (left + right) * .5f
         val halfSpan = (right - left) * .5f
-        // Four individual spots leave the middle path and corner planting clear.
-        val lateral = (tokenIndex.coerceIn(0, 3) - 1.5f) * .32f * halfSpan
-        val outward = .90f * halfSpan
-        return when (color) {
-            "RED" -> center - outward to center + lateral
-            "GREEN" -> center - lateral to center - outward
-            "YELLOW" -> center + outward to center - lateral
-            "BLUE" -> center + lateral to center + outward
-            else -> center to center
+        // Permanent pairs straddle the entrance; no slot is on the stone approach.
+        val lateral = when (tokenIndex.coerceIn(0, 3)) {
+            0 -> -.68f
+            1 -> -.46f
+            2 -> .46f
+            else -> .68f
         }
+        val outward = .87f
+        val canonical = when (color) {
+            "RED" -> -outward to lateral
+            "GREEN" -> -lateral to -outward
+            "YELLOW" -> outward to -lateral
+            "BLUE" -> lateral to outward
+            else -> return center to center
+        }
+        val turns = Math.floorMod(perspectiveQuarterTurns, 4)
+        fun rotate(x: Float, y: Float, turns: Int): Pair<Float, Float> = when (turns) {
+            1 -> -y to x
+            2 -> -x to -y
+            3 -> y to -x
+            else -> x to y
+        }
+        val screen = rotate(canonical.first, canonical.second, turns)
+        // Bodies stand upright on screen even when the houses rotate. Adjust feet
+        // accordingly so the upper silhouettes avoid the door and center clipping.
+        val sideFacade = kotlin.math.abs(screen.first) > .8f
+        val screenX: Float
+        val screenY: Float
+        if (sideFacade) {
+            // Outer partners sit slightly inward to clear the retained corner pillars.
+            val outwardDepth = if (kotlin.math.abs(screen.second) > .6f) .68f else .87f
+            screenX = if (screen.first < 0f) -outwardDepth else outwardDepth
+            screenY = (screen.second + .17f).coerceAtMost(.78f)
+        } else {
+            screenX = screen.first
+            screenY = screen.second + if (screen.second < 0f) .31f else 0f
+        }
+        val logical = rotate(screenX, screenY, Math.floorMod(-turns, 4))
+        return center + logical.first * halfSpan to center + logical.second * halfSpan
     }
 
     /**

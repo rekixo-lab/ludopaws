@@ -1662,7 +1662,10 @@ class LudoBoardView @JvmOverloads constructor(
         }
 
         if (renderPosition == LudoPathEncoding.HOME_POSITION) {
-            return LudoPawsFxBoardGeometry.finishGardenCenter(player.color, tokenIndex, cell)
+            return LudoPawsFxBoardGeometry.finishGardenCenter(
+                player.color, tokenIndex, cell,
+                perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
+            )
         }
 
         return null
