@@ -378,6 +378,8 @@ internal class LudoPaws3DSceneRenderer {
                                 y = rotated.second + fit.footDrop,
                                 radius = radius,
                                 facingYawDegrees = facingYawDegrees,
+                                leanDegrees = if (renderPosition in 0 until LudoPathEncoding.HOME_POSITION)
+                                    LudoPawsPawnFacingPolicy.roadLean(rotated.first, rotated.second, size) else 0f,
                                 presentationScale =
                                     captureVisual?.scale ?: 1f,
                                 attentionScale =
@@ -485,7 +487,7 @@ internal class LudoPaws3DSceneRenderer {
             neckPitchDegrees = base.neckPitchDegrees + reaction.neckPitchDegrees,
             jawOpen = (base.jawOpen + reaction.jawOpen).coerceIn(0f, 1f),
         )
-        prepareRoot(pawn.x, rootY, modelScale, pose.liftY, pose.bodyYawDegrees)
+        prepareRoot(pawn.x, rootY, modelScale, pose.liftY, pose.bodyYawDegrees, pawn.leanDegrees)
         pawn.character.renderer.draw(drawContext, root, pose, pawn.teamColor)
     }
 
@@ -759,6 +761,11 @@ internal class LudoPaws3DSceneRenderer {
         cell: Float,
         turns: Int,
     ): Float {
+        val position = player.tokens.getOrNull(tokenIndex) ?: -1
+        val center = LudoPawsFxBoardGeometry.tokenCenter(player.color, tokenIndex, position, cell, turns)
+        val screen = center?.let { rotatePoint(it.first, it.second, size, turns) }
+        val restingYaw = if (position in 0 until LudoPathEncoding.HOME_POSITION && screen != null)
+            LudoPawsPawnFacingPolicy.restingRoadYaw(screen.first, screen.second, size) else 0f
         val motion =
             state.forwardMotion
                 ?.takeIf {
@@ -766,7 +773,7 @@ internal class LudoPaws3DSceneRenderer {
                         it.tokenIndex == tokenIndex &&
                         state.forwardDurationMillis > 0L
                 }
-                ?: return LudoPawsPawnFacingPolicy.FRONT_YAW_DEGREES
+                ?: return restingYaw
         val elapsed =
             (nowMillis - state.forwardStartedAtMillis)
                 .coerceAtLeast(0L)
@@ -815,7 +822,12 @@ internal class LudoPaws3DSceneRenderer {
                         turns = turns,
                     ) ?: targetYaw
                 } else {
-                    LudoPawsPawnFacingPolicy.FRONT_YAW_DEGREES
+                    val from = LudoPawsFxBoardGeometry.tokenCenter(
+                        player.color, tokenIndex, motion.fromPosition, cell, turns,
+                    )?.let { rotatePoint(it.first, it.second, size, turns) }
+                    if (motion.fromPosition in 0 until LudoPathEncoding.HOME_POSITION && from != null)
+                        LudoPawsPawnFacingPolicy.restingRoadYaw(from.first, from.second, size)
+                    else LudoPawsPawnFacingPolicy.FRONT_YAW_DEGREES
                 }
             return LudoPawsPawnFacingPolicy.movingYaw(
                 previousYawDegrees = previousYaw,
@@ -837,6 +849,7 @@ internal class LudoPaws3DSceneRenderer {
         return LudoPawsPawnFacingPolicy.settlingYaw(
             lastTravelYawDegrees = lastTravelYaw,
             elapsedAfterMoveMillis = elapsed - duration,
+            restingYawDegrees = restingYaw,
         )
     }
 
@@ -943,6 +956,7 @@ internal class LudoPaws3DSceneRenderer {
         scale: Float,
         liftY: Float,
         bodyYawDegrees: Float,
+        leanDegrees: Float = 0f,
     ) {
         Matrix.setIdentityM(root, 0)
         Matrix.translateM(root, 0, x, y, 0f)
@@ -951,6 +965,13 @@ internal class LudoPaws3DSceneRenderer {
         Matrix.scaleM(root, 0, scale, -scale, scale)
         if (liftY != 0f) {
             Matrix.translateM(root, 0, 0f, liftY, 0f)
+        }
+        // Tilt the complete model about its planted feet: top/depth lean behind
+        // the inward-facing side profile without moving the road contact point.
+        if (leanDegrees != 0f) {
+            Matrix.translateM(root, 0, 0f, groundPivotY, 0f)
+            Matrix.rotateM(root, 0, leanDegrees, 0f, 0f, 1f)
+            Matrix.translateM(root, 0, 0f, -groundPivotY, 0f)
         }
         if (bodyYawDegrees != 0f) {
             Matrix.rotateM(root, 0, bodyYawDegrees, 0f, 1f, 0f)
@@ -1136,6 +1157,7 @@ internal class LudoPaws3DSceneRenderer {
         val y: Float,
         val radius: Float,
         val facingYawDegrees: Float = LudoPawsPawnFacingPolicy.FRONT_YAW_DEGREES,
+        val leanDegrees: Float = 0f,
         val presentationScale: Float = 1f,
         val attentionScale: Float = 1f,
     )

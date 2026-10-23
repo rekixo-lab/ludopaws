@@ -17,6 +17,19 @@ internal object LudoPawsPawnFacingPolicy {
 
     private const val TURN_PORTION_OF_HOP = 0.28f
 
+    /** Screen-facing sides: +1 on the right road, -1 on the left, zero elsewhere. */
+    fun sideRoad(x: Float, y: Float, size: Float): Int {
+        if (y <= size / 3f || y >= size * 2f / 3f) return 0
+        return when {
+            x < size / 3f -> -1
+            x > size * 2f / 3f -> 1
+            else -> 0
+        }
+    }
+
+    fun restingRoadYaw(x: Float, y: Float, size: Float): Float = -90f * sideRoad(x, y, size)
+    fun roadLean(x: Float, y: Float, size: Float): Float = -12f * sideRoad(x, y, size)
+
     fun yawForVisibleDelta(
         dx: Float,
         dy: Float,
@@ -51,6 +64,7 @@ internal object LudoPawsPawnFacingPolicy {
     fun settlingYaw(
         lastTravelYawDegrees: Float,
         elapsedAfterMoveMillis: Long,
+        restingYawDegrees: Float = FRONT_YAW_DEGREES,
     ): Float {
         val progress =
             elapsedAfterMoveMillis
@@ -59,7 +73,7 @@ internal object LudoPawsPawnFacingPolicy {
                 RETURN_TO_PLAYER_MILLIS.toFloat()
         return interpolateYaw(
             fromYawDegrees = lastTravelYawDegrees,
-            toYawDegrees = FRONT_YAW_DEGREES,
+            toYawDegrees = restingYawDegrees,
             progress = smoothStep(progress.coerceIn(0f, 1f)),
         )
     }

@@ -148,10 +148,12 @@ internal class LudoPaws3DLegalPulseView(
             val id = LudoPaws3DCharacterPolicy.characterIdForSeat(characterIds, player.seat, player.color)
             val fit = LudoPawsPawnLayout.roadPresentation(center.first, center.second,
                 cell, position, placement?.occupancy ?: 1, id, turns)
-            val x = point.first
             val y = point.second + fit.footDrop
             val radius = fit.radius
             val bodyHeight = radius * LudoPawsPawnLayout.silhouetteHeight(id)
+            val side = if (position in 0 until LudoPathEncoding.HOME_POSITION)
+                LudoPawsPawnFacingPolicy.sideRoad(point.first, point.second, size) else 0
+            val x = point.first + side * bodyHeight * .12f
 
             // Mark the occupied tile once, even when multiple legal pawns share it.
             if (position in 0 until LudoPathEncoding.HOME_POSITION &&
