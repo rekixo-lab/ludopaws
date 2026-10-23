@@ -106,7 +106,7 @@ internal object LudoPawsFxBoardGeometry {
         val screenX: Float
         val screenY: Float
         if (sideFacade) {
-            // Outer partners sit slightly inward to clear the retained corner pillars.
+            // Outer partners sit slightly inward to clear the corner planting and boundary.
             val outwardDepth = if (kotlin.math.abs(screen.second) > .6f) .68f else .87f
             screenX = if (screen.first < 0f) -outwardDepth else outwardDepth
             screenY = (screen.second + .17f).coerceAtMost(.78f)

@@ -15,12 +15,11 @@ internal class LudoPawsCenterHouses3D {
     private val facade = FloatArray(16)
     private val hinge = FloatArray(16)
     private val garden = FloatArray(16)
-    private val pillar = FloatArray(16)
     private data class CornerBloom(
         val x: Float, val y: Float, val height: Float, val size: Float, val pink: Boolean,
     )
     private val cornerBlooms = listOf(
-        // Low planting wraps around the corner pillar, outside every arrival slot.
+        // Low corner planting stays outside the arrival slots.
         CornerBloom(.708f, .795f, .060f, .82f, false),
         CornerBloom(.718f, .902f, .052f, .66f, true),
         CornerBloom(.806f, .705f, .072f, .94f, false),
@@ -287,7 +286,6 @@ internal class LudoPawsCenterHouses3D {
             part(c, garden, fenceMeshes[0], 0f, 0f, 0f, 1f, 1f, 1f, FENCE_WOOD)
             part(c, garden, fenceMeshes[1], 0f, 0f, 0f, 1f, 1f, 1f, FENCE_GRAIN)
             part(c, garden, fenceMeshes[2], 0f, 0f, 0f, 1f, 1f, 1f, FENCE_PINS)
-            drawCornerPillar(c, turns + side)
         }
     }
 
@@ -347,37 +345,6 @@ internal class LudoPawsCenterHouses3D {
             }
         }
         return listOf(body.build(), grain.build(), pins.build())
-    }
-
-    private fun drawCornerPillar(c: CharacterDrawContext, quarterTurns: Int) {
-        val ground = gardenHeight(.83f, .83f)
-        System.arraycopy(garden, 0, pillar, 0, 16)
-        Matrix.translateM(pillar, 0, .83f, .83f, ground)
-        // Counter-rotate first: every pillar has the same screen-facing depth and lighting.
-        Matrix.rotateM(pillar, 0, -quarterTurns * 90f, 0f, 0f, 1f)
-        c.surface = CharacterSurface.GARDEN_GROUND
-        c.drawPart(pillar, .020f, .024f, .003f, .105f, .076f, .003f, CONTACT_SHADE)
-        // A local architectural tilt exposes real vertical faces under the overhead board camera.
-        Matrix.rotateM(pillar, 0, 30f, 0f, 0f, 1f)
-        Matrix.rotateM(pillar, 0, 34f, 1f, 0f, 0f)
-        c.surface = CharacterSurface.GARDEN_STONE
-        part(c, pillar, stoneBlock, 0f, 0f, .012f, .079f, .079f, .020f, PILLAR_BASE)
-        part(c, pillar, stoneBlock, 0f, 0f, .067f, .060f, .060f, .044f, PILLAR_WALL)
-        // Fine mortar bands and alternating corner blocks break up the plain cube.
-        part(c, pillar, cube, 0f, -.0605f, .065f, .055f, .0015f, .003f, PILLAR_MORTAR)
-        part(c, pillar, cube, .0605f, 0f, .065f, .0015f, .055f, .003f, PILLAR_MORTAR)
-        part(c, pillar, cube, -.018f, -.061f, .086f, .002f, .0015f, .018f, PILLAR_MORTAR)
-        part(c, pillar, cube, .061f, .015f, .046f, .0015f, .002f, .015f, PILLAR_MORTAR)
-        part(c, pillar, stoneBlock, 0f, 0f, .122f, .081f, .081f, .017f, PATH_STONE_LIGHT)
-        // Recessed amber insets and a small green finial echo the garden reference.
-        part(c, pillar, stoneBlock, 0f, -.063f, .071f, .020f, .003f, .023f, WOOD)
-        part(c, pillar, stoneBlock, 0f, -.067f, .072f, .010f, .003f, .014f, GOLD)
-        part(c, pillar, stoneBlock, .063f, 0f, .071f, .003f, .020f, .023f, WOOD)
-        part(c, pillar, stoneBlock, .067f, 0f, .072f, .003f, .010f, .014f, GOLD)
-        c.drawPart(pillar, 0f, 0f, .145f, .033f, .033f, .010f, STONE)
-        c.surface = CharacterSurface.GARDEN_LEAF
-        c.drawPart(pillar, 0f, 0f, .165f, .020f, .020f, .021f, LEAF_BASE)
-        c.drawPart(pillar, -.005f, -.005f, .177f, .011f, .011f, .012f, LEAF_LIGHT)
     }
 
     private fun doorOpenness(index: Int, state: LudoPaws3DSceneState, now: Long): Float {
@@ -585,9 +552,6 @@ internal class LudoPawsCenterHouses3D {
         val LEAF_LIGHT = rgb(0x69B646)
         val PATH_STONE_LIGHT = rgb(0xF0DFC0)
         val TERRACE_STONE = rgb(0xE7D7AE)
-        val PILLAR_BASE = rgb(0xA7997E)
-        val PILLAR_WALL = rgb(0xC7B99C)
-        val PILLAR_MORTAR = rgb(0x817861)
         val FENCE_WOOD = rgb(0xB78045)
         val FENCE_GRAIN = rgb(0x79502E)
         val FENCE_PINS = rgb(0xD4AB70)

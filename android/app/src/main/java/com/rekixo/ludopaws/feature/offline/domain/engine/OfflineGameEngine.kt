@@ -497,14 +497,16 @@ class OfflineGameEngine(
     }
 
     private fun advanceTurn(current: LocalState) {
-        val playerCount = current.players.size
-        repeat(playerCount) {
-            current.turnSeat =
-                (current.turnSeat + 1) % playerCount
-            if (
-                current.players[current.turnSeat].playerId !in
-                    current.finishedPlayerIds
-            ) {
+        // Colors follow the perimeter in every rotated perspective. Keep player/seat
+        // identities intact, including restored games and custom Pass & Play selections.
+        val colors = OfflinePlayerLayout.COLORS
+        val currentColor = current.players[current.turnSeat].color
+        val start = colors.indexOf(currentColor)
+        for (offset in 1..colors.size) {
+            val nextColor = colors[(start + offset) % colors.size]
+            val candidate = current.players.indexOfFirst { it.color == nextColor }
+            if (candidate >= 0 && current.players[candidate].playerId !in current.finishedPlayerIds) {
+                current.turnSeat = candidate
                 return
             }
         }

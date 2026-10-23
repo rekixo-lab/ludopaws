@@ -41,18 +41,9 @@ object OfflinePlayerLayout {
             )
         }
 
-        return (
-            listOf(
-                preferredColor,
-            ) +
-                COLORS.filter {
-                    it !=
-                        preferredColor
-                }
-            )
-            .take(
-                playerCount,
-            )
+        // Walk around the board from the local bottom-left color, not across diagonals.
+        val start = COLORS.indexOf(preferredColor)
+        return List(playerCount) { offset -> COLORS[(start + offset) % COLORS.size] }
     }
 
     fun slotForColor(
