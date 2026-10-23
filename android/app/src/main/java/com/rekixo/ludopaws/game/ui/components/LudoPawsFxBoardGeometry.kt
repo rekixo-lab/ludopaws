@@ -61,24 +61,28 @@ internal object LudoPawsFxBoardGeometry {
         }
 
         if (renderPosition == LudoPathEncoding.HOME_POSITION) {
-            val left = axisBoundary(6, cell)
-            val top = axisBoundary(6, cell)
-            val right = axisBoundary(9, cell)
-            val bottom = axisBoundary(9, cell)
-            val cx = (left + right) / 2f
-            val cy = (top + bottom) / 2f
-            val offset = (right - left) * 0.20f
-
-            return when (color) {
-                "RED" -> cx - offset to cy
-                "GREEN" -> cx to cy - offset
-                "YELLOW" -> cx + offset to cy
-                "BLUE" -> cx to cy + offset
-                else -> cx to cy
-            }
+            return finishGardenCenter(color, tokenIndex, cell)
         }
 
         return null
+    }
+
+    /** Stable visual-only courtyard slots; arrival FX and both pawn renderers share them. */
+    fun finishGardenCenter(color: String, tokenIndex: Int, cell: Float): Pair<Float, Float> {
+        val left = axisBoundary(6, cell)
+        val right = axisBoundary(9, cell)
+        val center = (left + right) * .5f
+        val halfSpan = (right - left) * .5f
+        // Four individual spots leave the middle path and corner planting clear.
+        val lateral = (tokenIndex.coerceIn(0, 3) - 1.5f) * .32f * halfSpan
+        val outward = .90f * halfSpan
+        return when (color) {
+            "RED" -> center - outward to center + lateral
+            "GREEN" -> center - lateral to center - outward
+            "YELLOW" -> center + outward to center - lateral
+            "BLUE" -> center + lateral to center + outward
+            else -> center to center
+        }
     }
 
     /**

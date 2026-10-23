@@ -63,7 +63,8 @@ object LudoPawsPawnLayout {
         val base =
             when (position) {
                 -1 -> 0.40f
-                LudoPathEncoding.HOME_POSITION -> 0.35f
+                // Finished animals use four separate courtyard slots, not a shared stack.
+                LudoPathEncoding.HOME_POSITION -> 0.28f
                 else -> 0.37f
             }
         val crowdScale =

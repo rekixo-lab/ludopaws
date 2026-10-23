@@ -14,6 +14,7 @@ internal class LudoPawsCenterHouses3D {
     private val house = FloatArray(16)
     private val facade = FloatArray(16)
     private val hinge = FloatArray(16)
+    private val garden = FloatArray(16)
     private val colors = arrayOf("BLUE", "RED", "GREEN", "YELLOW")
     private val roofs = arrayOf(
         rgb(0x268DE2), rgb(0xED3936), rgb(0x41B854), rgb(0xF3C43B),
@@ -42,6 +43,19 @@ internal class LudoPawsCenterHouses3D {
     }.build()
     private val cube = MeshBuilder().apply {
         prism(listOf(v(-1f, -1f), v(1f, -1f), v(1f, 1f), v(-1f, 1f)), -1f, 1f)
+    }.build()
+    private val grassTexture = MeshBuilder().apply {
+        // Deterministic flat flecks: no motion or raised blades in the standing areas.
+        for (row in -11..11) {
+            for (col in -11..11) {
+                val x = col * .085f
+                val y = row * .085f
+                if (kotlin.math.abs(x) < .67f && kotlin.math.abs(y) < .67f) continue
+                if (Math.floorMod(col * 13 + row * 7, 3) != 0) continue
+                quad(v(x - .018f, y, -.075f), v(x, y - .008f, -.075f),
+                    v(x + .025f, y, -.075f), v(x, y + .008f, -.075f))
+            }
+        }
     }.build()
     private val roofBody = MeshBuilder().apply {
         for (side in intArrayOf(-1, 1)) {
@@ -74,6 +88,7 @@ internal class LudoPawsCenterHouses3D {
         context.life = null
         context.limbBendY = 0f
         context.limbBendZ = 0f
+        drawGarden(context, size, halfSpan, quarterTurns)
         repeat(4) { index ->
             Matrix.setIdentityM(house, 0)
             Matrix.translateM(house, 0, size * .5f, size * .5f, 0f)
@@ -134,6 +149,41 @@ internal class LudoPawsCenterHouses3D {
             part(context, facade, cube, 0f, -.008f, .075f, .25f, .025f, .045f, STONE)
         }
         context.surface = previousSurface
+    }
+
+    private fun drawGarden(c: CharacterDrawContext, size: Float, halfSpan: Float, turns: Int) {
+        repeat(4) { side ->
+            Matrix.setIdentityM(garden, 0)
+            Matrix.translateM(garden, 0, size * .5f, size * .5f, 0f)
+            Matrix.rotateM(garden, 0, (turns * 90 + side * 90).toFloat(), 0f, 0f, 1f)
+            Matrix.scaleM(garden, 0, halfSpan, halfSpan, halfSpan)
+            if (side == 0) {
+                part(c, garden, cube, 0f, 0f, -.10f, 1f, 1f, .02f, GRASS)
+                part(c, garden, grassTexture, 0f, 0f, 0f, 1f, 1f, 1f, GRASS_FLECK)
+            }
+            // Wide, flat lawn court reserved for four arrivals; no plants or raised rims.
+            part(c, garden, cube, 0f, .875f, -.068f, .66f, .115f, .004f, COURTYARD_GRASS)
+            // The middle remains a short walk from the home lane to the doorway.
+            repeat(3) { step ->
+                val y = .785f + step * .082f
+                part(c, garden, cube, 0f, y, -.052f, .092f, .031f, .009f, PATH_EDGE)
+                part(c, garden, cube, 0f, y - .002f, -.040f, .082f, .025f, .005f, STONE)
+            }
+            // One low corner bed per rotation. Courtyard slots stop well before these corners.
+            c.drawPart(garden, .84f, .84f, -.028f, .115f, .115f, .012f, BED_SOIL)
+            for (plant in 0..2) {
+                val x = .79f + plant * .052f
+                val y = if (plant == 1) .875f else .81f
+                c.drawPart(garden, x, y, .002f, .057f, .047f, .025f, LEAF)
+                val bloom = if (plant == 1) FLOWER_PINK else WHITE
+                repeat(5) { petal ->
+                    val angle = petal * 2f * PI.toFloat() / 5f
+                    c.drawPart(garden, x + cos(angle) * .019f, y + sin(angle) * .019f,
+                        .033f, .017f, .017f, .009f, bloom)
+                }
+                c.drawPart(garden, x, y, .043f, .012f, .012f, .006f, GOLD)
+            }
+        }
     }
 
     private fun doorOpenness(index: Int, state: LudoPaws3DSceneState, now: Long): Float {
@@ -309,5 +359,11 @@ internal class LudoPawsCenterHouses3D {
         val LEAF = rgb(0x409D35)
         val WHITE = rgb(0xFFF5D9)
         val STONE = rgb(0xEAD9B8)
+        val GRASS = rgb(0x8ABD63)
+        val GRASS_FLECK = rgb(0x9BCB73)
+        val COURTYARD_GRASS = rgb(0x95C66D)
+        val PATH_EDGE = rgb(0xBBA782)
+        val BED_SOIL = rgb(0x768C46)
+        val FLOWER_PINK = rgb(0xF18CA0)
     }
 }

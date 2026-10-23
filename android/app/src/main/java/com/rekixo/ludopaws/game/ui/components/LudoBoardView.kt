@@ -813,7 +813,7 @@ class LudoBoardView @JvmOverloads constructor(
                         ?: return@forEachIndexed
 
                 val offset =
-                    if (position in 0..57) {
+                    if (position in 0 until LudoPathEncoding.HOME_POSITION) {
                         tokenOffset(
                             tokenIndex + player.seat,
                             cell,
@@ -1662,20 +1662,7 @@ class LudoBoardView @JvmOverloads constructor(
         }
 
         if (renderPosition == LudoPathEncoding.HOME_POSITION) {
-            val left = axisBoundary(6, cell)
-            val top = axisBoundary(6, cell)
-            val right = axisBoundary(9, cell)
-            val bottom = axisBoundary(9, cell)
-            val cx = (left + right) / 2f
-            val cy = (top + bottom) / 2f
-            val offset = (right - left) * 0.20f
-            return when (player.color) {
-                "RED" -> cx - offset to cy
-                "GREEN" -> cx to cy - offset
-                "YELLOW" -> cx + offset to cy
-                "BLUE" -> cx to cy + offset
-                else -> cx to cy
-            }
+            return LudoPawsFxBoardGeometry.finishGardenCenter(player.color, tokenIndex, cell)
         }
 
         return null
