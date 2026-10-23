@@ -14,8 +14,8 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var footprintSource: LudoBoardView? = null
     private var definition = BoardRegistry.resolve("board_classic")
     private var renderer = BoardRendererRegistry.create(definition)
-    // Independent, cached inner-yard artwork; never covers roads or center.
-    private val yardHabitatRenderer = LudoPawsYardHabitatRenderer(context)
+    // Identical code-drawn homes with team-color palettes; road and center untouched.
+    private val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
     private var habitatsByColor: Map<String, LudoPawsYardHabitat> = emptyMap()
 
     init {
@@ -55,8 +55,8 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         if (size <= 0f) return
         val cell = size / 15f
         renderer.draw(canvas, size, resources.displayMetrics.density, definition)
-        // Per-player animal habitat lives in the FOUR white yard faces only.
-        // It is composed after the molded rims and before authoritative prints.
+        // Four full 5x5 color homes: same illustrated layout, four team tints.
+        // Overdraw old yard backgrounds, below prints and actual 3D pawns.
         yardHabitatRenderer.draw(canvas, cell, habitatsByColor)
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
         footprintSource?.drawYardPawPrintsOverlay(canvas, cell)

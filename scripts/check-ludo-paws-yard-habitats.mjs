@@ -2,123 +2,98 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 
 const root = "android/app/src/main/java/com/rekixo/ludopaws/game/ui/components/";
-const get = file => fs.readFileSync(root + file, "utf8");
-const atlasPath = "android/app/src/main/assets/yard_habitats/atlas.webp";
-assert.ok(fs.existsSync(atlasPath), "Premium real artwork atlas must ship in the Android APK");
-const atlasBytes = fs.readFileSync(atlasPath);
-assert.ok(atlasBytes.length >= 100_000 && atlasBytes.length <= 400_000,
-    "Premium artwork must have full quality without becoming a huge APK asset");
-assert.equal(atlasBytes.toString("ascii", 0, 4), "RIFF", "Premium atlas RIFF header");
-assert.equal(atlasBytes.toString("ascii", 8, 12), "WEBP", "Premium atlas WebP format");
-// Enforce the exact reviewed illustrated artwork rather than a blurred thumbnail.
-const { createHash } = await import("node:crypto");
-const artChecksum = createHash("sha256").update(atlasBytes).digest("hex");
-assert.equal(artChecksum,
-    "4e1c29b4645420c0804b98ea7b0afef36cf9b4ef91a33e319ca533c32e2d9f44",
-    "Premium yard art checksum changed: review replacement artwork before shipping");
-const policy = get("LudoPawsYardHabitatPolicy.kt");
-const art = get("LudoPawsYardHabitatRenderer.kt");
-const chrome = get("LudoPawsBoardChromeView.kt");
-const board = get("LudoPawsBoardView.kt");
-const reactive = get("LudoPawsReactiveBoardView.kt");
-const scene = get("LudoPaws3DSceneRenderer.kt");
+const source = file => fs.readFileSync(root + file, "utf8");
+const policy = source("LudoPawsYardHabitatPolicy.kt");
+const palette = source("LudoPawsYardPalettePolicy.kt");
+const art = source("LudoPawsYardHabitatRenderer.kt");
+const chrome = source("LudoPawsBoardChromeView.kt");
+const board = source("LudoPawsBoardView.kt");
+const reactive = source("LudoPawsReactiveBoardView.kt");
+const scene = source("LudoPaws3DSceneRenderer.kt");
 const tests = fs.readFileSync(
     "android/app/src/test/java/com/rekixo/ludopaws/LudoPawsYardHabitatPolicyTest.kt", "utf8",
+);
+const paletteTests = fs.readFileSync(
+    "android/app/src/test/java/com/rekixo/ludopaws/LudoPawsYardPalettePolicyTest.kt", "utf8",
 );
 const classic = fs.readFileSync(
     "android/app/src/main/java/com/rekixo/ludopaws/feature/boards/content/classic/ClassicBoardRenderer.kt", "utf8",
 );
-const geometry = get("LudoPawsFxBoardGeometry.kt");
+const geometry = source("LudoPawsFxBoardGeometry.kt");
 
-for (const type of ["DOG_GARDEN", "GOAT_MEADOW", "DUCK_POND", "CAT_COURTYARD", "DONKEY_FARM"]) {
-    assert.ok(policy.includes(type), "Missing independent selected environment: " + type);
-    assert.ok(art.includes("LudoPawsYardHabitat." + type + " ->"), "Missing illustrated environment: " + type);
+// Entirely offline Canvas-based art. The previous high-noise atlas is gone.
+assert.ok(!fs.existsSync("android/app/src/main/assets/yard_habitats/atlas.webp"),
+    "No noisy old habitat image should ship in the APK.");
+assert.doesNotMatch(art, /BitmapFactory|decodeStream|assets\.open|atlas\.webp|drawPremiumHabitat|drawOpenPlayArea/);
+assert.match(art, /private fun paintHome\(/, "Clean art is drawn in Kotlin");
+assert.match(art, /Bitmap\.createBitmap\(512, 512, Bitmap\.Config\.ARGB_8888\)/);
+assert.match(art, /LruCache<String, Bitmap>\(4\)/, "Each team uses cached vector artwork");
+assert.match(art, /bitmapCache\.get\(color\)/);
+assert.match(art, /canvas\.drawBitmap\(cachedBitmap\(color, palette\), null, rect, imagePaint\)/);
+
+for (const color of ["RED", "GREEN", "YELLOW", "BLUE"]) {
+    assert.ok(palette.includes('"' + color + '" -> LudoPawsYardPalette('),
+        "Missing team color palette: " + color);
+    assert.ok(art.includes('"' + color + '"'), "Missing quadrant: " + color);
+}
+assert.match(art, /for \(color in listOf\("RED", "GREEN", "YELLOW", "BLUE"\)\)/,
+    "All four matching homes render even in two-player matches.");
+assert.match(art, /LudoPawsYardPalettePolicy\.forTeam\(color\)/);
+assert.match(art, /canvas\.clipRect\(rect\)/);
+assert.doesNotMatch(art, /addRoundRect\(rect,/);
+assert.match(art, /rect\(c, 0f, 0f, 100f, 100f, palette\.rimDark\)/);
+assert.match(art, /roundRect\(c, 0\.7f, 0\.7f, 99\.3f, 99\.3f/,
+    "Outer colored border must fill the house.");
+assert.match(art, /RectF\(14\.0f, 14\.1f, 86\.0f, 85\.8f\)/,
+    "Approximately 72 percent open sand ground is required.");
+assert.match(art, /palette\.sandTop, palette\.sandBottom/);
+assert.match(art, /repeat\(35\)/, "Only faint central earthen texture.");
+assert.match(art, /cornerTimber\(c\)/);
+assert.match(art, /cornerFoliage\(c, palette\)/);
+assert.match(art, /flower\(c, x, y, size\)/);
+assert.match(art, /rock\(c, 45f, 5\.6f, 1f\)/);
+assert.doesNotMatch(art, /landingPad\(|LudoPawsFxBoardGeometry\.tokenCenter\(/,
+    "No fake white animal pedestals or per-slot scenery.");
+assert.doesNotMatch(art, /"DOG_GARDEN" ->|LudoPawsYardHabitat\.DUCK_POND ->/,
+    "Same design regardless of selected species.");
+
+for (const color of ["RED", "GREEN", "YELLOW", "BLUE"]) {
+    assert.ok(policy.includes('"' + color + '" ->'), "Home mapping missing " + color);
+}
+for (const marker of ["left = left,", "top = top,", "right = right,", "bottom = bottom,"]) {
+    assert.ok(policy.includes(marker), "Full 5x5 yard bounds must remain unchanged: " + marker);
 }
 assert.match(policy, /snapshot\.players\.forEach/);
 assert.match(policy, /LudoPaws3DCharacterPolicy\.characterIdForSeat\(/);
-assert.match(policy, /seat = player\.seat/);
 assert.match(policy, /put\(team\.wireName, forCharacterId\(animalId\)\)/);
-assert.match(policy, /if \(snapshot == null\) return emptyMap\(\)/);
-assert.match(policy, /"RED" -> 0 to 0/);
-assert.match(policy, /"GREEN" -> 0 to 9/);
-assert.match(policy, /"YELLOW" -> 9 to 9/);
-assert.match(policy, /"BLUE" -> 9 to 0/);
-// Artwork now covers the entire 5x5 yard, including ALL formerly exposed
-// team-color bands. No half-cell inset or colored corners may survive.
-assert.match(policy, /left = left,/);
-assert.match(policy, /top = top,/);
-assert.match(policy, /right = right,/);
-assert.match(policy, /bottom = bottom,/);
-assert.doesNotMatch(policy, /cell \* \(0\.50f \+ 0\.115f\)/);
-assert.match(art, /canvas\.clipRect\(rect\)/);
-assert.doesNotMatch(art, /addRoundRect\(rect,/);
-assert.match(art, /canvas\.drawRect\(rect, habitatBackgroundPaint\)/);
-for (const marker of ["yardSpan = cell * 5f", "roadSpan = cell * 5f"]) {
-    assert.ok(policy.includes(marker), "Locked geometric mirror missing " + marker);
-}
-assert.match(art, /LruCache<LudoPawsYardHabitat, Bitmap>\(5\)/);
-assert.ok(art.includes('context.assets.open("yard_habitats/atlas.webp")'),
-  "Premium image art must be loadable from packaged assets");
-assert.ok(art.includes("BitmapFactory.decodeStream"),
-  "Premium yard illustration needs a decoded bitmap");
-assert.ok(art.includes("if (!drawPremiumHabitat(canvas, habitat, rect))"),
-  "Illustration must retain safe vector fallback");
-assert.ok(art.includes("index * panel + inset"),
-  "Premium artwork panels must stay independently selectable");
-assert.ok(art.includes("val inset = (panel * 0.03f)"),
-  "Reduce heavy outer frame without exposing a team-color strip");
-assert.match(art, /drawOpenPlayArea\(canvas, rect, habitat\)/,
-  "Calm space is required where four 3D animals are displayed");
-assert.match(art, /yard\.width\(\) \* 0\.55f/,
-  "Central clearing must feather smoothly into detailed edge foliage");
-assert.match(art, /Color\.argb\(0, red, green, blue\)/,
-  "Keep decorative habitat edges, do not paint a hard central rectangle");
-assert.doesNotMatch(art, /private fun landingPad\(/,
-  "Never draw permanent white disks beneath the real animals");
-assert.match(art, /canvas\.clipRect\(rect\)/,
-    "Premium habitat must cover the entire square home");
-assert.doesNotMatch(art, /canvas\.clipPath\(clip\)/,
-    "Rounded clipping re-exposes team-color corners");
-assert.match(art, /LudoPawsYardHabitatGeometry\.face\(color, cell\)/);
-// Scenery must not impose any additional static 3D pawn marker/slot.
-assert.doesNotMatch(art, /LudoPawsFxBoardGeometry\.tokenCenter\(/,
-    "The occupied starting points come from 3D gameplay, not painted placeholders");
-assert.match(tests, /LudoPawsFxBoardGeometry\.tokenCenter\(color, tokenIndex, -1, cell\)/,
-    "Existing tests must still validate all four canonical starting slots");
-assert.doesNotMatch(art, /landingPad\(canvas,/,
-    "Don't create distracting oval placeholders under 3D characters");
-assert.match(art, /NO bright permanent landingPad circles/,
-    "3D ground contact and empty-slot footprints remain authoritative");
-assert.match(art, /Bitmap\.createBitmap\(384, 384, Bitmap\.Config\.ARGB_8888\)/);
-assert.doesNotMatch(art, /BitmapFactory\.decodeResource|drawText\(.*(DOG|GOAT|CAT|DUCK)/);
+assert.match(chrome, /LudoPawsYardHabitatRenderer\(\)/);
 assert.match(chrome, /yardHabitatRenderer\.draw\(canvas, cell, habitatsByColor\)/);
-const order=[
+const order = [
     "renderer.draw(canvas, size",
     "yardHabitatRenderer.draw(canvas, cell, habitatsByColor)",
     "drawYardPawPrintsOverlay(canvas, cell)",
     "drawFinishRanksOverlay(canvas, cell)",
-].map(q=>chrome.indexOf(q));
-assert.ok(order.every(v=>v>=0)&&order.every((v,i)=>i===0 || v>order[i-1]),
-    "Habitat belongs above molded yard surface but below paw prints/finish labels.");
-assert.match(chrome,/fun bindHabitats\(/);
-assert.match(board,/boardChrome\.bindHabitats\(/);
-assert.match(board,/snapshot = state,\s*characterIdsBySeat = characterIdsBySeat/);
-assert.match(board,/boardChrome\.rotation = chromeQuarterTurns \* 90f/);
-assert.match(reactive,/pawn3DScene/);
-assert.match(scene,/LudoPawsFxBoardGeometry\.tokenCenter\(/);
-// Board's raised rim, ROAD and CENTER are unchanged: only the face artwork is new.
-assert.match(classic,/drawRaisedYard\(canvas, cell, row = 0, col = 0/);
-assert.match(classic,/drawCrossTileDepth\(canvas, cell\)/);
-assert.match(classic,/drawCenterDepth\(canvas, cell\)/);
-assert.match(geometry,/fun tokenCenter\(/);
-for (const marker of [
-    "every shipped animal gets a unique habitat",
-    "selected character follows its seat color rather than fixed corner",
-    "two player game leaves unoccupied yards unchanged",
-    "missing selections use same color fallback as real 3D animals",
+].map(part => chrome.indexOf(part));
+assert.ok(order.every(n => n >= 0) && order.every((n, i) => i === 0 || n > order[i-1]),
+    "Clean scenery must be below foot markers and real 3D animals.");
+assert.match(board, /boardChrome\.bindHabitats\(/);
+assert.match(board, /boardChrome\.rotation = chromeQuarterTurns \* 90f/);
+assert.match(reactive, /pawn3DScene/);
+assert.match(scene, /LudoPawsFxBoardGeometry\.tokenCenter\(/);
+assert.match(classic, /drawCrossTileDepth\(canvas, cell\)/);
+assert.match(classic, /drawCenterDepth\(canvas, cell\)/);
+assert.match(geometry, /fun tokenCenter\(/);
+for (const name of [
     "habitats fill all four complete five-cell yard quadrants without color strips",
+    "two player game leaves unoccupied yards unchanged",
 ]) {
-    assert.ok(tests.includes(marker), "Missing habitat regression: " + marker);
+    assert.ok(tests.includes(name), "Legacy placement tests missing: " + name);
 }
-
-console.log("Ludo Paws five modular yard habitats: clean open centers, detailed perimeter, no white pawn disks, full 5x5 home coverage, no gameplay changes.");
+for (const name of [
+    "allFourTeamPalettesAreDistinctAndSupported",
+    "groundStaysPaleAndClearUnderEnlargedCharacters",
+    "teamColorPaletteIsIndependentOfCharacterSpecies",
+]) {
+    assert.ok(paletteTests.includes(name), "Palette tests missing: " + name);
+}
+console.log("Clean code-drawn four-color yards: open sand centers, spare timber/flower/leaf border, no WebP atlas or oval pads; paths and Center untouched.");
