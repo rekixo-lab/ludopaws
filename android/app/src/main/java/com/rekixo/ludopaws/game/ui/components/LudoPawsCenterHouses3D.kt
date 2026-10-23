@@ -15,15 +15,17 @@ internal class LudoPawsCenterHouses3D {
     private val facade = FloatArray(16)
     private val hinge = FloatArray(16)
     private val garden = FloatArray(16)
+    private val pillar = FloatArray(16)
     private data class CornerBloom(
         val x: Float, val y: Float, val height: Float, val size: Float, val pink: Boolean,
     )
     private val cornerBlooms = listOf(
-        CornerBloom(.765f, .785f, .068f, .76f, false),
-        CornerBloom(.825f, .845f, .096f, .94f, true),
-        CornerBloom(.885f, .795f, .078f, .82f, false),
-        CornerBloom(.875f, .890f, .060f, .62f, true),
-        CornerBloom(.775f, .885f, .050f, .57f, false),
+        // Low planting wraps around the corner pillar, outside every arrival slot.
+        CornerBloom(.708f, .795f, .060f, .82f, false),
+        CornerBloom(.718f, .902f, .052f, .66f, true),
+        CornerBloom(.806f, .705f, .072f, .94f, false),
+        CornerBloom(.900f, .715f, .056f, .67f, true),
+        CornerBloom(.735f, .735f, .048f, .55f, false),
     )
     private val colors = arrayOf("BLUE", "RED", "GREEN", "YELLOW")
     // Match the red yard's soft coral-pink perimeter instead of saturated scarlet.
@@ -83,17 +85,28 @@ internal class LudoPawsCenterHouses3D {
                 v(a.x * .98f, a.y * .98f, -.075f))
         }
     }.build()
-    private val pathStone = MeshBuilder().apply {
-        val outline = listOf(v(-.75f, -1f), v(.65f, -.95f), v(1f, -.5f),
-            v(.95f, .7f), v(.5f, 1f), v(-.65f, .95f), v(-1f, .4f), v(-.95f, -.45f))
+    private val stoneBlock = MeshBuilder().apply {
+        // Cut corners and sloping bevels make the cap, plinth and masonry read as solid stone.
+        val outline = listOf(v(-.78f, -1f), v(.78f, -1f), v(1f, -.78f), v(1f, .78f),
+            v(.78f, 1f), v(-.78f, 1f), v(-1f, .78f), v(-1f, -.78f))
+        fun ring(point: V, scale: Float, z: Float) = v(point.x * scale, point.y * scale, z)
         outline.indices.forEach { index ->
             val a = outline[index]
             val b = outline[(index + 1) % outline.size]
-            val topA = v(a.x * .82f, a.y * .82f, 1f)
-            val topB = v(b.x * .82f, b.y * .82f, 1f)
+            val topA = ring(a, .87f, 1f)
+            val topB = ring(b, .87f, 1f)
             triangle(v(0f, 0f, 1f), topA, topB)
-            quad(topA, topB, v(b.x, b.y, -.5f), v(a.x, a.y, -.5f))
+            quad(topA, topB, ring(b, 1f, .62f), ring(a, 1f, .62f))
+            quad(ring(a, 1f, .62f), ring(a, 1f, -.7f), ring(b, 1f, -.7f), ring(b, 1f, .62f))
+            quad(ring(a, 1f, -.7f), ring(b, 1f, -.7f), ring(b, .92f, -1f), ring(a, .92f, -1f))
         }
+    }.build()
+    private val houseApron = MeshBuilder().apply {
+        // A shallow cream terrace joins each facade to lawn and steps, without filling the courts.
+        val inner = .66f
+        val outer = .785f
+        quad(v(-inner, inner, -.021f), v(inner, inner, -.021f),
+            v(outer, outer, -.021f), v(-outer, outer, -.021f))
     }.build()
     private val grassBlades = MeshBuilder().apply {
         // One cached mesh per corner: curled blades stay out of paths and arrival slots.
@@ -221,14 +234,24 @@ internal class LudoPawsCenterHouses3D {
                 part(c, garden, turfEdge, 0f, 0f, 0f, 1f, 1f, 1f, TURF_EDGE)
                 part(c, garden, terrain, 0f, 0f, 0f, 1f, 1f, 1f, GRASS)
             }
-            // Low irregular slabs: chamfered tops, visible side faces and contact shade.
+            c.surface = CharacterSurface.GARDEN_STONE
+            part(c, garden, houseApron, 0f, 0f, 0f, 1f, 1f, 1f, TERRACE_STONE)
+            // Broken low edging defines the building without closing the lane-to-door entrance.
+            for (edge in intArrayOf(-1, 1)) {
+                repeat(3) { block ->
+                    part(c, garden, stoneBlock, edge * (.285f + block * .145f), .785f, -.006f,
+                        .067f, .022f, .012f, if (block % 2 == 0) STONE else TERRACE_STONE)
+                }
+            }
+            // Broad graduated steps have visible risers and shaded joints, like the reference.
             repeat(3) { step ->
-                val y = .785f + step * .082f
+                val y = .792f + step * .078f
+                val stepWidth = .105f + step * .008f
                 c.surface = CharacterSurface.GARDEN_GROUND
-                c.drawPart(garden, .012f, y + .012f, -.020f, .111f, .043f, .003f, CONTACT_SHADE)
+                c.drawPart(garden, .009f, y + .014f, -.020f, stepWidth + .009f, .041f, .003f, CONTACT_SHADE)
                 c.surface = CharacterSurface.GARDEN_STONE
-                part(c, garden, pathStone, if (step == 1) -.008f else .004f, y, -.004f,
-                    .103f, .037f, .018f, if (step == 1) PATH_STONE_LIGHT else STONE)
+                part(c, garden, stoneBlock, 0f, y, .010f - step * .007f,
+                    stepWidth, .031f, .018f, if (step == 1) PATH_STONE_LIGHT else STONE)
             }
             c.surface = CharacterSurface.GARDEN_GROUND
             part(c, garden, grassBlades, 0f, 0f, 0f, 1f, 1f, 1f, GRASS_TIPS)
@@ -274,7 +297,39 @@ internal class LudoPawsCenterHouses3D {
                 c.drawPart(garden, plant.x, flowerY, bloomZ + .007f,
                     .008f * plant.size, .008f * plant.size, .006f * plant.size, GOLD)
             }
+            drawCornerPillar(c, turns + side)
         }
+    }
+
+    private fun drawCornerPillar(c: CharacterDrawContext, quarterTurns: Int) {
+        val ground = gardenHeight(.83f, .83f)
+        System.arraycopy(garden, 0, pillar, 0, 16)
+        Matrix.translateM(pillar, 0, .83f, .83f, ground)
+        // Counter-rotate first: every pillar has the same screen-facing depth and lighting.
+        Matrix.rotateM(pillar, 0, -quarterTurns * 90f, 0f, 0f, 1f)
+        c.surface = CharacterSurface.GARDEN_GROUND
+        c.drawPart(pillar, .020f, .024f, .003f, .105f, .076f, .003f, CONTACT_SHADE)
+        // A local architectural tilt exposes real vertical faces under the overhead board camera.
+        Matrix.rotateM(pillar, 0, 30f, 0f, 0f, 1f)
+        Matrix.rotateM(pillar, 0, 34f, 1f, 0f, 0f)
+        c.surface = CharacterSurface.GARDEN_STONE
+        part(c, pillar, stoneBlock, 0f, 0f, .012f, .079f, .079f, .020f, PILLAR_BASE)
+        part(c, pillar, stoneBlock, 0f, 0f, .067f, .060f, .060f, .044f, PILLAR_WALL)
+        // Fine mortar bands and alternating corner blocks break up the plain cube.
+        part(c, pillar, cube, 0f, -.0605f, .065f, .055f, .0015f, .003f, PILLAR_MORTAR)
+        part(c, pillar, cube, .0605f, 0f, .065f, .0015f, .055f, .003f, PILLAR_MORTAR)
+        part(c, pillar, cube, -.018f, -.061f, .086f, .002f, .0015f, .018f, PILLAR_MORTAR)
+        part(c, pillar, cube, .061f, .015f, .046f, .0015f, .002f, .015f, PILLAR_MORTAR)
+        part(c, pillar, stoneBlock, 0f, 0f, .122f, .081f, .081f, .017f, PATH_STONE_LIGHT)
+        // Recessed amber insets and a small green finial echo the garden reference.
+        part(c, pillar, stoneBlock, 0f, -.063f, .071f, .020f, .003f, .023f, WOOD)
+        part(c, pillar, stoneBlock, 0f, -.067f, .072f, .010f, .003f, .014f, GOLD)
+        part(c, pillar, stoneBlock, .063f, 0f, .071f, .003f, .020f, .023f, WOOD)
+        part(c, pillar, stoneBlock, .067f, 0f, .072f, .003f, .010f, .014f, GOLD)
+        c.drawPart(pillar, 0f, 0f, .145f, .033f, .033f, .010f, STONE)
+        c.surface = CharacterSurface.GARDEN_LEAF
+        c.drawPart(pillar, 0f, 0f, .165f, .020f, .020f, .021f, LEAF_BASE)
+        c.drawPart(pillar, -.005f, -.005f, .177f, .011f, .011f, .012f, LEAF_LIGHT)
     }
 
     private fun doorOpenness(index: Int, state: LudoPaws3DSceneState, now: Long): Float {
@@ -460,8 +515,8 @@ internal class LudoPawsCenterHouses3D {
             val edgeFade = ((.96f - maxOf(ax, ay)) / .06f).coerceIn(0f, 1f)
             return -.025f + kotlin.math.exp(-(dx * dx + dy * dy) / .012f) * .085f * edgeFade
         }
-        val GRASS = rgb(0x79AE4B)
-        val GRASS_TIPS = rgb(0x9BCB5C)
+        val GRASS = rgb(0x72B548)
+        val GRASS_TIPS = rgb(0xB0D471)
         val TURF_EDGE = rgb(0x527D31)
         val EARTH = rgb(0x76513A)
         val CONTACT_SHADE = rgb(0x405C2C)
@@ -469,6 +524,10 @@ internal class LudoPawsCenterHouses3D {
         val LEAF_DARK = rgb(0x286B29)
         val LEAF_LIGHT = rgb(0x69B646)
         val PATH_STONE_LIGHT = rgb(0xF0DFC0)
+        val TERRACE_STONE = rgb(0xE7D7AE)
+        val PILLAR_BASE = rgb(0xA7997E)
+        val PILLAR_WALL = rgb(0xC7B99C)
+        val PILLAR_MORTAR = rgb(0x817861)
         val FLOWER_CREAM = rgb(0xF4EBCB)
         val FLOWER_PINK = rgb(0xDF96A0)
     }
