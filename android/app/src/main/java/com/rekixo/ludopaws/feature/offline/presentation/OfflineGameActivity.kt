@@ -190,6 +190,7 @@ class OfflineGameActivity : ComponentActivity() {
     }
 
     internal fun prepareOfflineUiTransition() {
+        boardView?.let { com.rekixo.ludopaws.ui.quickchat.clearQuickChatReactions(it) }
         handler.removeCallbacksAndMessages(null)
         turnHandoffDialog
             ?.dismiss()

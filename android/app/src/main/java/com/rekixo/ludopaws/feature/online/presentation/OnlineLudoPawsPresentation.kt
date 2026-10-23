@@ -117,6 +117,8 @@ internal object OnlineLudoPawsPresentation {
 
     fun clear(activity: MainActivity) {
         val host = host(activity) ?: return
+        com.rekixo.ludopaws.ui.quickchat.clearQuickChatReactions(host.board)
+        host.quickChatReactionView = null
         host.railAlignmentListener?.let { listener ->
             runCatching {
                 activity.arcadeRootView.viewTreeObserver.let { observer ->
@@ -216,9 +218,9 @@ internal object OnlineLudoPawsPresentation {
         host.quickChatReactionView =
             animateQuickChatReaction(
                 parent = host.board,
-                previous = host.quickChatReactionView,
                 emoji = emoji,
-                displayName = displayName,
+                senderPlayerId = senderPlayerId,
+                anchor = host.playerCardsById[senderPlayerId] ?: return,
             )
     }
 
@@ -794,9 +796,10 @@ internal object OnlineLudoPawsPresentation {
                             quickChatHost.quickChatReactionView =
                                 animateQuickChatReaction(
                                     parent = quickChatHost.board,
-                                    previous = quickChatHost.quickChatReactionView,
                                     emoji = emoji,
-                                    displayName = sender.displayName,
+                                    senderPlayerId = sender.playerId,
+                                    anchor = quickChatHost.playerCardsById[sender.playerId]
+                                        ?: return@showQuickChatPopup,
                                 )
                             GameSoundFeedback.click(activity)
                         }
