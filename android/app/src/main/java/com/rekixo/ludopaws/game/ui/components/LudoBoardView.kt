@@ -956,25 +956,26 @@ class LudoBoardView @JvmOverloads constructor(
         teamColor: Int,
     ) {
         val artwork = pawPrintArtwork[species] ?: return
-        // Slightly enlarge the impression while keeping all four starting slots
-        // visually separate. The team's outer edge/glow colours remain unchanged.
-        val scale = (cell * 0.34f).coerceAtLeast(density(0.1f))
+        // A restrained imprint belongs INSIDE an empty start slot. The old
+        // 0.34f size and opaque team-colored rim dominated the natural habitat.
+        // Keep the same canonical position, just a smaller softer footprint.
+        val scale = (cell * 0.25f).coerceAtLeast(density(0.1f))
         val red = Color.red(teamColor)
         val green = Color.green(teamColor)
         val blue = Color.blue(teamColor)
 
         // Warm, compressed-dirt pigment instead of a cold, flat grey stamp.
         pawPrintFillPaint.shader = null
-        pawPrintFillPaint.color = Color.argb(54, 59, 51, 43)
-        pawPrintGlowPaint.color = Color.argb(76, red, green, blue)
-        pawPrintEdgePaint.color = Color.argb(232, red, green, blue)
+        pawPrintFillPaint.color = Color.argb(43, 59, 51, 43)
+        pawPrintGlowPaint.color = Color.argb(42, red, green, blue)
+        pawPrintEdgePaint.color = Color.argb(145, red, green, blue)
         // Creases read as shallow grooves inside the print, not white decorative
         // lines. Fine grain adds small irregularity without changing the outline.
-        pawPrintDetailPaint.color = Color.argb(66, 38, 33, 29)
+        pawPrintDetailPaint.color = Color.argb(48, 38, 33, 29)
         // Canvas scaling also scales stroke widths, so normalize them to retain
         // stable dp-sized highlights on phones, tablets and high-density screens.
-        pawPrintGlowPaint.strokeWidth = density(3.5f) / scale
-        pawPrintEdgePaint.strokeWidth = density(1.35f) / scale
+        pawPrintGlowPaint.strokeWidth = density(2.5f) / scale
+        pawPrintEdgePaint.strokeWidth = density(1.0f) / scale
         pawPrintDetailPaint.strokeWidth = density(0.8f) / scale
 
         canvas.save()

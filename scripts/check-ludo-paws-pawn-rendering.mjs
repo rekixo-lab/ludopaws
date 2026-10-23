@@ -156,8 +156,8 @@ for (const token of [
   "pawPrintEdgePaint",
   "pawPrintTexturePaint",
   "toePad(",
-  "val scale = (cell * 0.34f)",
-  "pawPrintDetailPaint.color = Color.argb(66, 38, 33, 29)",
+  "val scale = (cell * 0.25f)",
+  "pawPrintDetailPaint.color = Color.argb(48, 38, 33, 29)",
   "classicTokenDrawingEnabled",
 ]) {
   requireText(
