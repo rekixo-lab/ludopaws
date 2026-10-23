@@ -80,8 +80,11 @@ assert.match(art, /canvas\.clipRect\(rect\)/,
 assert.doesNotMatch(art, /canvas\.clipPath\(clip\)/,
     "Rounded clipping re-exposes team-color corners");
 assert.match(art, /LudoPawsYardHabitatGeometry\.face\(color, cell\)/);
-assert.match(art, /LudoPawsFxBoardGeometry\.tokenCenter\(/);
-assert.match(art, /position = -1/);
+// Scenery must not impose any additional static 3D pawn marker/slot.
+assert.doesNotMatch(art, /LudoPawsFxBoardGeometry\.tokenCenter\(/,
+    "The occupied starting points come from 3D gameplay, not painted placeholders");
+assert.match(tests, /LudoPawsFxBoardGeometry\.tokenCenter\(color, tokenIndex, -1, cell\)/,
+    "Existing tests must still validate all four canonical starting slots");
 assert.doesNotMatch(art, /landingPad\(canvas,/,
     "Don't create distracting oval placeholders under 3D characters");
 assert.match(art, /NO bright permanent landingPad circles/,
