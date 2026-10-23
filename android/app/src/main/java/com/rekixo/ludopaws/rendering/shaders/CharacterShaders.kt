@@ -47,6 +47,40 @@ internal object CharacterShaders {
                     (gl_FragCoord.x < uEntryClip.x || gl_FragCoord.x > uEntryClip.z ||
                      gl_FragCoord.y < uEntryClip.y || gl_FragCoord.y > uEntryClip.w)) discard;
                 vec3 normal = normalize(vNormal);
+                if (uMaterial.x > 15.5) {
+                    vec3 light = normalize(vec3(-0.45, -0.70, 1.0));
+                    float key = max(dot(normal, light), 0.0);
+                    float specular = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0), 46.0);
+                    vec3 base = uColor.rgb;
+                    if (uMaterial.x > 16.5 && base.r > 0.3 && base.b < 0.2) {
+                        vec2 iris = vec2(abs(vLocalPosition.x) - 0.27, vLocalPosition.y - 0.668);
+                        float fibers = sin(atan(iris.y, iris.x) * 63.0 + length(iris) * 180.0);
+                        float detail = 1.0 / (1.0 + dot(fwidth(iris), fwidth(iris)) * 90000.0);
+                        base *= 1.0 + fibers * detail * 0.10;
+                    }
+                    outColor = vec4(base * (0.82 + key * 0.18) + vec3(specular * uMaterial.y), uColor.a * uEntryFade);
+                    return;
+                }
+                if (uMaterial.x > 14.5) {
+                    // Fine white kid fur, filtered as the pawn gets smaller on the board.
+                    vec3 p = vLocalPosition;
+                    vec3 light = normalize(vec3(-0.45, -0.70, 1.0));
+                    float key = max(dot(normal, light), 0.0);
+                    float fill = max(dot(normal, normalize(vec3(0.7, 0.1, 0.8))), 0.0);
+                    float footprint = max(length(dFdx(p)), length(dFdy(p)));
+                    float detail = 1.0 / (1.0 + footprint * footprint * 85000.0);
+                    float flow = p.x + sin(p.y * 8.0 + p.z * 6.0) * 0.025;
+                    float hairs = sin(flow * 530.0) * sin(p.y * 870.0 + p.x * 18.0);
+                    float tufts = sin(p.x * 47.0 + p.z * 21.0) * sin(p.y * 55.0);
+                    vec3 diffuse = uColor.rgb * (0.70 + key * 0.28 + fill * 0.09);
+                    diffuse *= 1.0 + hairs * detail * 0.035 + tufts * 0.016;
+                    float cheek = exp(-pow((abs(p.x) - 0.43) / 0.13, 2.0) - pow((p.y - 0.43) / 0.09, 2.0));
+                    cheek *= smoothstep(0.27, 0.43, p.z);
+                    diffuse = mix(diffuse, diffuse * vec3(1.0, 0.78, 0.79), cheek * 0.40);
+                    float velvet = pow(1.0 - max(normal.z, 0.0), 2.0) * 0.055;
+                    outColor = vec4(diffuse + vec3(velvet), uColor.a * uEntryFade);
+                    return;
+                }
                 if (uMaterial.x > 11.5) {
                     if (uMaterial.x > 13.5) {
                         // Soft reflected pools; transparent edges never write depth.
