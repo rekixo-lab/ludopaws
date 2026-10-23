@@ -247,6 +247,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             state = state,
             playerId = playerId,
             perspectiveColor = perspectiveColor,
+            characterIdsBySeat = characterIdsBySeat,
         )
         gameFxOverlay.bind(
             previous = previous,

@@ -346,27 +346,25 @@ class LudoPawsBoardView @JvmOverloads constructor(
                         3 -> y to (size - x)
                         else -> x to y
                     }
-                    val radius = cell * LudoPawsPawnLayout.radiusScale(position, stack?.occupancy ?: 1)
                     val id = LudoPaws3DCharacterPolicy.characterIdForSeat(characterIds, player.seat, player.color)
-                    // Conservative species silhouettes include ears/horns and idle breathing.
-                    val heightRatio = when (id) {
-                        "donkey" -> 3.35f
-                        "goat" -> 3.15f
-                        "duck" -> 2.85f
-                        else -> 3.0f
-                    }
+                    val fit = LudoPawsPawnLayout.roadPresentation(center.first, center.second,
+                        cell, position, stack?.occupancy ?: 1, id, turns)
+                    val radius = if (classicPawnFallbackVisible)
+                        cell * LudoPawsPawnLayout.radiusScale(position, stack?.occupancy ?: 1) else fit.radius
+                    val footY = screen.second + if (classicPawnFallbackVisible) 0f else fit.footDrop
+                    val heightRatio = LudoPawsPawnLayout.silhouetteHeight(id)
                     val halfWidth = radius * if (id == "duck") .95f else .86f
                     val bodyHeight = radius * heightRatio
                     val bounds = if (classicPawnFallbackVisible) {
                         RectF(screen.first - radius, screen.second - radius,
                             screen.first + radius, screen.second + radius)
-                    } else RectF(screen.first - halfWidth, screen.second - bodyHeight,
-                        screen.first + halfWidth, screen.second + radius * .18f)
+                    } else RectF(screen.first - halfWidth, footY - bodyHeight * 1.14f,
+                        screen.first + halfWidth, footY + radius * .18f)
                     val legal = player.playerId == localPlayerId &&
                         state.players.getOrNull(state.turnSeat)?.playerId == localPlayerId &&
                         state.pendingRoll?.status == "RESOLVED" &&
                         index in state.pendingRoll.legalTokenIndexes
-                    add(PawnTarget(player.playerId, index, bounds, legal, screen.second,
+                    add(PawnTarget(player.playerId, index, bounds, legal, footY,
                         "${player.displayName}, ${id}, character ${index + 1}, " +
                             if (legal) "can move" else "cannot move now"))
                 }

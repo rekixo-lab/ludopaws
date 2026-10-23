@@ -80,6 +80,41 @@ object LudoPawsPawnLayout {
         return base * crowdScale * ANIMAL_SIZE_MULTIPLIER
     }
 
+    internal data class RoadPresentation(val radius: Float, val footDrop: Float)
+
+    /** Same screen-space fit for the renderer, touch targets and legal-move cues. */
+    internal fun roadPresentation(
+        x: Float, y: Float, cell: Float, position: Int, occupancy: Int,
+        characterId: String, turns: Int,
+    ): RoadPresentation {
+        val original = cell * radiusScale(position, occupancy)
+        if (position !in 0 until LudoPathEncoding.HOME_POSITION ||
+            (x !in cell * 5f..cell * 10f && y !in cell * 5f..cell * 10f)) {
+            return RoadPresentation(original, 0f)
+        }
+        val logicalWidth = if (x in cell * 5f..cell * 10f) cell * 5f / 3f else cell * 5f / 6f
+        val logicalHeight = if (y in cell * 5f..cell * 10f) cell * 5f / 3f else cell * 5f / 6f
+        val width = if (turns % 2 == 0) logicalWidth else logicalHeight
+        val height = if (turns % 2 == 0) logicalHeight else logicalWidth
+        val columns = ceil(sqrt(occupancy.coerceAtLeast(1) * logicalWidth / logicalHeight))
+            .toInt().coerceIn(1, occupancy.coerceAtLeast(1))
+        val rows = ceil(occupancy.coerceAtLeast(1).toFloat() / columns).toInt()
+        val screenColumns = if (turns % 2 == 0) columns else rows
+        val screenRows = if (turns % 2 == 0) rows else columns
+        val heightRatio = silhouetteHeight(characterId)
+        // Reserve space for the maximum 14% legal breathing expansion.
+        val radius = minOf(original, width / screenColumns * .82f / (2f * .95f * 1.14f),
+            height / screenRows * .86f / (heightRatio * 1.14f))
+        return RoadPresentation(radius, radius * heightRatio * .44f)
+    }
+
+    internal fun silhouetteHeight(characterId: String): Float = when (characterId) {
+        "donkey" -> 3.35f
+        "goat" -> 3.15f
+        "duck" -> 2.85f
+        else -> 3f
+    }
+
     /**
      * Bind the animated 3D model's foot-ground pivot to the REAL tile center.
      *
@@ -132,6 +167,7 @@ object LudoPawsPawnLayout {
         }
 
         val groups = linkedMapOf<String, MutableList<LudoPawsPawnVisualKey>>()
+        val centers = mutableMapOf<String, Pair<Float, Float>>()
 
         snapshot.players
             .sortedWith(
@@ -152,6 +188,7 @@ object LudoPawsPawnLayout {
                             playerId = player.playerId,
                             tokenIndex = tokenIndex,
                         )
+                    centers[centerKey(center)] = center
                     groups
                         .getOrPut(centerKey(center)) { mutableListOf() }
                         .add(key)
@@ -160,14 +197,20 @@ object LudoPawsPawnLayout {
 
         val placements =
             buildMap {
-                groups.values.forEach { occupants ->
+                groups.forEach { (groupKey, occupants) ->
                     val occupancy = occupants.size
                     occupants.forEachIndexed { slot, key ->
-                        val offset =
-                            stackOffsetFraction(
-                                slot = slot,
-                                occupancy = occupancy,
-                            )
+                        val center = centers.getValue(groupKey)
+                        val onRoad = center.first in cell * 5f..cell * 10f ||
+                            center.second in cell * 5f..cell * 10f
+                        val width = if (center.first in cell * 5f..cell * 10f) 5f / 3f else 5f / 6f
+                        val height = if (center.second in cell * 5f..cell * 10f) 5f / 3f else 5f / 6f
+                        val columns = ceil(sqrt(occupancy * width / height)).toInt().coerceIn(1, occupancy)
+                        val rows = ceil(occupancy.toFloat() / columns).toInt()
+                        val offset = if (onRoad && occupancy > 1) {
+                            ((slot % columns + .5f) / columns - .5f) * width * .88f to
+                                ((slot / columns + .5f) / rows - .5f) * height * .88f
+                        } else stackOffsetFraction(slot, occupancy)
                         put(
                             key,
                             LudoPawsPawnStackPlacement(

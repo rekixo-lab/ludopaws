@@ -347,12 +347,11 @@ internal class LudoPaws3DSceneRenderer {
                                     )
                                 occupancy[occupancyKey] ?: 1
                             }
-                        val radius =
-                            cell *
-                                LudoPawsPawnLayout.radiusScale(
-                                    position = renderPosition,
-                                    occupancy = occupants,
-                                )
+                        val fit = LudoPawsPawnLayout.roadPresentation(
+                            rawCenter.first, rawCenter.second, cell, renderPosition, occupants,
+                            character.id, turns,
+                        )
+                        val radius = fit.radius
                         val facingYawDegrees =
                             if (captureVisual == null) {
                                 facingYawDegrees(
@@ -375,7 +374,7 @@ internal class LudoPaws3DSceneRenderer {
                                 teamColor = teamColor,
                                 seat = player.seat,
                                 x = rotated.first,
-                                y = rotated.second,
+                                y = rotated.second + fit.footDrop,
                                 radius = radius,
                                 facingYawDegrees = facingYawDegrees,
                                 presentationScale =
@@ -1124,7 +1123,7 @@ internal class LudoPaws3DSceneRenderer {
                     1f
                 ) *
                 .5f
-        return 1f + breath * .0975f
+        return 1f + breath * .14f
     }
 
     private data class RenderPawn(
