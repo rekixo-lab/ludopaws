@@ -37,6 +37,8 @@ internal object CharacterShaders {
             uniform float uEntryFade;
             uniform vec2 uMaterial;
             uniform vec3 uLightDirection;
+            uniform float uPartyClock;
+            uniform float uPartyEnergy;
             in vec3 vNormal;
             in vec3 vLocalPosition;
             out vec4 outColor;
@@ -45,6 +47,28 @@ internal object CharacterShaders {
                     (gl_FragCoord.x < uEntryClip.x || gl_FragCoord.x > uEntryClip.z ||
                      gl_FragCoord.y < uEntryClip.y || gl_FragCoord.y > uEntryClip.w)) discard;
                 vec3 normal = normalize(vNormal);
+                if (uMaterial.x > 11.5) {
+                    if (uMaterial.x > 13.5) {
+                        // Soft reflected pools; transparent edges never write depth.
+                        float falloff = pow(max(0.0, 1.0 - dot(vLocalPosition.xy, vLocalPosition.xy)), 2.0);
+                        outColor = vec4(uColor.rgb, uColor.a * falloff * uEntryFade);
+                    } else if (uMaterial.x > 12.5) {
+                        float core = pow(max(normal.z, 0.0), 3.0);
+                        outColor = vec4(uColor.rgb * (0.78 + uPartyEnergy * 0.32) +
+                            vec3(core * 0.5 * uPartyEnergy), uColor.a * uEntryFade);
+                    } else {
+                        vec3 light = normalize(vec3(-0.45, -0.65, 1.05));
+                        float key = max(dot(normal, light), 0.0);
+                        float bandCenter = -0.95 + fract(uPartyClock * 0.28) * 1.90;
+                        float band = 1.0 - smoothstep(0.025, 0.16,
+                            abs(vLocalPosition.x + vLocalPosition.y * 0.24 - bandCenter));
+                        float specular = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0), 48.0);
+                        outColor = vec4(uColor.rgb * (0.70 + 0.30 * key) +
+                            vec3(1.0, 0.96, 0.80) * (band * 0.65 + specular * 0.28) * uPartyEnergy,
+                            uColor.a * uEntryFade);
+                    }
+                    return;
+                }
                 // Garden relief needs stronger directional modelling than the cream walls.
                 // Rough mineral/soil grain is filtered at small on-board pixel sizes.
                 if (uMaterial.x > 8.5 && uMaterial.x < 11.5) {

@@ -300,17 +300,27 @@ internal fun OfflineGameActivity.renderGame(
             .coerceAtLeast(0L)
 
     val active = state.players.getOrNull(state.turnSeat)
-    val winner =
-        state.players.find {
-            it.playerId == state.winnerPlayerId
-        }
-
     if (state.status == "FINISHED") {
-        val winnerName = winner?.displayName ?: "Player"
         resultPanel.visibility = if (blockedRemainingMillis > 0L) View.GONE else View.VISIBLE
         // Phase 11 compatibility marker retained for the integration gate:
         // You brought all 4 paws home.
-        resultTitleText.text = if (state.players.size == 2) "${winnerName.uppercase()} WINS" else "MATCH COMPLETE"
+        val humanRank = engine.humanPlayerId()?.let { LudoPawsFinishPresentation.ranks(state)[it] }
+        val title = if (isComputerMode) LudoPawsFinishPresentation.headline(humanRank) else "MATCH COMPLETE"
+        val standings = LudoPawsFinishPresentation.standings(state)
+        val detail = if (isComputerMode && humanRank == 4)
+            "WELL PLAYED!\n$standings" else standings
+        resultTitleText.text = android.text.SpannableStringBuilder(title).apply {
+            if (detail.isNotBlank()) {
+                append("\n\n")
+                val start = length
+                append(detail)
+                setSpan(android.text.style.RelativeSizeSpan(.55f), start, length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(android.text.style.ForegroundColorSpan(0xFFFFF1D8.toInt()), start, length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        resultTitleText.contentDescription = "$title. $detail"
     } else {
         resultPanel.visibility = View.GONE
     }

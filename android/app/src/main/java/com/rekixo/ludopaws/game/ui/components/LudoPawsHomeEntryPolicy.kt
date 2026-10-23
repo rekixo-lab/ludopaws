@@ -40,3 +40,55 @@ internal object LudoPawsHomeEntryPolicy {
 
     fun plaque(elapsed: Long): Float = smooth((elapsed - PLAQUE_START_MS).toFloat() / 500f)
 }
+
+/** One trusted placement mapping for result screens, yard badges and center plaques. */
+internal object LudoPawsFinishPresentation {
+    private val cachedRanks = ThreadLocal<Pair<MatchSnapshot, Map<String, Int>>>()
+
+    fun ranks(state: MatchSnapshot): Map<String, Int> {
+        cachedRanks.get()?.takeIf { it.first === state }?.let { return it.second }
+        return resolveRanks(state).also { cachedRanks.set(state to it) }
+    }
+
+    private fun resolveRanks(state: MatchSnapshot): Map<String, Int> {
+        if (state.matchMode == "TEAM_UP" || state.status == "WAITING") return emptyMap()
+        val ids = state.players.map { it.playerId }.toSet()
+        val order = state.finishOrderPlayerIds.filter { it in ids }.distinct().toMutableList()
+        if (order.isEmpty()) state.winnerPlayerId?.takeIf { it in ids }?.let { order.add(it) }
+        // Only one unplaced player can be inferred from a completed race.
+        if (state.status == "FINISHED" && order.size == ids.size - 1) {
+            ids.firstOrNull { it !in order }?.let { order.add(it) }
+        }
+        return order.mapIndexed { index, id -> id to index + 1 }.toMap()
+    }
+
+    fun label(rank: Int): String = when (rank) {
+        1 -> "WINNER"
+        2 -> "2ND"
+        3 -> "3RD"
+        4 -> "4TH"
+        else -> "HOME"
+    }
+
+    fun headline(rank: Int?): String = when (rank) {
+        1 -> "YOU WON!"
+        2 -> "2ND PLACE"
+        3 -> "3RD PLACE"
+        4 -> "4TH PLACE"
+        else -> "MATCH COMPLETE"
+    }
+
+    fun standings(state: MatchSnapshot): String {
+        val placements = ranks(state)
+        return state.players.filter { it.playerId in placements }
+            .sortedBy { placements[it.playerId] }
+            .joinToString("\n") { "${label(placements.getValue(it.playerId))}  ·  ${it.displayName}" }
+    }
+
+    fun metalColor(rank: Int, teamColor: Int): Int = when (rank) {
+        1 -> 0xFFFFD568.toInt()
+        2 -> 0xFFE2EAF2.toInt()
+        3 -> 0xFFE8AA70.toInt()
+        else -> teamColor
+    }
+}

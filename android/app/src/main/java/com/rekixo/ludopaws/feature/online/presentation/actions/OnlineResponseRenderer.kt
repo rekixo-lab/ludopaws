@@ -296,20 +296,13 @@ internal fun MainActivity.updateTurnBanner(
                 resultSubtitleText.text =
                     "$winners • server-authoritative team result • match complete"
             } else {
-                val winner = state.players.find { it.playerId == state.winnerPlayerId }
-                val winnerName = winner?.displayName ?: "Player"
-                resultTitleText.text =
-                    if (state.players.size == 4) "MATCH COMPLETE"
-                    else if (winner?.playerId == playerId) "YOU WON"
-                    else "WINNER • $winnerName"
-                resultSubtitleText.text =
-                    if (state.players.size == 4 && state.finishOrderPlayerIds.isNotEmpty()) {
-                        "Final placements are shown on the board."
-                    } else if (winner?.playerId == playerId) {
-                        "$winnerName • server-authoritative result • match complete"
-                    } else {
-                        "Server-authoritative result • match complete"
-                    }
+                val rank = playerId?.let { LudoPawsFinishPresentation.ranks(state)[it] }
+                val standings = LudoPawsFinishPresentation.standings(state)
+                resultTitleText.text = LudoPawsFinishPresentation.headline(rank)
+                resultSubtitleText.text = buildString {
+                    if (rank == 4) append("WELL PLAYED!\n")
+                    append(standings.ifBlank { "Match complete • verified result" })
+                }
             }
         }
 

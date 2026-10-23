@@ -401,11 +401,9 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         state?.let { current ->
             current.players.filter(LudoPawsHomeEntryPolicy::complete).forEach { player ->
                 val existing = homeEntries[player.playerId]
-                val knownRank = current.finishOrderPlayerIds.indexOf(player.playerId).let {
-                    if (current.winnerPlayerId == player.playerId ||
-                        (current.winnerTeamId != null && current.winnerTeamId == player.teamId)) 1
-                    else if (it >= 0) it + 1 else 0
-                }
+                val knownRank = if (current.matchMode == "TEAM_UP") {
+                    if (current.winnerTeamId != null && current.winnerTeamId == player.teamId) 1 else 0
+                } else LudoPawsFinishPresentation.ranks(current)[player.playerId] ?: 0
                 if (existing != null) {
                     if (knownRank > 0 && existing.rank != knownRank)
                         homeEntries[player.playerId] = existing.copy(rank = knownRank)
@@ -415,11 +413,10 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     val liveArrival = before != null && !LudoPawsHomeEntryPolicy.complete(before)
                     val arrivalAt = if (forward?.playerId == player.playerId)
                         maxOf(now, forwardStartedAtMillis + forwardDurationMillis) else now
-                    val observedRank = if (liveArrival) homeEntries.size + 1 else 0
                     homeEntries[player.playerId] = LudoPawsHomeEntry(
                         if (liveArrival) arrivalAt else 0L,
                         if (current.matchMode == "TEAM_UP" && current.winnerTeamId == null) 0
-                        else if (knownRank > 0) knownRank else observedRank,
+                        else knownRank,
                     )
                 }
             }

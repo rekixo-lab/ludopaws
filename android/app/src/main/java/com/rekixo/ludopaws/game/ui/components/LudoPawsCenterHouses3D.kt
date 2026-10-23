@@ -18,6 +18,17 @@ internal class LudoPawsCenterHouses3D {
     private val finishLettering by lazy {
         listOf("WINNER", "2ND", "3RD", "4TH", "HOME").associateWith(::lettering)
     }
+    private val lampTint = floatArrayOf(1f, 1f, 1f, 1f)
+    private val reflectionTint = floatArrayOf(1f, 1f, 1f, .2f)
+    private val lightPool = MeshBuilder().apply {
+        quad(v(-1f, -1f), v(1f, -1f), v(1f, 1f), v(-1f, 1f))
+    }.build()
+    private val lamps = buildList {
+        repeat(6) { column -> add((-.56f + column * .224f) to -.153f) }
+        add(.685f to 0f)
+        repeat(6) { column -> add((.56f - column * .224f) to .153f) }
+        add(-.685f to 0f)
+    }
     private val hinge = FloatArray(16)
     private val garden = FloatArray(16)
     private data class CornerBloom(
@@ -253,9 +264,18 @@ internal class LudoPawsCenterHouses3D {
             val entry = player?.let { state.homeEntries[it.playerId] }
             if (entry != null) {
                 val reveal = LudoPawsHomeEntryPolicy.plaque(entry.elapsed(nowMillis))
-                if (reveal > 0f) drawFinishPlaque(context, house, index, entry.rank, reveal)
+                val age = if (entry.startedAtMillis > 0L)
+                    (entry.elapsed(nowMillis) - LudoPawsHomeEntryPolicy.PLAQUE_START_MS).coerceAtLeast(0L)
+                    else 3_000L
+                if (reveal > 0f) drawFinishPlaque(context, house, index, entry.rank, reveal, nowMillis, age)
+            } else if (state.snapshot?.status == "FINISHED" && player != null) {
+                val rank = LudoPawsFinishPresentation.ranks(state.snapshot)[player.playerId] ?: 0
+                // Last place is a known result even though its pawns have not all arrived.
+                if (rank == 4 || (rank == 2 && state.snapshot.players.size == 2))
+                    drawFinishPlaque(context, house, index, rank, 1f, nowMillis, 3_000L)
             }
         }
+        context.partyEnergy = 0f
         context.surface = previousSurface
     }
 
@@ -430,30 +450,61 @@ internal class LudoPawsCenterHouses3D {
 
     private fun drawFinishPlaque(
         c: CharacterDrawContext, parent: FloatArray, color: Int, rank: Int, reveal: Float,
+        nowMillis: Long, celebrationAgeMillis: Long,
     ) {
+        val metal = when (rank) { 1 -> GOLD; 2 -> SILVER; 3 -> BRONZE; else -> roofs[color] }
+        val burst = (1f - celebrationAgeMillis / 3_000f).coerceIn(0f, 1f)
+        c.partyEnergy = if (rank == 1) .65f + burst * .35f else if (rank in 2..3) .22f else .08f
+        val clock = (nowMillis % 100_000L) / 1000f
+        if (rank == 1) {
+            // Two soft pools tint the actual arrival court below the illuminated sign.
+            c.surface = CharacterSurface.PARTY_GLOW
+            repeat(2) { side ->
+                val phase = clock * .4f + side * 2
+                val segment = phase.toInt()
+                val blend = smooth(phase - segment)
+                val from = PARTY_COLORS[segment % PARTY_COLORS.size]
+                val to = PARTY_COLORS[(segment + 1) % PARTY_COLORS.size]
+                for (channel in 0..2) reflectionTint[channel] = from[channel] + (to[channel] - from[channel]) * blend
+                reflectionTint[3] = (.15f + .08f * sin(clock * PI.toFloat() + side)) * reveal
+                part(c, parent, lightPool, if (side == 0) -.40f else .40f, 1.13f, .008f,
+                    .35f, .16f, 1f, reflectionTint)
+            }
+        }
         System.arraycopy(parent, 0, plaqueTransform, 0, 16)
         Matrix.translateM(plaqueTransform, 0, 0f, 1.13f, .02f + reveal * .04f)
         val pop = .82f + .18f * reveal
         Matrix.scaleM(plaqueTransform, 0, pop, pop, pop)
         c.surface = CharacterSurface.GARDEN_STONE
-        // Solid chamfered sign, recessed team-color face and extruded gold characters.
         part(c, plaqueTransform, stoneBlock, 0f, .014f, -.018f, .74f, .19f, .035f, CONTACT_SHADE)
-        part(c, plaqueTransform, stoneBlock, 0f, 0f, .015f, .72f, .18f, .034f, GOLD)
-        part(c, plaqueTransform, stoneBlock, 0f, 0f, .052f, .67f, .137f, .012f, roofEdges[color])
-        val title = when (rank) {
-            1 -> "WINNER"
-            2 -> "2ND"
-            3 -> "3RD"
-            4 -> "4TH"
-            else -> "HOME"
-        }
+        c.surface = CharacterSurface.FINISH_METAL
+        part(c, plaqueTransform, stoneBlock, 0f, 0f, .015f, .72f, .18f, .034f, metal)
         c.surface = CharacterSurface.HOUSE_WALL
-        part(c, plaqueTransform, finishLettering.getValue(title), 0f, 0f, .068f,
-            1f, 1f, 1f, GOLD)
-        // Corner studs catch highlights, without covering the lettering.
-        for (side in intArrayOf(-1, 1)) {
-            c.drawPart(plaqueTransform, side * .62f, .095f, .072f, .014f, .014f, .012f, WHITE)
+        part(c, plaqueTransform, stoneBlock, 0f, 0f, .052f, .67f, .137f, .012f, roofEdges[color])
+        c.surface = CharacterSurface.FINISH_METAL
+        part(c, plaqueTransform, finishLettering.getValue(LudoPawsFinishPresentation.label(rank)),
+            0f, 0f, .068f, 1f, 1f, 1f, metal)
+        if (rank == 1) {
+            lamps.forEachIndexed { index, position ->
+                val base = PARTY_COLORS[index % PARTY_COLORS.size]
+                val chase = .5f + .5f * sin(clock * 2f * PI.toFloat() - index * .90f)
+                for (channel in 0..2) lampTint[channel] = base[channel] * (.48f + chase * .52f)
+                lampTint[3] = (.17f + chase * .20f) * reveal
+                c.surface = CharacterSurface.PARTY_GLOW
+                part(c, plaqueTransform, lightPool, position.first, position.second, .106f,
+                    .052f, .052f, 1f, lampTint)
+                lampTint[3] = 1f
+                c.surface = CharacterSurface.PARTY_BULB
+                c.drawPart(plaqueTransform, position.first, position.second, .094f,
+                    .022f, .022f, .019f, lampTint)
+            }
+        } else {
+            c.surface = CharacterSurface.FINISH_METAL
+            for (side in intArrayOf(-1, 1)) {
+                c.drawPart(plaqueTransform, side * .62f, .095f, .072f, .014f, .014f, .012f, metal)
+            }
         }
+        c.partyEnergy = 0f
     }
 
     /** Batched solid letter blocks; thickness and normals are actual mesh geometry. */
@@ -696,6 +747,9 @@ internal class LudoPawsCenterHouses3D {
             (base[2] * factor).coerceAtMost(1f), 1f)
         val CREAM = rgb(0xFFE6B5)
         val GOLD = rgb(0xF9B63D)
+        private val SILVER = rgb(0xDFE9F4)
+        private val BRONZE = rgb(0xDEA16B)
+        private val PARTY_COLORS = arrayOf(rgb(0xFFE784), rgb(0x7BEAF5), rgb(0xFF9ECC), rgb(0xFFF2C0))
         val WOOD = rgb(0xA95A24)
         val WOOD_GRAIN = rgb(0x713817)
         val INTERIOR = rgb(0x302018)

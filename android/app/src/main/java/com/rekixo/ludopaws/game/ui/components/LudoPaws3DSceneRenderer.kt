@@ -38,6 +38,9 @@ internal class LudoPaws3DSceneRenderer {
     private var uNormalMatrixLocation = -1
     private lateinit var sphere: CharacterMesh
     private var uMaterialLocation = -1
+    private var uPartyClockLocation = -1
+    private var uPartyEnergyLocation = -1
+    private var boundPartyEnergy = Float.NaN
     private var uLimbBendLocation = -1
     private var boundSurface: CharacterSurface? = null
     private var boundBendY = Float.NaN
@@ -91,6 +94,10 @@ internal class LudoPaws3DSceneRenderer {
                 FRAGMENT_SHADER.trimIndent(),
             )
         customMeshes.clear()
+        uPartyClockLocation = GLES30.glGetUniformLocation(program, "uPartyClock")
+        uPartyEnergyLocation = GLES30.glGetUniformLocation(program, "uPartyEnergy")
+        check(uPartyClockLocation >= 0 && uPartyEnergyLocation >= 0) { "Missing party light uniforms" }
+        boundPartyEnergy = Float.NaN
         uEntryFadeLocation = GLES30.glGetUniformLocation(program, "uEntryFade")
         check(uEntryFadeLocation >= 0) { "Missing entry fade uniform" }
         uEntryClipLocation = GLES30.glGetUniformLocation(program, "uEntryClip")
@@ -258,6 +265,8 @@ internal class LudoPaws3DSceneRenderer {
         val snapshot = state.snapshot ?: return
         if (program == 0) return
         GLES30.glUseProgram(program)
+        // Keep precision stable after long device uptimes; all cycles divide 100 seconds.
+        GLES30.glUniform1f(uPartyClockLocation, (nowMillis % 100_000L) / 1000f)
 
         val size = min(width, height).toFloat()
         val cell = size / LudoPawsFxBoardGeometry.BOARD_SIZE
@@ -1195,11 +1204,18 @@ internal class LudoPaws3DSceneRenderer {
             boundSurface = drawContext.surface
             GLES30.glUniform2f(uMaterialLocation, drawContext.surface.kind, drawContext.surface.gloss)
         }
+        if (boundPartyEnergy != drawContext.partyEnergy) {
+            boundPartyEnergy = drawContext.partyEnergy
+            GLES30.glUniform1f(uPartyEnergyLocation, boundPartyEnergy)
+        }
+        val reflectedLight = drawContext.surface == CharacterSurface.PARTY_GLOW
+        if (reflectedLight) GLES30.glDepthMask(false)
         mesh.draw(
             normalMatrix = normalMatrix,
             mvp = mvp,
             color = color,
         )
+        if (reflectedLight) GLES30.glDepthMask(true)
     }
 
     private fun lerp(

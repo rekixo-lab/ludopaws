@@ -874,29 +874,18 @@ class LudoBoardView @JvmOverloads constructor(
 
     internal fun drawFinishRanksOverlay(canvas: Canvas, cell: Float) {
         val state = snapshot ?: return
-        if (state.players.size != 4 || state.status == "WAITING" || state.matchMode == "TEAM_UP") return
-        val rankedIds = state.finishOrderPlayerIds.take(4).toMutableList()
-        // Remote classic servers may expose only the winner, not the full finish order.
-        // In that case, mark only the authoritative winner as First; never invent the other ranks.
-        if (state.status == "FINISHED" && rankedIds.isEmpty()) {
-            state.winnerPlayerId?.let { rankedIds += it }
-        }
-        // Local classic games finish after three players have placed. Only then is the
-        // single remaining player safely known to be Fourth.
-        if (state.status == "FINISHED" && state.finishOrderPlayerIds.size == state.players.size - 1) {
-            state.players.firstOrNull { it.playerId !in rankedIds }?.let { rankedIds += it.playerId }
-        }
-        if (rankedIds.isEmpty()) return
-        val labels = listOf("First", "Second", "Third", "Fourth")
-        val labelsByPlayerId = rankedIds.take(4).mapIndexed { rank, id -> id to labels[rank] }.toMap()
+        if (state.players.size !in 2..4 || state.status == "WAITING" || state.matchMode == "TEAM_UP") return
+        val ranks = LudoPawsFinishPresentation.ranks(state)
+        if (ranks.isEmpty()) return
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(34, 43, 58)
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = (cell * 0.34f).coerceIn(density(7f), density(12f))
+            textSize = (cell * .40f).coerceIn(density(8f), density(14f))
         }
+        val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         state.players.forEach { player ->
-            val label = labelsByPlayerId[player.playerId] ?: return@forEach
+            val rank = ranks[player.playerId] ?: return@forEach
+            val label = LudoPawsFinishPresentation.label(rank)
             val origin = when (player.color) {
                 "RED" -> 0 to 0
                 "GREEN" -> 0 to 9
@@ -910,6 +899,25 @@ class LudoBoardView @JvmOverloads constructor(
             val centerX = left + whiteSize * 0.5f
             val centerY = top + whiteSize * 0.5f
             val baseline = centerY - (labelPaint.ascent() + labelPaint.descent()) * 0.5f
+            val halfWidth = cell * (if (rank == 1) 1.47f else 1.10f)
+            val halfHeight = cell * .40f
+            val radius = cell * .16f
+            badgePaint.color = 0x65000000
+            canvas.drawRoundRect(centerX - halfWidth + cell * .03f, centerY - halfHeight + cell * .08f,
+                centerX + halfWidth + cell * .03f, centerY + halfHeight + cell * .08f, radius, radius, badgePaint)
+            val metal = LudoPawsFinishPresentation.metalColor(rank, colorFor(player.color))
+            badgePaint.color = metal
+            canvas.drawRoundRect(centerX - halfWidth, centerY - halfHeight,
+                centerX + halfWidth, centerY + halfHeight, radius, radius, badgePaint)
+            badgePaint.color = 0xFF253849.toInt()
+            val inset = cell * .055f
+            canvas.drawRoundRect(centerX - halfWidth + inset, centerY - halfHeight + inset,
+                centerX + halfWidth - inset, centerY + halfHeight - inset, radius * .7f, radius * .7f, badgePaint)
+            badgePaint.color = 0x99FFFFFF.toInt()
+            canvas.drawRoundRect(centerX - halfWidth + inset * 2, centerY - halfHeight + inset,
+                centerX + halfWidth - inset * 2, centerY - halfHeight + inset * 1.6f,
+                inset, inset, badgePaint)
+            labelPaint.color = metal
             canvas.drawText(label, centerX, baseline, labelPaint)
         }
     }
