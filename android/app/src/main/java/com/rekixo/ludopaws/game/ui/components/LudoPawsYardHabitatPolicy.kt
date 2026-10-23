@@ -48,9 +48,15 @@ internal object LudoPawsYardHabitatPolicy {
 }
 
 /**
- * The inside face of the existing raised home platform. Calculations mirror
- * ClassicBoardRenderer.drawRaisedYard and the locked 15x15 stretched board.
- * Only paint is added inside these bounds; no board or pawn geometry changes.
+ * Complete painted YARD quadrant (5 x 5 physical cells), including the broad
+ * former team-color band outside the raised inner paw platform.
+ *
+ * The Ludo board uses a NON-UNIFORM 15x15 logical coordinate layout: each
+ * six-logical-cell yard spans five physical cells. Match axisBoundary() rather
+ * than calculating pixels from logical indices directly.
+ *
+ * The environment replaces that entire home background. Road, center and
+ * authoritative pawn coordinates remain completely unchanged.
  */
 internal data class LudoPawsYardHabitatFace(
     val left: Float,
@@ -76,13 +82,14 @@ internal object LudoPawsYardHabitatGeometry {
         val top = axisBoundary(row, cell)
         val right = axisBoundary(col + 6, cell)
         val bottom = axisBoundary(row + 6, cell)
-        // Identical to: platform(0.5 cell inset) + face insets in
-        // ClassicBoardRenderer. Do not replace with a uniform-grid rect.
+        // Cover the COMPLETE color quadrant, not just the 4x4 inner pad.
+        // Removing all insets is intentional: no visible RED/GREEN/YELLOW/
+        // BLUE band should remain between the illustrated scene and the road.
         return LudoPawsYardHabitatFace(
-            left = left + cell * (0.50f + 0.115f),
-            top = top + cell * (0.50f + 0.105f),
-            right = right - cell * (0.50f + 0.115f),
-            bottom = bottom - cell * (0.50f + 0.145f),
+            left = left,
+            top = top,
+            right = right,
+            bottom = bottom,
         )
     }
 

@@ -43,10 +43,16 @@ assert.match(policy, /"RED" -> 0 to 0/);
 assert.match(policy, /"GREEN" -> 0 to 9/);
 assert.match(policy, /"YELLOW" -> 9 to 9/);
 assert.match(policy, /"BLUE" -> 9 to 0/);
-assert.match(policy, /left = left \+ cell \* \(0\.50f \+ 0\.115f\)/);
-assert.match(policy, /top = top \+ cell \* \(0\.50f \+ 0\.105f\)/);
-assert.match(policy, /right = right - cell \* \(0\.50f \+ 0\.115f\)/);
-assert.match(policy, /bottom = bottom - cell \* \(0\.50f \+ 0\.145f\)/);
+// Artwork now covers the entire 5x5 yard, including ALL formerly exposed
+// team-color bands. No half-cell inset or colored corners may survive.
+assert.match(policy, /left = left,/);
+assert.match(policy, /top = top,/);
+assert.match(policy, /right = right,/);
+assert.match(policy, /bottom = bottom,/);
+assert.doesNotMatch(policy, /cell \* \(0\.50f \+ 0\.115f\)/);
+assert.match(art, /canvas\.clipRect\(rect\)/);
+assert.doesNotMatch(art, /addRoundRect\(rect,/);
+assert.match(art, /canvas\.drawRect\(rect, habitatBackgroundPaint\)/);
 for (const marker of ["yardSpan = cell * 5f", "roadSpan = cell * 5f"]) {
     assert.ok(policy.includes(marker), "Locked geometric mirror missing " + marker);
 }
@@ -91,9 +97,9 @@ for (const marker of [
     "selected character follows its seat color rather than fixed corner",
     "two player game leaves unoccupied yards unchanged",
     "missing selections use same color fallback as real 3D animals",
-    "habitat bounds match only the inside faces of locked color homes",
+    "habitats fill all four complete five-cell yard quadrants without color strips",
 ]) {
     assert.ok(tests.includes(marker), "Missing habitat regression: " + marker);
 }
 
-console.log("Ludo Paws five modular yard habitats verified: per-selected-animal, aligned to four locked face boundaries, cached, cropped below footprints and 3D pawns, no road or center changes.");
+console.log("Ludo Paws five modular yard habitats cover all four FULL 5x5 homes, no color strips or rounded corner gaps, cached artwork below pawns, road and center unchanged.");

@@ -45,35 +45,44 @@ class LudoPawsYardHabitatPolicyTest {
         assertTrue(LudoPawsYardHabitatPolicy.forMatch(null, listOf("duck")).isEmpty())
     }
 
-    @Test fun `habitat bounds match only the inside faces of locked color homes`() {
-        val cell = 60f
-        val expected = listOf(
-            "RED" to (0f to 0f),
-            "GREEN" to (10f to 0f),
-            "YELLOW" to (10f to 10f),
-            "BLUE" to (0f to 10f),
-        )
-        for ((color, origin) in expected) {
-            val f = requireNotNull(LudoPawsYardHabitatGeometry.face(color, cell))
-            assertEquals((origin.first + .615f) * cell, f.left, .01f)
-            assertEquals((origin.second + .605f) * cell, f.top, .01f)
-            assertEquals(3.77f * cell, f.width, .01f)
-            assertEquals(3.75f * cell, f.height, .01f)
-            // Never enter the central 5..10 cell wide road cross.
-            assertTrue(f.left >= 0f && f.top >= 0f)
-            assertTrue(f.right <= 15f * cell && f.bottom <= 15f * cell)
-            val topOrBottom = f.bottom < 5f * cell || f.top > 10f * cell
-            val leftOrRight = f.right < 5f * cell || f.left > 10f * cell
-            assertTrue(topOrBottom && leftOrRight)
-            // Every actual token resting slot stays well inside the artwork.
-            for (tokenIndex in 0..3) {
-                val (x,y) = requireNotNull(LudoPawsFxBoardGeometry.tokenCenter(color, tokenIndex, -1, cell))
-                assertTrue(x > f.left && x < f.right)
-                assertTrue(y > f.top && y < f.bottom)
+    @Test fun `habitats fill all four complete five-cell yard quadrants without color strips`() {
+        // Logical yard dimensions are 6x6, but the nonuniform displayed board
+        // allocates exactly 5x5 physical cells to each yard.
+        for (cell in listOf(1f, 37.5f, 60f, 128f)) {
+            val expected = mapOf(
+                "RED" to (0f to 0f),
+                "GREEN" to (10f to 0f),
+                "YELLOW" to (10f to 10f),
+                "BLUE" to (0f to 10f),
+            )
+            for ((color, origin) in expected) {
+                val f = requireNotNull(LudoPawsYardHabitatGeometry.face(color, cell))
+                assertEquals(origin.first * cell, f.left, .001f)
+                assertEquals(origin.second * cell, f.top, .001f)
+                assertEquals((origin.first + 5f) * cell, f.right, .001f)
+                assertEquals((origin.second + 5f) * cell, f.bottom, .001f)
+                assertEquals(5f * cell, f.width, .001f)
+                assertEquals(5f * cell, f.height, .001f)
+
+                // Directly touches—but never overlaps—the cross and Center.
+                val topOrBottom = f.bottom <= 5f * cell || f.top >= 10f * cell
+                val leftOrRight = f.right <= 5f * cell || f.left >= 10f * cell
+                assertTrue(topOrBottom && leftOrRight)
+                assertTrue(f.left >= 0f && f.top >= 0f)
+                assertTrue(f.right <= 15f * cell && f.bottom <= 15f * cell)
+                // All four real starting slots are inside the complete habitat.
+                for (tokenIndex in 0..3) {
+                    val (x, y) = requireNotNull(
+                        LudoPawsFxBoardGeometry.tokenCenter(color, tokenIndex, -1, cell),
+                    )
+                    assertTrue(x > f.left && x < f.right)
+                    assertTrue(y > f.top && y < f.bottom)
+                }
             }
         }
-        assertNull(LudoPawsYardHabitatGeometry.face("PURPLE", cell))
+        assertNull(LudoPawsYardHabitatGeometry.face("PURPLE", 60f))
         assertNull(LudoPawsYardHabitatGeometry.face("RED", 0f))
+        assertNull(LudoPawsYardHabitatGeometry.face("RED", Float.NaN))
     }
 
     private fun match(colors: List<String>): MatchSnapshot =

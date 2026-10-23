@@ -20,9 +20,12 @@ import kotlin.random.Random
 /**
  * Five independently interchangeable, animal-free habitat artworks.
  *
- * Only the recessed INNER FACE of each existing four-color yard is painted.
- * Road, home lanes, central triangles, raised trim, stars, hit targets and all
- * authoritative pawns stay untouched. 3D animals draw ABOVE this board view.
+ * Paint all four COMPLETE YARD QUADRANTS (including their former color strips).
+ * Road, home lanes, center, stars, hit targets and all authoritative pawns
+ * remain untouched. 3D animals draw ABOVE this board view.
+ *
+ * The habitat atlas includes its own garden/pond/farm edge decoration, so
+ * leaving the old broad colored rim visible would create double borders.
  *
  * The small scene bitmaps are lazily cached per habitat (5 * 384² RGBA < 3 MiB).
  * Dense hand-illustrated details are drawn once, not every animation frame.
@@ -72,6 +75,7 @@ internal class LudoPawsYardHabitatRenderer(private val context: Context) {
 
     private val cache = LruCache<LudoPawsYardHabitat, Bitmap>(5)
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    private val habitatBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
         strokeCap = Paint.Cap.ROUND
@@ -90,11 +94,21 @@ internal class LudoPawsYardHabitatRenderer(private val context: Context) {
             val habitat = habitatsByColor[color] ?: continue
             val face = LudoPawsYardHabitatGeometry.face(color, cell) ?: continue
             val rect = RectF(face.left, face.top, face.right, face.bottom)
-            val clip = Path().apply {
-                addRoundRect(rect, cell * .30f, cell * .30f, Path.Direction.CW)
-            }
             val save = canvas.save()
-            canvas.clipPath(clip)
+            // Square-to-square clip meets the road at the exact approved
+            // 5-cell yard boundary. Rounded clips reveal colored triangular
+            // corner slivers, so do NOT reintroduce a roundRect mask here.
+            canvas.clipRect(rect)
+            // Opaque scene-colored underlay protects against transparent
+            // edge pixels in WebP without exposing the old team-color band.
+            habitatBackgroundPaint.color = when (habitat) {
+                LudoPawsYardHabitat.DOG_GARDEN -> 0xFF6DAA43.toInt()
+                LudoPawsYardHabitat.GOAT_MEADOW -> 0xFFC3B46B.toInt()
+                LudoPawsYardHabitat.DUCK_POND -> 0xFF149FC5.toInt()
+                LudoPawsYardHabitat.CAT_COURTYARD -> 0xFFD6B4B9.toInt()
+                LudoPawsYardHabitat.DONKEY_FARM -> 0xFFD4AE63.toInt()
+            }
+            canvas.drawRect(rect, habitatBackgroundPaint)
             if (!drawPremiumHabitat(canvas, habitat, rect)) {
                 canvas.drawBitmap(bitmap(habitat), null, rect, bitmapPaint)
             }
