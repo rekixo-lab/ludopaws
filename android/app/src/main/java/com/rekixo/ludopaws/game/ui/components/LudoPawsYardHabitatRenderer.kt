@@ -1,12 +1,15 @@
 package com.rekixo.ludopaws
 
+import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RadialGradient
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.util.LruCache
@@ -24,7 +27,49 @@ import kotlin.random.Random
  * The small scene bitmaps are lazily cached per habitat (5 * 384² RGBA < 3 MiB).
  * Dense hand-illustrated details are drawn once, not every animation frame.
  */
-internal class LudoPawsYardHabitatRenderer {
+internal class LudoPawsYardHabitatRenderer(private val context: Context) {
+    /**
+     * High-quality offline illustration atlas; five equal-width panels in
+     * order Dog / Goat / Duck / Cat / Donkey. Loaded once, not per frame.
+     * The original cached vector scenes remain a safe fallback.
+     */
+    private val paintedAtlas: Bitmap? by lazy(LazyThreadSafetyMode.NONE) {
+        runCatching {
+            context.assets.open("yard_habitats/atlas.webp").use { stream ->
+                BitmapFactory.decodeStream(stream)?.takeIf { bitmap ->
+                    bitmap.width >= 5 &&
+                        bitmap.width % 5 == 0 &&
+                        bitmap.height > 0
+                }
+            }
+        }.getOrNull()
+    }
+
+    private fun atlasIndex(habitat: LudoPawsYardHabitat): Int = when (habitat) {
+        LudoPawsYardHabitat.DOG_GARDEN -> 0
+        LudoPawsYardHabitat.GOAT_MEADOW -> 1
+        LudoPawsYardHabitat.DUCK_POND -> 2
+        LudoPawsYardHabitat.CAT_COURTYARD -> 3
+        LudoPawsYardHabitat.DONKEY_FARM -> 4
+    }
+
+    private fun drawPremiumHabitat(
+        canvas: Canvas,
+        habitat: LudoPawsYardHabitat,
+        destination: RectF,
+    ): Boolean {
+        val atlas = paintedAtlas ?: return false
+        val panel = atlas.width / 5
+        val index = atlasIndex(habitat)
+        canvas.drawBitmap(
+            atlas,
+            Rect(index * panel, 0, (index + 1) * panel, atlas.height),
+            destination,
+            bitmapPaint,
+        )
+        return true
+    }
+
     private val cache = LruCache<LudoPawsYardHabitat, Bitmap>(5)
     private val bitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -50,7 +95,9 @@ internal class LudoPawsYardHabitatRenderer {
             }
             val save = canvas.save()
             canvas.clipPath(clip)
-            canvas.drawBitmap(bitmap(habitat), null, rect, bitmapPaint)
+            if (!drawPremiumHabitat(canvas, habitat, rect)) {
+                canvas.drawBitmap(bitmap(habitat), null, rect, bitmapPaint)
+            }
             // Four softly inset, readable resting pads exactly share the real
             // pawn/footprint geometry. These are not permanent animal pictures.
             for (slot in 0..3) {

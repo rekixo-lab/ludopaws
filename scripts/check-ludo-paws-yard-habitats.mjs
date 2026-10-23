@@ -38,6 +38,14 @@ for (const marker of ["yardSpan = cell * 5f", "roadSpan = cell * 5f"]) {
     assert.ok(policy.includes(marker), "Locked geometric mirror missing " + marker);
 }
 assert.match(art, /LruCache<LudoPawsYardHabitat, Bitmap>\(5\)/);
+assert.ok(art.includes('context.assets.open("yard_habitats/atlas.webp")'),
+  "Premium image art must be loadable from packaged assets");
+assert.ok(art.includes("BitmapFactory.decodeStream"),
+  "Premium yard illustration needs a decoded bitmap");
+assert.ok(art.includes("if (!drawPremiumHabitat(canvas, habitat, rect))"),
+  "Illustration must retain safe vector fallback");
+assert.ok(art.includes("Rect(index * panel, 0, (index + 1) * panel, atlas.height)"),
+  "Premium artwork panels must stay independently selectable");
 assert.match(art, /canvas\.clipPath\(clip\)/);
 assert.match(art, /LudoPawsYardHabitatGeometry\.face\(color, cell\)/);
 assert.match(art, /LudoPawsFxBoardGeometry\.tokenCenter\(/);

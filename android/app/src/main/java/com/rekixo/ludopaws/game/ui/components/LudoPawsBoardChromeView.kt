@@ -15,7 +15,7 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var definition = BoardRegistry.resolve("board_classic")
     private var renderer = BoardRendererRegistry.create(definition)
     // Independent, cached inner-yard artwork; never covers roads or center.
-    private val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
+    private val yardHabitatRenderer = LudoPawsYardHabitatRenderer(context)
     private var habitatsByColor: Map<String, LudoPawsYardHabitat> = emptyMap()
 
     init {
