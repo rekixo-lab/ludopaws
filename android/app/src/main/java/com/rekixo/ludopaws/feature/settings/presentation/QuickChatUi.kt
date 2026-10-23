@@ -17,7 +17,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
-import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.transparentDarkBlueStrokeBackground
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -152,11 +152,12 @@ internal fun showQuickChatPopup(
         clipChildren = false
         clipToPadding = false
         setPadding(dp(9), dp(8), dp(9), dp(9))
-        background = plywoodBackground(
+        // Match the rating stars' translucent blue surface; the board stays visible.
+        background = transparentDarkBlueStrokeBackground(
             context = context,
             cornerRadiusDp = 20f,
         )
-        elevation = dp(10).toFloat()
+        elevation = 0f
     }
 
     QuickChatEmojiCatalog.EMOJIS.chunked(6).forEach { rowEmojis ->
@@ -204,17 +205,16 @@ internal fun showQuickChatPopup(
     val arrow = TextView(context).apply {
         textSize = 18f
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-        setTextColor(0xFFFFCD38.toInt())
+        setTextColor(0xB0247FCB.toInt())
         gravity = Gravity.CENTER
         includeFontPadding = false
-        setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), 0x99000000.toInt())
     }
 
     val location = IntArray(2)
     anchor.getLocationOnScreen(location)
     val visibleFrame = Rect()
     anchor.rootView.getWindowVisibleDisplayFrame(visibleFrame)
-    val estimatedHeight = dp(38 + 8 + 9 + 4 * 47 + 12)
+    val estimatedHeight = dp(8 + 9 + 4 * 47 + 16)
     val spaceBelow = visibleFrame.bottom - (location[1] + anchor.height)
     val spaceAbove = location[1] - visibleFrame.top
     val openAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
@@ -244,7 +244,7 @@ internal fun showQuickChatPopup(
         setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         isOutsideTouchable = true
         isClippingEnabled = true
-        elevation = dp(12).toFloat()
+        elevation = 0f
         inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
         animationStyle = android.R.style.Animation_Dialog
     }
