@@ -30,7 +30,7 @@ internal class LudoPawsCenterHouses3D {
     private val colors = arrayOf("BLUE", "RED", "GREEN", "YELLOW")
     // Match the red yard's soft coral-pink perimeter instead of saturated scarlet.
     private val roofs = arrayOf(
-        rgb(0x268DE2), rgb(requireNotNull(LudoPawsYardPalettePolicy.forTeam("RED")).bandLight),
+        rgb(0x268DE2), rgb(0xF88474),
         rgb(0x41B854), rgb(0xF3C43B),
     )
     private val roofShades = roofs.map { base ->

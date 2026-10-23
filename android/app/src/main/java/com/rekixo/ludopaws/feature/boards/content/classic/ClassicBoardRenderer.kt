@@ -66,6 +66,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
     )
     private val rockReliefPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         shader = rockReliefShader
+        alpha = 100
     }
     private val rockReliefMatrix = Matrix()
 
@@ -366,8 +367,12 @@ internal class ClassicBoardRenderer : BoardRenderer {
             raw.right - gap, raw.bottom - gap - depth)
         val corner = unit * .055f
         val shapeSeed = row * 71L + col * 137L
-        // Muted mineral pigment keeps each team's hue, with a light natural-stone face.
-        val pigment = mixStone(team, 0xFFF1E9DA.toInt(), .34f)
+        // Clean mineral pigment with only a little warm stone tint.
+        val hsv = FloatArray(3)
+        Color.colorToHSV(team, hsv)
+        hsv[1] = (hsv[1] * 1.18f).coerceAtMost(1f)
+        hsv[2] = (hsv[2] * 1.09f).coerceAtMost(1f)
+        val pigment = mixStone(Color.HSVToColor(hsv), 0xFFF1E9DA.toInt(), .055f)
         val bodyPath = chamferedStone(body, corner, shapeSeed)
         fillPaint.color = Color.WHITE
         fillPaint.shader = LinearGradient(body.left, body.top, body.right, body.bottom,
@@ -387,7 +392,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
             face.right - bevel, face.bottom - bevel)
         val topPath = chamferedStone(top, corner * .67f, shapeSeed)
         fillPaint.shader = LinearGradient(top.left, top.top, top.right, top.bottom,
-            intArrayOf(mixStone(pigment, Color.WHITE, .17f), pigment, darken(pigment, .94f)),
+            intArrayOf(mixStone(pigment, Color.WHITE, .11f), pigment, darken(pigment, .94f)),
             floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
         canvas.drawPath(topPath, fillPaint)
         fillPaint.shader = null

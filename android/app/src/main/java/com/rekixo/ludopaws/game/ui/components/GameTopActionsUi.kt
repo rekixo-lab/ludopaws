@@ -40,6 +40,7 @@ internal fun addGameTopActions(
             background = plywoodBackground(
                 context = context,
                 cornerRadiusDp = 999f,
+                gameplayFinish = true,
             )
         },
         FrameLayout.LayoutParams(
@@ -63,6 +64,7 @@ internal fun addGameTopActions(
             background = plywoodBackground(
                 context = context,
                 cornerRadiusDp = 999f,
+                gameplayFinish = true,
             )
         },
         FrameLayout.LayoutParams(

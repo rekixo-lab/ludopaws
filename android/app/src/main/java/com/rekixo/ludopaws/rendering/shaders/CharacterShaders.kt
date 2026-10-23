@@ -53,7 +53,7 @@ internal object CharacterShaders {
                     float grain = sin(p.x * 137.0 + sin(p.y * 79.0)) * sin(p.y * 163.0 + p.z * 31.0);
                     float textureTone = 1.0 + grain * detail * (ground ? 0.075 : 0.035);
                     float broadTone = ground ? sin(p.x * 24.0) * sin(p.y * 19.0) * 0.035 : 0.0;
-                    float diffuse = 0.43 + key * 0.48 + fill * 0.09;
+                    float diffuse = 0.39 + key * 0.57 + fill * 0.10;
                     float sheen = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0),
                         foliage ? 22.0 : 36.0) * uMaterial.y;
                     outColor = vec4(uColor.rgb * (textureTone + broadTone) * diffuse + vec3(sheen), uColor.a);
@@ -68,8 +68,8 @@ internal object CharacterShaders {
                     bool wall = uMaterial.x < 7.5;
                     // Walls stay cream even when their facade faces away from the key.
                     // Roofs retain enough side-to-side contrast to read as convex slopes.
-                    float illumination = wall ? 0.86 + key * 0.10 + bounce * 0.03
-                                              : 0.62 + key * 0.32 + bounce * 0.04;
+                    float illumination = wall ? 0.78 + key * 0.20 + bounce * 0.04
+                                              : 0.55 + key * 0.43 + bounce * 0.05;
                     float crest = wall ? 0.0 : smoothstep(0.10, 0.74, vLocalPosition.z) * 0.035;
                     vec3 halfLight = normalize(houseLight + vec3(0.0, 0.0, 1.0));
                     float sheen = pow(max(dot(normal, halfLight), 0.0), 28.0) * uMaterial.y;
@@ -105,7 +105,7 @@ internal object CharacterShaders {
                 float sky = (softFurLighting ? -normal.y : normal.y) * 0.055;
                 float fill = max(dot(normal, normalize(vec3(-0.7, 0.2, 0.6))), 0.0) * 0.12;
                 float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 2.2) * 0.08;
-                vec3 rgb = baseColor * coatTone * ((softFurLighting ? 0.48 : 0.38) + diffuse * 0.50 + fill + sky) + vec3((specular + rim) * uColor.a);
+                vec3 rgb = baseColor * coatTone * ((softFurLighting ? 0.49 : 0.44) + diffuse * 0.55 + fill + sky) + vec3((specular + rim) * uColor.a);
                 outColor = vec4(rgb, uColor.a);
             }
         """

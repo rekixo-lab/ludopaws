@@ -25,10 +25,10 @@ internal object LudoPawsYardPalettePolicy {
     fun forTeam(color: String): LudoPawsYardPalette? = when (color) {
         "RED" -> LudoPawsYardPalette(
             rimDark = 0xFF7A2830.toInt(),
-            rim = 0xFFD74D4F.toInt(),
+            rim = 0xFFED263E.toInt(),
             rimLight = 0xFFFFA08A.toInt(),
-            bandLight = 0xFFF88474.toInt(),
-            bandDark = 0xFFBD3E47.toInt(),
+            bandLight = 0xFFFF5359.toInt(),
+            bandDark = 0xFFB6152D.toInt(),
             recessShadow = 0xFF742631.toInt(),
             lipDark = 0xFF8E3436.toInt(),
             lipLight = 0xFFD77058.toInt(),
@@ -40,10 +40,10 @@ internal object LudoPawsYardPalettePolicy {
         )
         "GREEN" -> LudoPawsYardPalette(
             rimDark = 0xFF145F2B.toInt(),
-            rim = 0xFF37B941.toInt(),
+            rim = 0xFF12BE43.toInt(),
             rimLight = 0xFF8DE95D.toInt(),
-            bandLight = 0xFF78D752.toInt(),
-            bandDark = 0xFF2FAA45.toInt(),
+            bandLight = 0xFF45DE45.toInt(),
+            bandDark = 0xFF078C35.toInt(),
             recessShadow = 0xFF0A582C.toInt(),
             lipDark = 0xFF116D31.toInt(),
             lipLight = 0xFF27953A.toInt(),
@@ -55,10 +55,10 @@ internal object LudoPawsYardPalettePolicy {
         )
         "YELLOW" -> LudoPawsYardPalette(
             rimDark = 0xFF886018.toInt(),
-            rim = 0xFFE7B932.toInt(),
+            rim = 0xFFEDBF09.toInt(),
             rimLight = 0xFFFFED83.toInt(),
-            bandLight = 0xFFF9D965.toInt(),
-            bandDark = 0xFFD7A634.toInt(),
+            bandLight = 0xFFFFE232.toInt(),
+            bandDark = 0xFFCC970C.toInt(),
             recessShadow = 0xFF8B651B.toInt(),
             lipDark = 0xFFA37B26.toInt(),
             lipLight = 0xFFE4B84B.toInt(),
@@ -70,10 +70,10 @@ internal object LudoPawsYardPalettePolicy {
         )
         "BLUE" -> LudoPawsYardPalette(
             rimDark = 0xFF135271.toInt(),
-            rim = 0xFF268EBF.toInt(),
+            rim = 0xFF058EDB.toInt(),
             rimLight = 0xFF8CDBF7.toInt(),
-            bandLight = 0xFF68C5E7.toInt(),
-            bandDark = 0xFF2B91C3.toInt(),
+            bandLight = 0xFF16BCF4.toInt(),
+            bandDark = 0xFF0067B4.toInt(),
             recessShadow = 0xFF115779.toInt(),
             lipDark = 0xFF176888.toInt(),
             lipLight = 0xFF43A8C8.toInt(),

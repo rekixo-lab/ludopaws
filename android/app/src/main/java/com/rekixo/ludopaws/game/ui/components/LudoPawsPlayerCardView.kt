@@ -227,17 +227,18 @@ class LudoPawsPlayerCardView(
     ): GradientDrawable =
         GradientDrawable().apply {
             cornerRadius = dp(15).toFloat()
-            setColor(
-                if (active) {
-                    0xF22B3550.toInt()
-                } else {
-                    0xE01A2337.toInt()
-                },
+            val team = playerColor(colorName)
+            fun tint(amount: Float): Int = android.graphics.Color.rgb(
+                (12 + android.graphics.Color.red(team) * amount).toInt().coerceAtMost(255),
+                (15 + android.graphics.Color.green(team) * amount).toInt().coerceAtMost(255),
+                (24 + android.graphics.Color.blue(team) * amount).toInt().coerceAtMost(255),
             )
+            orientation = GradientDrawable.Orientation.TL_BR
+            colors = intArrayOf(tint(if (active) .25f else .18f), tint(.04f))
             // Active turns may change stroke weight, but never override the
             // player's team identity with a shared yellow highlight.
             setStroke(
-                dp(if (active) 2 else 1),
+                dp(if (active) 3 else 2),
                 playerColor(colorName),
             )
         }

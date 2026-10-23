@@ -75,7 +75,7 @@ internal class LudoPawsYardHabitatRenderer {
         // Colored "grass" perimeter is ~13% wide; keep it open rather than
         // packing every tile with flowers. The ground takes ~72% of the square.
         gradient(c, RectF(2.1f, 2.1f, 97.9f, 97.9f),
-            palette.bandLight, mix(palette.bandDark, palette.bandLight, .24f), 6.4f)
+            palette.bandLight, mix(palette.bandDark, palette.bandLight, .10f), 6.4f)
 
         // Sparse background grass marks are limited to the OUTER band.
         val rng = Random(742)
@@ -99,8 +99,8 @@ internal class LudoPawsYardHabitatRenderer {
         roundRect(c, 12.3f, 12.3f, 87.7f, 87.6f, 10.8f, palette.lipLight)
         stoneCurb(c, palette)
         gradient(c, RectF(14.0f, 14.1f, 86.0f, 85.8f),
-            mix(palette.sandTop, 0xFFF0E5CF.toInt(), .50f),
-            mix(palette.sandBottom, 0xFFD8C5A4.toInt(), .62f), 9.5f)
+            mix(palette.sandTop, 0xFFFFEED3.toInt(), .30f),
+            mix(palette.sandBottom, 0xFFE6CEA8.toInt(), .35f), 9.5f)
         val groundClip = c.save()
         c.clipPath(Path().apply { addRoundRect(RectF(14f, 14.1f, 86f, 85.8f), 9.5f, 9.5f, Path.Direction.CW) })
         // Broad daylight and a soft rim shadow give the open earth a shallow bowl shape.
@@ -216,10 +216,10 @@ internal class LudoPawsYardHabitatRenderer {
     }
 
     private fun timberRail(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float) {
-        line(c, x1, y1 + 0.7f, x2, y2 + 0.7f, 0x904B2F17.toInt(), 5.5f)
+        line(c, x1, y1 + 0.7f, x2, y2 + 0.7f, 0xB04B2F17.toInt(), 5.5f)
         line(c, x1, y1, x2, y2, 0xFFB26A2F.toInt(), 4.6f)
         line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFF7BB62.toInt(), 2.8f)
-        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0x9CFFE6A8.toInt(), 0.62f)
+        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0xC0FFE6A8.toInt(), 0.62f)
         line(c, x1 + .3f, y1 + .2f, x2 - .3f, y2 + .2f, 0x426B492B, .24f)
     }
 
