@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
@@ -51,6 +52,14 @@ internal class ClassicBoardRenderer : BoardRenderer {
     private val stoneGrainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         shader = BitmapShader(createStoneGrainBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
     }
+
+    private val pebbleShader = BitmapShader(
+        createPebbleBitmap(), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
+    )
+    private val pebblePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        shader = pebbleShader
+    }
+    private val pebbleMatrix = Matrix()
 
     override fun draw(canvas: Canvas, size: Float, density: Float, definition: BoardDefinition) {
         this.density = density
@@ -296,130 +305,44 @@ internal class ClassicBoardRenderer : BoardRenderer {
             drawStoneRoadCell(canvas, cell, row, col, theme.teamColor(color))
             return
         }
-        val raw =
-            RectF(
-                axisBoundary(col, cell),
-                axisBoundary(row, cell),
-                axisBoundary(col + 1, cell),
-                axisBoundary(row + 1, cell),
-            )
-        val tileSize = min(raw.width(), raw.height())
-        val inset = tileSize * 0.035f
-        val depth = tileSize * 0.075f
-        val radius = tileSize * 0.105f
-
-        // Keep enough lower depth for the approved raised-board look, but remove the
-        // old hard grey strip. The softer shadow now reads as molded thickness.
-        val shadow =
-            RectF(
-                raw.left + inset,
-                raw.top + inset + depth,
-                raw.right - inset,
-                raw.bottom - inset,
-            )
-        shadowPaint.color = 0x26000000
-        canvas.drawRoundRect(
-            shadow,
-            radius,
-            radius,
-            shadowPaint,
-        )
-
-        val face =
-            RectF(
-                raw.left + inset,
-                raw.top + inset,
-                raw.right - inset,
-                raw.bottom - inset - depth * 0.42f,
-            )
-
-        // Premium glossy face. A vertical translucent gradient preserves the actual
-        // white/colored road cell underneath instead of turning its lower half grey.
-        fillPaint.shader =
-            LinearGradient(
-                face.left,
-                face.top,
-                face.left,
-                face.bottom,
-                intArrayOf(
-                    0x28FFFFFF,
-                    0x18FFFFFF,
-                    0x0AFFFFFF,
-                    0x08000000,
-                ),
-                floatArrayOf(0f, 0.25f, 0.70f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            face,
-            radius,
-            radius,
-            fillPaint,
-        )
+        val raw = RectF(axisBoundary(col, cell), axisBoundary(row, cell),
+            axisBoundary(col + 1, cell), axisBoundary(row + 1, cell))
+        val unit = min(raw.width(), raw.height())
+        // Leave the original grid stroke completely exposed, including its inner half.
+        val inset = maxOf(unit * .045f, dp(1.1f))
+        val surface = RectF(raw.left + inset, raw.top + inset,
+            raw.right - inset, raw.bottom - inset)
+        val saved = canvas.save()
+        canvas.clipRect(surface)
+        // Square texture coordinates preserve pebble proportions on the stretched lanes.
+        pebbleMatrix.setScale(unit / 128f, unit / 128f)
+        pebbleMatrix.postTranslate(raw.left + (col % 3) * unit * .21f,
+            raw.top + (row % 3) * unit * .17f)
+        pebbleShader.setLocalMatrix(pebbleMatrix)
+        canvas.drawRect(surface, pebblePaint)
+        fillPaint.shader = LinearGradient(surface.left, surface.top,
+            surface.right, surface.bottom,
+            intArrayOf(0x18FFFFFF, Color.TRANSPARENT, 0x163D3932),
+            floatArrayOf(0f, .56f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawRect(surface, fillPaint)
         fillPaint.shader = null
+        canvas.restoreToCount(saved)
 
-        // Broad reflected-light band instead of a drawn white outline. The fade makes
-        // each road tile look polished/glassy without the previous capsule-button line.
-        val sheenInset = tileSize * 0.055f
-        val sheen =
-            RectF(
-                face.left + sheenInset,
-                face.top + tileSize * 0.025f,
-                face.right - sheenInset,
-                face.top + face.height() * 0.46f,
-            )
-        fillPaint.shader =
-            LinearGradient(
-                sheen.left,
-                sheen.top,
-                sheen.left,
-                sheen.bottom,
-                intArrayOf(
-                    0x28FFFFFF,
-                    0x10FFFFFF,
-                    Color.TRANSPARENT,
-                ),
-                floatArrayOf(0f, 0.46f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            sheen,
-            radius * 0.82f,
-            radius * 0.82f,
-            fillPaint,
-        )
-        fillPaint.shader = null
-
-        // A very light lower polish keeps the face visually clean while the separate
-        // shadow underneath supplies depth. There is intentionally no hard bottom/right stroke.
-        val lowerPolish =
-            RectF(
-                face.left + sheenInset,
-                face.top + face.height() * 0.70f,
-                face.right - sheenInset,
-                face.bottom - tileSize * 0.025f,
-            )
-        fillPaint.shader =
-            LinearGradient(
-                lowerPolish.left,
-                lowerPolish.top,
-                lowerPolish.left,
-                lowerPolish.bottom,
-                intArrayOf(
-                    Color.TRANSPARENT,
-                    0x0CFFFFFF,
-                ),
-                floatArrayOf(0f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            lowerPolish,
-            radius * 0.72f,
-            radius * 0.72f,
-            fillPaint,
-        )
-        fillPaint.shader = null
-        drawGrain(canvas, face, radius)
+        // Opaque gravel must not hide the four neutral safe-cell markers underneath.
+        if ((row to col) in NEUTRAL_SAFE_CELLS) {
+            val star = Path()
+            repeat(10) { index ->
+                val angle = Math.toRadians(index * 36.0 - 90.0)
+                val radius = cell * .27f * if (index % 2 == 0) 1f else .45f
+                val x = raw.centerX() + kotlin.math.cos(angle).toFloat() * radius
+                val y = raw.centerY() + kotlin.math.sin(angle).toFloat() * radius
+                if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
+            }
+            star.close()
+            fillPaint.color = Color.rgb(45, 138, 204)
+            canvas.drawPath(star, fillPaint)
+            fillPaint.color = Color.WHITE
+        }
     }
 
     /** Opaque stone treatment only for the four colored lanes and their colored entry cells. */
@@ -444,7 +367,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
         canvas.drawPath(bodyPath, fillPaint)
         fillPaint.shader = null
 
-        // A wide sloping bevel, rather than the glossy capsule used by neutral road cells.
+        // A wide sloping bevel gives the colored stone slab a raised edge.
         fillPaint.shader = LinearGradient(face.left, face.top, face.right, face.bottom,
             intArrayOf(mixStone(pigment, Color.WHITE, .40f), pigment, darken(pigment, .78f)),
             floatArrayOf(0f, .43f, 1f), Shader.TileMode.CLAMP)
@@ -614,6 +537,81 @@ internal class ClassicBoardRenderer : BoardRenderer {
             put(1 to 8, GREEN)
             put(8 to 13, YELLOW)
             put(13 to 6, BLUE)
+        }
+
+        val NEUTRAL_SAFE_CELLS = setOf(2 to 6, 6 to 12, 12 to 8, 8 to 2)
+
+        /** Cached seamless gravel relief; generated once, with no per-frame stone geometry. */
+        private fun createPebbleBitmap(): Bitmap {
+            val bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(0xFFCDCBC5.toInt())
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            val random = Random(0x504542424CL)
+            // Staggered, jittered small stones with irregular softly rounded silhouettes.
+            for (row in 0 until 7) {
+                for (col in 0 until 7) {
+                    val spacing = 128f / 7f
+                    val cx = (col + .5f + (row % 2) * .5f) * spacing
+                    val cy = (row + .5f) * spacing
+                    val x = cx + (random.nextFloat() - .5f) * 4f
+                    val y = cy + (random.nextFloat() - .5f) * 4f
+                    val rx = 7.5f + random.nextFloat() * 2.5f
+                    val ry = 6.5f + random.nextFloat() * 2.5f
+                    val points = List(8) { index ->
+                        val angle = index * Math.PI / 4.0
+                        val variation = .86f + random.nextFloat() * .22f
+                        Pair(kotlin.math.cos(angle).toFloat() * rx * variation,
+                            kotlin.math.sin(angle).toFloat() * ry * variation)
+                    }
+                    val stone = Path().apply {
+                        moveTo((points[7].first + points[0].first) * .5f,
+                            (points[7].second + points[0].second) * .5f)
+                        repeat(8) { index ->
+                            val current = points[index]
+                            val next = points[(index + 1) % 8]
+                            quadTo(current.first, current.second,
+                                (current.first + next.first) * .5f,
+                                (current.second + next.second) * .5f)
+                        }
+                        close()
+                    }
+                    val tone = 218 + random.nextInt(24)
+                    // Wrap edge stones so repeating the bitmap never creates a seam.
+                    for (dy in -1..1) for (dx in -1..1) {
+                        val saved = canvas.save()
+                        canvas.translate(x + dx * 128f, y + dy * 128f)
+                        paint.shader = null
+                        paint.color = 0x264A463E
+                        canvas.save()
+                        canvas.translate(.9f, 1.7f)
+                        canvas.drawPath(stone, paint)
+                        canvas.restore()
+                        paint.shader = LinearGradient(-rx, -ry, rx, ry,
+                            intArrayOf(0xFFFAF9F4.toInt(), Color.rgb(tone, tone, tone - 4),
+                                Color.rgb(tone - 43, tone - 44, tone - 47)),
+                            floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP)
+                        canvas.drawPath(stone, paint)
+                        // A smaller pale face leaves the lower bevel visible.
+                        canvas.scale(.79f, .76f)
+                        canvas.translate(-.5f, -.7f)
+                        paint.shader = LinearGradient(-rx, -ry, rx, ry,
+                            intArrayOf(Color.rgb(min(255, tone + 14), min(255, tone + 14),
+                                min(255, tone + 10)), Color.rgb(tone, tone, tone - 3)),
+                            null, Shader.TileMode.CLAMP)
+                        canvas.drawPath(stone, paint)
+                        canvas.restoreToCount(saved)
+                    }
+                }
+            }
+            paint.shader = null
+            repeat(900) {
+                val light = random.nextBoolean()
+                paint.color = if (light) 0x25FFFFFF else 0x133E3A34
+                canvas.drawCircle(random.nextFloat() * 128f, random.nextFloat() * 128f,
+                    .15f + random.nextFloat() * .32f, paint)
+            }
+            return bitmap
         }
 
         private fun createStoneGrainBitmap(): Bitmap {
