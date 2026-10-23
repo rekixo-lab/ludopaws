@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
-import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
 import android.util.LruCache
@@ -37,18 +36,13 @@ internal class LudoPawsYardHabitatRenderer {
         strokeJoin = Paint.Join.ROUND
     }
 
-    @Suppress("UNUSED_PARAMETER")
-    fun draw(
-        canvas: Canvas,
-        cell: Float,
-        habitatsByColor: Map<String, LudoPawsYardHabitat>,
-    ) {
+    fun draw(canvas: Canvas, cell: Float) {
         if (!cell.isFinite() || cell <= 0f) return
-        // The animal map is preserved for future optional animal-specific
-        // decorations. Today's selected base design depends ONLY on team color.
-        // The parent Chrome view already handles the player's perspective.
+        // The approved home depends only on team color. Character selection
+        // and player occupancy no longer affect the artwork.
+        // Chrome owns perspective rotation.
         for (color in listOf("RED", "GREEN", "YELLOW", "BLUE")) {
-            val face = LudoPawsYardHabitatGeometry.face(color, cell) ?: continue
+            val face = LudoPawsYardGeometry.face(color, cell) ?: continue
             val palette = LudoPawsYardPalettePolicy.forTeam(color) ?: continue
             val rect = RectF(face.left, face.top, face.right, face.bottom)
             val saved = canvas.save()

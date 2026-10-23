@@ -34,11 +34,10 @@ class LudoPawsYardPalettePolicyTest {
 
     @Test fun teamColorPaletteIsIndependentOfCharacterSpecies() {
         val colors = listOf("RED", "GREEN", "YELLOW", "BLUE")
-        val pets = listOf("dog", "duck", "cat", "goat", "donkey")
         for (team in colors) {
             val palette = LudoPawsYardPalettePolicy.forTeam(team)
-            for (pet in pets) {
-                assertNotNull(LudoPawsYardHabitatPolicy.forCharacterId(pet))
+            // Remains constant across selections/turns.
+            repeat(5) {
                 assertEquals(palette, LudoPawsYardPalettePolicy.forTeam(team))
             }
         }

@@ -16,7 +16,6 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var renderer = BoardRendererRegistry.create(definition)
     // Identical code-drawn homes with team-color palettes; road and center untouched.
     private val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
-    private var habitatsByColor: Map<String, LudoPawsYardHabitat> = emptyMap()
 
     init {
         isClickable = false
@@ -36,19 +35,6 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         invalidate()
     }
 
-    fun bindHabitats(
-        snapshot: MatchSnapshot?,
-        characterIdsBySeat: List<String>,
-    ) {
-        val next = LudoPawsYardHabitatPolicy.forMatch(
-            snapshot = snapshot,
-            characterIdsBySeat = characterIdsBySeat,
-        )
-        if (next == habitatsByColor) return
-        habitatsByColor = next
-        invalidate()
-    }
-
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val size = min(width, height).toFloat()
@@ -57,7 +43,7 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         renderer.draw(canvas, size, resources.displayMetrics.density, definition)
         // Four full 5x5 color homes: same illustrated layout, four team tints.
         // Overdraw old yard backgrounds, below prints and actual 3D pawns.
-        yardHabitatRenderer.draw(canvas, cell, habitatsByColor)
+        yardHabitatRenderer.draw(canvas, cell)
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
         footprintSource?.drawYardPawPrintsOverlay(canvas, cell)
         footprintSource?.drawFinishRanksOverlay(canvas, cell)

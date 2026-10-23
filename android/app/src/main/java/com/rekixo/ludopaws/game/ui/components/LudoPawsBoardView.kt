@@ -131,13 +131,6 @@ class LudoPawsBoardView @JvmOverloads constructor(
             characterIdsBySeat = characterIdsBySeat,
         )
 
-        // The selected seat's animal, not its fixed color, determines the
-        // corresponding yard habitat. The same binding works offline and online.
-        boardChrome.bindHabitats(
-            snapshot = state,
-            characterIdsBySeat = characterIdsBySeat,
-        )
-
         // Keep presentation-only chrome aligned with the player's perspective.
         val chromeQuarterTurns =
             this.perspectiveColor
