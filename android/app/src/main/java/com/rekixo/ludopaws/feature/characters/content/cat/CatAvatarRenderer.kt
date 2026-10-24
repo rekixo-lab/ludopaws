@@ -28,7 +28,7 @@ internal object CatAvatarRenderer : CharacterAvatarRenderer {
         canvas.drawOval(RectF(33f, 49f, 67f, 72f), fill)
 
         stroke.color = blackFur
-        stroke.strokeWidth = 3f
+        stroke.strokeWidth = 1.3f
         canvas.drawLine(45f, 27f, 43f, 37f, stroke)
         canvas.drawLine(50f, 25f, 50f, 36f, stroke)
         canvas.drawLine(55f, 27f, 57f, 37f, stroke)

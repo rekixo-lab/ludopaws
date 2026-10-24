@@ -194,12 +194,12 @@ internal object CharacterShaders {
                     coatTone += sin(p.y * 145.0) * fineDetail * 0.055;
                 }
                 vec3 baseColor = uColor.rgb;
-                // Cat-only coat pigment: broad black/ivory bands remain visible at pawn size.
+                // Fine, narrow cat stripes follow the fur instead of forming broad equal-width bands.
                 // Local-space coordinates keep the stripes attached to each articulated mesh.
                 if (uMaterial.x > 4.5 && uMaterial.x < 5.5 && uColor.r > 0.5) {
-                    float phase = p.y * 21.0 + sin(p.x * 8.0 + p.z * 6.0) * 0.55 + p.z * 2.5;
-                    float edge = max(fwidth(phase) * 0.45, 0.10);
-                    float stripe = smoothstep(-edge, edge, sin(phase));
+                    float phase = p.y * 60.0 + sin(p.x * 14.0 + p.z * 9.0) * 0.85 + p.z * 4.0;
+                    float edge = clamp(fwidth(phase) * 0.25, 0.04, 0.28);
+                    float stripe = smoothstep(0.70 - edge, 0.86 + edge, sin(phase));
                     baseColor = mix(uColor.rgb, vec3(0.035, 0.040, 0.045), stripe);
                 }
                 if (uMaterial.x > 3.5) {

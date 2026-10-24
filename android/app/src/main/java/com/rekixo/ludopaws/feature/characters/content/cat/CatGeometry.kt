@@ -39,15 +39,7 @@ internal object CatGeometry {
     val limb=MeshLoft.build(listOf(
         Ring(-.5f,.55f,.63f),Ring(-.25f,.80f,.84f),
         Ring(.12f,1f,1f),Ring(.5f,.55f,.65f),
-    ),14).let { mesh ->
-        // Bone meshes are normalized to unit length. Give their coat coordinates
-        // a limb-sized scale so they carry broad bands rather than many tiny rings.
-        val coatPositions = FloatArray(mesh.vertices.size / 2) { index ->
-            val component = index % 3
-            mesh.vertices[(index / 3) * 6 + component] * if (component == 1) .36f else .10f
-        }
-        MeshGeometry(mesh.vertices, mesh.indices, coatPositions)
-    }
+    ),14).let { coatMapped(it, .10f, .36f) }
     val paw=MeshLoft.build(listOf(
         Ring(-.07f,.06f,.08f),Ring(-.035f,.115f,.15f,centerZ=.035f),
         Ring(.035f,.10f,.13f,centerZ=.02f),Ring(.07f,.045f,.065f),
@@ -58,9 +50,19 @@ internal object CatGeometry {
     // Each segment ends at .80 of its root radius, matching the next segment.
     val tail=MeshLoft.build(listOf(
         Ring(-.5f,1f,1f),Ring(0f,.90f,.90f),Ring(.5f,.80f,.80f),
-    ),12)
+    ),12).let { coatMapped(it, .075f, .18f) }
     val tailTip=MeshLoft.build(listOf(
         Ring(-.5f,1f,1f),Ring(0f,.80f,.80f),Ring(.5f,.06f,.06f),
-    ),12)
+    ),12).let { coatMapped(it, .075f, .18f) }
+
+    /** Unit bone/tail meshes need coat coordinates at their visible anatomical scale. */
+    private fun coatMapped(mesh: MeshGeometry, width: Float, length: Float): MeshGeometry {
+        val coatPositions = FloatArray(mesh.vertices.size / 2) { index ->
+            val component = index % 3
+            mesh.vertices[(index / 3) * 6 + component] * if (component == 1) length else width
+        }
+        return MeshGeometry(mesh.vertices, mesh.indices, coatPositions)
+    }
+
     val all get()=listOf(body,neck,head,muzzle,jaw,ear,nose,limb,paw,collar,tail,tailTip)
 }

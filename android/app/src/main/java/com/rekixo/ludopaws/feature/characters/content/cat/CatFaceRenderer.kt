@@ -41,7 +41,7 @@ internal object CatFaceRenderer {
         surface=CharacterSurface.CAT_COAT
         // Small tabby forehead marks remain close to the skull surface.
         for(i in -1..1) drawPart(parent,i*.105f,1.14f,.258f,
-            .020f,.083f,.012f,CAT_STRIPE_DARK,rotateZ=i*18f)
+            .008f,.060f,.009f,CAT_STRIPE_DARK,rotateZ=i*18f)
         val open=((life?.mouthOpen ?: 0f)+pose.jawOpen).coerceIn(0f,1f)
         val jaw=rigTransforms[4]
         System.arraycopy(parent,0,jaw,0,16)

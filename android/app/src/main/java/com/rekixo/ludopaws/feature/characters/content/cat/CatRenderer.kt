@@ -92,13 +92,13 @@ internal object CatRenderer : CharacterRenderer {
         Matrix.translateM(chain,0,.27f,.05f,-.39f)
         Matrix.rotateM(chain,0,-43f,1f,0f,0f)
         Matrix.rotateM(chain,0,-31f,0f,0f,1f)
-        surface=CharacterSurface.SOFT_FUR
+        surface=CharacterSurface.CAT_COAT
         var radius=.075f
         for(i in 0..5) {
             Matrix.rotateM(chain,0,sway*(.16f+i*.035f),0f,0f,1f)
             Matrix.rotateM(chain,0,14f+i*2f,1f,0f,0f)
             catMesh(chain,if(i==5) CatGeometry.tailTip else CatGeometry.tail,
-                if(i % 2 == 1) CAT_STRIPE_DARK else CAT_WHITE_FUR,
+                CAT_WHITE_FUR,
                 y=.085f,sx=radius,sy=.18f,sz=radius)
             Matrix.translateM(chain,0,0f,.17f,0f)
             radius*=.80f
