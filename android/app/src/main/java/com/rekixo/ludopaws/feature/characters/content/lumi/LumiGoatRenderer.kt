@@ -125,16 +125,16 @@ internal object LumiGoatGeometry {
             add(Part(rig, tint, MeshLoft.build(rings, 24, subdivisions = 3), x, y, z, rx, rz, fur))
         }
         loft(LumiRig.BODY, LumiTint.FUR, -.015f, .51f, -.28f, 90f, 0f, 2300, floatArrayOf(
-            -.58f,.035f,.060f,0f,0f, -.49f,.18f,.24f,0f,0f,
-            -.27f,.265f,.33f,0f,-.025f, .04f,.27f,.34f,0f,-.02f,
-            .29f,.25f,.32f,0f,0f, .48f,.18f,.23f,0f,0f, .57f,.025f,.05f,0f,0f))
+            -.58f,0.0392f,0.0672f,0f,0f, -.49f,0.2016f,0.2688f,0f,0f,
+            -.27f,0.2968f,0.3696f,0f,-.025f, .04f,0.3024f,0.3808f,0f,-.02f,
+            .29f,0.28f,0.3584f,0f,0f, .48f,0.2016f,0.2576f,0f,0f, .57f,0.028f,0.056f,0f,0f))
         // The chest closes inside the barrel, above the leg gap, rather than hanging below it.
         loft(LumiRig.BODY, LumiTint.FUR, 0f, 0f, 0f, 0f, 0f, 1100, floatArrayOf(
-            .30f,.075f,.095f,0f,.08f, .44f,.20f,.22f,0f,.13f,
-            .66f,.21f,.21f,0f,.15f, .88f,.17f,.16f,0f,.18f, .99f,.07f,.08f,0f,.20f))
+            .30f,0.084f,0.1064f,0f,.08f, .44f,0.224f,0.2464f,0f,.13f,
+            .66f,0.2352f,0.2352f,0f,.15f, .88f,0.1904f,0.1792f,0f,.18f, .99f,0.0784f,0.0896f,0f,.20f))
         loft(LumiRig.HEAD, LumiTint.FUR, 0f, 0f, 0f, 0f, 0f, 3500, floatArrayOf(
-            .76f,.055f,.065f,0f,.40f, .81f,.125f,.10f,0f,.40f,
-            .88f,.165f,.14f,0f,.34f, .99f,.22f,.18f,0f,.23f,
+            .76f,.055f,.065f,0f,.40f, .81f,.135f,.10f,0f,.40f,
+            .88f,.178f,.14f,0f,.34f, .99f,.232f,.18f,0f,.23f,
             1.08f,.25f,.20f,0f,.13f, 1.24f,.205f,.145f,0f,.09f,
             1.31f,.09f,.065f,0f,.075f, 1.33f,.012f,.014f,0f,.07f))
         loft(LumiRig.HEAD, LumiTint.NOSE, 0f, 0f, 0f, 0f, 0f, 0, floatArrayOf(
@@ -163,23 +163,23 @@ internal object LumiGoatGeometry {
             // Upper limbs sweep back into the barrel; their caps stay buried during a stride.
             // The lower leg tapers through the knee and pastern without a separate shoulder ball.
             loft(front, LumiTint.FUR, side*.18f, 0f, .18f, 0f, -side*2f, 650, floatArrayOf(
-                -.86f,.044f,.052f,0f,.015f, -.67f,.048f,.052f,0f,.006f,
-                -.49f,.054f,.060f,-side*.004f,0f, -.27f,.060f,.070f,-side*.010f,-.010f,
-                -.04f,.073f,.095f,-side*.025f,-.045f, .19f,.092f,.13f,-side*.050f,-.13f,
-                .44f,.104f,.16f,-side*.075f,-.22f, .72f,.085f,.14f,-side*.095f,-.24f,
-                .86f,.035f,.07f,-side*.11f,-.27f))
+                -.86f,0.0528f,0.0624f,0f,.015f, -.67f,0.0576f,0.0624f,0f,.006f,
+                -.49f,0.0648f,0.072f,-side*.004f,0f, -.27f,0.072f,0.084f,-side*.010f,-.010f,
+                -.04f,0.0876f,0.114f,-side*.025f,-.045f, .19f,0.1104f,0.156f,-side*.050f,-.13f,
+                .44f,0.1248f,0.192f,-side*.075f,-.22f, .72f,0.102f,0.168f,-side*.095f,-.24f,
+                .86f,0.042f,0.084f,-side*.11f,-.27f))
             loft(rear, LumiTint.FUR, side*.225f, 0f, -.56f, 0f, side*2f, 600, floatArrayOf(
-                -.85f,.042f,.050f,0f,-.02f, -.62f,.046f,.052f,0f,-.008f,
-                -.43f,.057f,.062f,-side*.008f,.023f, -.20f,.074f,.095f,-side*.025f,.050f,
-                .06f,.093f,.13f,-side*.045f,.060f, .35f,.105f,.15f,-side*.065f,.065f,
-                .65f,.085f,.13f,-side*.095f,.075f, .86f,.030f,.060f,-side*.115f,.080f))
+                -.85f,0.0504f,0.06f,0f,-.02f, -.62f,0.0552f,0.0624f,0f,-.008f,
+                -.43f,0.0684f,0.0744f,-side*.008f,.023f, -.20f,0.0888f,0.114f,-side*.025f,.050f,
+                .06f,0.1116f,0.156f,-side*.045f,.060f, .35f,0.126f,0.18f,-side*.065f,.065f,
+                .65f,0.102f,0.156f,-side*.095f,.075f, .86f,0.036f,0.072f,-side*.115f,.080f))
             for (toe in intArrayOf(-1, 1)) {
-                loft(front, LumiTint.HOOF, side*.18f+toe*.024f, -.90f, .202f, 0f, 0f, 0, floatArrayOf(
-                    -.06f,.023f,.062f,0f,.012f, -.03f,.025f,.065f,0f,.008f,
-                    .03f,.023f,.050f,0f,0f, .06f,.015f,.033f,0f,-.005f))
-                loft(rear, LumiTint.HOOF, side*.225f+toe*.023f, -.89f, -.57f, 0f, 0f, 0, floatArrayOf(
-                    -.06f,.022f,.058f,0f,.008f, -.02f,.024f,.060f,0f,.008f,
-                    .04f,.020f,.045f,0f,0f, .06f,.012f,.028f,0f,-.005f))
+                loft(front, LumiTint.HOOF, side*.18f+toe*.027f, -.90f, .202f, 0f, 0f, 0, floatArrayOf(
+                    -.06f,0.0258f,0.0694f,0f,.012f, -.03f,0.028f,0.0728f,0f,.008f,
+                    .03f,0.0258f,0.056f,0f,0f, .06f,0.0168f,0.037f,0f,-.005f))
+                loft(rear, LumiTint.HOOF, side*.225f+toe*.026f, -.89f, -.57f, 0f, 0f, 0, floatArrayOf(
+                    -.06f,0.0246f,0.065f,0f,.008f, -.02f,0.0269f,0.0672f,0f,.008f,
+                    .04f,0.0224f,0.0504f,0f,0f, .06f,0.0134f,0.0314f,0f,-.005f))
             }
             loft(eye, LumiTint.LID, side*.188f, 1.066f, .286f, 0f, -side*13f, 0, floatArrayOf(
                 -.042f,.006f,.005f,0f,0f, -.026f,.036f,.012f,0f,0f,
