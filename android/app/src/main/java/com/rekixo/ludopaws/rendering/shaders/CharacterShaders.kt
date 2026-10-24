@@ -149,13 +149,12 @@ internal object CharacterShaders {
                     bool foliage = uMaterial.x > 10.5;
                     float grain = sin(p.x * 137.0 + sin(p.y * 79.0)) * sin(p.y * 163.0 + p.z * 31.0);
                     float textureTone = 1.0 + grain * detail * (ground ? 0.075 : 0.035);
-                    // Broad mineral variation survives board-scale filtering; fine pores fade
-                    // with pixel footprint, so the surface does not sparkle during motion.
+                    // Fine stone pores fade
+                    // with pixel footprint; stone faces have no broad wavy bands.
                     float mineral = sin(p.x * 7.0 + sin(p.y * 5.0) * 1.7)
                         * sin(p.y * 9.0 - p.x * 3.0 + p.z * 2.0);
-                    float mineralDetail = 1.0 / (1.0 + footprint * footprint * 64.0);
                     float broadTone = ground ? sin(p.x * 24.0) * sin(p.y * 19.0) * 0.035
-                        : (foliage ? mineral * 0.035 : mineral * mineralDetail * 0.065);
+                        : (foliage ? mineral * 0.035 : 0.0);
                     float diffuse = 0.39 + key * 0.57 + fill * 0.10;
                     float sheen = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0),
                         foliage ? 22.0 : 36.0) * uMaterial.y;

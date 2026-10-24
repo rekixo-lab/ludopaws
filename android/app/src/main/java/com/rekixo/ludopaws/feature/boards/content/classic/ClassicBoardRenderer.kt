@@ -62,15 +62,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
         shader = pebbleShader
     }
     private val pebbleMatrix = Matrix()
-    private var rockReliefShader = BitmapShader(
-        texture(3), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
-    )
-    private val rockReliefPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
-        shader = rockReliefShader
-        alpha = 140
-    }
-    private val rockReliefMatrix = Matrix()
-
     private var appliedTextures: Array<Bitmap>? = null
     override fun prepare(onReady: () -> Unit) = prepareTextures(onReady)
 
@@ -82,8 +73,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
         stoneGrainPaint.shader = BitmapShader(ready[1], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
         pebbleShader = BitmapShader(ready[2], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
         pebblePaint.shader = pebbleShader
-        rockReliefShader = BitmapShader(ready[3], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
-        rockReliefPaint.shader = rockReliefShader
     }
 
     override fun draw(canvas: Canvas, size: Float, density: Float, definition: BoardDefinition) {
@@ -443,11 +432,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
             floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
         canvas.drawPath(topPath, fillPaint)
         fillPaint.shader = null
-        rockReliefMatrix.setScale(unit / 115f, unit / 115f)
-        rockReliefMatrix.postTranslate(raw.left + col * unit * .37f,
-            raw.top + row * unit * .61f)
-        rockReliefShader.setLocalMatrix(rockReliefMatrix)
-        canvas.drawPath(topPath, rockReliefPaint)
+        // Fine mineral grain only; no diagonal or wavy bands across the walking face.
         canvas.drawPath(topPath, stoneGrainPaint)
 
         // Restore the original team-colored entry marker beside each starting yard.
@@ -616,7 +601,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
             }
             textureWorker.execute {
                 val result = runCatching { arrayOf(createGrainBitmap(), createStoneGrainBitmap(),
-                    createPebbleBitmap(), createRockReliefBitmap()) }
+                    createPebbleBitmap()) }
                 val callbacks = synchronized(waiting) {
                     result.onSuccess { preparedTextures = it }
                     preparing = false
@@ -737,37 +722,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
                     .18f + random.nextFloat() * .52f, paint)
             }
             return bitmap
-        }
-
-        /** Directionally lit mineral relief, transparent so every team's pigment remains visible. */
-        private fun createRockReliefBitmap(): Bitmap {
-            val size = 256
-            val heights = FloatArray(size * size)
-            val random = Random(0x524F434BL)
-            // Periodic waves at several scales form a rough split-stone height field.
-            repeat(28) { octave ->
-                val frequency = if (octave < 12) 2 + random.nextInt(8) else 10 + random.nextInt(28)
-                val fx = if (random.nextBoolean()) frequency else -frequency
-                val fy = 1 + random.nextInt(frequency)
-                val phase = random.nextDouble() * Math.PI * 2.0
-                val amplitude = if (octave < 12) 1.8f else .25f
-                for (y in 0 until size) for (x in 0 until size) {
-                    heights[y * size + x] += kotlin.math.sin(
-                        (x * fx + y * fy) * Math.PI * 2.0 / size + phase,
-                    ).toFloat() * amplitude
-                }
-            }
-            val pixels = IntArray(size * size)
-            for (y in 0 until size) for (x in 0 until size) {
-                val h = heights[y * size + x]
-                val slopeX = heights[y * size + (x + 1) % size] - h
-                val slopeY = heights[((y + 1) % size) * size + x] - h
-                val light = (-slopeX * .55f - slopeY * .75f) * 28f + h * 1.8f
-                val alpha = kotlin.math.abs(light).toInt().coerceIn(0, 62)
-                pixels[y * size + x] = if (light >= 0f) Color.argb(alpha, 255, 250, 236)
-                    else Color.argb(alpha, 45, 39, 31)
-            }
-            return Bitmap.createBitmap(pixels, size, size, Bitmap.Config.ARGB_8888)
         }
 
         private fun createStoneGrainBitmap(): Bitmap {

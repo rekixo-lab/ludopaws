@@ -132,30 +132,6 @@ internal class LudoPawsCenterHouses3D {
             quad(ring(a, 1f, -.7f), ring(b, 1f, -.7f), ring(b, .92f, -1f), ring(a, .92f, -1f))
         }
     }.build()
-    // Stable, individually cut slabs: uneven bevels and a gently crowned walking face.
-    // Their silhouettes stay inside each cell; meshes are built once and batched.
-    private val roadStones = List(5) { variant ->
-        MeshBuilder().apply {
-            val outline = listOf(v(-.85f, -1f), v(.82f, -1f), v(1f, -.83f), v(1f, .86f),
-                v(.83f, 1f), v(-.86f, 1f), v(-1f, .82f), v(-1f, -.85f))
-            val edge = outline.mapIndexed { i, point ->
-                val cut = .965f + ((i * 7 + variant * 3) % 5) * .007f
-                v(point.x * cut, point.y * cut, .48f)
-            }
-            val top = edge.mapIndexed { i, point ->
-                val bevel = .87f + ((i * 3 + variant) % 4) * .015f
-                v(point.x * bevel, point.y * bevel, .91f + ((i + variant) % 3) * .025f)
-            }
-            val center = v((variant - 2) * .045f, .035f, 1.04f)
-            edge.indices.forEach { i ->
-                val j = (i + 1) % edge.size
-                triangle(center, top[i], top[j])
-                quad(top[i], top[j], edge[j], edge[i])
-                quad(edge[i], edge[j], v(edge[j].x, edge[j].y, -1f),
-                    v(edge[i].x, edge[i].y, -1f))
-            }
-        }.build()
-    }
     private val houseApron = MeshBuilder().apply {
         // A shallow cream terrace joins each facade to lawn and steps, without filling the courts.
         val inner = .66f
@@ -248,7 +224,7 @@ internal class LudoPawsCenterHouses3D {
             part(recorder, identity, stoneBlock, cx + unit * .012f, cy + unit * .018f,
                 .004f, sx + unit * .006f, sy + unit * .006f, .003f, joint)
             recorder.surface = CharacterSurface.GARDEN_STONE
-            part(recorder, identity, roadStones[(row * 11 + col * 7) % roadStones.size], cx, cy - unit * .012f,
+            part(recorder, identity, stoneBlock, cx, cy - unit * .012f,
                 depth + .009f, sx, sy, depth, tones[(row * 7 + col * 11) % tones.size])
             if ((row to col) in safe) {
                 // Keep safety readable on top of the slab instead of hiding the Canvas marker.
