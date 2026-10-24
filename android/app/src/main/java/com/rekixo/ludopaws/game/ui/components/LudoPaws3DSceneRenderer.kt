@@ -220,6 +220,8 @@ internal class LudoPaws3DSceneRenderer {
         teamColorName: String,
         pose: CharacterPose = CharacterPose(),
         previewLife: LudoPaws3DLifeMotion? = null,
+        previewZoom: Float = 1f,
+        synchronizeGpu: Boolean = true,
     ) {
         if (program == 0) return
 
@@ -241,7 +243,7 @@ internal class LudoPaws3DSceneRenderer {
         val size = min(width, height).toFloat()
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
         GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
-        val modelScale = size * 0.30f
+        val modelScale = size * 0.30f * previewZoom.coerceIn(.6f, 1.5f)
         prepareRoot(
             x = width * 0.5f,
             y = height * 0.62f,
@@ -251,7 +253,8 @@ internal class LudoPaws3DSceneRenderer {
         )
 
         character.renderer.draw(drawContext, root, pose, teamColor)
-        GLES30.glFinish()
+        // Bitmap readback needs completion; an animated window swaps buffers itself.
+        if (synchronizeGpu) GLES30.glFinish()
     }
 
     fun drawFrame(
