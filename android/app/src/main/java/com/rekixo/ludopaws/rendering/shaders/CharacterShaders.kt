@@ -91,6 +91,20 @@ internal object CharacterShaders {
                     float pigment = max(max(crown * (0.58 + flecks * 0.34), back * 0.23),
                         max(knee * 0.76, ear * 0.38));
                     diffuse *= mix(vec3(1.0), vec3(0.20, 0.21, 0.20), pigment);
+                    // Pigment volumes follow the skin/fur coordinates, with no overlay mesh.
+                    // Uneven edges feather into the white coat instead of forming round decals.
+                    vec3 coat = p + vec3(
+                        sin(p.y * 23.0 + p.z * 19.0) * 0.018,
+                        sin(p.z * 27.0 + p.x * 21.0) * 0.014,
+                        sin(p.x * 25.0 + p.y * 17.0) * 0.012);
+                    vec3 backSpot = (coat - vec3(-0.15, 0.68, -0.54)) / vec3(0.21, 0.23, 0.24);
+                    vec3 shoulderSpot = (coat - vec3(0.10, 0.73, -0.04)) / vec3(0.17, 0.18, 0.21);
+                    vec3 chestSpot = (coat - vec3(-0.075, 0.55, 0.335)) / vec3(0.115, 0.15, 0.11);
+                    vec3 lowerSpot = (coat - vec3(0.10, 0.24, 0.30)) / vec3(0.09, 0.105, 0.09);
+                    float spotDistance = min(min(dot(backSpot, backSpot), dot(shoulderSpot, shoulderSpot)),
+                        min(dot(chestSpot, chestSpot), dot(lowerSpot, lowerSpot)));
+                    float coatSpots = 1.0 - smoothstep(0.38, 1.45, spotDistance);
+                    diffuse *= mix(vec3(1.0), vec3(0.07, 0.075, 0.08), coatSpots * 0.94);
                     float velvet = pow(1.0 - max(normal.z, 0.0), 2.0) * 0.055;
                     outColor = vec4(diffuse + vec3(velvet), uColor.a * uEntryFade);
                     return;
