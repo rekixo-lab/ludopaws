@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.characters.content.cat
 
-internal val CAT_TABBY_FUR = floatArrayOf(0.70f, 0.45f, 0.26f, 1f)
-internal val CAT_CREAM = floatArrayOf(0.80f, 0.59f, 0.37f, 1f)
+internal val CAT_TABBY_FUR = floatArrayOf(0.71f, 0.69f, 0.64f, 1f)
+internal val CAT_CREAM = floatArrayOf(0.84f, 0.82f, 0.76f, 1f)
 internal val CAT_STRIPE_DARK = floatArrayOf(0.19f, 0.18f, 0.16f, 1f)
 internal val CAT_NOSE_PINK = floatArrayOf(0.58f, 0.39f, 0.38f, 1f)
 internal val CAT_EAR_PINK = floatArrayOf(0.74f, 0.59f, 0.57f, 1f)
