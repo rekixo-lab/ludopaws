@@ -108,6 +108,8 @@ class OfflineGameActivity : ComponentActivity() {
     internal var boardView: LudoPawsReactiveBoardView? = null
     internal var diceView: DiceView? = null
     internal var diceHost: FrameLayout? = null
+    // Scheduled moves must never overwrite the dice view's stable lookup tag.
+    internal var singleLegalMoveKey: String? = null
     internal var topPlayerRail: LinearLayout? = null
     internal var bottomPlayerRail: LinearLayout? = null
     // Stable portrait instances across repeated renderPlayerRails() calls.
@@ -211,6 +213,7 @@ class OfflineGameActivity : ComponentActivity() {
             null
         gameplayActionBlockedUntilMillis =
             0L
+        singleLegalMoveKey = null
         feedbackLedger.clear()
         activeCharacterMatchId =
             null

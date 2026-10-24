@@ -566,9 +566,8 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
 
     val eventKey =
         "single-legal:${state.matchId}:${pending.eventIndex}:$tokenIndex"
-    val host = diceHost ?: return
-    if (host.tag == eventKey) return
-    host.tag = eventKey
+    if (singleLegalMoveKey == eventKey) return
+    singleLegalMoveKey = eventKey
 
     showStatus("Only one effective move • holding the dice result…")
 
@@ -578,6 +577,7 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
             .gameSpeed
     handler.postDelayed(
         {
+            if (singleLegalMoveKey != eventKey) return@postDelayed
             val latest = session.snapshot()
             val latestPending = latest?.pendingRoll
             val latestOutcome = latestPending?.outcome
@@ -585,6 +585,7 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                 latest?.players?.getOrNull(latest.turnSeat)
             val stillSameMove =
                 latest != null &&
+                    latest.matchId == state.matchId &&
                     latest.status == "ACTIVE" &&
                     latestActive != null &&
                     latestActive.playerId == activePlayerId &&
@@ -598,12 +599,11 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                     ) == tokenIndex
 
             if (!stillSameMove) {
-                if (host.tag == eventKey) {
-                    host.tag = null
-                }
+                singleLegalMoveKey = null
                 return@postDelayed
             }
 
+            singleLegalMoveKey = null
             runCatching {
                 session.move(tokenIndex)
             }.onSuccess { next ->
@@ -618,9 +618,6 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                     current = next,
                 )
             }.onFailure { error ->
-                if (host.tag == eventKey) {
-                    host.tag = null
-                }
                 showStatus(
                     error.message ?: "Automatic move failed",
                 )

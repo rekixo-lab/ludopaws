@@ -14,7 +14,6 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityNodeProvider
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityManager
-import android.widget.Toast
 import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
 import android.util.AttributeSet
 import android.view.MotionEvent
@@ -103,7 +102,8 @@ class LudoPawsBoardView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         if (now - lastNoticeAt < 1200L) return
         lastNoticeAt = now
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        // Invalid/early pawn taps stay quiet visually; preserve spoken feedback
+        // for accessibility without putting a toast over the board or dice.
         announceForAccessibility(message)
     }
 
