@@ -31,8 +31,8 @@ assert.doesNotMatch(art, /habitatsByColor|landingPad\(|LudoPawsFxBoardGeometry\.
 assert.match(art, /for \(color in listOf\("RED", "GREEN", "YELLOW", "BLUE"\)\)/);
 assert.match(art, /RectF\(14\.0f, 14\.1f, 86\.0f, 85\.8f\)/);
 for (const detail of [
-  "cornerTimber(c)", "cornerFoliage(c, palette)", "flower(c, x, y, size)",
-  "rock(c, 45f, 5.6f, 1f)", "palette.sandTop, palette.sandBottom",
+  "cornerTimber(c)", "cornerFoliage(c, palette)", "flower(c, x, y, size * .78f)",
+  "rock(c, 45f, 5.6f, 1f)", "palette.sandTop,", "palette.sandBottom",
   "rect(c, 0f, 0f, 100f, 100f, palette.rimDark)",
 ]) assert.ok(art.includes(detail), "Approved clean yard detail missing: " + detail);
 
@@ -46,12 +46,12 @@ for(const bound of ["left = left,","top = top,","right = right,","bottom = botto
 assert.doesNotMatch(geometry, /MatchSnapshot|characterIdsBySeat|LudoPawsYardHabitatPolicy/);
 assert.doesNotMatch(chrome, /bindHabitats|habitatsByColor/);
 assert.doesNotMatch(board, /boardChrome\.bindHabitats\(/);
-assert.match(chrome, /yardHabitatRenderer\.draw\(canvas, cell\)/);
+assert.match(chrome, /yardHabitatRenderer\.draw\(target, cell\)/);
 assert.match(board, /boardChrome\.rotation = chromeQuarterTurns \* 90f/);
 assert.match(reactive, /pawn3DScene/);
 assert.match(scene, /LudoPawsFxBoardGeometry\.tokenCenter\(/);
 const drawOrder=[
-  "renderer.draw(canvas, size", "yardHabitatRenderer.draw(canvas, cell)",
+  "renderer.draw(target, size", "yardHabitatRenderer.draw(target, cell)",
   "drawYardPawPrintsOverlay(canvas, cell)", "drawFinishRanksOverlay(canvas, cell)",
 ].map(x=>chrome.indexOf(x));
 assert.ok(drawOrder.every((v,i)=>v>=0 && (!i || v>drawOrder[i-1])), "Art draw order must remain unchanged");

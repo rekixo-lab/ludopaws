@@ -255,7 +255,8 @@ for (const token of [
   ".positionAtVisualStep(",
   "LudoPawsPawnLayout",
   ".tokenOffsetFraction(",
-  ".radiusScale(",
+  ".roadPresentation(",
+  "val radius = fit.radius",
   "LudoPawsCaptureReturnPlacement",
   "captureReturnVisual(",
   "CharacterRegistry.resolve",
@@ -273,6 +274,7 @@ for (const token of [
 
 for (const token of [
   "radiusScale",
+  "val original = cell * radiusScale(position, occupancy)",
   "tokenOffsetFraction",
   "StackPlacementCache",
   "WeakReference",

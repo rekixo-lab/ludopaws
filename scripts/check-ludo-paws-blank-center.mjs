@@ -9,8 +9,8 @@ const finish = read(root + "LudoPawsFxBoardGeometry.kt");
 const yard = read(root + "LudoPawsYardHabitatRenderer.kt");
 const classic = read("android/app/src/main/java/com/rekixo/ludopaws/feature/boards/content/classic/ClassicBoardRenderer.kt");
 
-// Blank is intentional: the stock four-color finish triangles are the only
-// CENTER artwork. Keep it empty until future one-component-at-a-time changes.
+// Retain the authoritative four-triangle base beneath the animated 3D houses.
+// Retired experimental 2D house renderers must not be reintroduced.
 for (const path of [
   root + "LudoPawsCenterHouseRenderer.kt",
   root + "LudoPawsCenterHouseGeometry.kt",
@@ -18,7 +18,7 @@ for (const path of [
   "scripts/check-ludo-paws-center-house.mjs",
 ]) assert.ok(!fs.existsSync(path), "Experimental house code was not cleaned: " + path);
 assert.doesNotMatch(chrome, /LudoPawsCenterHouseRenderer|centerHouseRenderer|centerHouse/);
-assert.match(chrome, /yardHabitatRenderer\.draw\(canvas, cell\)/,
+assert.match(chrome, /yardHabitatRenderer\.draw\(target, cell\)/,
   "Do not change the approved colored Yard design.");
 assert.match(chrome, /footprintSource\?\.drawYardPawPrintsOverlay\(canvas, cell\)/);
 assert.match(chrome, /footprintSource\?\.drawFinishRanksOverlay\(canvas, cell\)/);
@@ -49,15 +49,15 @@ assert.match(classic, /private fun drawCenterDepth\(/,
 assert.match(classic, /axisBoundary\(6, cell\)/);
 assert.match(classic, /axisBoundary\(9, cell\)/);
 
-// Pawns remain on the authoritative finished-home cells.
-for (const [team, point] of [
-  ["RED", "cx - offset to cy"],
-  ["GREEN", "cx to cy - offset"],
-  ["YELLOW", "cx + offset to cy"],
-  ["BLUE", "cx to cy + offset"],
-]) assert.ok(finish.includes('"' + team + '" -> ' + point),
-  "Finish pawn coordinates changed for " + team);
+// Finished pawns use the shared court layout, leaving the doorway clear.
+assert.match(finish, /return finishGardenCenter\(color, tokenIndex, cell, perspectiveQuarterTurns\)/);
+for (const lateral of ["0 -> -.68f", "1 -> -.46f", "2 -> .46f", "else -> .68f"]) {
+  assert.ok(finish.includes(lateral), "Finish pairs must leave the central doorway clear: " + lateral);
+}
+const scene = read(root + "LudoPaws3DSceneRenderer.kt");
+assert.match(scene, /centerHouses\.draw\(/);
+assert.match(scene, /centerHouses\.drawEntryForeground\(/);
 assert.match(yard, /private fun paintHome\(/,
   "Approved open colored yards must remain intact.");
 
-console.log("Blank Ludo center verified: four original color triangles only, no house roof artwork, Yard and finish geometry preserved.");
+console.log("Center contract verified: authoritative triangles, animated 3D houses and shared finish courts retained.");
