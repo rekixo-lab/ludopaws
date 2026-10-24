@@ -138,7 +138,7 @@ object LudoPawsPawnLayout {
     internal fun silhouetteHeight(characterId: String): Float = when (characterId) {
         "donkey" -> 3.35f
         "goat" -> 3.15f
-        "goat_lumi" -> 3.3f
+        "goat_lumi" -> 2.35f
         "duck" -> 2.85f
         else -> 3f
     }

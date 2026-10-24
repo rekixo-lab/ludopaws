@@ -11,6 +11,8 @@ import kotlin.math.*
 
 /** Photo-inspired standing kid, with an independent head, listening ears and four moving feet. */
 internal object LumiGoatRenderer : CharacterRenderer {
+    private const val LEG_LENGTH_SCALE = .5f
+    private const val LEG_HIP_Y = .42f
     override fun stepTravelProgress(progress: Float) = GoatRenderer.stepTravelProgress(progress)
     override fun sample(motion: CharacterMotion, progress: Float, hopPlayback: CharacterHopPlayback) =
         GoatRenderer.sample(motion, progress, hopPlayback)
@@ -59,10 +61,13 @@ internal object LumiGoatRenderer : CharacterRenderer {
                         val x = side * if (front) .18f else .225f
                         val y = if (front) .04f else .01f
                         val z = if (front) .18f else -.56f
-                        Matrix.translateM(transform, 0, x, y, z)
+                        // Shorten only the legs around the hip line; the head/body retain their size.
+                        val shortenedPivotY = LEG_HIP_Y + (y - LEG_HIP_Y) * LEG_LENGTH_SCALE
+                        Matrix.translateM(transform, 0, x, shortenedPivotY, z)
                         val swing = if (front) pose.frontLegSwingDegrees else pose.rearLegSwingDegrees
                         Matrix.rotateM(transform, 0, (swing ?: pose.legSwingDegrees) * side * .7f,
                             1f, 0f, 0f)
+                        Matrix.scaleM(transform, 0, 1f, LEG_LENGTH_SCALE, 1f)
                         Matrix.translateM(transform, 0, -x, -y, -z)
                     }
                     LumiRig.TAIL -> {

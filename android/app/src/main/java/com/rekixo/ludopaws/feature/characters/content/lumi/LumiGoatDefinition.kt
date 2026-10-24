@@ -19,7 +19,8 @@ object LumiGoatDefinition {
             voiceSet = VoiceSet("goat_lumi_default", goat.character.species),
             animationSet = AnimationSet("goat_lumi_default"),
             storeDisplayOrder = 6,
-            groundPivotY = -.96f,
+            // .42 + (-.96 - .42) * .5: feet follow the shortened leg rig.
+            groundPivotY = -.27f,
             footBaselinePerRadius = 1.18f,
         )
     }
