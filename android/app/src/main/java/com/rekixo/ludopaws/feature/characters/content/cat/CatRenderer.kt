@@ -31,6 +31,8 @@ internal object CatRenderer : CharacterRenderer {
         try {
             val rig = rigTransforms[0]
             System.arraycopy(parent, 0, rig, 0, 16)
+            val size = CatDefinition.MODEL_SIZE_MULTIPLIER
+            Matrix.scaleM(rig, 0, size, size, size)
             Matrix.rotateM(rig, 0, -15f, 0f, 1f, 0f)
             legs(rig, pose)
             val torso = rigTransforms[1]

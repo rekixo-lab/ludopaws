@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.feature.characters.content.cat.CatDefinition
 import com.rekixo.ludopaws.feature.characters.content.lumi.LumiGoatDefinition
 import android.content.Context
 import android.graphics.Outline
@@ -393,6 +394,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
                     val heightRatio = LudoPawsPawnLayout.silhouetteHeight(id)
                     val halfWidth = radius * when (id) {
                         "duck" -> .95f
+                        "cat" -> .86f * CatDefinition.MODEL_SIZE_MULTIPLIER
                         "goat_lumi" -> .86f * LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
                         else -> .86f
                     }
