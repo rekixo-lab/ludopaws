@@ -67,7 +67,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
     )
     private val rockReliefPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
         shader = rockReliefShader
-        alpha = 100
+        alpha = 140
     }
     private val rockReliefMatrix = Matrix()
 
@@ -747,7 +747,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
             // Periodic waves at several scales form a rough split-stone height field.
             repeat(28) { octave ->
                 val frequency = if (octave < 12) 2 + random.nextInt(8) else 10 + random.nextInt(28)
-                val fx = frequency
+                val fx = if (random.nextBoolean()) frequency else -frequency
                 val fy = 1 + random.nextInt(frequency)
                 val phase = random.nextDouble() * Math.PI * 2.0
                 val amplitude = if (octave < 12) 1.8f else .25f
