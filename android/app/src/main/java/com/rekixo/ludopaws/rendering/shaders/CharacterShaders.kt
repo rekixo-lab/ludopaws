@@ -85,7 +85,12 @@ internal object CharacterShaders {
                     crown *= 1.0 - blaze * 0.38;
                     float back = smoothstep(0.40, 0.62, p.y) * (1.0 - smoothstep(-0.1, 0.17, p.z)) *
                         (1.0 - smoothstep(0.68, 0.83, p.y));
-                    float knee = exp(-pow((p.y + 0.49) / 0.065, 2.0)) * smoothstep(0.10, 0.16, abs(p.x));
+                    // Local coat markings, not horizontal bands that read as separate limb joints.
+                    float legCenterZ = p.z > -0.1 ? 0.18 : -0.56;
+                    float kneeHeight = p.y + 0.49 + sin(p.x * 31.0 + p.z * 19.0) * 0.014;
+                    float knee = exp(-pow(kneeHeight / 0.085, 2.0) -
+                        pow((abs(p.x) - 0.205) / 0.052, 2.0)) *
+                        smoothstep(0.012, 0.045, p.z - legCenterZ);
                     float ear = smoothstep(0.26, 0.42, abs(p.x)) * smoothstep(1.17, 1.28, p.y);
                     float flecks = mix(0.55, seed, detail);
                     float pigment = max(max(crown * (0.58 + flecks * 0.34), back * 0.23),

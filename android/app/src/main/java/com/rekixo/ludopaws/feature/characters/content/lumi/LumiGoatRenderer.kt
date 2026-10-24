@@ -13,7 +13,7 @@ import kotlin.math.*
 internal object LumiGoatRenderer : CharacterRenderer {
     private const val REST_BODY_YAW = 4f
     private const val LEG_LENGTH_SCALE = .5f
-    private const val LEG_HIP_Y = .42f
+    private const val LEG_LENGTH_ANCHOR_Y = .42f
     override fun stepTravelProgress(progress: Float) = GoatRenderer.stepTravelProgress(progress)
     override fun sample(motion: CharacterMotion, progress: Float, hopPlayback: CharacterHopPlayback) =
         GoatRenderer.sample(motion, progress, hopPlayback)
@@ -61,11 +61,12 @@ internal object LumiGoatRenderer : CharacterRenderer {
                         val front = rig == LumiRig.FRONT_LEFT || rig == LumiRig.FRONT_RIGHT
                         val left = rig == LumiRig.FRONT_LEFT || rig == LumiRig.REAR_LEFT
                         val side = if (left) -1f else 1f
-                        val x = side * if (front) .18f else .225f
-                        val y = if (front) .04f else .01f
-                        val z = if (front) .18f else -.56f
-                        // Shorten only the legs around the hip line; the head/body retain their size.
-                        val shortenedPivotY = LEG_HIP_Y + (y - LEG_HIP_Y) * LEG_LENGTH_SCALE
+                        // Swing from the embedded shoulder/hip, not the exposed middle of the leg.
+                        val x = side * if (front) .085f else .13f
+                        val y = if (front) .72f else .65f
+                        val z = if (front) -.01f else -.485f
+                        // Preserve the approved half-length legs and planted feet as the joint moves upward.
+                        val shortenedPivotY = LEG_LENGTH_ANCHOR_Y + (y - LEG_LENGTH_ANCHOR_Y) * LEG_LENGTH_SCALE
                         Matrix.translateM(transform, 0, x, shortenedPivotY, z)
                         val swing = if (front) pose.frontLegSwingDegrees else pose.rearLegSwingDegrees
                         Matrix.rotateM(transform, 0, (swing ?: pose.legSwingDegrees) * side * .7f,
@@ -159,14 +160,19 @@ internal object LumiGoatGeometry {
             loft(LumiRig.HEAD, LumiTint.HORN, side*.13f, 1.265f, .035f, -12f, -side*9f, 0, floatArrayOf(
                 0f,.034f,.037f,0f,0f, .06f,.030f,.031f,0f,-.004f,
                 .10f,.019f,.020f,0f,-.018f, .14f,.004f,.005f,0f,-.032f))
+            // Upper limbs sweep back into the barrel; their caps stay buried during a stride.
+            // The lower leg tapers through the knee and pastern without a separate shoulder ball.
             loft(front, LumiTint.FUR, side*.18f, 0f, .18f, 0f, -side*2f, 650, floatArrayOf(
-                -.86f,.044f,.052f,0f,.015f, -.67f,.047f,.050f,0f,.005f,
-                -.49f,.063f,.061f,0f,0f, -.27f,.073f,.077f,0f,-.005f,
-                -.04f,.085f,.105f,0f,-.018f, .19f,.088f,.13f,-side*.035f,-.02f, .42f,.025f,.05f,-side*.075f,-.04f))
+                -.86f,.044f,.052f,0f,.015f, -.67f,.048f,.052f,0f,.006f,
+                -.49f,.054f,.060f,-side*.004f,0f, -.27f,.060f,.070f,-side*.010f,-.010f,
+                -.04f,.073f,.095f,-side*.025f,-.045f, .19f,.092f,.13f,-side*.050f,-.13f,
+                .44f,.104f,.16f,-side*.075f,-.22f, .72f,.085f,.14f,-side*.095f,-.24f,
+                .86f,.035f,.07f,-side*.11f,-.27f))
             loft(rear, LumiTint.FUR, side*.225f, 0f, -.56f, 0f, side*2f, 600, floatArrayOf(
-                -.85f,.042f,.050f,0f,-.02f, -.62f,.044f,.050f,0f,-.008f,
-                -.43f,.067f,.067f,0f,.03f, -.20f,.087f,.11f,0f,.055f,
-                .06f,.105f,.16f,-side*.025f,.03f, .42f,.025f,.05f,-side*.095f,.01f))
+                -.85f,.042f,.050f,0f,-.02f, -.62f,.046f,.052f,0f,-.008f,
+                -.43f,.057f,.062f,-side*.008f,.023f, -.20f,.074f,.095f,-side*.025f,.050f,
+                .06f,.093f,.13f,-side*.045f,.060f, .35f,.105f,.15f,-side*.065f,.065f,
+                .65f,.085f,.13f,-side*.095f,.075f, .86f,.030f,.060f,-side*.115f,.080f))
             for (toe in intArrayOf(-1, 1)) {
                 loft(front, LumiTint.HOOF, side*.18f+toe*.024f, -.90f, .202f, 0f, 0f, 0, floatArrayOf(
                     -.06f,.023f,.062f,0f,.012f, -.03f,.025f,.065f,0f,.008f,
