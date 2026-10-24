@@ -498,6 +498,23 @@ internal fun showSettingsDialog(
             },
         )
 
+        panel.addView(TextView(context).apply {
+            text = "Quick Chat artwork credits"
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFE7CC9B.toInt())
+            setPadding(0, settingsDp(context, 12), 0, settingsDp(context, 8))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                val notice = context.assets.open("quickchat/NOTICE.txt").bufferedReader().use { it.readText() }
+                PlywoodAlertDialogBuilder(context)
+                    .setTitle("Quick Chat artwork")
+                    .setMessage(notice)
+                    .setPositiveButton("OK", null)
+                    .show()
+            }
+        }, fullWidthParams(context, 8))
 
     }, SETTINGS_CONTENT_BUILD_DELAY_MS)
 }

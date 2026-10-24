@@ -14,6 +14,15 @@ internal fun CharacterDrawContext.catBone(parent: FloatArray, mesh: MeshGeometry
     x: Float, y1: Float, z1: Float, y2: Float, z2: Float, radius: Float, color: FloatArray) {
     val dy = y2 - y1; val dz = z2 - z1
     val length = sqrt(dy * dy + dz * dz).coerceAtLeast(.001f)
-    catMesh(parent, mesh, color, x, (y1 + y2) * .5f, (z1 + z2) * .5f,
-        radius, length, radius, rx = atan2(dz, dy) * 180f / PI.toFloat())
+    val kneeY = rigScratch[2] - (y1 + y2) * .5f
+    val kneeZ = rigScratch[3] - (z1 + z2) * .5f
+    limbBendY = ((kneeY * dy + kneeZ * dz) / (length * length)).coerceIn(-.10f, .10f)
+    limbBendZ = (kneeZ * dy - kneeY * dz) / (length * radius)
+    try {
+        catMesh(parent, mesh, color, x, (y1 + y2) * .5f, (z1 + z2) * .5f,
+            radius, length, radius, rx = atan2(dz, dy) * 180f / PI.toFloat())
+    } finally {
+        limbBendY = 0f
+        limbBendZ = 0f
+    }
 }

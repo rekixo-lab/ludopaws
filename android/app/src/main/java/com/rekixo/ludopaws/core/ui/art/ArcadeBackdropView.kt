@@ -16,6 +16,8 @@ class ArcadeBackdropView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
+    private var gameplayFinish = false
+
     init {
         isClickable = false
         isFocusable = false
@@ -26,11 +28,18 @@ class ArcadeBackdropView @JvmOverloads constructor(
 
     /** Compatibility entry point used by gameplay callers. */
     fun useGameplayBackground() {
-        applySharedBackdrop()
+        if (!gameplayFinish) {
+            gameplayFinish = true
+            background = plywoodBackground(context, cornerRadiusDp = 27f, gameplayFinish = true)
+        }
     }
 
     /** Compatibility entry point used by setup and the rest of the UI. */
     fun useUiBackground() {
+        if (gameplayFinish) {
+            gameplayFinish = false
+            background = plywoodBackground(context, cornerRadiusDp = 27f)
+        }
         applySharedBackdrop()
     }
 

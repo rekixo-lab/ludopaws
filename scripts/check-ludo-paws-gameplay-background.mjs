@@ -43,7 +43,7 @@ if (/ImageView|setImageResource|getIdentifier|\.webp/.test(backdrop)) {
 }
 const gameplayEntry = backdrop.slice(backdrop.indexOf('fun useGameplayBackground()'), backdrop.indexOf('fun useUiBackground()'));
 const uiEntry = backdrop.slice(backdrop.indexOf('fun useUiBackground()'), backdrop.indexOf('private fun applySharedBackdrop()'));
-if (!gameplayEntry.includes('applySharedBackdrop()') || !uiEntry.includes('applySharedBackdrop()')) {
+if (!gameplayEntry.includes('plywoodBackground(context, cornerRadiusDp = 27f, gameplayFinish = true)') || !uiEntry.includes('applySharedBackdrop()')) {
   throw new Error('Gameplay and regular UI must use the same plywood implementation.');
 }
 if (!read('surface').includes('internal fun plywoodBackground(') ||

@@ -413,6 +413,7 @@ internal class LudoPawsGameFxOverlayView(
                 tokenIndex = transition.tokenIndex,
                 position = transition.fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
             )
         val to =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -420,6 +421,7 @@ internal class LudoPawsGameFxOverlayView(
                 tokenIndex = transition.tokenIndex,
                 position = transition.toPosition,
                 cell = cell,
+                perspectiveQuarterTurns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
             )
         if (from == null || to == null) {
             return
@@ -483,6 +485,7 @@ internal class LudoPawsGameFxOverlayView(
                 tokenIndex = tokenIndex,
                 position = position,
                 cell = cell,
+                perspectiveQuarterTurns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
             ) ?: return
         val plan =
             LudoPawsFxPolicy.plan(

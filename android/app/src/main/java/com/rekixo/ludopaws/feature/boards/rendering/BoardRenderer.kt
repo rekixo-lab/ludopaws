@@ -5,5 +5,6 @@ import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
 
 /** Draws visual finish only; footprint/rank overlays and input stay with the board host. */
 internal interface BoardRenderer {
+    fun prepare(onReady: () -> Unit) { onReady() }
     fun draw(canvas: Canvas, size: Float, density: Float, definition: BoardDefinition)
 }

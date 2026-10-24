@@ -14,6 +14,7 @@ internal fun MainActivity.createRealtimeClient(
 ): MatchRealtimeClient {
     return MatchRealtimeClient(
             onSnapshot = { response ->
+                GameJson.prepareEnvelope(response)
                 mainHandler.post {
                     val incomingMatchId = response.optJSONObject("state")?.optString("matchId")
                     if (canRenderUi() && screenStarted && incomingMatchId == matchId) {

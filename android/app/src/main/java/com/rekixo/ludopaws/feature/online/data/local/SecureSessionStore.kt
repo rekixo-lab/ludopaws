@@ -40,7 +40,17 @@ class SecureSessionStore(
             Context.MODE_PRIVATE,
         )
 
+    private var persistedSession: PlayerSession? = null
+    private var persistedCiphertext: String? = null
+
+    @Synchronized
     fun save(value: PlayerSession) {
+        if (persistedSession == value && persistedCiphertext != null &&
+            prefs.getString(KEY_TOKEN_CIPHERTEXT, null) == persistedCiphertext &&
+            prefs.getString(KEY_MATCH_ID, null) == value.matchId &&
+            prefs.getString(KEY_PLAYER_ID, null) == value.playerId &&
+            prefs.getString(KEY_GAME_MODE, null) == value.modeWire
+        ) return
         require(MATCH_ID.matches(value.matchId))
         require(value.playerId.isNotBlank())
         require(PLAYER_TOKEN.matches(value.playerToken))
@@ -103,17 +113,25 @@ class SecureSessionStore(
             "Player session could not be durably persisted"
         }
         legacyPrefs().edit().clear().apply()
+        persistedSession = value
+        persistedCiphertext = prefs.getString(KEY_TOKEN_CIPHERTEXT, null)
     }
 
+    @Synchronized
     fun load(): PlayerSession? {
         val encrypted = loadEncrypted()
         if (encrypted != null) {
+            persistedSession = encrypted
+            persistedCiphertext = prefs.getString(KEY_TOKEN_CIPHERTEXT, null)
             return encrypted
         }
         return migrateLegacy()
     }
 
+    @Synchronized
     fun clear() {
+        persistedSession = null
+        persistedCiphertext = null
         prefs.edit().clear().apply()
         legacyPrefs().edit().clear().apply()
     }

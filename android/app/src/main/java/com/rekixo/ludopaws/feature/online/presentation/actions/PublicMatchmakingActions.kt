@@ -271,7 +271,7 @@ internal fun MainActivity.applyPublicMatchmakingResponse(
             val assignedPlayerId = response.optString("playerId").trim()
             val assignedPlayerToken = response.optString("playerToken").trim()
             val assignedState = runCatching {
-                GameJson.envelope(response).state
+                GameJson.preparedEnvelope(response).state
             }.getOrNull()
 
             // A MATCHED envelope is not enough: only hand off to the board after the

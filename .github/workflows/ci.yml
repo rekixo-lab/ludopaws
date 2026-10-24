@@ -108,6 +108,10 @@ jobs:
         run: node scripts/check-ludo-paws-flat-lobbies.mjs
       - name: Ludo Paws pawn rendering gate
         run: node scripts/check-ludo-paws-pawn-rendering.mjs
+      - name: Ludo Paws selectable animal yard habitat gate
+        run: node scripts/check-ludo-paws-yard-habitats.mjs
+      - name: Ludo Paws blank finish center safety gate
+        run: node scripts/check-ludo-paws-blank-center.mjs
       - name: Ludo Paws reaction engine gate
         run: node scripts/check-ludo-paws-reactions.mjs
       - name: Ludo Paws game moment gate

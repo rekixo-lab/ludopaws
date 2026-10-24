@@ -239,6 +239,7 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                         plywoodBackground(
                             context = this@buildOnlineMatchScreen,
                             cornerRadiusDp = 999f,
+                            gameplayFinish = true,
                         )
                 }
 

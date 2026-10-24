@@ -341,8 +341,7 @@ internal fun OfflineGameActivity.offlineResultPanel(): FrameLayout =
                 )
                 gravity = Gravity.CENTER
                 includeFontPadding = false
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
+                maxLines = 7
                 setShadowLayer(
                     dp(5).toFloat(),
                     0f,

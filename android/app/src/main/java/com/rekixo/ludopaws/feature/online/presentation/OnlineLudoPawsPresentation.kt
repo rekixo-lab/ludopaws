@@ -13,6 +13,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.LudoPawsPlayerCardView
 import com.rekixo.ludopaws.DiceTurnCountdownPolicy
+import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoPawsReactiveBoardView
 import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.GameMode
@@ -117,6 +118,8 @@ internal object OnlineLudoPawsPresentation {
 
     fun clear(activity: MainActivity) {
         val host = host(activity) ?: return
+        com.rekixo.ludopaws.ui.quickchat.clearQuickChatReactions(host.board)
+        host.quickChatReactionView = null
         host.railAlignmentListener?.let { listener ->
             runCatching {
                 activity.arcadeRootView.viewTreeObserver.let { observer ->
@@ -216,9 +219,9 @@ internal object OnlineLudoPawsPresentation {
         host.quickChatReactionView =
             animateQuickChatReaction(
                 parent = host.board,
-                previous = host.quickChatReactionView,
                 emoji = emoji,
-                displayName = displayName,
+                senderPlayerId = senderPlayerId,
+                anchor = host.playerCardsById[senderPlayerId] ?: return,
             )
     }
 
@@ -377,7 +380,6 @@ internal object OnlineLudoPawsPresentation {
             append(state.matchId).append('|')
             append(state.matchMode).append('|')
             append(state.status).append('|')
-            append(activePlayer?.playerId).append('|')
             append(activity.playerId).append('|')
             append(perspectiveColor).append('|')
             append(quickChatEnabled)
@@ -389,21 +391,50 @@ internal object OnlineLudoPawsPresentation {
                 append(':').append(player.teamId)
                 append(':').append(player.playerType)
                 append(':').append(player.seat)
-                player.tokens.forEach { append(',').append(it) }
+            }
+        }
+
+        fun bindRailState() {
+            val previousDice = activity.diceView
+            host.activeDiceControl = null
+            host.activeDicePlayerId = null
+            host.activeDiceProfileCard = null
+            state.players.forEach { player ->
+                val card = host.playerCardsById[player.playerId] ?: return@forEach
+                val active = state.status == "ACTIVE" && player.playerId == activePlayer?.playerId
+                card.bind(
+                    player = player,
+                    characterId = characterIdsBySeat.getOrNull(player.seat),
+                    active = active,
+                    computer = player.playerType == "BOT",
+                    compact = true,
+                    localPlayer = player.playerId == activity.playerId,
+                    portraitOnEnd = card.layoutDirection == View.LAYOUT_DIRECTION_RTL,
+                )
+                val control = host.topRail.findViewWithTag<FrameLayout>("dice:${player.playerId}")
+                    ?: host.bottomRail.findViewWithTag<FrameLayout>("dice:${player.playerId}")
+                control?.visibility = if (active) View.VISIBLE else View.GONE
+                if (active && control != null) {
+                    host.activeDiceControl = control
+                    host.activeDicePlayerId = player.playerId
+                    host.activeDiceProfileCard = card
+                    activity.diceView = control.getChildAt(0) as DiceView
+                    val enabled = player.playerId == activity.playerId &&
+                        activity.canSubmitOnlineGameplayAction() && activity.onlineRollActionDecision(state).enabled
+                    control.isEnabled = enabled
+                    control.isClickable = enabled
+                    control.isFocusable = enabled
+                    activity.diceView.setAttentionEnabled(enabled)
+                }
+            }
+            if (previousDice !== activity.diceView || host.activeDiceControl == null) {
+                previousDice.setTurnDeadlineAt(null)
+                previousDice.stopRolling()
             }
         }
 
         if (host.railBindingKey == bindingKey) {
-            host.activeDiceControl?.let { control ->
-                val enabled = state.status == "ACTIVE" &&
-                    host.activeDicePlayerId == activity.playerId &&
-                    activity.canSubmitOnlineGameplayAction() &&
-                    activity.onlineRollActionDecision(state).enabled
-                control.isEnabled = enabled
-                control.isClickable = enabled
-                control.isFocusable = enabled
-                activity.diceView.setAttentionEnabled(enabled)
-            }
+            bindRailState()
             alignPlayerRailsToBoard(activity, host)
             bindTurnCountdown(activity, state)
             return
@@ -464,6 +495,7 @@ internal object OnlineLudoPawsPresentation {
             preferredBottomLeftColor = preferredBottomLeftColor,
             characterIdsBySeat = characterIdsBySeat,
         )
+        bindRailState()
         alignPlayerRailsToBoard(activity, host)
         bindTurnCountdown(activity, state)
     }
@@ -714,25 +746,16 @@ internal object OnlineLudoPawsPresentation {
             // Footer geometry stays fixed when Quick Chat is switched on/off.
             val reserveProfileFooter =
                 state.status == "ACTIVE"
-            val activeDiceControl =
-                if (active) {
-                    activeOnlineDiceControl(
-                        activity = activity,
-                        player = player,
-                        enabled = localPlayer &&
-                            activity.canSubmitOnlineGameplayAction() &&
-                            activity.onlineRollActionDecision(state).enabled,
-                    )
-                } else {
-                    null
-                }
-            if (activeDiceControl != null) {
-                quickChatHost.activeDiceControl = activeDiceControl
-                quickChatHost.activeDicePlayerId = player.playerId
+            val activeDiceControl = activeOnlineDiceControl(
+                activity = activity,
+                player = player,
+                enabled = active && localPlayer && activity.canSubmitOnlineGameplayAction() &&
+                    activity.onlineRollActionDecision(state).enabled,
+            ).apply {
+                tag = "dice:${player.playerId}"
+                visibility = if (active) View.VISIBLE else View.GONE
             }
-            if (alignEnd && activeDiceControl != null) {
-                slotHost.addView(activeDiceControl)
-            }
+            if (alignEnd) slotHost.addView(activeDiceControl)
             // Reuse the portrait view across authoritative snapshot refreshes.
             val playerCard =
                 quickChatHost.playerCardsById.getOrPut(player.playerId) {
@@ -752,9 +775,6 @@ internal object OnlineLudoPawsPresentation {
                 quickChatHost.topProfileCards += playerCard
             } else {
                 quickChatHost.bottomProfileCards += playerCard
-            }
-            if (activeDiceControl != null) {
-                quickChatHost.activeDiceProfileCard = playerCard
             }
             val showQuickChat =
                 quickChatEnabled && localPlayer && state.status == "ACTIVE"
@@ -794,9 +814,10 @@ internal object OnlineLudoPawsPresentation {
                             quickChatHost.quickChatReactionView =
                                 animateQuickChatReaction(
                                     parent = quickChatHost.board,
-                                    previous = quickChatHost.quickChatReactionView,
                                     emoji = emoji,
-                                    displayName = sender.displayName,
+                                    senderPlayerId = sender.playerId,
+                                    anchor = quickChatHost.playerCardsById[sender.playerId]
+                                        ?: return@showQuickChatPopup,
                                 )
                             GameSoundFeedback.click(activity)
                         }
@@ -862,7 +883,7 @@ internal object OnlineLudoPawsPresentation {
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                 ),
             )
-            if (!alignEnd && activeDiceControl != null) {
+            if (!alignEnd) {
                 slotHost.addView(activeDiceControl)
             }
         }
@@ -902,7 +923,6 @@ internal object OnlineLudoPawsPresentation {
                 setPlayerTeamColor(player.color)
                 alpha = 1f
             }
-        activity.diceView = dice
         control.addView(
             dice,
             FrameLayout.LayoutParams(

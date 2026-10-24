@@ -28,10 +28,10 @@ for (const marker of ['class QuickChatButtonView', 'fun showQuickChatPopup(', 'f
 if (!quickChat.includes('QuickChatEmojiCatalog.EMOJIS.chunked(6)')) {
   throw new Error('Quick Chat must render a 6-column emoji grid.');
 }
-if (!quickChat.includes('background = plywoodBackground(')) {
-  throw new Error('Quick Chat popup must use the shared plywood background.');
+if (!quickChat.includes('background = transparentDarkBlueStrokeBackground(')) {
+  throw new Error('Quick Chat popup must preserve its translucent background.');
 }
-const emojiCell = quickChat.match(/val cell = TextView\(context\)\.apply \{([\s\S]*?)\n            \}/);
+const emojiCell = quickChat.match(/val cell = QuickChatAnimatedEmojiView\(context, emoji, animated = false\)\.apply \{([\s\S]*?)\n            \}/);
 if (!emojiCell || !emojiCell[1].includes('background = null')) {
   throw new Error('Quick Chat emoji cells must not render circular background chips.');
 }

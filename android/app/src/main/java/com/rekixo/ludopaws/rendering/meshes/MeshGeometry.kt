@@ -3,8 +3,13 @@ package com.rekixo.ludopaws.rendering.meshes
 import kotlin.math.*
 
 /** Immutable-in-use CPU geometry, shared across scenes; each GL context owns its own buffers. */
-internal class MeshGeometry(val vertices: FloatArray, val indices: ShortArray) {
+internal class MeshGeometry(
+    val vertices: FloatArray,
+    val indices: ShortArray,
+    val localPositions: FloatArray? = null,
+) {
     init {
+        require(localPositions == null || (localPositions.size == vertices.size / 2 && localPositions.all { it.isFinite() }))
         require(vertices.size % 6 == 0 && vertices.isNotEmpty())
         require(vertices.size / 6 < 65536)
         require(vertices.all { it.isFinite() })

@@ -2,17 +2,17 @@ package com.rekixo.ludopaws.feature.characters.content.cat
 
 import kotlin.math.*
 
-/** Analytic two-bone IK in the sagittal plane. Hooves stay planted in idle instead of skating. */
+/** Analytic two-bone IK in the sagittal plane. Paws stay planted in idle instead of skating. */
 internal object CatLegRig {
-    const val UPPER_LENGTH = .29f
-    const val LOWER_LENGTH = .31f
+    const val UPPER_LENGTH = .34f
+    const val LOWER_LENGTH = .34f
     const val GROUND_ANKLE_Y = -.74f
 
     // Output: hipY/Z, kneeY/Z, ankleY/Z. Caller reuses storage, including on every render frame.
     fun solve(rear: Boolean, side: Float, strideDegrees: Float, tuckDegrees: Float, out: FloatArray, crouch: Float = 0f, pairedStride: Boolean = false) {
         require(out.size >= 6)
-        val hipY = (if (rear) -.20f else -.18f) - crouch.coerceIn(0f, .14f)
-        val hipZ = if (rear) -.30f else .27f
+        val hipY = (if (rear) -.09f else -.07f) - crouch.coerceIn(0f, .14f)
+        val hipZ = if (rear) -.30f else .12f
         val tuck = (tuckDegrees / 38f).coerceIn(0f, 1f)
         val diagonal = if (pairedStride) 1f else if (rear) -side else side
         val ankleY = GROUND_ANKLE_Y + tuck * .22f

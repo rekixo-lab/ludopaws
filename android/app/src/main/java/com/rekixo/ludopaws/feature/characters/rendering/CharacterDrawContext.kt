@@ -14,6 +14,7 @@ internal abstract class CharacterDrawContext {
     val rigTransforms = Array(8) { FloatArray(16) }
     val rigScratch = FloatArray(16)
     var surface = CharacterSurface.MATTE
+    var partyEnergy = 0f
     // Optional continuous limb deformation, zero for rigid parts and other species.
     var limbBendY = 0f
     var limbBendZ = 0f

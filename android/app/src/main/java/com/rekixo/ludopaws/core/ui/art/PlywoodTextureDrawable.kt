@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.core.ui.art
 
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
@@ -20,11 +21,12 @@ internal class PlywoodTextureDrawable(
     private val density: Float,
     private val cornerRadiusDp: Float = 15f,
     private val rimThicknessDp: Float = 5.5f,
+    private val gameplayFinish: Boolean = false,
 ) : Drawable() {
     // Multiplying RGB by ~0.7 keeps the wood finish about 10 percentage points
     // lighter than the previous 40%-darkened test, while preserving its warm tone.
     private val plywoodShade = android.graphics.LightingColorFilter(
-        0xFFB3B3B3.toInt(),
+        if (gameplayFinish) Color.WHITE else 0xFFB3B3B3.toInt(),
         Color.TRANSPARENT,
     )
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -64,7 +66,10 @@ internal class PlywoodTextureDrawable(
             b.top,
             b.left,
             b.bottom,
-            intArrayOf(
+            if (gameplayFinish) intArrayOf(
+                LudoPawsBoardPalette.mapleLight, LudoPawsBoardPalette.maple,
+                LudoPawsBoardPalette.mapleShade, LudoPawsBoardPalette.maple,
+            ) else intArrayOf(
                 0xFFF0D0A1.toInt(),
                 0xFFECC796.toInt(),
                 0xFFECC796.toInt(),
@@ -93,6 +98,26 @@ internal class PlywoodTextureDrawable(
         )
         canvas.drawRect(b, lightSweepPaint)
         lightSweepPaint.shader = null
+
+        if (gameplayFinish) {
+            // Narrow paired grain edges catch the same upper-left light as the board.
+            val saved = canvas.save()
+            val spacing = b.width() / 24f
+            for (index in 1 until 24) {
+                val x = b.left + spacing * index
+                reliefPaint.strokeWidth = density * .65f
+                reliefPaint.color = 0x404F2F17
+                canvas.drawLine(x, b.top, x, b.bottom, reliefPaint)
+                reliefPaint.color = 0x60FFE1A1
+                canvas.drawLine(x + density, b.top, x + density, b.bottom, reliefPaint)
+            }
+            lightSweepPaint.shader = LinearGradient(b.left, b.top, b.right, b.bottom,
+                intArrayOf(0x28FFE8AF, Color.TRANSPARENT, 0x1843210C),
+                floatArrayOf(0f, .42f, 1f), Shader.TileMode.CLAMP)
+            canvas.drawRect(b, lightSweepPaint)
+            lightSweepPaint.shader = null
+            canvas.restoreToCount(saved)
+        }
 
         // Fine, restrained plywood grain: lower opacity keeps it from reading as stripes.
         // Irregular paths vary from one another, like natural veneer texture.
@@ -265,7 +290,10 @@ internal class PlywoodTextureDrawable(
             b.top,
             b.left,
             b.bottom,
-            intArrayOf(
+            if (gameplayFinish) intArrayOf(
+                LudoPawsBoardPalette.maple, LudoPawsBoardPalette.wood,
+                LudoPawsBoardPalette.woodShade, 0xFF896342.toInt(),
+            ) else intArrayOf(
                 0xFFB77A3D.toInt(),
                 0xFF875027.toInt(),
                 0xFF573018.toInt(),
@@ -289,7 +317,10 @@ internal class PlywoodTextureDrawable(
             bronzeRim.top,
             bronzeRim.right,
             bronzeRim.bottom,
-            intArrayOf(
+            if (gameplayFinish) intArrayOf(
+                0xFFF4E3BB.toInt(), LudoPawsBoardPalette.gold,
+                LudoPawsBoardPalette.maple, LudoPawsBoardPalette.woodShade,
+            ) else intArrayOf(
                 0xFFFFE7B0.toInt(),
                 0xFFE9B96F.toInt(),
                 0xFFC18649.toInt(),

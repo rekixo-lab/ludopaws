@@ -4,6 +4,7 @@ import android.opengl.Matrix
 import com.rekixo.ludopaws.LudoPawsTeamColor
 import com.rekixo.ludopaws.feature.characters.rendering.*
 import com.rekixo.ludopaws.feature.characters.shared.*
+import kotlin.math.sin
 
 /** One continuous torso/skull, four connected IK chains and articulated face/tail. */
 internal object CatRenderer : CharacterRenderer {
@@ -31,6 +32,8 @@ internal object CatRenderer : CharacterRenderer {
         try {
             val rig = rigTransforms[0]
             System.arraycopy(parent, 0, rig, 0, 16)
+            val size = CatDefinition.MODEL_SIZE_MULTIPLIER
+            Matrix.scaleM(rig, 0, size, size, size)
             Matrix.rotateM(rig, 0, -15f, 0f, 1f, 0f)
             legs(rig, pose)
             val torso = rigTransforms[1]
@@ -38,62 +41,82 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.translateM(torso, 0, 0f, -pose.bodyCrouch, 0f)
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             val breath = 1f + (life?.breath ?: 0f)
-            surface = CharacterSurface.BODY_COAT
-            catMesh(torso, CatGeometry.body, CAT_SILVER, sx = breath, sz = breath)
+            surface = CharacterSurface.CAT_COAT
+            catMesh(torso, CatGeometry.body, CAT_TABBY_FUR, y = .08f, z = -.12f, sx = breath, sz = breath, rx = 90f)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)
             Matrix.translateM(neck, 0, 0f, .38f, 0f)
             Matrix.rotateM(neck, 0, pose.neckPitchDegrees, 1f, 0f, 0f)
             Matrix.translateM(neck, 0, 0f, -.38f, 0f)
-            surface = CharacterSurface.COAT
-            catMesh(neck, CatGeometry.neck, CAT_SILVER)
+            surface = CharacterSurface.CAT_COAT
+            catMesh(neck, CatGeometry.neck, CAT_TABBY_FUR)
             surface = CharacterSurface.MATTE
             catMesh(neck, CatGeometry.collar, teamColor.glColor)
             surface = CharacterSurface.HORN
-            drawPart(neck, 0f, .40f, .276f, .060f, .076f, .026f, TAG_GOLD)
+            drawPart(neck, 0f, .375f, .30f, .043f, .052f, .018f, TAG_GOLD)
+            // Lower the entire facial rig together; eyes, ears and jaw keep their own pivots.
+            Matrix.translateM(neck, 0, 0f, -.18f, 0f)
             prepareHead(neck, .94f, pose.headTiltDegrees)
             CatFaceRenderer.draw(this, head, pose)
             tail(torso, pose.secondaryAppendageDegrees)
-        } finally { surface = previous }
+        } finally {
+            surface = previous
+            limbBendY = 0f
+            limbBendZ = 0f
+        }
     }
 
     private fun CharacterDrawContext.legs(parent: FloatArray, pose: CharacterPose) {
+        val legRoot = rigTransforms[6]
+        System.arraycopy(parent, 0, legRoot, 0, 16)
+        // Like Lumi's legs, the upper roots move into the torso as length is halved.
+        // Apply the same transform to the fur, paws and toe creases so they stay joined.
+        val lengthScale = CatDefinition.LEG_LENGTH_SCALE
+        Matrix.translateM(legRoot, 0, 0f, CatDefinition.LEG_LENGTH_ANCHOR_Y * (1f - lengthScale), 0f)
+        Matrix.scaleM(legRoot, 0, 1f, lengthScale, 1f)
         for (leg in 0 until 4) {
             val rear = leg < 2
             val side = if (leg % 2 == 0) -1f else 1f
-            val x = side * (if (rear) .27f else .24f)
+            val x = side * (if (rear) .19f else .135f)
             val tuck = if (rear) pose.rearLegTuckDegrees else pose.frontLegTuckDegrees
             val swing = if (rear) pose.rearLegSwingDegrees else pose.frontLegSwingDegrees
             CatLegRig.solve(rear, side, swing ?: pose.legSwingDegrees,
                 tuck ?: pose.legTuckDegrees, rigScratch, pose.bodyCrouch, tuck != null)
             val hy = rigScratch[0]; val hz = rigScratch[1]
-            val ky = rigScratch[2]; val kz = rigScratch[3]
             val ay = rigScratch[4]; val az = rigScratch[5]
-            surface = CharacterSurface.COAT
-            catBone(parent, CatGeometry.limb, x, hy, hz, ky, kz, if (rear) .115f else .085f, CAT_SILVER)
-            drawPart(parent, x, ky, kz, .075f, .078f, .078f, CAT_SILVER)
-            catBone(parent, CatGeometry.limb, x, ky, kz, ay, az, .065f, CAT_SILVER)
-            catMesh(parent, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
+            surface = CharacterSurface.CAT_COAT
+            catBone(legRoot, CatGeometry.limb, x, hy, hz, ay, az,
+                if (rear) .10f else .078f, CAT_TABBY_FUR)
+            surface = CharacterSurface.SOFT_FUR
+            catMesh(legRoot, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
             // Fine toe grooves read as paws without additional round toe balls.
             surface = CharacterSurface.MATTE
-            for (toe in listOf(-1f, 1f)) drawPart(parent, x + toe * .043f,
-                ay - .058f, az + .173f, .004f, .027f, .006f, CAT_STRIPE_DARK)
+            for (toe in listOf(-1f, 1f)) drawPart(legRoot, x + toe * .028f,
+                ay - .058f, az + .14f, .0025f, .013f, .003f, CAT_STRIPE_DARK)
         }
     }
 
     private fun CharacterDrawContext.tail(parent: FloatArray, sway: Float) {
         val chain=rigTransforms[5]
         System.arraycopy(parent,0,chain,0,16)
-        Matrix.translateM(chain,0,.27f,.05f,-.39f)
+        // Root on the rear spine, embedded in the rump rather than glued to the flank.
+        Matrix.translateM(chain,0,0f,.24f,-.57f)
         Matrix.rotateM(chain,0,-43f,1f,0f,0f)
-        Matrix.rotateM(chain,0,-31f,0f,0f,1f)
-        surface=CharacterSurface.COAT
+        Matrix.rotateM(chain,0,-24f,0f,0f,1f)
+        val time = life?.timeSeconds ?: 0f
+        val idle = life?.idleWeight ?: 0f
+        Matrix.rotateM(chain,0,sway * .12f + sin(time * 1.05f) * 2f * idle,0f,1f,0f)
+        surface=CharacterSurface.CAT_COAT
         var radius=.075f
         for(i in 0..5) {
-            Matrix.rotateM(chain,0,sway*(.16f+i*.035f),0f,0f,1f)
+            // A delayed wave travels toward the tip while the embedded base stays anchored.
+            val wave = sin(time * 1.5f - i * .55f) * (1.2f + i * .4f) * idle
+            // Keep the original upward arc with a gentle rightward bend toward the tip.
+            val rightCurve = if (i >= 2) -6f else 0f
+            Matrix.rotateM(chain,0,rightCurve+sway*(.10f+i*.025f)+wave,0f,0f,1f)
             Matrix.rotateM(chain,0,14f+i*2f,1f,0f,0f)
             catMesh(chain,if(i==5) CatGeometry.tailTip else CatGeometry.tail,
-                if(i>=4) CAT_STRIPE_DARK else CAT_SILVER,
+                CAT_TABBY_FUR,
                 y=.085f,sx=radius,sy=.18f,sz=radius)
             Matrix.translateM(chain,0,0f,.17f,0f)
             radius*=.80f

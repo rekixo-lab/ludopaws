@@ -19,6 +19,7 @@ internal object LudoPawsFxBoardGeometry {
         tokenIndex: Int,
         position: Int,
         cell: Float,
+        perspectiveQuarterTurns: Int = 0,
     ): Pair<Float, Float>? {
         val renderPosition =
             LudoPathEncoding
@@ -29,6 +30,7 @@ internal object LudoPawsFxBoardGeometry {
                 color = color,
                 tokenIndex = tokenIndex,
                 cell = cell,
+                perspectiveQuarterTurns = perspectiveQuarterTurns,
             )
         }
 
@@ -61,24 +63,59 @@ internal object LudoPawsFxBoardGeometry {
         }
 
         if (renderPosition == LudoPathEncoding.HOME_POSITION) {
-            val left = axisBoundary(6, cell)
-            val top = axisBoundary(6, cell)
-            val right = axisBoundary(9, cell)
-            val bottom = axisBoundary(9, cell)
-            val cx = (left + right) / 2f
-            val cy = (top + bottom) / 2f
-            val offset = (right - left) * 0.20f
-
-            return when (color) {
-                "RED" -> cx - offset to cy
-                "GREEN" -> cx to cy - offset
-                "YELLOW" -> cx + offset to cy
-                "BLUE" -> cx to cy + offset
-                else -> cx to cy
-            }
+            return finishGardenCenter(color, tokenIndex, cell, perspectiveQuarterTurns)
         }
 
         return null
+    }
+
+    /** Stable visual-only courtyard slots; arrival FX and both pawn renderers share them. */
+    fun finishGardenCenter(
+        color: String, tokenIndex: Int, cell: Float, perspectiveQuarterTurns: Int = 0,
+    ): Pair<Float, Float> {
+        val left = axisBoundary(6, cell)
+        val right = axisBoundary(9, cell)
+        val center = (left + right) * .5f
+        val halfSpan = (right - left) * .5f
+        // Permanent pairs straddle the entrance; no slot is on the stone approach.
+        val lateral = when (tokenIndex.coerceIn(0, 3)) {
+            0 -> -.68f
+            1 -> -.46f
+            2 -> .46f
+            else -> .68f
+        }
+        val outward = .87f
+        val canonical = when (color) {
+            "RED" -> -outward to lateral
+            "GREEN" -> -lateral to -outward
+            "YELLOW" -> outward to -lateral
+            "BLUE" -> lateral to outward
+            else -> return center to center
+        }
+        val turns = Math.floorMod(perspectiveQuarterTurns, 4)
+        fun rotate(x: Float, y: Float, turns: Int): Pair<Float, Float> = when (turns) {
+            1 -> -y to x
+            2 -> -x to -y
+            3 -> y to -x
+            else -> x to y
+        }
+        val screen = rotate(canonical.first, canonical.second, turns)
+        // Bodies stand upright on screen even when the houses rotate. Adjust feet
+        // accordingly so the upper silhouettes avoid the door and center clipping.
+        val sideFacade = kotlin.math.abs(screen.first) > .8f
+        val screenX: Float
+        val screenY: Float
+        if (sideFacade) {
+            // Outer partners sit slightly inward to clear the corner planting and boundary.
+            val outwardDepth = if (kotlin.math.abs(screen.second) > .6f) .68f else .87f
+            screenX = if (screen.first < 0f) -outwardDepth else outwardDepth
+            screenY = (screen.second + .17f).coerceAtMost(.78f)
+        } else {
+            screenX = screen.first
+            screenY = screen.second + if (screen.second < 0f) .31f else 0f
+        }
+        val logical = rotate(screenX, screenY, Math.floorMod(-turns, 4))
+        return center + logical.first * halfSpan to center + logical.second * halfSpan
     }
 
     /**
@@ -130,6 +167,7 @@ internal object LudoPawsFxBoardGeometry {
         color: String,
         tokenIndex: Int,
         cell: Float,
+        perspectiveQuarterTurns: Int,
     ): Pair<Float, Float>? {
         val origin =
             when (color) {
@@ -151,8 +189,17 @@ internal object LudoPawsFxBoardGeometry {
         val colFraction =
             if (tokenIndex % 2 == 0) 0.25f else 0.75f
 
-        return (whiteLeft + whiteSize * colFraction) to
-            (whiteTop + whiteSize * rowFraction)
+        // Eight percent of the full five-cell yard, expressed before board rotation.
+        // Inverse-rotate screen-down so every perspective still moves feet down on screen.
+        val distance = cell * .40f
+        val offset = when (Math.floorMod(perspectiveQuarterTurns, 4)) {
+            1 -> distance to 0f
+            2 -> 0f to -distance
+            3 -> -distance to 0f
+            else -> 0f to distance
+        }
+        return (whiteLeft + whiteSize * colFraction + offset.first) to
+            (whiteTop + whiteSize * rowFraction + offset.second)
     }
 
     private fun centerForCell(

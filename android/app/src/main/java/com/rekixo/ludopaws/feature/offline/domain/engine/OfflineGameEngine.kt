@@ -38,7 +38,10 @@ class OfflineGameEngine(
             Context.MODE_PRIVATE,
         )
 
-    private var state: LocalState? = loadState()
+    private var state: LocalState? = synchronized(checkpoints) {
+        if (checkpoints.containsKey(mode)) checkpoints[mode]?.frozenCopy()
+        else loadState().also { checkpoints[mode] = it?.frozenCopy() }
+    }
 
     fun hasSavedGame(): Boolean = state != null
 
@@ -414,7 +417,13 @@ class OfflineGameEngine(
 
     fun clear() {
         state = null
-        prefs.edit().clear().apply()
+        synchronized(checkpoints) {
+            checkpoints[mode] = null
+            checkpointWriter.execute {
+                runCatching { check(prefs.edit().clear().commit()) }
+                    .onFailure { android.util.Log.e("OfflineSave", "Could not clear checkpoint", it) }
+            }
+        }
     }
 
     private fun requireActiveState(): LocalState {
@@ -497,22 +506,43 @@ class OfflineGameEngine(
     }
 
     private fun advanceTurn(current: LocalState) {
-        val playerCount = current.players.size
-        repeat(playerCount) {
-            current.turnSeat =
-                (current.turnSeat + 1) % playerCount
-            if (
-                current.players[current.turnSeat].playerId !in
-                    current.finishedPlayerIds
-            ) {
+        // Colors follow the perimeter in every rotated perspective. Keep player/seat
+        // identities intact, including restored games and custom Pass & Play selections.
+        val colors = OfflinePlayerLayout.COLORS
+        val currentColor = current.players[current.turnSeat].color
+        val start = colors.indexOf(currentColor)
+        for (offset in 1..colors.size) {
+            val nextColor = colors[(start + offset) % colors.size]
+            val candidate = current.players.indexOfFirst { it.color == nextColor }
+            if (candidate >= 0 && current.players[candidate].playerId !in current.finishedPlayerIds) {
+                current.turnSeat = candidate
                 return
             }
         }
         error("No active player remains before match completion")
     }
 
+    private fun LocalState.frozenCopy(): LocalState = copy(
+        players = players.map { it.copy(tokens = it.tokens.toMutableList()) }.toMutableList(),
+        consecutiveSixes = consecutiveSixes.toMutableList(),
+        openingRollConsumed = openingRollConsumed.toMutableList(),
+        pendingLegal = pendingLegal.toMutableSet(),
+        finishedPlayerIds = finishedPlayerIds.toMutableList(),
+        history = history.toMutableList(),
+    )
+
     private fun persist() {
-        val current = state ?: return
+        val current = state?.frozenCopy() ?: return
+        synchronized(checkpoints) {
+            checkpoints[mode] = current
+            checkpointWriter.execute {
+                runCatching { writeCheckpoint(current) }
+                    .onFailure { android.util.Log.e("OfflineSave", "Could not serialize checkpoint", it) }
+            }
+        }
+    }
+
+    private fun writeCheckpoint(current: LocalState) {
         val json =
             JSONObject()
                 .put("rulesetId", current.rulesetId)
@@ -585,9 +615,9 @@ class OfflineGameEngine(
             )
         }
 
-        prefs.edit()
-            .putString(KEY_STATE, json.toString())
-            .commit()
+        if (!prefs.edit().putString(KEY_STATE, json.toString()).commit()) {
+            android.util.Log.e("OfflineSave", "Could not persist checkpoint revision ${current.revision}")
+        }
     }
 
     private fun loadState(): LocalState? {
@@ -1043,6 +1073,10 @@ class OfflineGameEngine(
     )
 
     private companion object {
+        val checkpoints = mutableMapOf<GameMode, LocalState?>()
+        val checkpointWriter = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+            Thread(task, "LudoPawsCheckpoint").apply { isDaemon = true }
+        }
         const val PREFS_NAME = "ludoproof_offline_game"
         const val PREFS_NAME_COMPUTER = "ludoproof_computer_game"
         const val KEY_STATE = "state"
