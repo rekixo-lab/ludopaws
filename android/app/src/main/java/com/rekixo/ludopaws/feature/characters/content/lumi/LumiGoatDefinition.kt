@@ -28,22 +28,20 @@ object LumiGoatDefinition {
 /** Lightweight fallback only while the production 3D portrait is rendering. */
 internal object LumiGoatAvatarRenderer : CharacterAvatarRenderer {
     override fun draw(context: CharacterAvatarContext, canvas: Canvas) = with(context) {
-        fill.color = 0xFF995E3C.toInt()
-        canvas.drawOval(RectF(20f, 9f, 44f, 39f), fill)
-        canvas.drawOval(RectF(56f, 9f, 80f, 39f), fill)
+        fill.color = 0xFFA79B85.toInt()
+        canvas.drawOval(RectF(37f, 12f, 44f, 31f), fill)
+        canvas.drawOval(RectF(56f, 12f, 63f, 31f), fill)
         fill.color = 0xFFFFF6EF.toInt()
         canvas.drawOval(RectF(5f, 33f, 39f, 54f), fill)
         canvas.drawOval(RectF(61f, 33f, 95f, 54f), fill)
-        canvas.drawOval(RectF(22f, 22f, 78f, 85f), fill)
-        fill.color = 0xFFF7A6AA.toInt()
+        canvas.drawOval(RectF(29f, 22f, 71f, 85f), fill)
+        fill.color = 0xFF9C968C.toInt()
         canvas.drawOval(RectF(10f, 37f, 29f, 47f), fill)
         canvas.drawOval(RectF(71f, 37f, 90f, 47f), fill)
-        fill.color = 0xFF9E561E.toInt()
-        canvas.drawOval(RectF(30f, 42f, 47f, 65f), fill)
-        canvas.drawOval(RectF(53f, 42f, 70f, 65f), fill)
-        drawEye(canvas, 39f, 54f)
-        drawEye(canvas, 61f, 54f)
-        fill.color = 0xFFF48F9C.toInt()
-        canvas.drawOval(RectF(43f, 65f, 57f, 74f), fill)
+        fill.color = 0xFF3C3934.toInt()
+        canvas.drawOval(RectF(35f, 43f, 43f, 50f), fill)
+        canvas.drawOval(RectF(57f, 43f, 65f, 50f), fill)
+        fill.color = 0xFF57564E.toInt()
+        canvas.drawOval(RectF(43f, 67f, 57f, 76f), fill)
     }
 }

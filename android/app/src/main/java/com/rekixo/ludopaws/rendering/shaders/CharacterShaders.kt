@@ -53,7 +53,7 @@ internal object CharacterShaders {
                     float specular = pow(max(dot(normal, normalize(light + vec3(0.0, 0.0, 1.0))), 0.0), 46.0);
                     vec3 base = uColor.rgb;
                     if (uMaterial.x > 16.5 && base.r > 0.3 && base.b < 0.2) {
-                        vec2 iris = vec2(abs(vLocalPosition.x) - 0.27, vLocalPosition.y - 0.668);
+                        vec2 iris = vec2(abs(vLocalPosition.x) - 0.188, vLocalPosition.y - 1.066);
                         float fibers = sin(atan(iris.y, iris.x) * 63.0 + length(iris) * 180.0);
                         float detail = 1.0 / (1.0 + dot(fwidth(iris), fwidth(iris)) * 90000.0);
                         base *= 1.0 + fibers * detail * 0.10;
@@ -70,13 +70,27 @@ internal object CharacterShaders {
                     float footprint = max(length(dFdx(p)), length(dFdy(p)));
                     float detail = 1.0 / (1.0 + footprint * footprint * 85000.0);
                     float flow = p.x + sin(p.y * 8.0 + p.z * 6.0) * 0.025;
-                    float hairs = sin(flow * 530.0) * sin(p.y * 870.0 + p.x * 18.0);
-                    float tufts = sin(p.x * 47.0 + p.z * 21.0) * sin(p.y * 55.0);
+                    // Jitter individual fibres rather than intersecting periodic stripes.
+                    vec3 fibreCell = floor(vec3(flow * 410.0, p.y * 83.0, p.z * 137.0));
+                    float seed = fract(sin(dot(fibreCell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+                    float hairs = sin(flow * 1350.0 + seed * 6.283 + p.y * 19.0);
+                    float tufts = sin(p.x * 31.0 + sin(p.y * 17.0 + p.z * 23.0) * 2.0);
                     vec3 diffuse = uColor.rgb * (0.70 + key * 0.28 + fill * 0.09);
                     diffuse *= 1.0 + hairs * detail * 0.035 + tufts * 0.016;
-                    float cheek = exp(-pow((abs(p.x) - 0.43) / 0.13, 2.0) - pow((p.y - 0.43) / 0.09, 2.0));
-                    cheek *= smoothstep(0.27, 0.43, p.z);
-                    diffuse = mix(diffuse, diffuse * vec3(1.0, 0.78, 0.79), cheek * 0.40);
+                    // Anatomical pigment stays in the skin coordinates, including on fur tips.
+                    float crownEdge = p.y + sin(p.x * 29.0 + p.z * 13.0) * 0.022;
+                    float crown = smoothstep(1.12, 1.30, crownEdge) *
+                        (1.0 - smoothstep(0.09, 0.21, abs(p.x)));
+                    float blaze = exp(-pow((p.x + sin(p.y * 21.0) * 0.012) / 0.028, 2.0));
+                    crown *= 1.0 - blaze * 0.38;
+                    float back = smoothstep(0.40, 0.62, p.y) * (1.0 - smoothstep(-0.1, 0.17, p.z)) *
+                        (1.0 - smoothstep(0.68, 0.83, p.y));
+                    float knee = exp(-pow((p.y + 0.49) / 0.065, 2.0)) * smoothstep(0.10, 0.16, abs(p.x));
+                    float ear = smoothstep(0.26, 0.42, abs(p.x)) * smoothstep(1.17, 1.28, p.y);
+                    float flecks = mix(0.55, seed, detail);
+                    float pigment = max(max(crown * (0.58 + flecks * 0.34), back * 0.23),
+                        max(knee * 0.76, ear * 0.38));
+                    diffuse *= mix(vec3(1.0), vec3(0.20, 0.21, 0.20), pigment);
                     float velvet = pow(1.0 - max(normal.z, 0.0), 2.0) * 0.055;
                     outColor = vec4(diffuse + vec3(velvet), uColor.a * uEntryFade);
                     return;
