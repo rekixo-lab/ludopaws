@@ -780,7 +780,8 @@ class LudoBoardView @JvmOverloads constructor(
                 axisBoundary(row + 1, cell),
             )
         canvas.drawRect(rect, fillPaint)
-        canvas.drawRect(rect, strokePaint)
+        // Road-grid experiment: keep the cell fill, without the painted grey outline.
+        // The raised stone edges remain in the visual renderer above this layer.
     }
 
     private fun drawTokens(
