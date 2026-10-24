@@ -348,7 +348,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
         canvas.drawRect(surface, pebblePaint)
         fillPaint.shader = LinearGradient(surface.left, surface.top,
             surface.right, surface.bottom,
-            intArrayOf(0x0AFFFFFF, Color.TRANSPARENT, 0x123E3933),
+            intArrayOf(0x0AFFFFFF, Color.TRANSPARENT, 0x122C3E49),
             floatArrayOf(0f, .56f, 1f), Shader.TileMode.CLAMP)
         canvas.drawRect(surface, fillPaint)
         fillPaint.shader = null
@@ -359,7 +359,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
     /** Fill the legacy white margin, then restore the canonical one-dp cell boundary. */
     private fun drawRoadGrout(canvas: Canvas, raw: RectF) {
         fillPaint.shader = null
-        fillPaint.color = 0xFF77736D.toInt()
+        fillPaint.color = 0xFF626C73.toInt()
         canvas.drawRect(raw, fillPaint)
         strokePaint.strokeWidth = dp(1f)
         strokePaint.color = 0xFF464646.toInt()
@@ -665,8 +665,8 @@ internal class ClassicBoardRenderer : BoardRenderer {
             val size = 512
             val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
-            // Warm-neutral mineral gray keeps pale fur visible without a blue cast.
-            canvas.drawColor(0xFF77736D.toInt())
+            // Cool mid-tone slate keeps pale fur visible; relief stays quieter than the pawns.
+            canvas.drawColor(0xFF626C73.toInt())
             val paint = Paint(Paint.ANTI_ALIAS_FLAG)
             val random = Random(0x504542424CL)
             val packed = ArrayList<FloatArray>()
@@ -716,22 +716,22 @@ internal class ClassicBoardRenderer : BoardRenderer {
                     val saved = canvas.save()
                     canvas.translate(stoneData[0] + dx * size, stoneData[1] + dy * size)
                     paint.shader = null
-                    paint.color = 0x283F3A34
+                    paint.color = 0x28333D45
                     canvas.save()
                     canvas.translate(relief * .65f, relief)
                     canvas.drawPath(path, paint)
                     canvas.restore()
                     paint.shader = RadialGradient(-radius * .32f, -radius * .40f,
                         radius * 1.45f,
-                        intArrayOf(Color.rgb(tone + 20, tone + 18, tone + 14),
-                            Color.rgb(tone + 5, tone + 3, tone),
-                            Color.rgb(tone - 15, tone - 17, tone - 20)),
+                        intArrayOf(Color.rgb(tone + 14, tone + 21, tone + 27),
+                            Color.rgb(tone - 1, tone + 6, tone + 12),
+                            Color.rgb(tone - 19, tone - 12, tone - 7)),
                         floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP)
                     canvas.drawPath(path, paint)
                     // Uneven mineral faces break the smooth oval/button appearance.
                     canvas.clipPath(path)
                     paint.shader = null
-                    paint.color = 0x0A454039
+                    paint.color = 0x0A35434D
                     canvas.drawPath(Path().apply {
                         moveTo(-radius, radius * .1f)
                         lineTo(radius * .1f, -radius * .16f)
@@ -744,7 +744,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
             }
             paint.shader = null
             repeat(14000) {
-                paint.color = if (random.nextBoolean()) 0x10FFFFFF else 0x12423E38
+                paint.color = if (random.nextBoolean()) 0x10FFFFFF else 0x12323F49
                 canvas.drawCircle(random.nextFloat() * size, random.nextFloat() * size,
                     .18f + random.nextFloat() * .52f, paint)
             }
