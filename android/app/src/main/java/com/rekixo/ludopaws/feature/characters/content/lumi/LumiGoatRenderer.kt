@@ -11,6 +11,7 @@ import kotlin.math.*
 
 /** Photo-inspired standing kid, with an independent head, listening ears and four moving feet. */
 internal object LumiGoatRenderer : CharacterRenderer {
+    private const val REST_BODY_YAW = 4f
     private const val LEG_LENGTH_SCALE = .5f
     private const val LEG_HIP_Y = .42f
     override fun stepTravelProgress(progress: Float) = GoatRenderer.stepTravelProgress(progress)
@@ -24,7 +25,7 @@ internal object LumiGoatRenderer : CharacterRenderer {
         System.arraycopy(parent, 0, body, 0, 16)
         val size = LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
         Matrix.scaleM(body, 0, size, size, size)
-        Matrix.rotateM(body, 0, 18f, 0f, 1f, 0f)
+        Matrix.rotateM(body, 0, REST_BODY_YAW, 0f, 1f, 0f)
         Matrix.translateM(body, 0, 0f, -pose.bodyCrouch * .45f, 0f)
         Matrix.rotateM(body, 0, pose.bodyPitchDegrees * .5f, 1f, 0f, 0f)
         Matrix.rotateM(body, 0, pose.bodyRollDegrees * .5f, 0f, 0f, 1f)
@@ -33,8 +34,8 @@ internal object LumiGoatRenderer : CharacterRenderer {
         val face = rigTransforms[1]
         System.arraycopy(body, 0, face, 0, 16)
         Matrix.translateM(face, 0, 0f, 1.0f, .20f)
-        Matrix.rotateM(face, 0, pose.headTiltDegrees + (life?.headTilt ?: 0f), 0f, 0f, 1f)
-        Matrix.rotateM(face, 0, -18f, 0f, 1f, 0f)
+        Matrix.rotateM(face, 0, (pose.headTiltDegrees + (life?.headTilt ?: 0f)) * .45f, 0f, 0f, 1f)
+        Matrix.rotateM(face, 0, -REST_BODY_YAW, 0f, 1f, 0f)
         Matrix.rotateM(face, 0, (life?.headPitch ?: 0f) * .45f + pose.neckPitchDegrees * .3f, 1f, 0f, 0f)
         Matrix.translateM(face, 0, 0f, -1.0f, -.20f)
         try {
@@ -126,8 +127,9 @@ internal object LumiGoatGeometry {
             -.58f,.035f,.060f,0f,0f, -.49f,.18f,.24f,0f,0f,
             -.27f,.265f,.33f,0f,-.025f, .04f,.27f,.34f,0f,-.02f,
             .29f,.25f,.32f,0f,0f, .48f,.18f,.23f,0f,0f, .57f,.025f,.05f,0f,0f))
+        // The chest closes inside the barrel, above the leg gap, rather than hanging below it.
         loft(LumiRig.BODY, LumiTint.FUR, 0f, 0f, 0f, 0f, 0f, 1100, floatArrayOf(
-            -.01f,.07f,.08f,0f,.08f, .22f,.19f,.23f,0f,.10f, .44f,.20f,.22f,0f,.13f,
+            .30f,.075f,.095f,0f,.08f, .44f,.20f,.22f,0f,.13f,
             .66f,.21f,.21f,0f,.15f, .88f,.17f,.16f,0f,.18f, .99f,.07f,.08f,0f,.20f))
         loft(LumiRig.HEAD, LumiTint.FUR, 0f, 0f, 0f, 0f, 0f, 3500, floatArrayOf(
             .76f,.055f,.065f,0f,.40f, .81f,.125f,.10f,0f,.40f,
