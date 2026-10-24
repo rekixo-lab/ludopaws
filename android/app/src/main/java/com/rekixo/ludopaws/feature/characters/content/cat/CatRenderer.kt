@@ -39,7 +39,7 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             val breath = 1f + (life?.breath ?: 0f)
             surface = CharacterSurface.CAT_COAT
-            catMesh(torso, CatGeometry.body, CAT_SILVER_FUR, sx = breath, sz = breath)
+            catMesh(torso, CatGeometry.body, CAT_SILVER_FUR, y = .08f, z = -.12f, sx = breath, sz = breath, rx = 90f)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)
             Matrix.translateM(neck, 0, 0f, .38f, 0f)
@@ -50,39 +50,39 @@ internal object CatRenderer : CharacterRenderer {
             surface = CharacterSurface.MATTE
             catMesh(neck, CatGeometry.collar, teamColor.glColor)
             surface = CharacterSurface.HORN
-            drawPart(neck, 0f, .40f, .276f, .060f, .076f, .026f, TAG_GOLD)
+            drawPart(neck, 0f, .375f, .30f, .043f, .052f, .018f, TAG_GOLD)
             // Lower the entire facial rig together; eyes, ears and jaw keep their own pivots.
             Matrix.translateM(neck, 0, 0f, -.18f, 0f)
             prepareHead(neck, .94f, pose.headTiltDegrees)
             CatFaceRenderer.draw(this, head, pose)
             tail(torso, pose.secondaryAppendageDegrees)
-        } finally { surface = previous }
+        } finally {
+            surface = previous
+            limbBendY = 0f
+            limbBendZ = 0f
+        }
     }
 
     private fun CharacterDrawContext.legs(parent: FloatArray, pose: CharacterPose) {
         for (leg in 0 until 4) {
             val rear = leg < 2
             val side = if (leg % 2 == 0) -1f else 1f
-            val x = side * (if (rear) .27f else .24f)
+            val x = side * (if (rear) .19f else .135f)
             val tuck = if (rear) pose.rearLegTuckDegrees else pose.frontLegTuckDegrees
             val swing = if (rear) pose.rearLegSwingDegrees else pose.frontLegSwingDegrees
             CatLegRig.solve(rear, side, swing ?: pose.legSwingDegrees,
                 tuck ?: pose.legTuckDegrees, rigScratch, pose.bodyCrouch, tuck != null)
             val hy = rigScratch[0]; val hz = rigScratch[1]
-            val ky = rigScratch[2]; val kz = rigScratch[3]
             val ay = rigScratch[4]; val az = rigScratch[5]
             surface = CharacterSurface.CAT_COAT
-            catBone(parent, CatGeometry.limb, x, hy, hz, ky, kz, if (rear) .115f else .085f, CAT_SILVER_FUR)
-            surface = CharacterSurface.SOFT_FUR
-            drawPart(parent, x, ky, kz, .075f, .078f, .078f, CAT_SILVER_FUR)
-            surface = CharacterSurface.CAT_COAT
-            catBone(parent, CatGeometry.limb, x, ky, kz, ay, az, .065f, CAT_SILVER_FUR)
+            catBone(parent, CatGeometry.limb, x, hy, hz, ay, az,
+                if (rear) .09f else .070f, CAT_SILVER_FUR)
             surface = CharacterSurface.SOFT_FUR
             catMesh(parent, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
             // Fine toe grooves read as paws without additional round toe balls.
             surface = CharacterSurface.MATTE
-            for (toe in listOf(-1f, 1f)) drawPart(parent, x + toe * .043f,
-                ay - .058f, az + .173f, .004f, .027f, .006f, CAT_STRIPE_DARK)
+            for (toe in listOf(-1f, 1f)) drawPart(parent, x + toe * .028f,
+                ay - .058f, az + .14f, .0025f, .013f, .003f, CAT_STRIPE_DARK)
         }
     }
 
