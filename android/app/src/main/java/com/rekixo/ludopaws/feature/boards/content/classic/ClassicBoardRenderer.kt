@@ -415,11 +415,11 @@ internal class ClassicBoardRenderer : BoardRenderer {
         // Clean mineral pigment with only a little warm stone tint.
         val hsv = FloatArray(3)
         Color.colorToHSV(team, hsv)
-        hsv[1] = (hsv[1] * .98f).coerceAtMost(1f)
-        hsv[2] = (hsv[2] * 1.02f).coerceAtMost(1f)
+        hsv[1] = (hsv[1] * 1.03f).coerceAtMost(1f)
+        hsv[2] = (hsv[2] * 1.04f).coerceAtMost(1f)
         // Coral stays consistent across the roof, yard and red road without a saturation boost.
         val pigment = if (COLORED_ROADS[row to col] == RED) LudoPawsBoardPalette.coral
-            else mixStone(Color.HSVToColor(hsv), LudoPawsBoardPalette.stoneLight, .045f)
+            else mixStone(Color.HSVToColor(hsv), LudoPawsBoardPalette.stoneLight, .025f)
         val bodyPath = chamferedStone(body, corner, shapeSeed)
         fillPaint.color = Color.WHITE
         fillPaint.shader = LinearGradient(body.left, body.top, body.right, body.bottom,

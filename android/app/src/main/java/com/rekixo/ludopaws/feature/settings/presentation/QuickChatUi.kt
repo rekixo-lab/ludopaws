@@ -160,8 +160,8 @@ internal fun showQuickChatPopup(
             cornerRadiusDp = 20f,
         ).apply {
             orientation = android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM
-            colors = intArrayOf(0xA3203844.toInt(), 0xB3142B36.toInt())
-            setStroke(dp(1), 0x889CDED4.toInt())
+            colors = intArrayOf(0xA315384C.toInt(), 0xB3102536.toInt())
+            setStroke(dp(1), 0x8872E2E1.toInt())
         }
         elevation = dp(3).toFloat()
     }
@@ -211,7 +211,7 @@ internal fun showQuickChatPopup(
     val arrow = TextView(context).apply {
         textSize = 18f
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-        setTextColor(0xB39CDED4.toInt())
+        setTextColor(0xB372E2E1.toInt())
         gravity = Gravity.CENTER
         includeFontPadding = false
     }

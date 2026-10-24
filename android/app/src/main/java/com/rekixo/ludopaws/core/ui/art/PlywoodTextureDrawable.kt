@@ -106,9 +106,9 @@ internal class PlywoodTextureDrawable(
             for (index in 1 until 24) {
                 val x = b.left + spacing * index
                 reliefPaint.strokeWidth = density * .65f
-                reliefPaint.color = 0x30654C32
+                reliefPaint.color = 0x404F2F17
                 canvas.drawLine(x, b.top, x, b.bottom, reliefPaint)
-                reliefPaint.color = 0x48F3E3BE
+                reliefPaint.color = 0x60FFE1A1
                 canvas.drawLine(x + density, b.top, x + density, b.bottom, reliefPaint)
             }
             lightSweepPaint.shader = LinearGradient(b.left, b.top, b.right, b.bottom,

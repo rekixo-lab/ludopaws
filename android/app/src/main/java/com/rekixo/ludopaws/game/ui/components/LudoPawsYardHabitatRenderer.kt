@@ -224,18 +224,18 @@ internal class LudoPawsYardHabitatRenderer {
 
     private fun timberRail(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float) {
         line(c, x1, y1 + 0.7f, x2, y2 + 0.7f, 0xB04B2F17.toInt(), 5.5f)
-        line(c, x1, y1, x2, y2, 0xFFAD7A4D.toInt(), 4.6f)
-        line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFDFC08C.toInt(), 2.8f)
-        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0xC0F2DFB6.toInt(), 0.62f)
+        line(c, x1, y1, x2, y2, 0xFFB37534.toInt(), 4.6f)
+        line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFF1C779.toInt(), 2.8f)
+        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0xC0FFE6AC.toInt(), 0.62f)
         line(c, x1 + .3f, y1 + .2f, x2 - .3f, y2 + .2f, 0x426B492B, .24f)
     }
 
     private fun timberPost(c: Canvas, x: Float, y: Float) {
         ellipse(c, x + 0.55f, y + 1.65f, 3.0f, 3.15f, 0x66562B16)
         roundRect(c, x - 2.55f, y - 1.6f, x + 2.55f, y + 2.6f,
-            1.75f, 0xFF956D49.toInt())
-        ellipse(c, x, y - 1.0f, 2.7f, 2.5f, 0xFF785338.toInt())
-        ellipse(c, x, y - 1.3f, 2.38f, 2.18f, 0xFFE7C891.toInt())
+            1.75f, 0xFFA36530.toInt())
+        ellipse(c, x, y - 1.0f, 2.7f, 2.5f, 0xFF80491F.toInt())
+        ellipse(c, x, y - 1.3f, 2.38f, 2.18f, 0xFFF2C66F.toInt())
         ellipse(c, x - 0.48f, y - 1.89f, 1.18f, 0.80f, 0xB1FFF1BC.toInt())
     }
 
@@ -249,7 +249,7 @@ internal class LudoPawsYardHabitatRenderer {
             litOval(c, px, py, 1.55f * size, 1.70f * size,
                 0xFFFFF9E8.toInt(), 0xFFD8CBB0.toInt())
         }
-        ellipse(c, x, y, 1.45f * size, 1.45f * size, 0xFFE7BE54.toInt())
+        ellipse(c, x, y, 1.45f * size, 1.45f * size, 0xFFF3C62D.toInt())
         ellipse(c, x - 0.34f * size, y - 0.48f * size,
             0.68f * size, 0.63f * size, 0xFFF5E6B8.toInt())
     }
