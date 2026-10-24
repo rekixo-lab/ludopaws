@@ -8,12 +8,12 @@ import com.rekixo.ludopaws.feature.characters.rendering.*
 /** Synchronous fallback until this character's shared 3D portrait is ready. */
 internal object CatAvatarRenderer : CharacterAvatarRenderer {
     override fun draw(context: CharacterAvatarContext, canvas: Canvas) = with(context) {
-        val silverFur = 0xFFD4D1C7.toInt()
+        val ochreFur = 0xFFB37342.toInt()
         val charcoalFur = 0xFF302E29.toInt()
-        val cream = 0xFFF0EBDD.toInt()
+        val cream = 0xFFCC965E.toInt()
         val pink = 0xFFBC9691.toInt()
 
-        fill.color = silverFur
+        fill.color = ochreFur
         triangle(canvas, 25f, 38f, 30f, 11f, 45f, 30f)
         triangle(canvas, 55f, 30f, 70f, 11f, 75f, 38f)
 
@@ -21,7 +21,7 @@ internal object CatAvatarRenderer : CharacterAvatarRenderer {
         triangle(canvas, 30f, 30f, 33f, 18f, 40f, 29f)
         triangle(canvas, 60f, 29f, 67f, 18f, 70f, 30f)
 
-        fill.color = silverFur
+        fill.color = ochreFur
         canvas.drawOval(RectF(24f, 22f, 76f, 74f), fill)
 
         fill.color = cream

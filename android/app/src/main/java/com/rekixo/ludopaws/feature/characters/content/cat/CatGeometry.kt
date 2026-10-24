@@ -41,15 +41,16 @@ internal object CatGeometry {
     // One continuous hip-to-ankle skin. The shared shader bends it at the solved knee.
     // The narrow upper cap stays inside the torso; no exposed round joint is needed.
     val limb=MeshLoft.build(listOf(
-        Ring(-.68f,.30f,.40f,centerZ=.90f),Ring(-.55f,1.15f,1.30f,centerZ=.45f),
-        Ring(-.36f,1.25f,1.35f,centerZ=.10f),Ring(-.12f,1.02f,1.10f),
+        Ring(-.95f,.08f,.12f,centerZ=1.20f),Ring(-.80f,.50f,.70f,centerZ=.90f),
+        Ring(-.63f,.90f,1.05f,centerZ=.65f),Ring(-.42f,1.10f,1.20f,centerZ=.20f),
+        Ring(-.15f,.95f,1.0f),
         Ring(.06f,.82f,.90f),Ring(.27f,.63f,.72f),
         Ring(.46f,.56f,.65f),Ring(.54f,.49f,.58f),
     ),20,subdivisions=3).let { coatMapped(it, .10f, .65f) }
     val paw=MeshLoft.build(listOf(
-        Ring(-.07f,.055f,.070f),Ring(-.045f,.086f,.105f,centerZ=.015f),
-        Ring(0f,.083f,.095f,centerZ=.010f),Ring(.045f,.065f,.065f),
-        Ring(.09f,.037f,.040f),
+        Ring(-.07f,.055f,.070f),Ring(-.025f,.086f,.105f,centerZ=.015f),
+        Ring(.045f,.083f,.095f,centerZ=.010f),Ring(.115f,.065f,.065f),
+        Ring(.18f,.037f,.040f),
     ),24,subdivisions=3)
     val collar=MeshLoft.build(listOf(
         Ring(.355f,.19f,.177f,centerZ=.11f),Ring(.405f,.19f,.165f,centerZ=.105f),

@@ -39,14 +39,14 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             val breath = 1f + (life?.breath ?: 0f)
             surface = CharacterSurface.CAT_COAT
-            catMesh(torso, CatGeometry.body, CAT_SILVER_FUR, y = .08f, z = -.12f, sx = breath, sz = breath, rx = 90f)
+            catMesh(torso, CatGeometry.body, CAT_TABBY_FUR, y = .08f, z = -.12f, sx = breath, sz = breath, rx = 90f)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)
             Matrix.translateM(neck, 0, 0f, .38f, 0f)
             Matrix.rotateM(neck, 0, pose.neckPitchDegrees, 1f, 0f, 0f)
             Matrix.translateM(neck, 0, 0f, -.38f, 0f)
             surface = CharacterSurface.CAT_COAT
-            catMesh(neck, CatGeometry.neck, CAT_SILVER_FUR)
+            catMesh(neck, CatGeometry.neck, CAT_TABBY_FUR)
             surface = CharacterSurface.MATTE
             catMesh(neck, CatGeometry.collar, teamColor.glColor)
             surface = CharacterSurface.HORN
@@ -64,6 +64,13 @@ internal object CatRenderer : CharacterRenderer {
     }
 
     private fun CharacterDrawContext.legs(parent: FloatArray, pose: CharacterPose) {
+        val legRoot = rigTransforms[6]
+        System.arraycopy(parent, 0, legRoot, 0, 16)
+        // Like Lumi's legs, the upper roots move into the torso as length is halved.
+        // Apply the same transform to the fur, paws and toe creases so they stay joined.
+        val lengthScale = CatDefinition.LEG_LENGTH_SCALE
+        Matrix.translateM(legRoot, 0, 0f, CatDefinition.LEG_LENGTH_ANCHOR_Y * (1f - lengthScale), 0f)
+        Matrix.scaleM(legRoot, 0, 1f, lengthScale, 1f)
         for (leg in 0 until 4) {
             val rear = leg < 2
             val side = if (leg % 2 == 0) -1f else 1f
@@ -75,13 +82,13 @@ internal object CatRenderer : CharacterRenderer {
             val hy = rigScratch[0]; val hz = rigScratch[1]
             val ay = rigScratch[4]; val az = rigScratch[5]
             surface = CharacterSurface.CAT_COAT
-            catBone(parent, CatGeometry.limb, x, hy, hz, ay, az,
-                if (rear) .09f else .070f, CAT_SILVER_FUR)
+            catBone(legRoot, CatGeometry.limb, x, hy, hz, ay, az,
+                if (rear) .09f else .070f, CAT_TABBY_FUR)
             surface = CharacterSurface.SOFT_FUR
-            catMesh(parent, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
+            catMesh(legRoot, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
             // Fine toe grooves read as paws without additional round toe balls.
             surface = CharacterSurface.MATTE
-            for (toe in listOf(-1f, 1f)) drawPart(parent, x + toe * .028f,
+            for (toe in listOf(-1f, 1f)) drawPart(legRoot, x + toe * .028f,
                 ay - .058f, az + .14f, .0025f, .013f, .003f, CAT_STRIPE_DARK)
         }
     }
@@ -98,7 +105,7 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.rotateM(chain,0,sway*(.16f+i*.035f),0f,0f,1f)
             Matrix.rotateM(chain,0,14f+i*2f,1f,0f,0f)
             catMesh(chain,if(i==5) CatGeometry.tailTip else CatGeometry.tail,
-                CAT_SILVER_FUR,
+                CAT_TABBY_FUR,
                 y=.085f,sx=radius,sy=.18f,sz=radius)
             Matrix.translateM(chain,0,0f,.17f,0f)
             radius*=.80f

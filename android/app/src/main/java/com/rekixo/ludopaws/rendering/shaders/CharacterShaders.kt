@@ -194,7 +194,7 @@ internal object CharacterShaders {
                     coatTone += sin(p.y * 145.0) * fineDetail * 0.055;
                 }
                 vec3 baseColor = uColor.rgb;
-                // Silver-tabby pigmentation: curved, uneven markings woven into a salt-and-pepper coat.
+                // Tabby pigmentation: curved, uneven markings follow the chosen natural fur color.
                 // Coordinates stay attached to the articulated meshes during motion.
                 if (uMaterial.x > 4.5 && uMaterial.x < 5.5 && uColor.r > 0.5) {
                     vec3 furCell = floor(p * vec3(480.0, 750.0, 480.0));
@@ -211,9 +211,9 @@ internal object CharacterShaders {
                     float bib = smoothstep(0.15, 0.42, p.z) *
                         (1.0 - smoothstep(0.06, 0.28, abs(p.x)));
                     stripe *= broken * (1.0 - bib * 0.42);
-                    vec3 silver = mix(uColor.rgb * vec3(0.92, 0.94, 0.95),
+                    vec3 coatBase = mix(uColor.rgb * vec3(0.92, 0.94, 0.95),
                         uColor.rgb * 1.08, smoothstep(-0.12, 0.35, p.z));
-                    baseColor = mix(silver, vec3(0.19, 0.18, 0.16), stripe * 0.94);
+                    baseColor = mix(coatBase, vec3(0.19, 0.18, 0.16), stripe * 0.94);
                     coatTone = 1.0 + (fibre - 0.5) * fineDetail * 0.09;
                 }
                 if (uMaterial.x > 3.5) {
