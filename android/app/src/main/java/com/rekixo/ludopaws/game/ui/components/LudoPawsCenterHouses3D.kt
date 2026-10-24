@@ -43,10 +43,10 @@ internal class LudoPawsCenterHouses3D {
         CornerBloom(.735f, .735f, .048f, .55f, false),
     )
     private val colors = arrayOf("BLUE", "RED", "GREEN", "YELLOW")
-    // Match the red yard's soft coral-pink perimeter instead of saturated scarlet.
+    // Roofs and routes share the board-only team palette; character materials stay independent.
     private val roofs = arrayOf(
-        rgb(0x148FEF), rgb(0xF87767),
-        rgb(0x27BE49), rgb(0xFFD02D),
+        rgb(LudoPawsBoardPalette.sky), rgb(LudoPawsBoardPalette.coral),
+        rgb(LudoPawsBoardPalette.jade), rgb(LudoPawsBoardPalette.honey),
     )
     private val roofShades = roofs.map { base ->
         Array(4) { shade -> tint(base, .91f + shade * .055f) }
@@ -189,10 +189,11 @@ internal class LudoPawsCenterHouses3D {
     private val stoneRoadArtwork by lazy {
         val recorder = StaticHouseRecorder()
         val identity = FloatArray(16).also { Matrix.setIdentityM(it, 0) }
-        val tones = arrayOf(STONE, PATH_STONE_LIGHT, rgb(0xE3D7C2))
-        val joint = rgb(0x8C806C)
-        val shieldColor = rgb(0x3489A6)
-        val checkColor = rgb(0xF7F5E8)
+        val tones = arrayOf(rgb(LudoPawsBoardPalette.stone),
+            rgb(LudoPawsBoardPalette.stoneLight), rgb(LudoPawsBoardPalette.stoneShade))
+        val joint = rgb(LudoPawsBoardPalette.joint)
+        val shieldColor = rgb(LudoPawsBoardPalette.safe)
+        val checkColor = rgb(LudoPawsBoardPalette.text)
         val safe = setOf(2 to 6, 6 to 12, 12 to 8, 8 to 2)
         fun boundary(index: Int): Float = when {
             index <= 6 -> index * 5f / 6f
@@ -823,19 +824,19 @@ internal class LudoPawsCenterHouses3D {
         fun tint(base: FloatArray, factor: Float) = floatArrayOf(
             (base[0] * factor).coerceAtMost(1f), (base[1] * factor).coerceAtMost(1f),
             (base[2] * factor).coerceAtMost(1f), 1f)
-        val CREAM = rgb(0xFFE6B5)
-        val GOLD = rgb(0xF9B63D)
+        val CREAM = rgb(0xF2DFBA)
+        val GOLD = rgb(0xE7BD6A)
         private val SILVER = rgb(0xDFE9F4)
         private val BRONZE = rgb(0xDEA16B)
         private val PARTY_COLORS = arrayOf(rgb(0xFFE784), rgb(0x7BEAF5), rgb(0xFF9ECC), rgb(0xFFF2C0))
-        val WOOD = rgb(0xA95A24)
-        val WOOD_GRAIN = rgb(0x713817)
-        val INTERIOR = rgb(0x302018)
-        val GLASS = rgb(0x328ED2)
-        val TERRACOTTA = rgb(0xB96B32)
-        val LEAF = rgb(0x409D35)
-        val WHITE = rgb(0xFFF5D9)
-        val STONE = rgb(0xEAD9B8)
+        val WOOD = rgb(0xA46D3F)
+        val WOOD_GRAIN = rgb(0x70472D)
+        val INTERIOR = rgb(0x342A25)
+        val GLASS = rgb(0x459FCB)
+        val TERRACOTTA = rgb(0xB17B58)
+        val LEAF = rgb(0x4F9169)
+        val WHITE = rgb(0xF8EFD8)
+        val STONE = rgb(0xE6DDC9)
         // Courts stay level; only the corner beds gain terrain relief.
         fun gardenHeight(x: Float, y: Float): Float {
             val ax = kotlin.math.abs(x)
@@ -846,21 +847,21 @@ internal class LudoPawsCenterHouses3D {
             val edgeFade = ((.96f - maxOf(ax, ay)) / .06f).coerceIn(0f, 1f)
             return -.025f + kotlin.math.exp(-(dx * dx + dy * dy) / .012f) * .085f * edgeFade
         }
-        val GRASS = rgb(0x72B548)
-        val GRASS_TIPS = rgb(0xB0D471)
-        val TURF_EDGE = rgb(0x527D31)
-        val EARTH = rgb(0x76513A)
-        val CONTACT_SHADE = rgb(0x405C2C)
-        val LEAF_BASE = rgb(0x57943B)
-        val LEAF_DARK = rgb(0x286B29)
-        val LEAF_LIGHT = rgb(0x69B646)
-        val PATH_STONE_LIGHT = rgb(0xF0DFC0)
-        val TERRACE_STONE = rgb(0xE7D7AE)
-        val FENCE_WOOD = rgb(0xB78045)
-        val FENCE_GRAIN = rgb(0x79502E)
-        val FENCE_PINS = rgb(0xD4AB70)
-        val FLOWER_CREAM = rgb(0xF4EBCB)
-        val FLOWER_PINK = rgb(0xDF96A0)
+        val GRASS = rgb(0x78A960)
+        val GRASS_TIPS = rgb(0xB4CC84)
+        val TURF_EDGE = rgb(0x4C7752)
+        val EARTH = rgb(0x79614A)
+        val CONTACT_SHADE = rgb(0x3D5844)
+        val LEAF_BASE = rgb(0x679C68)
+        val LEAF_DARK = rgb(0x356C4E)
+        val LEAF_LIGHT = rgb(0x8AB676)
+        val PATH_STONE_LIGHT = rgb(0xF1E6CF)
+        val TERRACE_STONE = rgb(0xD9D3BB)
+        val FENCE_WOOD = rgb(0xB98B58)
+        val FENCE_GRAIN = rgb(0x79583B)
+        val FENCE_PINS = rgb(0xD6BE8C)
+        val FLOWER_CREAM = rgb(0xF7EEDB)
+        val FLOWER_PINK = rgb(0xE6A0A1)
     }
 }
 

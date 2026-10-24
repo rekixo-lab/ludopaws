@@ -152,9 +152,7 @@ class DiceView @JvmOverloads constructor(
      */
     fun setPlayerTeamColor(colorName: String?) {
         playerTeamColor =
-            LudoPawsTeamIdentityPolicy
-                .resolve(colorName)
-                ?.argb
+            LudoPawsBoardPalette.teamColor(colorName)
         invalidate()
     }
 

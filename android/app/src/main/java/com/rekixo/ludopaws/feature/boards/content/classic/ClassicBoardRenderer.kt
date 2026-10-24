@@ -12,6 +12,7 @@ import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import java.util.Random
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import kotlin.math.min
 
 import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
@@ -378,12 +379,12 @@ internal class ClassicBoardRenderer : BoardRenderer {
         canvas.drawPath(shield, fillPaint)
         canvas.restore()
         fillPaint.shader = LinearGradient(cx - r, cy - r, cx + r, cy + r,
-            intArrayOf(0xFF55B7D6.toInt(), 0xFF22658D.toInt()),
+            intArrayOf(0xFF47979D.toInt(), LudoPawsBoardPalette.safe),
             null, Shader.TileMode.CLAMP)
         canvas.drawPath(shield, fillPaint)
         fillPaint.shader = null
         strokePaint.strokeWidth = cell * .025f
-        strokePaint.color = 0xFFE4F4F4.toInt()
+        strokePaint.color = LudoPawsBoardPalette.stoneLight
         canvas.drawPath(shield, strokePaint)
         strokePaint.strokeWidth = cell * .045f
         strokePaint.strokeCap = Paint.Cap.ROUND
@@ -414,11 +415,11 @@ internal class ClassicBoardRenderer : BoardRenderer {
         // Clean mineral pigment with only a little warm stone tint.
         val hsv = FloatArray(3)
         Color.colorToHSV(team, hsv)
-        hsv[1] = (hsv[1] * 1.18f).coerceAtMost(1f)
-        hsv[2] = (hsv[2] * 1.09f).coerceAtMost(1f)
-        // A softer brick-red avoids the saturated scarlet glare on all six red road cells.
-        val pigment = if (COLORED_ROADS[row to col] == RED) 0xFFDA6667.toInt()
-            else mixStone(Color.HSVToColor(hsv), 0xFFF1E9DA.toInt(), .055f)
+        hsv[1] = (hsv[1] * .98f).coerceAtMost(1f)
+        hsv[2] = (hsv[2] * 1.02f).coerceAtMost(1f)
+        // Coral stays consistent across the roof, yard and red road without a saturation boost.
+        val pigment = if (COLORED_ROADS[row to col] == RED) LudoPawsBoardPalette.coral
+            else mixStone(Color.HSVToColor(hsv), LudoPawsBoardPalette.stoneLight, .045f)
         val bodyPath = chamferedStone(body, corner, shapeSeed)
         fillPaint.color = Color.WHITE
         fillPaint.shader = LinearGradient(body.left, body.top, body.right, body.bottom,
@@ -626,10 +627,10 @@ internal class ClassicBoardRenderer : BoardRenderer {
             }
         }
 
-        val RED = Color.rgb(241, 37, 47)
-        val GREEN = Color.rgb(0, 169, 80)
-        val YELLOW = Color.rgb(255, 216, 27)
-        val BLUE = Color.rgb(48, 151, 215)
+        val RED = LudoPawsBoardPalette.coral
+        val GREEN = LudoPawsBoardPalette.jade
+        val YELLOW = LudoPawsBoardPalette.honey
+        val BLUE = LudoPawsBoardPalette.sky
 
         // Logical coordinates mirror the released lanes. No white road cell is included.
         val COLORED_ENTRIES = setOf(6 to 1, 1 to 8, 8 to 13, 13 to 6)

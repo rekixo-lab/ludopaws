@@ -106,8 +106,8 @@ internal class LudoPawsYardHabitatRenderer {
         roundRect(c, 12.3f, 12.3f, 87.7f, 87.6f, 10.8f, palette.lipLight)
         stoneCurb(c, palette)
         gradient(c, RectF(14.0f, 14.1f, 86.0f, 85.8f),
-            mix(palette.sandTop, 0xFFFFEED3.toInt(), .30f),
-            mix(palette.sandBottom, 0xFFE6CEA8.toInt(), .35f), 9.5f)
+            palette.sandTop,
+            palette.sandBottom, 9.5f)
         val groundClip = c.save()
         c.clipPath(Path().apply { addRoundRect(RectF(14f, 14.1f, 86f, 85.8f), 9.5f, 9.5f, Path.Direction.CW) })
         // Broad daylight and a soft rim shadow give the open earth a shallow bowl shape.
@@ -169,7 +169,7 @@ internal class LudoPawsYardHabitatRenderer {
             c.rotate(edge * 90f, 50f, 50f)
             repeat(8) { block ->
                 val x = 20f + block * 7.6f
-                val warmStone = mix(0xFFD9C9A8.toInt(), palette.bandLight, .09f)
+                val warmStone = mix(0xFFD6D3C1.toInt(), palette.bandLight, .09f)
                 roundRect(c, x - 3.45f, 11.3f, x + 3.7f, 14.5f, .7f, 0x40534230)
                 gradient(c, RectF(x - 3.5f, 10.8f, x + 3.4f, 13.9f),
                     mix(warmStone, Color.WHITE, .27f), warmStone, .65f)
@@ -224,18 +224,18 @@ internal class LudoPawsYardHabitatRenderer {
 
     private fun timberRail(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float) {
         line(c, x1, y1 + 0.7f, x2, y2 + 0.7f, 0xB04B2F17.toInt(), 5.5f)
-        line(c, x1, y1, x2, y2, 0xFFB26A2F.toInt(), 4.6f)
-        line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFF7BB62.toInt(), 2.8f)
-        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0xC0FFE6A8.toInt(), 0.62f)
+        line(c, x1, y1, x2, y2, 0xFFAD7A4D.toInt(), 4.6f)
+        line(c, x1, y1 - 0.55f, x2, y2 - 0.55f, 0xFFDFC08C.toInt(), 2.8f)
+        line(c, x1, y1 - 1.25f, x2, y2 - 1.25f, 0xC0F2DFB6.toInt(), 0.62f)
         line(c, x1 + .3f, y1 + .2f, x2 - .3f, y2 + .2f, 0x426B492B, .24f)
     }
 
     private fun timberPost(c: Canvas, x: Float, y: Float) {
         ellipse(c, x + 0.55f, y + 1.65f, 3.0f, 3.15f, 0x66562B16)
         roundRect(c, x - 2.55f, y - 1.6f, x + 2.55f, y + 2.6f,
-            1.75f, 0xFFA05B2D.toInt())
-        ellipse(c, x, y - 1.0f, 2.7f, 2.5f, 0xFF8C4E26.toInt())
-        ellipse(c, x, y - 1.3f, 2.38f, 2.18f, 0xFFFFCF7C.toInt())
+            1.75f, 0xFF956D49.toInt())
+        ellipse(c, x, y - 1.0f, 2.7f, 2.5f, 0xFF785338.toInt())
+        ellipse(c, x, y - 1.3f, 2.38f, 2.18f, 0xFFE7C891.toInt())
         ellipse(c, x - 0.48f, y - 1.89f, 1.18f, 0.80f, 0xB1FFF1BC.toInt())
     }
 
@@ -249,9 +249,9 @@ internal class LudoPawsYardHabitatRenderer {
             litOval(c, px, py, 1.55f * size, 1.70f * size,
                 0xFFFFF9E8.toInt(), 0xFFD8CBB0.toInt())
         }
-        ellipse(c, x, y, 1.45f * size, 1.45f * size, 0xFFFFB424.toInt())
+        ellipse(c, x, y, 1.45f * size, 1.45f * size, 0xFFE7BE54.toInt())
         ellipse(c, x - 0.34f * size, y - 0.48f * size,
-            0.68f * size, 0.63f * size, 0xFFFFEA9D.toInt())
+            0.68f * size, 0.63f * size, 0xFFF5E6B8.toInt())
     }
 
     private fun rock(c: Canvas, x: Float, y: Float, scale: Float) {

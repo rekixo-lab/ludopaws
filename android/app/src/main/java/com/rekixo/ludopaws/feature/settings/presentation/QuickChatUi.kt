@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.ui.quickchat
 
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -69,21 +70,21 @@ internal class QuickChatButtonView(
         val radius = size * .465f
 
         fill.shader = null
-        fill.color = 0xFF51170D.toInt()
+        fill.color = LudoPawsBoardPalette.woodShade
         fill.setShadowLayer(size * .10f, 0f, size * .035f, 0xAA000000.toInt())
         canvas.drawCircle(cx, cy, radius, fill)
         fill.clearShadowLayer()
 
         fill.shader = LinearGradient(
             cx, cy - radius, cx, cy + radius,
-            intArrayOf(0xFFFFD85B.toInt(), 0xFFE9A000.toInt(), 0xFFB93716.toInt()),
+            intArrayOf(0xFFF4E3BB.toInt(), LudoPawsBoardPalette.gold, LudoPawsBoardPalette.wood),
             null,
             Shader.TileMode.CLAMP,
         )
         canvas.drawCircle(cx, cy, radius * .91f, fill)
         fill.shader = null
 
-        stroke.color = 0xFF8B2617.toInt()
+        stroke.color = LudoPawsBoardPalette.woodShade
         stroke.strokeWidth = size * .055f
         canvas.drawCircle(cx, cy, radius * .82f, stroke)
 
@@ -95,7 +96,7 @@ internal class QuickChatButtonView(
         )
         canvas.drawCircle(cx, cy, radius * .68f, fill)
         fill.shader = null
-        stroke.color = 0xFFB67827.toInt()
+        stroke.color = LudoPawsBoardPalette.maple
         stroke.strokeWidth = size * .025f
         canvas.drawCircle(cx, cy, radius * .68f, stroke)
 
@@ -108,7 +109,7 @@ internal class QuickChatButtonView(
         fill.color = 0xFFF5F7FA.toInt()
         canvas.drawPath(bubble, fill)
 
-        fill.color = 0xFF233448.toInt()
+        fill.color = LudoPawsBoardPalette.inkDeep
         val dotRadius = size * .055f
         val dotY = cy
         canvas.drawCircle(cx - radius * .28f, dotY, dotRadius, fill)
@@ -159,8 +160,8 @@ internal fun showQuickChatPopup(
             cornerRadiusDp = 20f,
         ).apply {
             orientation = android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM
-            colors = intArrayOf(0xA30D2945.toInt(), 0xB30B2036.toInt())
-            setStroke(dp(1), 0x886DAFDD.toInt())
+            colors = intArrayOf(0xA3203844.toInt(), 0xB3142B36.toInt())
+            setStroke(dp(1), 0x889CDED4.toInt())
         }
         elevation = dp(3).toFloat()
     }
@@ -210,7 +211,7 @@ internal fun showQuickChatPopup(
     val arrow = TextView(context).apply {
         textSize = 18f
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-        setTextColor(0xB36DAFDD.toInt())
+        setTextColor(0xB39CDED4.toInt())
         gravity = Gravity.CENTER
         includeFontPadding = false
     }

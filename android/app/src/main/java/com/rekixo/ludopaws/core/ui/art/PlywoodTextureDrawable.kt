@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.core.ui.art
 
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorFilter
@@ -66,8 +67,8 @@ internal class PlywoodTextureDrawable(
             b.left,
             b.bottom,
             if (gameplayFinish) intArrayOf(
-                0xFFC99147.toInt(), 0xFFB77E3B.toInt(),
-                0xFFAD7335.toInt(), 0xFFC18A43.toInt(),
+                LudoPawsBoardPalette.mapleLight, LudoPawsBoardPalette.maple,
+                LudoPawsBoardPalette.mapleShade, LudoPawsBoardPalette.maple,
             ) else intArrayOf(
                 0xFFF0D0A1.toInt(),
                 0xFFECC796.toInt(),
@@ -105,9 +106,9 @@ internal class PlywoodTextureDrawable(
             for (index in 1 until 24) {
                 val x = b.left + spacing * index
                 reliefPaint.strokeWidth = density * .65f
-                reliefPaint.color = 0x483F210D
+                reliefPaint.color = 0x30654C32
                 canvas.drawLine(x, b.top, x, b.bottom, reliefPaint)
-                reliefPaint.color = 0x65FFE0A0
+                reliefPaint.color = 0x48F3E3BE
                 canvas.drawLine(x + density, b.top, x + density, b.bottom, reliefPaint)
             }
             lightSweepPaint.shader = LinearGradient(b.left, b.top, b.right, b.bottom,
@@ -289,7 +290,10 @@ internal class PlywoodTextureDrawable(
             b.top,
             b.left,
             b.bottom,
-            intArrayOf(
+            if (gameplayFinish) intArrayOf(
+                LudoPawsBoardPalette.maple, LudoPawsBoardPalette.wood,
+                LudoPawsBoardPalette.woodShade, 0xFF896342.toInt(),
+            ) else intArrayOf(
                 0xFFB77A3D.toInt(),
                 0xFF875027.toInt(),
                 0xFF573018.toInt(),
@@ -313,7 +317,10 @@ internal class PlywoodTextureDrawable(
             bronzeRim.top,
             bronzeRim.right,
             bronzeRim.bottom,
-            intArrayOf(
+            if (gameplayFinish) intArrayOf(
+                0xFFF4E3BB.toInt(), LudoPawsBoardPalette.gold,
+                LudoPawsBoardPalette.maple, LudoPawsBoardPalette.woodShade,
+            ) else intArrayOf(
                 0xFFFFE7B0.toInt(),
                 0xFFE9B96F.toInt(),
                 0xFFC18649.toInt(),

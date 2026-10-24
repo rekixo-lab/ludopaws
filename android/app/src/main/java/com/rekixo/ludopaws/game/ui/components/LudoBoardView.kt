@@ -93,7 +93,7 @@ class LudoBoardView @JvmOverloads constructor(
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = density(1f)
-            color = Color.rgb(70, 70, 70)
+            color = LudoPawsBoardPalette.joint
         }
     private val tokenStrokePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -535,7 +535,7 @@ class LudoBoardView @JvmOverloads constructor(
             strokePaint,
         )
         strokePaint.strokeWidth = density(1f)
-        strokePaint.color = Color.rgb(70, 70, 70)
+        strokePaint.color = LudoPawsBoardPalette.joint
     }
 
     /**
@@ -1749,14 +1749,7 @@ class LudoBoardView @JvmOverloads constructor(
     private fun colorFor(
         name: String,
     ): Int {
-        val classic =
-            when (name) {
-                "RED" -> Color.rgb(241, 37, 47)
-                "GREEN" -> Color.rgb(0, 169, 80)
-                "YELLOW" -> Color.rgb(255, 216, 27)
-                "BLUE" -> Color.rgb(48, 151, 215)
-                else -> Color.rgb(108, 117, 125)
-            }
+        val classic = LudoPawsBoardPalette.teamColor(name) ?: 0xFF74817F.toInt()
 
         return BoardRegistry.resolve(boardThemeId).teamColor(classic)
     }
