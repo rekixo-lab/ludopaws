@@ -3,7 +3,7 @@ package com.rekixo.ludopaws.feature.characters.content.cat
 import com.rekixo.ludopaws.feature.characters.domain.model.*
 
 object CatDefinition {
-    internal const val MODEL_SIZE_MULTIPLIER = 1.25f
+    internal const val MODEL_SIZE_MULTIPLIER = 1.375f
     internal const val LEG_LENGTH_SCALE = .5f
     internal const val LEG_LENGTH_ANCHOR_Y = .22f
 

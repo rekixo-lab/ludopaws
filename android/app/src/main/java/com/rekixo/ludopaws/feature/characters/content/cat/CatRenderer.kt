@@ -4,6 +4,7 @@ import android.opengl.Matrix
 import com.rekixo.ludopaws.LudoPawsTeamColor
 import com.rekixo.ludopaws.feature.characters.rendering.*
 import com.rekixo.ludopaws.feature.characters.shared.*
+import kotlin.math.sin
 
 /** One continuous torso/skull, four connected IK chains and articulated face/tail. */
 internal object CatRenderer : CharacterRenderer {
@@ -85,7 +86,7 @@ internal object CatRenderer : CharacterRenderer {
             val ay = rigScratch[4]; val az = rigScratch[5]
             surface = CharacterSurface.CAT_COAT
             catBone(legRoot, CatGeometry.limb, x, hy, hz, ay, az,
-                if (rear) .09f else .070f, CAT_TABBY_FUR)
+                if (rear) .10f else .078f, CAT_TABBY_FUR)
             surface = CharacterSurface.SOFT_FUR
             catMesh(legRoot, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
             // Fine toe grooves read as paws without additional round toe balls.
@@ -98,13 +99,19 @@ internal object CatRenderer : CharacterRenderer {
     private fun CharacterDrawContext.tail(parent: FloatArray, sway: Float) {
         val chain=rigTransforms[5]
         System.arraycopy(parent,0,chain,0,16)
-        Matrix.translateM(chain,0,.27f,.05f,-.39f)
+        // Root on the rear spine, embedded in the rump rather than glued to the flank.
+        Matrix.translateM(chain,0,0f,.24f,-.57f)
         Matrix.rotateM(chain,0,-43f,1f,0f,0f)
-        Matrix.rotateM(chain,0,-31f,0f,0f,1f)
+        Matrix.rotateM(chain,0,-12f,0f,0f,1f)
+        val time = life?.timeSeconds ?: 0f
+        val idle = life?.idleWeight ?: 0f
+        Matrix.rotateM(chain,0,sway * .12f + sin(time * 1.05f) * 2f * idle,0f,1f,0f)
         surface=CharacterSurface.CAT_COAT
         var radius=.075f
         for(i in 0..5) {
-            Matrix.rotateM(chain,0,sway*(.16f+i*.035f),0f,0f,1f)
+            // A delayed wave travels toward the tip while the embedded base stays anchored.
+            val wave = sin(time * 1.5f - i * .55f) * (1.2f + i * .4f) * idle
+            Matrix.rotateM(chain,0,sway*(.10f+i*.025f)+wave,0f,0f,1f)
             Matrix.rotateM(chain,0,14f+i*2f,1f,0f,0f)
             catMesh(chain,if(i==5) CatGeometry.tailTip else CatGeometry.tail,
                 CAT_TABBY_FUR,

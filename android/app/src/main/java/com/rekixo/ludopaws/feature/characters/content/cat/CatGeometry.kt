@@ -8,10 +8,10 @@ import com.rekixo.ludopaws.rendering.meshes.MeshLoft.Ring
 internal object CatGeometry {
     // Longitudinal ribcage, drawn along Z: a tucked belly and gently raised shoulders.
     val body=MeshLoft.build(listOf(
-        Ring(-.56f,.025f,.055f),Ring(-.46f,.19f,.22f),
-        Ring(-.27f,.275f,.285f,centerZ=-.025f),Ring(.03f,.27f,.28f,centerZ=-.015f),
-        Ring(.16f,.235f,.255f,centerZ=-.06f),Ring(.30f,.17f,.23f,centerZ=-.10f),
-        Ring(.40f,.09f,.14f,centerZ=-.17f),Ring(.44f,.020f,.050f,centerZ=-.23f),
+        Ring(-.56f,0.0275f,0.0605f),Ring(-.46f,0.209f,0.242f),
+        Ring(-.27f,0.3025f,0.3135f,centerZ=-.025f),Ring(.03f,0.297f,0.308f,centerZ=-.015f),
+        Ring(.16f,0.2585f,0.2805f,centerZ=-.06f),Ring(.30f,0.187f,0.253f,centerZ=-.10f),
+        Ring(.40f,0.099f,0.154f,centerZ=-.17f),Ring(.44f,0.022f,0.055f,centerZ=-.23f),
     ),28,subdivisions=3)
     val neck=MeshLoft.build(listOf(
         Ring(.17f,.11f,.12f,centerZ=.08f),Ring(.29f,.18f,.17f,centerZ=.11f),
@@ -48,9 +48,9 @@ internal object CatGeometry {
         Ring(.46f,.56f,.65f),Ring(.54f,.49f,.58f),
     ),20,subdivisions=3).let { coatMapped(it, .10f, .65f) }
     val paw=MeshLoft.build(listOf(
-        Ring(-.07f,.055f,.070f),Ring(-.025f,.086f,.105f,centerZ=.015f),
-        Ring(.045f,.083f,.095f,centerZ=.010f),Ring(.115f,.065f,.065f),
-        Ring(.18f,.037f,.040f),
+        Ring(-.07f,0.0594f,0.0756f),Ring(-.025f,0.0929f,0.1134f,centerZ=.015f),
+        Ring(.045f,0.0896f,0.1026f,centerZ=.010f),Ring(.115f,0.0702f,0.0702f),
+        Ring(.18f,0.04f,0.0432f),
     ),24,subdivisions=3)
     val collar=MeshLoft.build(listOf(
         Ring(.355f,.19f,.177f,centerZ=.11f),Ring(.405f,.19f,.165f,centerZ=.105f),
