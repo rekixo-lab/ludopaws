@@ -55,13 +55,13 @@ internal object CatGeometry {
     val collar=MeshLoft.build(listOf(
         Ring(.355f,.19f,.177f,centerZ=.11f),Ring(.405f,.19f,.165f,centerZ=.105f),
     ),24)
-    // Each segment ends at .80 of its root radius, matching the next segment.
+    // Closely spaced tapered segments overlap and match the next root around the curl.
     val tail=MeshLoft.build(listOf(
-        Ring(-.5f,1f,1f),Ring(0f,.90f,.90f),Ring(.5f,.80f,.80f),
-    ),12).let { coatMapped(it, .075f, .18f) }
+        Ring(-.5f,1f,1f),Ring(0f,.95f,.95f),Ring(.5f,.90f,.90f),
+    ),12).let { coatMapped(it, .075f, .14f) }
     val tailTip=MeshLoft.build(listOf(
         Ring(-.5f,1f,1f),Ring(0f,.80f,.80f),Ring(.5f,.06f,.06f),
-    ),12).let { coatMapped(it, .075f, .18f) }
+    ),12).let { coatMapped(it, .075f, .14f) }
 
     /** Unit bone/tail meshes need coat coordinates at their visible anatomical scale. */
     private fun coatMapped(mesh: MeshGeometry, width: Float, length: Float): MeshGeometry {
