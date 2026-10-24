@@ -99,25 +99,27 @@ internal object CatRenderer : CharacterRenderer {
     private fun CharacterDrawContext.tail(parent: FloatArray, sway: Float) {
         val chain=rigTransforms[5]
         System.arraycopy(parent,0,chain,0,16)
-        // Keep the root buried in the rear spine; curl outward, then toward the viewer.
+        // Root on the rear spine, embedded in the rump rather than glued to the flank.
         Matrix.translateM(chain,0,0f,.24f,-.57f)
-        Matrix.rotateM(chain,0,22f,1f,0f,0f)
-        Matrix.rotateM(chain,0,-145f,0f,0f,1f)
+        Matrix.rotateM(chain,0,-43f,1f,0f,0f)
+        Matrix.rotateM(chain,0,-18f,0f,0f,1f)
         val time = life?.timeSeconds ?: 0f
         val idle = life?.idleWeight ?: 0f
         Matrix.rotateM(chain,0,sway * .12f + sin(time * 1.05f) * 2f * idle,0f,1f,0f)
         surface=CharacterSurface.CAT_COAT
         var radius=.075f
-        for(i in 0 until 12) {
-            // Small delayed movements preserve the open ring instead of straightening it.
-            val wave = sin(time * 1.5f - i * .55f) * (1f + i * .18f) * idle
-            Matrix.rotateM(chain,0,25f+sway*(.04f+i*.006f)+wave,0f,0f,1f)
-            if (i >= 7) Matrix.rotateM(chain,0,1.5f,1f,0f,0f)
-            catMesh(chain,if(i==11) CatGeometry.tailTip else CatGeometry.tail,
+        for(i in 0..5) {
+            // A delayed wave travels toward the tip while the embedded base stays anchored.
+            val wave = sin(time * 1.5f - i * .55f) * (1.2f + i * .4f) * idle
+            // Keep the original upward arc with a gentle rightward bend toward the tip.
+            val rightCurve = if (i >= 2) -5f else 0f
+            Matrix.rotateM(chain,0,rightCurve+sway*(.10f+i*.025f)+wave,0f,0f,1f)
+            Matrix.rotateM(chain,0,14f+i*2f,1f,0f,0f)
+            catMesh(chain,if(i==5) CatGeometry.tailTip else CatGeometry.tail,
                 CAT_TABBY_FUR,
-                y=.065f,sx=radius,sy=.14f,sz=radius)
-            Matrix.translateM(chain,0,0f,.13f,0f)
-            radius*=.90f
+                y=.085f,sx=radius,sy=.18f,sz=radius)
+            Matrix.translateM(chain,0,0f,.17f,0f)
+            radius*=.80f
         }
     }
 }
