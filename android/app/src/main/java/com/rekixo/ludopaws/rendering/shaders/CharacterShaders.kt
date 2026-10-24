@@ -174,7 +174,7 @@ internal object CharacterShaders {
                     return;
                 }
                 vec3 light = normalize(-uLightDirection);
-                bool softFurLighting = uMaterial.x > 5.5 && uMaterial.x < 6.5;
+                bool softFurLighting = uMaterial.x > 4.5 && uMaterial.x < 6.5;
                 // Model Y is flipped into screen space. Soft fur key light comes from above.
                 if (softFurLighting) light.y = -abs(light.y);
                 vec3 viewDir = vec3(0.0, 0.0, 1.0);
@@ -194,6 +194,14 @@ internal object CharacterShaders {
                     coatTone += sin(p.y * 145.0) * fineDetail * 0.055;
                 }
                 vec3 baseColor = uColor.rgb;
+                // Cat-only coat pigment: broad black/ivory bands remain visible at pawn size.
+                // Local-space coordinates keep the stripes attached to each articulated mesh.
+                if (uMaterial.x > 4.5 && uMaterial.x < 5.5 && uColor.r > 0.5) {
+                    float phase = p.y * 21.0 + sin(p.x * 8.0 + p.z * 6.0) * 0.55 + p.z * 2.5;
+                    float edge = max(fwidth(phase) * 0.45, 0.10);
+                    float stripe = smoothstep(-edge, edge, sin(phase));
+                    baseColor = mix(uColor.rgb, vec3(0.035, 0.040, 0.045), stripe);
+                }
                 if (uMaterial.x > 3.5) {
                     float chest = smoothstep(0.12, 0.35, p.z) * (1.0 - smoothstep(0.12, 0.36, abs(p.x)));
                     baseColor = mix(baseColor, baseColor * 1.10, chest);

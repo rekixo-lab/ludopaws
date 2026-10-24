@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.characters.content.cat
 
+import com.rekixo.ludopaws.rendering.meshes.MeshGeometry
 import com.rekixo.ludopaws.rendering.meshes.MeshLoft
 import com.rekixo.ludopaws.rendering.meshes.MeshLoft.Ring
 
@@ -11,8 +12,8 @@ internal object CatGeometry {
         Ring(.39f,.26f,.25f),Ring(.46f,.10f,.11f),
     ),24,subdivisions=3)
     val neck=MeshLoft.build(listOf(
-        Ring(.28f,.25f,.24f),Ring(.44f,.26f,.25f),
-        Ring(.60f,.22f,.21f),Ring(.73f,.11f,.13f),
+        Ring(.28f,.25f,.24f),Ring(.38f,.26f,.25f),
+        Ring(.46f,.23f,.22f),Ring(.52f,.12f,.14f),
     ),20,subdivisions=3)
     val head=MeshLoft.build(listOf(
         Ring(.57f,.08f,.12f,centerZ=.10f),Ring(.68f,.25f,.25f,centerZ=.045f),
@@ -38,7 +39,15 @@ internal object CatGeometry {
     val limb=MeshLoft.build(listOf(
         Ring(-.5f,.55f,.63f),Ring(-.25f,.80f,.84f),
         Ring(.12f,1f,1f),Ring(.5f,.55f,.65f),
-    ),14)
+    ),14).let { mesh ->
+        // Bone meshes are normalized to unit length. Give their coat coordinates
+        // a limb-sized scale so they carry broad bands rather than many tiny rings.
+        val coatPositions = FloatArray(mesh.vertices.size / 2) { index ->
+            val component = index % 3
+            mesh.vertices[(index / 3) * 6 + component] * if (component == 1) .36f else .10f
+        }
+        MeshGeometry(mesh.vertices, mesh.indices, coatPositions)
+    }
     val paw=MeshLoft.build(listOf(
         Ring(-.07f,.06f,.08f),Ring(-.035f,.115f,.15f,centerZ=.035f),
         Ring(.035f,.10f,.13f,centerZ=.02f),Ring(.07f,.045f,.065f),

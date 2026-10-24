@@ -8,8 +8,9 @@ import kotlin.math.*
 /** Ear roots and jaw are hinged; the eyes and fine whiskers follow the skull. */
 internal object CatFaceRenderer {
     fun draw(ctx: CharacterDrawContext,parent: FloatArray,pose: CharacterPose)=with(ctx) {
-        surface=CharacterSurface.COAT
-        catMesh(parent,CatGeometry.head,CAT_SILVER)
+        surface=CharacterSurface.CAT_COAT
+        catMesh(parent,CatGeometry.head,CAT_WHITE_FUR)
+        surface=CharacterSurface.SOFT_FUR
         catMesh(parent,CatGeometry.muzzle,CAT_CREAM)
         for(i in 0..1) {
             val side=if(i==0) -1f else 1f
@@ -22,8 +23,8 @@ internal object CatFaceRenderer {
             val earAngle=if(pose.primaryAppendageDegrees<0f) 12f-pose.primaryAppendageDegrees*1.4f else 12f-pose.primaryAppendageDegrees*.35f
             Matrix.rotateM(ear,0,-side*(earAngle+twitch),0f,0f,1f)
             Matrix.rotateM(ear,0,-6f,1f,0f,0f)
-            surface=CharacterSurface.COAT
-            catMesh(ear,CatGeometry.ear,CAT_SILVER,sx=side)
+            surface=CharacterSurface.CAT_COAT
+            catMesh(ear,CatGeometry.ear,CAT_WHITE_FUR,sx=side)
             surface=CharacterSurface.MATTE
             catMesh(ear,CatGeometry.ear,CAT_EAR_PINK,y=.025f,z=.060f,sx=side*.66f,sy=.73f,sz=.20f)
         }
@@ -37,7 +38,7 @@ internal object CatFaceRenderer {
             for(i in 0..2) drawPart(parent,side*.315f,.745f-i*.035f,.427f,
                 .145f,.0035f,.0035f,CAT_WHISKER,rotateZ=side*(12f-i*12f))
         }
-        surface=CharacterSurface.COAT
+        surface=CharacterSurface.CAT_COAT
         // Small tabby forehead marks remain close to the skull surface.
         for(i in -1..1) drawPart(parent,i*.105f,1.14f,.258f,
             .020f,.083f,.012f,CAT_STRIPE_DARK,rotateZ=i*18f)
@@ -49,7 +50,7 @@ internal object CatFaceRenderer {
         Matrix.translateM(jaw,0,0f,-.73f,-.19f)
         surface=CharacterSurface.MATTE
         drawPart(parent,0f,.663f,.422f,.12f,.006f+open*.038f,.020f,CAT_PUPIL_DARK)
-        surface=CharacterSurface.COAT
+        surface=CharacterSurface.SOFT_FUR
         catMesh(jaw,CatGeometry.jaw,CAT_CREAM)
         if(open>.16f) {
             surface=CharacterSurface.NOSE
@@ -61,7 +62,7 @@ internal object CatFaceRenderer {
         val open=life?.blink ?: 1f
         val gx=(life?.gazeX ?: 0f)*.45f
         val gy=(life?.gazeY ?: 0f)*.45f
-        surface=CharacterSurface.COAT
+        surface=CharacterSurface.CAT_COAT
         drawPart(parent,x,1.015f,.268f,.116f,.122f,.051f,CAT_STRIPE_DARK,rotateZ=-side*9f)
         surface=CharacterSurface.EYE
         drawPart(parent,x,1.015f,.297f,.103f,.108f*open,.034f,CAT_EYE_GREEN,rotateZ=-side*9f)
