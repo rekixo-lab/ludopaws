@@ -39,14 +39,14 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             val breath = 1f + (life?.breath ?: 0f)
             surface = CharacterSurface.CAT_COAT
-            catMesh(torso, CatGeometry.body, CAT_WHITE_FUR, sx = breath, sz = breath)
+            catMesh(torso, CatGeometry.body, CAT_SILVER_FUR, sx = breath, sz = breath)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)
             Matrix.translateM(neck, 0, 0f, .38f, 0f)
             Matrix.rotateM(neck, 0, pose.neckPitchDegrees, 1f, 0f, 0f)
             Matrix.translateM(neck, 0, 0f, -.38f, 0f)
             surface = CharacterSurface.CAT_COAT
-            catMesh(neck, CatGeometry.neck, CAT_WHITE_FUR)
+            catMesh(neck, CatGeometry.neck, CAT_SILVER_FUR)
             surface = CharacterSurface.MATTE
             catMesh(neck, CatGeometry.collar, teamColor.glColor)
             surface = CharacterSurface.HORN
@@ -72,11 +72,11 @@ internal object CatRenderer : CharacterRenderer {
             val ky = rigScratch[2]; val kz = rigScratch[3]
             val ay = rigScratch[4]; val az = rigScratch[5]
             surface = CharacterSurface.CAT_COAT
-            catBone(parent, CatGeometry.limb, x, hy, hz, ky, kz, if (rear) .115f else .085f, CAT_WHITE_FUR)
+            catBone(parent, CatGeometry.limb, x, hy, hz, ky, kz, if (rear) .115f else .085f, CAT_SILVER_FUR)
             surface = CharacterSurface.SOFT_FUR
-            drawPart(parent, x, ky, kz, .075f, .078f, .078f, CAT_WHITE_FUR)
+            drawPart(parent, x, ky, kz, .075f, .078f, .078f, CAT_SILVER_FUR)
             surface = CharacterSurface.CAT_COAT
-            catBone(parent, CatGeometry.limb, x, ky, kz, ay, az, .065f, CAT_WHITE_FUR)
+            catBone(parent, CatGeometry.limb, x, ky, kz, ay, az, .065f, CAT_SILVER_FUR)
             surface = CharacterSurface.SOFT_FUR
             catMesh(parent, CatGeometry.paw, CAT_CREAM, x, ay - .03f, az + .035f)
             // Fine toe grooves read as paws without additional round toe balls.
@@ -98,7 +98,7 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.rotateM(chain,0,sway*(.16f+i*.035f),0f,0f,1f)
             Matrix.rotateM(chain,0,14f+i*2f,1f,0f,0f)
             catMesh(chain,if(i==5) CatGeometry.tailTip else CatGeometry.tail,
-                CAT_WHITE_FUR,
+                CAT_SILVER_FUR,
                 y=.085f,sx=radius,sy=.18f,sz=radius)
             Matrix.translateM(chain,0,0f,.17f,0f)
             radius*=.80f

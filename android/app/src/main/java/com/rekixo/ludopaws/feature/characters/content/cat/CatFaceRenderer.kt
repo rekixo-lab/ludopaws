@@ -9,7 +9,7 @@ import kotlin.math.*
 internal object CatFaceRenderer {
     fun draw(ctx: CharacterDrawContext,parent: FloatArray,pose: CharacterPose)=with(ctx) {
         surface=CharacterSurface.CAT_COAT
-        catMesh(parent,CatGeometry.head,CAT_WHITE_FUR)
+        catMesh(parent,CatGeometry.head,CAT_SILVER_FUR)
         surface=CharacterSurface.SOFT_FUR
         catMesh(parent,CatGeometry.muzzle,CAT_CREAM)
         for(i in 0..1) {
@@ -24,7 +24,7 @@ internal object CatFaceRenderer {
             Matrix.rotateM(ear,0,-side*(earAngle+twitch),0f,0f,1f)
             Matrix.rotateM(ear,0,-6f,1f,0f,0f)
             surface=CharacterSurface.CAT_COAT
-            catMesh(ear,CatGeometry.ear,CAT_WHITE_FUR,sx=side)
+            catMesh(ear,CatGeometry.ear,CAT_SILVER_FUR,sx=side)
             surface=CharacterSurface.MATTE
             catMesh(ear,CatGeometry.ear,CAT_EAR_PINK,y=.025f,z=.060f,sx=side*.66f,sy=.73f,sz=.20f)
         }

@@ -194,13 +194,27 @@ internal object CharacterShaders {
                     coatTone += sin(p.y * 145.0) * fineDetail * 0.055;
                 }
                 vec3 baseColor = uColor.rgb;
-                // Fine, narrow cat stripes follow the fur instead of forming broad equal-width bands.
-                // Local-space coordinates keep the stripes attached to each articulated mesh.
+                // Silver-tabby pigmentation: curved, uneven markings woven into a salt-and-pepper coat.
+                // Coordinates stay attached to the articulated meshes during motion.
                 if (uMaterial.x > 4.5 && uMaterial.x < 5.5 && uColor.r > 0.5) {
-                    float phase = p.y * 60.0 + sin(p.x * 14.0 + p.z * 9.0) * 0.85 + p.z * 4.0;
-                    float edge = clamp(fwidth(phase) * 0.25, 0.04, 0.28);
-                    float stripe = smoothstep(0.70 - edge, 0.86 + edge, sin(phase));
-                    baseColor = mix(uColor.rgb, vec3(0.035, 0.040, 0.045), stripe);
+                    vec3 furCell = floor(p * vec3(480.0, 750.0, 480.0));
+                    float fibre = fract(sin(dot(furCell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+                    float flow = sin(p.x * 13.0 + p.z * 8.0) * 1.5 +
+                        sin(p.y * 17.0 - p.x * 7.0 + p.z * 11.0) * 0.65;
+                    float phase = p.y * 48.0 + abs(p.x) * 12.0 + p.z * 20.0 + flow;
+                    float width = 0.52 + sin(p.x * 19.0 - p.y * 13.0 + p.z * 9.0) * 0.20;
+                    float edge = clamp(fwidth(phase) * 0.28, 0.09, 0.28);
+                    float stripe = smoothstep(width - edge, width + 0.22 + edge, sin(phase));
+                    float broken = 0.20 + 0.80 * smoothstep(-0.55, 0.45,
+                        sin(p.x * 24.0 + p.y * 14.0 - p.z * 17.0) +
+                        sin(p.z * 31.0 + p.x * 11.0) * 0.22);
+                    float bib = smoothstep(0.15, 0.42, p.z) *
+                        (1.0 - smoothstep(0.06, 0.28, abs(p.x)));
+                    stripe *= broken * (1.0 - bib * 0.42);
+                    vec3 silver = mix(uColor.rgb * vec3(0.92, 0.94, 0.95),
+                        uColor.rgb * 1.08, smoothstep(-0.12, 0.35, p.z));
+                    baseColor = mix(silver, vec3(0.19, 0.18, 0.16), stripe * 0.94);
+                    coatTone = 1.0 + (fibre - 0.5) * fineDetail * 0.09;
                 }
                 if (uMaterial.x > 3.5) {
                     float chest = smoothstep(0.12, 0.35, p.z) * (1.0 - smoothstep(0.12, 0.36, abs(p.x)));

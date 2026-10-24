@@ -8,12 +8,12 @@ import com.rekixo.ludopaws.feature.characters.rendering.*
 /** Synchronous fallback until this character's shared 3D portrait is ready. */
 internal object CatAvatarRenderer : CharacterAvatarRenderer {
     override fun draw(context: CharacterAvatarContext, canvas: Canvas) = with(context) {
-        val whiteFur = 0xFFF5F5F0.toInt()
-        val blackFur = 0xFF101214.toInt()
-        val cream = 0xFFFAF7F0.toInt()
-        val pink = 0xFFE98B93.toInt()
+        val silverFur = 0xFFD4D1C7.toInt()
+        val charcoalFur = 0xFF302E29.toInt()
+        val cream = 0xFFF0EBDD.toInt()
+        val pink = 0xFFBC9691.toInt()
 
-        fill.color = whiteFur
+        fill.color = silverFur
         triangle(canvas, 25f, 38f, 30f, 11f, 45f, 30f)
         triangle(canvas, 55f, 30f, 70f, 11f, 75f, 38f)
 
@@ -21,13 +21,13 @@ internal object CatAvatarRenderer : CharacterAvatarRenderer {
         triangle(canvas, 30f, 30f, 33f, 18f, 40f, 29f)
         triangle(canvas, 60f, 29f, 67f, 18f, 70f, 30f)
 
-        fill.color = whiteFur
+        fill.color = silverFur
         canvas.drawOval(RectF(24f, 22f, 76f, 74f), fill)
 
         fill.color = cream
         canvas.drawOval(RectF(33f, 49f, 67f, 72f), fill)
 
-        stroke.color = blackFur
+        stroke.color = charcoalFur
         stroke.strokeWidth = 1.3f
         canvas.drawLine(45f, 27f, 43f, 37f, stroke)
         canvas.drawLine(50f, 25f, 50f, 36f, stroke)
@@ -39,7 +39,7 @@ internal object CatAvatarRenderer : CharacterAvatarRenderer {
         fill.color = pink
         triangle(canvas, 46f, 55f, 54f, 55f, 50f, 61f)
 
-        stroke.color = blackFur
+        stroke.color = charcoalFur
         stroke.strokeWidth = 1.7f
         canvas.drawLine(34f, 58f, 22f, 55f, stroke)
         canvas.drawLine(34f, 62f, 21f, 63f, stroke)
