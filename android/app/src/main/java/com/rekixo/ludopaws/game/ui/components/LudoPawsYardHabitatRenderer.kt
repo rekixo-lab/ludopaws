@@ -19,7 +19,7 @@ import kotlin.random.Random
  *
  * One composition is reused for all four Ludo team colors:
  * - square-to-square opaque cover: never exposes the old plain color strip
- * - a raised colored turf border and recessed golden-sand inner play space
+ * - a raised colored turf border and recessed muted-sage inner play space
  * - small corner timber fence details, sparse leaves, stones and daisies
  * - NO animals, pawn pads, central grass clutter, WebP atlas or image loading
  *
@@ -106,19 +106,18 @@ internal class LudoPawsYardHabitatRenderer {
         roundRect(c, 12.3f, 12.3f, 87.7f, 87.6f, 10.8f, palette.lipLight)
         stoneCurb(c, palette)
         gradient(c, RectF(14.0f, 14.1f, 86.0f, 85.8f),
-            mix(palette.sandTop, 0xFFFFEED3.toInt(), .30f),
-            mix(palette.sandBottom, 0xFFE6CEA8.toInt(), .35f), 9.5f)
+            palette.sandTop, palette.sandBottom, 9.5f)
         val groundClip = c.save()
         c.clipPath(Path().apply { addRoundRect(RectF(14f, 14.1f, 86f, 85.8f), 9.5f, 9.5f, Path.Direction.CW) })
         // Broad daylight and a soft rim shadow give the open earth a shallow bowl shape.
         brush.shader = RadialGradient(31f, 27f, 70f,
-            intArrayOf(0x30FFF9E7, 0x00FFF9E7, 0x205D4933),
+            intArrayOf(0x12EAF2E8, 0x00EAF2E8, 0x1833443B),
             floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
         c.drawRect(14f, 14.1f, 86f, 85.8f, brush)
         brush.shader = null
         c.restoreToCount(groundClip)
         outline(c, 14.1f, 14.1f, 85.9f, 85.7f,
-            9.4f, 0x5BFFF6C8, 0.8f)
+            9.4f, 0x38D2E1D4, 0.8f)
 
         // The four animals stand at canonical 30/70% positions. Leave the
         // ENTIRE 20..80% interior free of scenery and obvious painted slots.
@@ -129,7 +128,7 @@ internal class LudoPawsYardHabitatRenderer {
             val y = 16f + dust.nextFloat() * 68f
             val radius = 0.06f + dust.nextFloat() * 0.16f
             ellipse(c, x, y, radius * 1.45f, radius,
-                if (it % 3 == 0) 0x35FFF8E8 else palette.sandSpeck)
+                if (it % 3 == 0) 0x14E4EEE2 else palette.sandSpeck)
         }
 
         // Small fence pieces and plants are around CORNERS and outer ring,

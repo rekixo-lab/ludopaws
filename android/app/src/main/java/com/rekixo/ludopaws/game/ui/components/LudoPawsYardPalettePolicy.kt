@@ -22,6 +22,11 @@ internal data class LudoPawsYardPalette(
 )
 
 internal object LudoPawsYardPalettePolicy {
+    // Muted sage earth separates pale coats from the ground without competing with team rims.
+    private val GROUND_TOP = 0xFF728579.toInt()
+    private val GROUND_BOTTOM = 0xFF5E7368.toInt()
+    private const val GROUND_SPECK = 0x18324239
+
     fun forTeam(color: String): LudoPawsYardPalette? = when (color) {
         "RED" -> LudoPawsYardPalette(
             rimDark = 0xFF7A2830.toInt(),
@@ -32,9 +37,9 @@ internal object LudoPawsYardPalettePolicy {
             recessShadow = 0xFF742631.toInt(),
             lipDark = 0xFF8E3436.toInt(),
             lipLight = 0xFFD77058.toInt(),
-            sandTop = 0xFFFFE8BF.toInt(),
-            sandBottom = 0xFFFFD09C.toInt(),
-            sandSpeck = 0x21B97B49,
+            sandTop = GROUND_TOP,
+            sandBottom = GROUND_BOTTOM,
+            sandSpeck = GROUND_SPECK,
             leafShade = 0xFF397B3A.toInt(),
             leafLight = 0xFF83CC55.toInt(),
         )
@@ -47,9 +52,9 @@ internal object LudoPawsYardPalettePolicy {
             recessShadow = 0xFF0A582C.toInt(),
             lipDark = 0xFF116D31.toInt(),
             lipLight = 0xFF27953A.toInt(),
-            sandTop = 0xFFFFE8B8.toInt(),
-            sandBottom = 0xFFFFD39C.toInt(),
-            sandSpeck = 0x21B88344,
+            sandTop = GROUND_TOP,
+            sandBottom = GROUND_BOTTOM,
+            sandSpeck = GROUND_SPECK,
             leafShade = 0xFF317E36.toInt(),
             leafLight = 0xFF86D451.toInt(),
         )
@@ -62,9 +67,9 @@ internal object LudoPawsYardPalettePolicy {
             recessShadow = 0xFF8B651B.toInt(),
             lipDark = 0xFFA37B26.toInt(),
             lipLight = 0xFFE4B84B.toInt(),
-            sandTop = 0xFFFFEAC6.toInt(),
-            sandBottom = 0xFFF4D09C.toInt(),
-            sandSpeck = 0x1DAB8038,
+            sandTop = GROUND_TOP,
+            sandBottom = GROUND_BOTTOM,
+            sandSpeck = GROUND_SPECK,
             leafShade = 0xFF62893D.toInt(),
             leafLight = 0xFFA8CE62.toInt(),
         )
@@ -77,9 +82,9 @@ internal object LudoPawsYardPalettePolicy {
             recessShadow = 0xFF115779.toInt(),
             lipDark = 0xFF176888.toInt(),
             lipLight = 0xFF43A8C8.toInt(),
-            sandTop = 0xFFFFEAD0.toInt(),
-            sandBottom = 0xFFEED5AF.toInt(),
-            sandSpeck = 0x1DA98B65,
+            sandTop = GROUND_TOP,
+            sandBottom = GROUND_BOTTOM,
+            sandSpeck = GROUND_SPECK,
             leafShade = 0xFF347E59.toInt(),
             leafLight = 0xFF7DCA80.toInt(),
         )
