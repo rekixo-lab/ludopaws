@@ -179,6 +179,84 @@ internal class LudoPawsCenterHouses3D {
     }
     private val staticTransform = FloatArray(16)
 
+    // The roads use the very same bevelled solid as the entrance steps, baked once.
+    private val roadTransform = FloatArray(16)
+    private val roadShield = MeshBuilder().apply {
+        prism(listOf(v(0f, -.26f), v(.22f, -.17f), v(.20f, .03f),
+            v(.12f, .18f), v(0f, .27f), v(-.12f, .18f),
+            v(-.20f, .03f), v(-.22f, -.17f)), -.008f, .008f)
+    }.build()
+    private val stoneRoadArtwork by lazy {
+        val recorder = StaticHouseRecorder()
+        val identity = FloatArray(16).also { Matrix.setIdentityM(it, 0) }
+        val tones = arrayOf(STONE, PATH_STONE_LIGHT, rgb(0xE3D7C2))
+        val joint = rgb(0x8C806C)
+        val shieldColor = rgb(0x3489A6)
+        val checkColor = rgb(0xF7F5E8)
+        val safe = setOf(2 to 6, 6 to 12, 12 to 8, 8 to 2)
+        fun boundary(index: Int): Float = when {
+            index <= 6 -> index * 5f / 6f
+            index <= 9 -> 5f + (index - 6) * 5f / 3f
+            else -> 10f + (index - 9) * 5f / 6f
+        }
+        for (row in 0 until 15) for (col in 0 until 15) {
+            val vertical = col in 6..8 && (row < 6 || row >= 9)
+            val horizontal = row in 6..8 && (col < 6 || col >= 9)
+            if (!vertical && !horizontal) continue
+            // Preserve all coloured home lanes and the four coloured start cells.
+            if ((col == 7 && row in 1..5) || (row == 7 && col in 1..5) ||
+                (col == 7 && row in 9..13) || (row == 7 && col in 9..13) ||
+                (row == 6 && col == 1) || (row == 1 && col == 8) ||
+                (row == 8 && col == 13) || (row == 13 && col == 6)) continue
+            val left = boundary(col)
+            val top = boundary(row)
+            val width = boundary(col + 1) - left
+            val height = boundary(row + 1) - top
+            val unit = minOf(width, height)
+            val cx = left + width * .5f
+            val cy = top + height * .5f
+            val gap = unit * .065f
+            val sx = width * .5f - gap
+            val sy = height * .5f - gap
+            val depth = unit * (.032f + ((row * 7 + col * 3) % 3) * .003f)
+            recorder.surface = CharacterSurface.MATTE
+            part(recorder, identity, stoneBlock, cx + unit * .012f, cy + unit * .018f,
+                .004f, sx + unit * .006f, sy + unit * .006f, .003f, joint)
+            recorder.surface = CharacterSurface.GARDEN_STONE
+            part(recorder, identity, stoneBlock, cx, cy - unit * .012f,
+                depth + .009f, sx, sy, depth, tones[(row * 7 + col * 11) % tones.size])
+            if ((row to col) in safe) {
+                // Keep safety readable on top of the slab instead of hiding the Canvas marker.
+                val z = depth * 2f + .023f
+                recorder.surface = CharacterSurface.MATTE
+                part(recorder, identity, roadShield, cx, cy, z, unit, unit, unit, shieldColor)
+                beam(recorder, identity, v(cx - unit * .10f, cy, z + .014f),
+                    v(cx - unit * .025f, cy + unit * .075f, z + .014f), unit * .020f, checkColor)
+                beam(recorder, identity, v(cx - unit * .025f, cy + unit * .075f, z + .014f),
+                    v(cx + unit * .12f, cy - unit * .085f, z + .014f), unit * .020f, checkColor)
+            }
+        }
+        recorder.batches()
+    }
+
+    fun drawStoneRoads(context: CharacterDrawContext, size: Float, quarterTurns: Int) {
+        val previousSurface = context.surface
+        context.life = null
+        context.limbBendY = 0f
+        context.limbBendZ = 0f
+        Matrix.setIdentityM(roadTransform, 0)
+        Matrix.translateM(roadTransform, 0, size * .5f, size * .5f, 0f)
+        Matrix.rotateM(roadTransform, 0, quarterTurns * 90f, 0f, 0f, 1f)
+        val scale = size / 15f
+        Matrix.scaleM(roadTransform, 0, scale, scale, scale)
+        Matrix.translateM(roadTransform, 0, -7.5f, -7.5f, 0f)
+        stoneRoadArtwork.forEach { batch ->
+            context.surface = batch.surface
+            part(context, roadTransform, batch.geometry, 0f, 0f, 0f, 1f, 1f, 1f, batch.color)
+        }
+        context.surface = previousSurface
+    }
+
     fun draw(
         context: CharacterDrawContext,
         size: Float,
@@ -721,7 +799,7 @@ internal class LudoPawsCenterHouses3D {
             preparing = true
             artworkWorker.execute {
                 val result = runCatching {
-                    LudoPawsCenterHouses3D().also { it.staticArtwork }
+                    LudoPawsCenterHouses3D().also { it.staticArtwork; it.stoneRoadArtwork }
                 }
                 synchronized(this) {
                     result.onSuccess { prepared = it }
