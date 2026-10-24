@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.feature.characters.content.lumi.LumiGoatDefinition
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -138,7 +139,7 @@ object LudoPawsPawnLayout {
     internal fun silhouetteHeight(characterId: String): Float = when (characterId) {
         "donkey" -> 3.35f
         "goat" -> 3.15f
-        "goat_lumi" -> 2.35f
+        "goat_lumi" -> 2.35f * LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
         "duck" -> 2.85f
         else -> 3f
     }

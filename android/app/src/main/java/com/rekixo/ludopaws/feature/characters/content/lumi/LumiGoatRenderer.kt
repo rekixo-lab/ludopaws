@@ -22,6 +22,8 @@ internal object LumiGoatRenderer : CharacterRenderer {
         val previous = surface
         val body = rigTransforms[0]
         System.arraycopy(parent, 0, body, 0, 16)
+        val size = LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
+        Matrix.scaleM(body, 0, size, size, size)
         Matrix.rotateM(body, 0, 18f, 0f, 1f, 0f)
         Matrix.translateM(body, 0, 0f, -pose.bodyCrouch * .45f, 0f)
         Matrix.rotateM(body, 0, pose.bodyPitchDegrees * .5f, 1f, 0f, 0f)

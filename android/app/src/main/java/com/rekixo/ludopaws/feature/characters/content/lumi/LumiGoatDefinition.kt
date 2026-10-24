@@ -10,6 +10,8 @@ import com.rekixo.ludopaws.feature.characters.rendering.CharacterAvatarRenderer
 
 /** Separate starter character; the original Goat and saved Goat selections stay intact. */
 object LumiGoatDefinition {
+    internal const val MODEL_SIZE_MULTIPLIER = 1.2f
+
     val content = GoatDefinition.content.let { goat ->
         goat.copy(
             character = goat.character.copy(
@@ -19,8 +21,8 @@ object LumiGoatDefinition {
             voiceSet = VoiceSet("goat_lumi_default", goat.character.species),
             animationSet = AnimationSet("goat_lumi_default"),
             storeDisplayOrder = 6,
-            // .42 + (-.96 - .42) * .5: feet follow the shortened leg rig.
-            groundPivotY = -.27f,
+            // Keep foot contact aligned with the shortened, uniformly enlarged model.
+            groundPivotY = -.27f * MODEL_SIZE_MULTIPLIER,
             footBaselinePerRadius = 1.18f,
         )
     }

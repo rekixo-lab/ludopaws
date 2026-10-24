@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.feature.characters.content.lumi.LumiGoatDefinition
 import android.content.Context
 import android.graphics.Outline
 import android.graphics.Canvas
@@ -390,7 +391,11 @@ class LudoPawsBoardView @JvmOverloads constructor(
                         cell * LudoPawsPawnLayout.radiusScale(position, stack?.occupancy ?: 1) else fit.radius
                     val footY = screen.second + if (classicPawnFallbackVisible) 0f else fit.footDrop
                     val heightRatio = LudoPawsPawnLayout.silhouetteHeight(id)
-                    val halfWidth = radius * if (id == "duck") .95f else .86f
+                    val halfWidth = radius * when (id) {
+                        "duck" -> .95f
+                        "goat_lumi" -> .86f * LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
+                        else -> .86f
+                    }
                     val bodyHeight = radius * heightRatio
                     val bounds = if (classicPawnFallbackVisible) {
                         RectF(screen.first - radius, screen.second - radius,
