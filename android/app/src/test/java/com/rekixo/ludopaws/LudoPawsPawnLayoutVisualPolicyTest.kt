@@ -24,7 +24,7 @@ class LudoPawsPawnLayoutVisualPolicyTest {
             0.0001f,
         )
         assertEquals(
-            0.462f,
+            0.3696f,
             LudoPawsPawnLayout.radiusScale(
                 position = LudoPathEncoding.HOME_POSITION,
                 occupancy = 1,

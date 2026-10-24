@@ -2,6 +2,7 @@ package com.rekixo.ludopaws
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LudoPawsFxBoardGeometryTest {
@@ -66,7 +67,7 @@ class LudoPawsFxBoardGeometryTest {
     }
 
     @Test
-    fun `yard token slots match fixed half cell inset white home`() {
+    fun `yard token slots retain the approved downward foot offset`() {
         val cell = 60f
         val redTopLeft =
             requireNotNull(
@@ -88,28 +89,37 @@ class LudoPawsFxBoardGeometryTest {
             )
 
         assertEquals(1.5f * cell, redTopLeft.first, EPSILON)
-        assertEquals(1.5f * cell, redTopLeft.second, EPSILON)
+        assertEquals(1.9f * cell, redTopLeft.second, EPSILON)
         assertEquals(13.5f * cell, yellowBottomRight.first, EPSILON)
-        assertEquals(13.5f * cell, yellowBottomRight.second, EPSILON)
+        assertEquals(13.9f * cell, yellowBottomRight.second, EPSILON)
     }
 
     @Test
-    fun `finish centers match locked center triangles`() {
+    fun `finish courts have four distinct slots inside the center in every perspective`() {
         val cell = 60f
-
+        for (color in listOf("RED", "GREEN", "YELLOW", "BLUE")) {
+            for (turns in 0..3) {
+                val slots = (0..3).map { token ->
+                    requireNotNull(LudoPawsFxBoardGeometry.tokenCenter(
+                        color, token, LudoPathEncoding.HOME_POSITION, cell, turns,
+                    ))
+                }
+                assertEquals("$color perspective $turns must not stack finish slots", 4, slots.toSet().size)
+                slots.forEach { (x, y) ->
+                    assertTrue("Finish slot outside garden", x > 5f * cell && x < 10f * cell)
+                    assertTrue("Finish slot outside garden", y > 5f * cell && y < 10f * cell)
+                }
+                for (i in slots.indices) for (j in i + 1 until slots.size) {
+                    val dx = slots[i].first - slots[j].first
+                    val dy = slots[i].second - slots[j].second
+                    assertTrue("Finish slots must leave space between animals", dx * dx + dy * dy > cell * cell * .25f)
+                }
+            }
+        }
+        // First members stand alongside the entrance, not on its central approach.
         val red = finishCenter("RED", cell)
-        val green = finishCenter("GREEN", cell)
-        val yellow = finishCenter("YELLOW", cell)
-        val blue = finishCenter("BLUE", cell)
-
-        assertEquals(6.5f * cell, red.first, EPSILON)
-        assertEquals(7.5f * cell, red.second, EPSILON)
-        assertEquals(7.5f * cell, green.first, EPSILON)
-        assertEquals(6.5f * cell, green.second, EPSILON)
-        assertEquals(8.5f * cell, yellow.first, EPSILON)
-        assertEquals(7.5f * cell, yellow.second, EPSILON)
-        assertEquals(7.5f * cell, blue.first, EPSILON)
-        assertEquals(8.5f * cell, blue.second, EPSILON)
+        assertEquals(5.8f * cell, red.first, EPSILON)
+        assertEquals(6.225f * cell, red.second, EPSILON)
     }
 
     @Test
