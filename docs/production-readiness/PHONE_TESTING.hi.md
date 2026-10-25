@@ -1,6 +1,29 @@
 # अपने Android मोबाइल पर सुरक्षित QA जाँच
 
-## रोजमर्रा की full feature testing
+## Google Play वाले build पर वास्तविक integration acceptance
+
+25 अक्टूबर 2026 को **rc9 / versionCode 9** Internal testing में release हुआ।
+अपने अधिकृत tester account से यह link खोलें:
+https://play.google.com/apps/internaltest/4701696451906351095
+
+फोन में Play Store से installed rc9 (`installer=com.android.vending`) पर Google account
+Restore तथा zero-charge **Test card, always approves** purchase सफल हुई। Backend ने
+300 Gems दिए; restart के बाद 300 रहे। Test card केवल license tester को मिलता है।
+Real card/UPI दिखे तो test के नाम पर वास्तविक भुगतान न करें।
+
+इस फोन पर side-loaded debug build prices दिखाता था, लेकिन checkout में item-not-found था;
+Play-distributed rc9 में यह error नहीं आया। इससे हर debug build/phone पर खरीदारी की
+गारंटी नहीं मिलती। कई Google accounts वाले फोन में Play billing का account app download
+history से भी तय हो सकता है; केवल foreground Play account या game sign-in समान होना पर्याप्त
+प्रमाण नहीं है। Invited developer-account permissions और buyer license testing अलग हैं।
+
+Debug/Test और Google Play signing keys अलग हैं। इनके बीच सीधे update अस्वीकार हो सकता है।
+Uninstall local XP/statistics/badges मिटा सकता है; पहले Google account save करें और data-loss
+समझकर ही बदलाव करें। इस audit में user की स्पष्ट अनुमति से replacement किया गया था।
+Play builds में Developer tools और demo-ad labels नहीं होते; production units/flags लागू होते हैं।
+AdMob approval/store linking और real SSV reward acceptance अलग हैं।
+
+## रोजमर्रा की local feature testing
 
 Repo root से Node.js, Java/Android SDK और authenticated GitHub CLI (`gh auth login`) के साथ:
 
