@@ -26,9 +26,9 @@
       "device": "Samsung SM-A715F Android 13",
       "scope": "Isolated QA package; before final explicit Google sign-in and Store gateway initialization changes. Final source JVM, lint and Test APK build passed."
     },
-    "backendNode22Tests": 283,
+    "backendNode22Tests": 284,
     "backendFailures": 0,
-    "runtimePreflightTests": 20,
+    "runtimePreflightTests": 21,
     "sourceGates": 30,
     "diffWhitespace": "passed",
     "testApkAssembly": "passed"
@@ -60,5 +60,10 @@
     "Two-device online/reconnect/Team Up and longer performance sessions; no scale or low-end-device certification claimed."
   ],
   "liveConfiguration": "Readiness healthy and Billing, rewarded/interstitial ads and Google capabilities enabled. productionClaim=false is intentional, not a disabled integration.",
-  "safety": "No emulator, real-money purchase, real account deletion or production review replacement performed."
+  "safety": "No emulator, real-money purchase, real account deletion or production review replacement performed.",
+  "deviceAcceptance": {
+    "testApk": "Updated on physical phone, preserving application data.",
+    "googleIdentity": "Picker succeeded; backend rejected Android presenter. Exact-client allowlist fix passed regression tests; deployment and successful retry pending.",
+    "store": "Gem products show localized Google Play INR prices; TEST AD action visible. No purchase performed."
+  }
 }

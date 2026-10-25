@@ -49,6 +49,33 @@ test("Google identity tokens must have trusted signatures and matching claims", 
   assert.equal(await hashGoogleSubject(claims.sub), await hashGoogleSubject(claims.sub));
 });
 
+test("Google Android presenters require an explicit allowlist and still validate audience and nonce", async () => {
+  const { pair, jwk } = await rsaFixture();
+  const now = Date.now();
+  const nonce = "ad".repeat(32);
+  const clientId = "123-web.apps.googleusercontent.com";
+  const androidId = "123-android.apps.googleusercontent.com";
+  const env = { GOOGLE_SIGN_IN_WEB_CLIENT_ID: clientId, GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS: androidId };
+  const claims = {
+    iss: "https://accounts.google.com", aud: clientId, azp: androidId,
+    sub: "android-subject", iat: Math.floor(now / 1000), exp: Math.floor(now / 1000) + 3600, nonce,
+  };
+  const fetchImpl = async () => Response.json({ keys: [jwk] });
+  const token = await googleToken(pair.privateKey, claims);
+  assert.equal((await verifyGoogleIdToken(env, token, nonce, fetchImpl, now)).subject, claims.sub);
+  await assert.rejects(verifyGoogleIdToken({ GOOGLE_SIGN_IN_WEB_CLIENT_ID: clientId }, token, nonce, fetchImpl, now));
+  for (const patch of [
+    { azp: "123-untrusted.apps.googleusercontent.com" },
+    { aud: androidId },
+    { nonce: "wrong-nonce" },
+    { exp: Math.floor(now / 1000) - 300 },
+  ]) {
+    const rejected = await googleToken(pair.privateKey, { ...claims, ...patch });
+    await assert.rejects(verifyGoogleIdToken(env, rejected, nonce, fetchImpl, now),
+      (error) => error.code === "GOOGLE_ID_TOKEN_INVALID");
+  }
+});
+
 test("Google identity rejects wrong audience, nonce and expiry", async () => {
   const { pair, jwk } = await rsaFixture();
   const now = Date.now();

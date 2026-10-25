@@ -21,6 +21,11 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   if (!GOOGLE_WEB_CLIENT_ID.test(oauthClientId)) {
     throw new Error("GOOGLE_SIGN_IN_WEB_CLIENT_ID repository variable is required and must be a valid Google Web OAuth client ID.");
   }
+  const androidClients = [...new Set(String(environment.GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS ?? "")
+    .split(",").map((value) => value.trim()).filter(Boolean))];
+  if (androidClients.length > 10 || androidClients.some((value) => !GOOGLE_WEB_CLIENT_ID.test(value))) {
+    throw new Error("GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS must contain at most ten comma-separated OAuth client IDs.");
+  }
 
   const accountOrigin = String(environment.LUDOPROOF_ACCOUNT_WEB_ORIGIN ?? "").trim();
   if (accountOrigin !== ACCOUNT_WEB_ORIGIN) {
@@ -81,6 +86,8 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   const vars = {
     ...existingVars,
     GOOGLE_SIGN_IN_WEB_CLIENT_ID: oauthClientId,
+    // Explicit empty value clears stale presenters when the repository var is removed.
+    GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS: androidClients.join(","),
     LUDOPROOF_ACCOUNT_WEB_ORIGIN: accountOrigin,
     GOOGLE_PLAY_BILLING_ENABLED: String(billingEnabled),
     LUDOPROOF_ADMOB_SSV_ENABLED: String(adsEnabled),

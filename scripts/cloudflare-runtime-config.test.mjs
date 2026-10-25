@@ -25,6 +25,14 @@ test("runtime store flags fail closed when GitHub variables are unset", () => {
   assert.equal("LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID" in vars, false);
 });
 
+test("Android OAuth presenters are explicit, validated and cleared when unset", () => {
+  const androidId = "1234567890-android.apps.googleusercontent.com";
+  const vars = buildCloudflareRuntimeVars({}, { ...valid, GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS: ` ${androidId},${androidId} ` });
+  assert.equal(vars.GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS, androidId);
+  assert.equal(buildCloudflareRuntimeVars(vars, valid).GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS, "");
+  assert.throws(() => buildCloudflareRuntimeVars({}, { ...valid, GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS: "*" }), /comma-separated OAuth/);
+});
+
 test("invalid OAuth client ID is rejected", () => {
   assert.throws(
     () => buildCloudflareRuntimeVars({}, { ...valid, GOOGLE_SIGN_IN_WEB_CLIENT_ID: "not-a-web-client-id" }),

@@ -41,3 +41,7 @@ Play publishing में पुराना **rc6 Production candidate** review
 Family V2 में fixed quick chat और configured integrations enabled हैं। Free-text/voice बंद, Classic board unlocked और अतिरिक्त dice Coming Soon रहना user-approved व्यवहार है। Child-directed/NPA ad treatment और optional Google identity की neutral age-group gating बनी रहती है। इन्हें सिर्फ features enabled दिखाने के लिए हटाना नहीं है।
 
 Temporary audit logs/screenshots repository के बाहर रखे गए हैं। कोई emulator, real-account deletion या real-money transaction नहीं किया गया। Public privacy page को actual Family V2 व्यवहार से मिलाया गया; Google approval का दावा नहीं किया गया है।
+
+## Physical acceptance follow-up
+
+नवीन Test APK original package पर data सुरक्षित रखते हुए install हुआ। Shop में Google Play की INR prices और TEST AD control दिखाई दिए। Google picker खुला, लेकिन चुने account का token backend पर reject हुआ। Verifier में Android authorized presenter (`azp`) को Web audience (`aud`) के बराबर मानने की गलत शर्त मिली। अब अलग explicit Android client allowlist है; केवल अपने verified Play-signing/debug OAuth clients configured हैं। Signature, Web audience, nonce और expiry validation कायम है; unknown presenter reject होता है। इस change के बाद Node 22 backend **284/284** तथा runtime/preflight **21/21** tests पास हैं। Production deployment और successful phone retry का परिणाम अभी दर्ज होना बाकी है।
