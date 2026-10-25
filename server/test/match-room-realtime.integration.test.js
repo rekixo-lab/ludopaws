@@ -238,7 +238,11 @@ test("authenticated connect immediately pushes a compact snapshot; invalid token
   assert.deepEqual(server.attachment, { playerId: host.playerId, voiceJoined: false });
 });
 
-test("HTTP and socket commands share bounded per-player rates; invalid identities cannot create buckets", async () => {
+test("HTTP and socket commands share bounded per-player rates; invalid identities cannot create buckets", async (t) => {
+  // Hold one real policy window across setup and both transports. A run near a
+  // minute boundary must not accidentally reset the allowance during this test.
+  let now = Math.floor(Date.now() / 60_000) * 60_000 + 1000;
+  t.mock.method(Date, "now", () => now);
   const { room, host, sender, players } = await setup();
   // Starting consumed one host mutation. Ninety is the total window allowance.
   for (let i = 0; i < 88; i += 1) {
@@ -257,7 +261,7 @@ test("HTTP and socket commands share bounded per-player rates; invalid identitie
     assert.equal(response.status, i < 30 ? 403 : 429);
   }
   assert.ok(room.gameplayRateBuckets.size <= 4 * 2 + 1);
-  for (const bucket of room.gameplayRateBuckets.values()) bucket.windowId -= 1;
+  now += 60_000;
   assert.equal((await room.fetch(request("/move", host.playerToken, { tokenIndex: 0, eventIndex: 0 }))).status, 409);
 });
 

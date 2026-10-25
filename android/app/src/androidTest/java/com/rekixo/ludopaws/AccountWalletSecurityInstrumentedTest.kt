@@ -188,6 +188,44 @@ class AccountWalletSecurityInstrumentedTest {
         accountId = "a".repeat(64),
     )
 
+    @Test
+    fun staleSessionUsesAlreadyRotatedCredentialsWithoutRefreshingAgain() {
+        saveTestSession()
+        val sessions = AccountSessionStore(context)
+        val old = requireNotNull(sessions.load())
+        val rotated = old.copy(accessToken = "rotated.access.token", refreshToken = "lpr_" + "B".repeat(43))
+        sessions.save(rotated)
+
+        assertEquals(rotated, com.rekixo.ludopaws.feature.account.data.AccountRepository(context).validSession(old))
+        assertEquals(rotated, sessions.load())
+    }
+
+    @Test
+    fun staleSessionCannotReplaceTheNextAccountOrReturnAfterLogout() {
+        saveTestSession()
+        val sessions = AccountSessionStore(context)
+        val old = requireNotNull(sessions.load())
+        val next = old.copy(accountId = UUID.randomUUID().toString(), sessionId = UUID.randomUUID().toString())
+        sessions.save(next)
+        val repository = com.rekixo.ludopaws.feature.account.data.AccountRepository(context)
+        try {
+            repository.validSession(old)
+            fail("An old account session must not authorize the next account.")
+        } catch (error: com.rekixo.ludopaws.feature.account.data.AccountApiException) {
+            assertEquals("ACCOUNT_SESSION_CHANGED", error.code)
+        }
+        assertEquals(next, sessions.load())
+
+        repository.clearLocalSession()
+        try {
+            repository.validSession(old)
+            fail("A logged-out session must not be returned or refreshed.")
+        } catch (error: com.rekixo.ludopaws.feature.account.data.AccountApiException) {
+            assertEquals("ACCOUNT_SESSION_REQUIRED", error.code)
+        }
+        assertEquals(null, sessions.load())
+    }
+
     private fun saveTestSession() {
         AccountSessionStore(context).save(
             AccountSession(

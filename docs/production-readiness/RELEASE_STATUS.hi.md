@@ -1,35 +1,43 @@
-# Family V2 — internal testing release status
+# Family V2 — production readiness status
 
-20 अक्टूबर 2026। Publisher ने worldwide mixed audience के लिए internal-test release में configured billing, ads और Google account integrations खोलने की अनुमति दी है। पिछली Family V1 lockdown रिपोर्ट ऐतिहासिक है; automated evidence `VALIDATION.json` में है। Public rollout से पहले physical/Play acceptance अभी भी जरूरी है।
+25 अक्टूबर 2026। यह रिपोर्ट 20 अक्टूबर की candidate स्थिति को बदलती है। पुराने `BASELINE_AUDIT.hi.md` और `VALIDATION.family-v1.json` ऐतिहासिक evidence हैं। अभी unconditional public-release GO नहीं है: code checks पास हैं, लेकिन नीचे दिए provider और physical Play acceptance बाकी हैं।
 
-## इस candidate का व्यवहार
+## लागू सुधार
 
-- Online, Friends, Team Up, leaderboard, invites और fixed quick-chat enabled हैं। Free-text chat और voice हटे रहते हैं; microphone/WebRTC नहीं है। पुराने custom names भी generated public animal names में redact होते हैं।
-- App startup, offline/online match और ads के लिए age entry नहीं है। हर ad request पर `AgeRestrictedTreatment.CHILD`, G content limit, non-personalized request और under-age UMP treatment है। AD_ID तथा AdServices permissions हटे हैं। Optional Google identity actions से पहले ही neutral local age-group screen आता है; केवल adult category Google SDK access खोलती है। यह age verification/parental consent नहीं है और gameplay इससे अलग है।
-- `FAMILY_V2` में configured Play one-time purchases, cosmetic purchases, rewarded SSV और optional Google linking/restore खोल सकते हैं। `FAMILY_V1` और unknown/missing-mode lockdown अपनी पुरानी restrictions बनाए रखते हैं। कोई client adult header capability नहीं खोलता।
-- Signed internal build GitHub variables से billing/rewarded/interstitial flags लेता है; matching backend `/api/store/status` और `/api/capabilities` जरूरी हैं। Keys server/Actions secrets में हैं। QA variant में paid integrations अभी भी निषिद्ध हैं।
-- Google Play product prices provider से आते हैं। Account-bound verification के बाद ही wallet grant; pending purchases कोई grant नहीं करते। Duplicate callbacks idempotent हैं। हर पाँच मिनट voided Play purchases reconcile होते हैं; pagination का cursor durable है। Revoked Remove Ads हटता है यदि दूसरा valid entitlement न हो; refunded Gems शेष balance से घटते हैं, balance negative नहीं होता। पहले खर्च हुए cosmetics स्वतः नहीं हटते।
-- Offline restore/settings, room revision reset, account-switch cache isolation, deleted-player recent-list tombstones, matchmaking cancel/reconnect और V5 rules के पिछले fixes शामिल हैं। Phone UI/network validation को unit-test pass नहीं माना गया है।
+- Account refresh अब persisted current session से मिलता है। Account switch/logout के बाद पुराना session वापस save नहीं होना चाहिए; rotated token वाला cached request current credentials लेता है। Account mutations serialized हैं। दोनों स्थितियों के physical regression checks पास हुए।
+- Shop initialization और लंबे समय खुले checkout confirmation पर session refresh UI thread पर नहीं चलता। Refresh के बाद active account फिर जाँचा जाता है; missing billing attribution पर payment sheet नहीं खुलती।
+- Profile का explicit Google Save/Restore अब `GetSignInWithGoogleOption` इस्तेमाल करता है। Missing credential और cancellation अलग सँभलते हैं; logs में token/provider payload नहीं जाता।
+- Test fixtures को वास्तविक async checkpoint/cache व्यवहार और warm dice-face contrast के अनुसार ठीक किया गया। Realtime rate-limit test में minute-boundary timing स्थिर की गई; production rate limits नहीं बदले।
 
-## Console में शेष वास्तविक acceptance
+## सत्यापित जाँच
 
-Publisher के बताए अनुसार policy declarations भरे जा चुके हैं। Code/disclosures उसी व्यवहार से align किए गए हैं; उन्हें Google approval का प्रमाण न मानें।
+- 853 tracked files की inventory; 365 Android source files, 50 server source files और 11 main manifest Activities की scope inventory। 127 JS/MJS syntax checks तथा tracked JSON/XML parsing में कोई error नहीं। Inventory coverage हर line की स्वतंत्र certification नहीं है।
+- Android: 494 JVM tests पास; final source Test APK assembly पास; release lint में 0 errors, 470 warnings, 1 hint। Warnings अभी समाप्त नहीं हैं।
+- Samsung SM-A715F Android 13 पर अलग QA package में 37/37 instrumentation tests पास: session safety, encrypted storage, recreation और पूरे 2/4-player offline games शामिल। यह run final explicit Google picker/Store initialization edits से पहले था; उन edits के बाद JVM, lint और compilation पास हैं। Google provider flow का physical success इससे सिद्ध नहीं होता।
+- Deployment-compatible Node 22 पर backend 283/283 और runtime/preflight 20/20 tests पास। 30 source gates और diff whitespace जाँच पास।
+- `/health`, `/ready`, `/api/capabilities`, `/api/store/status` में backend healthy और configured Billing/ads/Google capabilities enabled मिलीं। Voided-purchase reconciliation में reported failure नहीं मिला। `productionClaim:false` स्वतंत्र certification claim का संकेत है, disabled purchase flag नहीं।
 
-1. Internal Play track पर signed AAB upload करें; versionCode default 4 है, workflow में कोई अधिक unused code चुन सकते हैं। Play signing certificate SHA-1/SHA-256 सही Android OAuth client में दर्ज करें; internal/license testers को app और products का access दें।
-2. `remove_ads`, `gems_300`, `gems_1500`, `gems_3500`, `gems_20000`, `gems_40000`, `gems_200000` active purchase options, regional pricing/availability और licenses से जाँचें। SKU suffix को Gem quantity न मानें; exact grants pricing policy में हैं। Test purchase/refund/restore अभी physical Play install पर करना है।
-3. Billing service account को purchase management के साथ **View financial reports** access चाहिए, ताकि voided purchases API काम करे। Worker `/ready` में reconciliation status देखें; credential का मौजूद होना permissions का प्रमाण नहीं है।
-4. AdMob rewarded SSV callback `https://api.ludopaws.rekixo.com/api/admob/ssv`, configured unit और `gems` reward मिलाएँ। Test device/AdMob test mode में ads देखें; real paid ads पर test clicks न करें। AdMob approval/fill और dismissibility का phone पर परीक्षण बाकी है।
-5. **Play Games:** GitHub में `PLAY_GAMES_PROJECT_ID` अभी अनुपस्थित मिला। इसे अनुमान से नहीं भरा गया। Play Console में संबंधित Play Games project/Android credential/tester configuration पूरा करके वास्तविक numeric ID भरें और signed build फिर बनाएँ। Google account linking/recovery का Web OAuth ID अलग है और मौजूद है। Play Games sign-in game-account backup नहीं है।
-6. Physical phone पर recreation/process death, Board/Dice equip, दो-device online games/rematch/Team Up/reconnect, Google save/restore/switch/deletion और Play purchase/refund/reinstall flows जाँचें। XP/statistics/badges device-local हैं; सभी guest data का reinstall recovery वादा नहीं किया गया है।
+## Google और AdMob की वास्तविक स्थिति
 
-## Public website deployment
+User की स्पष्ट अनुमति से original package `com.rekixo.ludopaws` के debug certificate का Android OAuth client बनाया और Play Games में जोड़ा गया। Production new-install credential नहीं बदला। OAuth audience **In production** है; Play Games project **314526321614** publish हुआ और console में कोई unpublished change नहीं बचा। वास्तविक phone sign-in/restore तथा Play signing certificate की अंतिम matching acceptance बाकी है।
 
-Actual website repository: `rekixo-lab/ludopaws-website`, existing separate Cloudflare Worker `ludopaws-website`। पुराने public pages में voice/monthly product/365-day archive और गलत Gem quantities थीं; उन्हें Family V2 से align किया गया है और वास्तविक nonce-bound Google तथा guest delete-only-code form दिया गया है। Game repository का `deploy-ludopaws-website.yml` reviewed website-main SHA को explicit production dispatch से publish/verify करता है; इसकी main-ancestry और hostname isolation checks हैं। पुराना GitHub Pages migration workflow इस existing Cloudflare hostname के लिए उपयोग न करें। Connected Cloudflare Builds की preview failure का dashboard access/builds permission publisher के पास अलग है; उसे game API का deployed होना न मानें।
+सही AdMob publisher में rewarded unit `9430436252` और interstitial `5052207546` मिले। Reward पहले से **5 gems** था। Rewarded SSV callback खाली था: `https://api.ludopaws.rekixo.com/api/admob/ssv` को Google ने सफल verify किया, save किया गया और दोबारा खोलकर पुष्टि हुई। Synthetic verification callback wallet grant नहीं करता।
 
-## Machine/deployment evidence
+AdMob app approval अभी **Requires review** है। Store details खाली हैं; exact package search में listing नहीं मिली। Store listing उपलब्ध होने पर linking/review पूरा करना है। Callback verification वास्तविक ad fill या wallet credit की पूरी end-to-end स्वीकृति नहीं है।
 
-वर्तमान run के परिणाम यहाँ finalize होंगे। Emulator न चलाएँ या डाउनलोड करें। पिछला emulator/image/AVD हटाया जा चुका है; user phone testing बाद में करेगा। `BASELINE_AUDIT.hi.md` और पुराना V1 evidence ऐतिहासिक संदर्भ हैं।
+## Release और शेष acceptance
 
-## Purchase recovery safeguard (RC4)
+Backend main deployment run **40174040405**, attempt 2 सफल हुआ था; इस audit batch में production server source नहीं बदला। Signed artifact **1.0.0-rc8 / versionCode 8**, run **40174474992** उपलब्ध था, लेकिन Play में इस audit के दौरान upload नहीं किया गया। वर्तमान audit fixes उस artifact में नहीं हैं; नया signed candidate चाहिए।
 
-A new checkout requires the active game account to be saved to an eligible Google identity before the Play payment sheet opens. Without this, an unlinked guest's account-bound purchase could not follow a reinstall. Parent/guardian management is supported through the explicit account action; there is still no startup/gameplay age prompt. The account ID is rechecked at confirmation, and completion of an already paid transaction remains independent of the new-checkout guard. RC3 is superseded; use the final RC4 artifact.
+Play publishing में पुराना **rc6 Production candidate** review में दिखा और managed publishing **OFF** था। Approval होने पर वह publish हो सकता है। इस audit ने पुराना submission cancel/replace नहीं किया। Internal release production review स्वतः replace नहीं करता।
+
+अंतिम आवश्यक जाँचें:
+
+1. नए audited signed candidate को Internal Play track पर install करके Google save/restore, account switch और Play Games जाँचें।
+2. License testing में purchase → server grant → duplicate/restart recovery → refund/restore जाँचें। वास्तविक paid purchase नहीं किया गया है।
+3. AdMob store linking/review और वास्तविक rewarded completion → 5 Gems तथा cosmetic progress जाँचें। Demo ads production Gems/unlock नहीं देते। Lumi Goat के 10 और Donkey के 15 verified rewarded ads हैं।
+4. दो-device Online/Friends/Team Up/reconnect/rematch और लंबी performance sessions जाँचें। Low-end/scale/soak certification अभी नहीं है।
+
+Family V2 में fixed quick chat और configured integrations enabled हैं। Free-text/voice बंद, Classic board unlocked और अतिरिक्त dice Coming Soon रहना user-approved व्यवहार है। Child-directed/NPA ad treatment और optional Google identity की neutral age-group gating बनी रहती है। इन्हें सिर्फ features enabled दिखाने के लिए हटाना नहीं है।
+
+Temporary audit logs/screenshots repository के बाहर रखे गए हैं। कोई emulator, real-account deletion या real-money transaction नहीं किया गया। Public privacy page को actual Family V2 व्यवहार से मिलाया गया; Google approval का दावा नहीं किया गया है।

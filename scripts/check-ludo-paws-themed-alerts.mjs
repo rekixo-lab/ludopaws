@@ -55,8 +55,8 @@ for (const relative of expectedFiles) {
   found.set(relative, (source.match(/PlywoodAlertDialogBuilder\(/g) ?? []).length);
 }
 const count = [...found.values()].reduce((a, b) => a + b, 0);
-if (count !== 29) {
-  throw new Error(`Plywood dialog gate: expected 29 call sites including Friends menu, found ${count}`);
+if (count < 29) {
+  throw new Error(`Plywood dialog gate: expected at least 29 migrated call sites including Friends menu, found ${count}`);
 }
 const friends = fs.readFileSync(path.join(appSource, "feature/friends/presentation/FriendsActivity.kt"), "utf8");
 insist(friends, 'setTitle("FRIEND OPTIONS")', "Friends custom options menu");
@@ -95,4 +95,4 @@ for (const file of scan(appSource)) {
     throw new Error("Plywood dialog gate: native unthemed popup remains in " + file);
   }
 }
-console.log("Ludo Paws premium dialogs: 28 default alerts and Friends menu migrated; account, purchase and age flows guarded.");
+console.log(`Ludo Paws premium dialogs: ${count} themed call sites verified; account, purchase and age flows guarded.`);

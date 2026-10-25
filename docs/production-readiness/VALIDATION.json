@@ -1,17 +1,64 @@
 {
-  "date": "2026-10-20",
+  "date": "2026-10-25",
   "releaseMode": "FAMILY_V2",
-  "candidateVersion": "1.0.0-rc3",
-  "validationStatus": "final CI pending for this source batch; PR checks and signed artifact evidence are authoritative",
+  "auditedSourceBase": "3cc48244",
+  "validationStatus": "Automated checks passed; production provider and physical Play acceptance remain incomplete. Not an unconditional public-release approval.",
   "previousFamilyCandidateEvidence": "VALIDATION.family-v1.json",
-  "completedLocalChecks": {
-    "androidEnabledVariant": "421 JVM tests and debug/instrumentation APK compilation succeeded before final privacy/version follow-ups; final exact-source build in CI",
-    "runtimePreflightTests": 20,
-    "refundMigrationTests": "real SQLite, revocation before/after grant, idempotent retry, legacy owner enrollment, pagination retry passed",
-    "workerDryRun": "passed with BillingReconciliation migration/binding",
-    "sourceGates": "23 gates run; final exact-source CI required"
+  "coverage": {
+    "trackedFilesInventoried": 853,
+    "androidSourceFiles": 365,
+    "serverSourceFiles": 50,
+    "mainManifestActivities": 11,
+    "javascriptSyntaxChecks": 127,
+    "jsonXmlParseErrors": 0
   },
-  "deviceTesting": "deferred by user; no emulator execution or download authorized",
-  "consoleReportedByPublisher": "policy declarations completed; product/provider settings and real-device acceptance remain external",
-  "deployment": "not yet performed for this source batch"
+  "completedLocalChecks": {
+    "androidJvmTests": 494,
+    "androidJvmFailures": 0,
+    "releaseLint": {
+      "errors": 0,
+      "warnings": 470,
+      "hints": 1
+    },
+    "physicalDeviceInstrumentation": {
+      "tests": 37,
+      "failures": 0,
+      "device": "Samsung SM-A715F Android 13",
+      "scope": "Isolated QA package; before final explicit Google sign-in and Store gateway initialization changes. Final source JVM, lint and Test APK build passed."
+    },
+    "backendNode22Tests": 283,
+    "backendFailures": 0,
+    "runtimePreflightTests": 20,
+    "sourceGates": 30,
+    "diffWhitespace": "passed",
+    "testApkAssembly": "passed"
+  },
+  "consoleChanges": {
+    "googleDebugOAuth": "Created for original Android package and approved debug certificate; linked to Play Games without changing new-install production default.",
+    "googleOAuthAudience": "In production",
+    "playGamesProject": "314526321614 published; no changes to publish",
+    "admobRewarded": {
+      "adUnit": "ca-app-pub-9987799703505828/9430436252",
+      "amount": 5,
+      "item": "gems",
+      "callback": "https://api.ludopaws.rekixo.com/api/admob/ssv",
+      "callbackStatus": "Google verification succeeded; saved and reopened to confirm. Verification fixture does not grant wallet value.",
+      "appApproval": "Requires review",
+      "storeLink": "Not linked; exact package search returned no matching app."
+    }
+  },
+  "deployment": {
+    "backend": "Successful main deployment run 40174040405 attempt 2; no production server changes in this audit batch.",
+    "lastSignedArtifact": "1.0.0-rc8 versionCode 8, run 40174474992; not uploaded to Play in this audit.",
+    "observedProductionReview": "1.0.0-rc6 Production candidate; managed publishing OFF. Existing submission left unchanged."
+  },
+  "remainingAcceptance": [
+    "Install current audited candidate from internal Play track.",
+    "Verify actual Google save/restore and Play Games on physical device, including current Play signing certificate mapping.",
+    "Verify Play test purchase, server grant, duplicate recovery, refund and restore.",
+    "Complete AdMob store linking/review and real rewarded callback-to-wallet/cosmetic acceptance; test ads do not grant real value.",
+    "Two-device online/reconnect/Team Up and longer performance sessions; no scale or low-end-device certification claimed."
+  ],
+  "liveConfiguration": "Readiness healthy and Billing, rewarded/interstitial ads and Google capabilities enabled. productionClaim=false is intentional, not a disabled integration.",
+  "safety": "No emulator, real-money purchase, real account deletion or production review replacement performed."
 }

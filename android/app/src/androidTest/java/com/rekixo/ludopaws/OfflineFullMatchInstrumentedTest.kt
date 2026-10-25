@@ -47,10 +47,12 @@ class OfflineFullMatchInstrumentedTest {
         try {
             assertEquals(OfflineLudoV5Binding.RULESET_ID,
                 engine.start(playerCount = 2, preferredColor = "RED").rulesetId)
+            flushCheckpointWrites()
             val prefs = context.getSharedPreferences("ludoproof_offline_game", Context.MODE_PRIVATE)
             val saved = JSONObject(requireNotNull(prefs.getString("state", null)))
             saved.remove("rulesetId")
             prefs.edit().putString("state", saved.toString()).commit()
+            forgetProcessCheckpoint()
             val restored = OfflineGameEngine(context, GameMode.PASS_AND_PLAY)
             assertEquals(OfflineLudoV3Binding.RULESET_ID, restored.snapshot()?.rulesetId)
             assertEquals(OfflineLudoV3Binding.RULESET_ID, restored.roll().rulesetId)
@@ -98,6 +100,7 @@ class OfflineFullMatchInstrumentedTest {
                 val opponentPosition =
                     (targetGlobalCell - 13 + 52) % 52
 
+                flushCheckpointWrites()
                 val saved =
                     JSONObject(
                         requireNotNull(
@@ -132,6 +135,7 @@ class OfflineFullMatchInstrumentedTest {
                 preferences.edit()
                     .putString("state", saved.toString())
                     .commit()
+                forgetProcessCheckpoint()
 
                 val restored =
                     OfflineGameEngine(
@@ -171,6 +175,24 @@ class OfflineFullMatchInstrumentedTest {
                 playerCount = playerCount,
             )
         }
+    }
+
+    // These fixture tests deliberately edit disk as though a previous process had
+    // saved an older match. Drain the real writer first, then discard only its
+    // process cache. Keeping this reflection in test code avoids exposing a reset
+    // or a blocking disk-flush API in the shipped game.
+    private fun flushCheckpointWrites() {
+        val field = OfflineGameEngine::class.java.getDeclaredField("checkpointWriter")
+        field.isAccessible = true
+        (field.get(null) as java.util.concurrent.ExecutorService).submit {}.get(30, java.util.concurrent.TimeUnit.SECONDS)
+    }
+
+    private fun forgetProcessCheckpoint() {
+        flushCheckpointWrites()
+        val field = OfflineGameEngine::class.java.getDeclaredField("checkpoints")
+        field.isAccessible = true
+        val cache = field.get(null) as MutableMap<*, *>
+        synchronized(cache) { cache.clear() }
     }
 
     private fun runCompleteMatch(

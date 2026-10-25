@@ -86,9 +86,10 @@ class StoreActivity :
     private val pendingPurchases by lazy {
         PendingStorePurchaseStore(this)
     }
-    private val installAccountId by lazy {
-        accountRepository.requireSession().billingAccountId
-    }
+    // Gateway creation runs on the UI thread. Only read cached attribution here;
+    // the background eligibility check supplies a refreshed binding before checkout.
+    private val installAccountId: String
+        get() = accountRepository.currentSession()?.billingAccountId.orEmpty()
     internal val adsEnabledForBuild: Boolean
         get() =
             (rewardedAdsEnabledByServer && BuildConfig.LUDOPROOF_ADS_ENABLED) ||
@@ -379,8 +380,31 @@ class StoreActivity :
             .setPositiveButton("Continue to Google Play") { _, _ ->
                 if (canRenderStoreUi() && com.rekixo.ludopaws.feature.store.domain.PurchaseAccountSafety.canLaunch(
                         expectedAccountId, accountRepository.currentSession()?.accountId, googleLinked = true)) {
-                    billing.updateAccountId(accountRepository.requireSession().billingAccountId)
-                    billing.launchPurchase(productId)
+                    if (purchaseEligibilityInProgress) return@setPositiveButton
+                    purchaseEligibilityInProgress = true
+                    // A confirmation can remain open past token expiry. Refresh off the UI
+                    // thread, then recheck attribution before opening Google's payment sheet.
+                    billingExecutor.execute {
+                        try {
+                            val session = accountRepository.requireSession()
+                            check(session.accountId == expectedAccountId) { "The active account changed. Please try again." }
+                            runOnUiThread {
+                                purchaseEligibilityInProgress = false
+                                if (!canRenderStoreUi()) return@runOnUiThread
+                                if (accountRepository.currentSession()?.accountId != expectedAccountId) {
+                                    showStoreMessage("The active account changed. Please try again.")
+                                    return@runOnUiThread
+                                }
+                                billing.updateAccountId(session.billingAccountId)
+                                billing.launchPurchase(productId)
+                            }
+                        } catch (error: Exception) {
+                            runOnUiThread {
+                                purchaseEligibilityInProgress = false
+                                if (canRenderStoreUi()) showStoreMessage("Your account could not be refreshed. Reconnect and try again.")
+                            }
+                        }
+                    }
                 } else if (canRenderStoreUi()) {
                     showStoreMessage("The active account changed. Please try again.")
                 }

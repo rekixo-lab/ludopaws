@@ -70,13 +70,11 @@ class DiceVisibilityInstrumentedTest {
         val green = Color.green(pixel)
         val blue = Color.blue(pixel)
 
-        // The classic face deliberately uses a soft gray gradient (the dark
-        // stop is #DCDCDC, RGB 220). A 225 cutoff rejects the intended palette,
-        // not a visibility regression. Keep a lower bound with margin for the
-        // gradient while still detecting an actually dimmed or darkened face.
+        // Protect visibility against the real background rather than requiring
+        // every RGB channel to be gray; Classic uses a deliberately warm ivory.
         assertTrue(
             "dice face must remain bright (sampled RGB=$red,$green,$blue)",
-            red >= 215 && green >= 215 && blue >= 215,
+            androidx.core.graphics.ColorUtils.calculateContrast(pixel, backgroundColor) >= 7.0,
         )
         assertTrue(
             "dice face must remain neutral, not blue-tinted (sampled RGB=$red,$green,$blue)",
