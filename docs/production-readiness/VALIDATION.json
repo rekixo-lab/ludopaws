@@ -1,8 +1,8 @@
 {
   "date": "2026-10-25",
   "releaseMode": "FAMILY_V2",
-  "auditedSourceBase": "3cc48244",
-  "validationStatus": "Automated checks passed; production provider and physical Play acceptance remain incomplete. Not an unconditional public-release approval.",
+  "auditedSourceBase": "aab6ef1d8fc50ebe4a4f8915f7226c416cb5c842",
+  "validationStatus": "Signed rc9 passed CI, physical Play install, Google restore and zero-charge Play purchase/server grant. User-authorized production review restart submitted; quick checks/review and AdMob approval pending. Not an unconditional certification.",
   "previousFamilyCandidateEvidence": "VALIDATION.family-v1.json",
   "coverage": {
     "trackedFilesInventoried": 853,
@@ -51,22 +51,24 @@
   "deployment": {
     "backend": "Successful production deployment 40197165242, main aab6ef1d; health, readiness, store flags and live game flow checks passed.",
     "lastSignedArtifact": "1.0.0-rc8 versionCode 8, run 40174474992; not uploaded to Play in this audit.",
-    "observedProductionReview": "1.0.0-rc6 Production candidate; managed publishing OFF. Existing submission left unchanged.",
-    "candidateBuild": "Signed rc9 / versionCode 9 workflow 40197368881 succeeded; APK/AAB hashes match CI evidence; not yet uploaded to Play."
+    "observedProductionReview": "At user explicit request, rc9 promoted to Production (track 4697316581238009464, release 2), saved and submitted via Restart review. Publishing overview now lists rc9 under Changes in review, quick checks running. Prior rc6 review restarted; managed publishing remains OFF.",
+    "candidateBuild": "Signed rc9 / versionCode 9 workflow 40197368881 succeeded; hashes verified; uploaded and released to Internal testing on 2026-10-25 19:53 IST through owner account. Console: Available to internal testers.",
+    "playInternalRelease": "track 4701696451906351095, release 4; 1.0.0-rc9 - Production integration testing; one size-increase warning, no blocking errors."
   },
   "remainingAcceptance": [
-    "Install current audited candidate from internal Play track; Google linking and Play Games now passed on original-package Test APK, but Play-signed candidate/recovery still needs acceptance.",
-    "Resolve native Google Play item-unavailable result; verify test purchase, server grant, duplicate recovery, refund and restore.",
-    "Verify Play test purchase, server grant, duplicate recovery, refund and restore.",
-    "Complete AdMob store linking/review and real rewarded callback-to-wallet/cosmetic acceptance; test ads do not grant real value.",
-    "Two-device online/reconnect/Team Up and longer performance sessions; no scale or low-end-device certification claimed."
+    "Google Play quick checks and production approval; no public-live claim until approval.",
+    "AdMob store linking/app review and actual production rewarded SSV-to-wallet/cosmetic progress.",
+    "A confirmed entitlement-revocation refund test; current refunded test order has not deducted Gems.",
+    "Two-device online/reconnect/Team Up and longer performance/low-end/scale acceptance."
   ],
   "liveConfiguration": "Readiness healthy and Billing, rewarded/interstitial ads and Google capabilities enabled. productionClaim=false is intentional, not a disabled integration.",
   "safety": "No emulator, real-money purchase, real account deletion or production review replacement performed.",
   "deviceAcceptance": {
     "testApk": "Updated on physical phone, preserving application data.",
     "googleIdentity": "Succeeded after Android presenter fix deployment: user selected Google identity; Account saved confirmation retained guest identity. Play Games Profile displayed CONNECTED.",
-    "store": "Localized Play prices loaded. Native checkout twice returned item could not be found, including after fresh app/Billing restart. Seven products active; ai@rekixo.com is a configured license tester, user confirmed selected in phone Play Store, and web opt-in is active. Console access is not a missing-permission explanation. No purchase made.",
-    "testAds": "Google sample rewarded ad completed and dismissed; app explicitly confirmed no real Gems/unlock change; wallet remained 0."
+    "store": "Play-installed rc9 native test-card checkout succeeded; user completed zero-charge purchase. App reported Purchase verified; server wallet increased 0 to 300 Gems and remained 300 after app restart. No real-money transaction.",
+    "testAds": "Google sample rewarded ad completed and dismissed; app explicitly confirmed no real Gems/unlock change; wallet remained 0.",
+    "playInstall": "With explicit user approval, debug Test app was uninstalled (local statistics reset disclosed); official Play Store installed rc9/versionCode 9, installer com.android.vending. Google account restore succeeded.",
+    "refund": "User refunded the test order; Console confirmed Refunded. Revoke selection was not confirmed. Automatic reconciliation completed after refund without failure, but refreshed wallet remained 300. Revocation/deduction acceptance is NOT passed; Google excludes developer refunds without revoke from Voided Purchases API."
   }
 }
