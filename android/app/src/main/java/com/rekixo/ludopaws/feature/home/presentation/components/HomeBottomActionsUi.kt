@@ -18,13 +18,15 @@ internal fun HomeActivity.homeBottomActions(): LinearLayout =
 
         addView(
             bottomActionButton(
-                label = "Rate on Google",
+                label = if (com.rekixo.ludopaws.BuildConfig.DEBUG) "Dev tools" else "Rate on Google",
                 description =
-                    getString(R.string.rate_accessibility_label),
-                iconKind = HomeIconKind.RATING,
-                secondaryText = "★★★★★",
+                    if (com.rekixo.ludopaws.BuildConfig.DEBUG) "Open developer tools" else getString(R.string.rate_accessibility_label),
+                iconKind = if (com.rekixo.ludopaws.BuildConfig.DEBUG) HomeIconKind.SETTINGS else HomeIconKind.RATING,
+                secondaryText = if (com.rekixo.ludopaws.BuildConfig.DEBUG) null else "★★★★★",
             ) {
-                showHomeRatingDialog()
+                if (com.rekixo.ludopaws.BuildConfig.DEBUG) {
+                    startActivity(android.content.Intent().setClassName(packageName, "com.rekixo.ludopaws.DeveloperToolsActivity"))
+                } else showHomeRatingDialog()
             },
             bottomActionParams(),
         )

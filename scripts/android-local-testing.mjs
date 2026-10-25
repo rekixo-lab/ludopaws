@@ -90,6 +90,9 @@ Ads in the Store remain off; use Developer tools for demo ads without wallet rew
   console.log(`${mode}: ${options.includes("--assemble") ? "building" : "installing"} debug APK; no Play upload, no release tasks.`);
   console.log(mode === "dev" ? "Install alongside Play; Settings → Developer tools." :
     "Use a Play license tester account. Debug OAuth needs this machine's debug certificate. Store Ads remain off.");
+  console.log(mode === "dev" ?
+    "PREVIEW ONLY: Google login and Billing are OFF in .dev. For real features run the integration command and open LudoPaws (not LudoPaws Dev)." :
+    "Open LudoPaws, not LudoPaws Dev. Home → Dev tools shows the actual build flags and server status.");
   // Command-line properties take precedence over user/project gradle.properties.
   run("bash", ["android/gradlew", "-p", "android", options.includes("--assemble") ? ":app:assembleDebug" : ":app:installDebug",
     ...Object.entries(properties).map(([key, value]) => `-P${key}=${value}`), "--console=plain"], { env, stdio: "inherit" });

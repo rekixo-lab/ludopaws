@@ -22,6 +22,10 @@ import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
 import com.google.android.ump.UserMessagingPlatform
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
+import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
+import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity
 import com.rekixo.ludopaws.feature.store.data.ads.FamilyAdsPrivacy
 import com.rekixo.ludopaws.feature.store.data.billing.StorePurchaseVerifier
@@ -71,7 +75,16 @@ class DeveloperToolsActivity : Activity() {
 
     private fun showPanel() {
         beginScreen("Developer tools")
-        action("Close") { finish() }
+        action("Back to game Home") { finish() }
+        if (BuildConfig.APPLICATION_ID == "com.rekixo.ludopaws.dev") {
+            label("PREVIEW APP: purchases and Google login are in the original LudoPaws integration app. This separate Dev app provides visual previews.")
+            action("Open full testing app (LudoPaws)") {
+                runCatching {
+                    startActivity(Intent().setClassName("com.rekixo.ludopaws", "com.rekixo.ludopaws.HomeActivity"))
+                }.onFailure { status.text = "Install it first: node scripts/android-local-testing.mjs integration" }
+            }
+        }
+        action("All content / lock reasons / dice previews") { showContentGates() }
         label("${BuildConfig.APPLICATION_ID}\n${BuildConfig.VERSION_NAME} · debug\nAPI: ${BuildConfig.LUDOPROOF_API_BASE_URL}\nSigning SHA-1: ${signingFingerprint()}")
         label(buildString {
             appendLine("Billing: ${onOff(BuildConfig.LUDOPROOF_BILLING_ENABLED)}")
@@ -97,6 +110,35 @@ class DeveloperToolsActivity : Activity() {
         label("Google demo ads only. Reward callbacks here never change your wallet. Store reward verification must be checked separately.")
         action("Show demo rewarded ad") { demoAd(true) }
         action("Show demo interstitial ad") { demoAd(false) }
+    }
+
+    private fun showContentGates() {
+        beginScreen("Content and lock reasons")
+        action("Back to developer tools") { showPanel() }
+        label("Coming Soon means the content is unfinished; changing build flags or uploading to Play does not complete it. Visual previews below do not unlock purchases or change your wallet.")
+        val inventory = CosmeticInventoryStore(this)
+        val canEquip = BuildConfig.APPLICATION_ID == "com.rekixo.ludopaws.dev"
+        if (canEquip) action("Reset Dev dice to normal selection") {
+            inventory.setDeveloperDicePreview(null)
+            showContentGates()
+        }
+        val selected = inventory.selectedId(CosmeticCategory.DICE)
+        StoreCosmeticCatalog.all.forEach { item ->
+            val reason = when {
+                !item.contentAvailable -> "COMING SOON / content not implemented"
+                inventory.isOwned(item.id) -> "OWNED"
+                else -> "${item.unlockKind}: ${item.gemPrice} gems / level ${item.requiredLevel} / ${item.requiredAdViews} ads; real unlock is account/server controlled"
+            }
+            label("${item.title} · ${item.id}\n$reason")
+            if (item.category == CosmeticCategory.DICE && item.contentAvailable && DiceRegistry.find(item.id) != null) {
+                content.addView(DiceView(this).apply { setPreviewStyle(item.id) },
+                    LinearLayout.LayoutParams(dp(112), dp(112)).apply { gravity = Gravity.CENTER_HORIZONTAL })
+                if (canEquip) action(if (selected == item.id) "Using in Dev games: ${item.title}" else "Try in Dev games: ${item.title}") {
+                    inventory.setDeveloperDicePreview(item.id)
+                    showContentGates()
+                }
+            }
+        }
     }
 
     private fun checkServer() {

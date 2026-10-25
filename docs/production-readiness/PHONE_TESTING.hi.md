@@ -13,11 +13,18 @@ node scripts/android-local-testing.mjs dev
 में रखता है (या `XDG_CONFIG_HOME` के अंदर)। Repo में कोई config, secret या APK copy नहीं होता।
 अगली बार सिर्फ `dev` command पर्याप्त है; configuration बदलने पर `configure` फिर चलाएँ।
 `dev` अलग `com.rekixo.ludopaws.dev` / **LudoPaws Dev** app है; Play app का data अलग रहता है।
-इसमें Settings → **Developer tools** से live build flags, server availability, सभी character
+इसमें Home → **Dev tools** (या Settings → **Developer tools**) से live build flags, server availability, सभी character
 previews, yard, road stacks, legal tap hints और चारों winner/door/rank animations देखें।
 Board fixtures केवल memory में हैं; saved match, inventory, wallet या leaderboard नहीं बदलते।
 Demo ads Google test units हैं; reward callback का मतलब वास्तविक gems मिलना नहीं है।
 Dev में production Billing/Store Ads और Google/Play Games login बंद हैं।
+
+**All content / lock reasons / dice previews** में हर item का actual gate दिखता है।
+सभी आठ ready dice बिना gems खरीदे preview कर सकते हैं। **Try in Dev games** केवल `.dev`
+app में visual dice selection बदलता है; server inventory, ownership या wallet नहीं बदलता।
+**Reset Dev dice to normal selection** से override हटाएँ। अधूरे boards/Paws packs के लिए
+Coming Soon लिखा रहेगा; उनका actual content implement किए बिना वे उपलब्ध नहीं हो सकते।
+Developer panel का **Open full testing app (LudoPaws)** original-package app खोलता है।
 
 वास्तविक Google linking और Play purchases के लिए:
 
