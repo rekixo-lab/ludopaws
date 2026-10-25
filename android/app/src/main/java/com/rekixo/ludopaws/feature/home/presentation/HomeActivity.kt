@@ -39,6 +39,7 @@ class HomeActivity : Activity() {
             .prepare {}
         LudoPawsYardHabitatRenderer.prepare {}
         LudoPawsCenterHouses3D.prepare()
+        LudoPawsBoardChromeView.prewarm(this)
         LudoProofTheme.configureWindow(this)
 
         val (root, host) =

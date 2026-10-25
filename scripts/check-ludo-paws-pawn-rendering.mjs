@@ -272,6 +272,16 @@ for (const token of [
   );
 }
 
+// Readiness must follow a presented board frame, not EGL initialization.
+for (const marker of ["if (!egl.swapBuffers())", "!firstBoardSubmitted", "frameState.snapshot != null", "onStartupFailure?.invoke()"]) {
+  requireText(scene, marker, "First-board presentation/fallback guard missing: " + marker);
+}
+const initStart = scene.indexOf("renderer.onSurfaceCreated()");
+const frameLoopStart = scene.indexOf("while (running)", initStart);
+if (scene.slice(initStart, frameLoopStart).includes("setOperational(true)")) {
+  throw new Error("Do not reveal the board before the first complete GL frame is submitted.");
+}
+
 for (const token of [
   "radiusScale",
   "val original = cell * radiusScale(position, occupancy)",

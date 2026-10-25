@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
 import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
+import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
 import com.rekixo.ludopaws.feature.boards.rendering.BoardRendererRegistry
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
@@ -14,22 +15,34 @@ import kotlin.math.min
 internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var footprintSource: LudoBoardView? = null
     private var definition = BoardRegistry.resolve("board_classic")
-    private var renderer = BoardRendererRegistry.create(definition)
-    // Identical code-drawn homes with team-color palettes; road and center untouched.
-    private val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
-
     private var staticBoard: Bitmap? = null
-    private var cacheDensity = 0f
+    private var requestedKey: ArtworkKey? = null
+    internal var artworkReady = false
+        private set
+    internal var onArtworkReadyChanged: ((Boolean) -> Unit)? = null
 
-    private fun prepareArtwork() {
-        renderer.prepare { post { clearArtworkCache() } }
-        LudoPawsYardHabitatRenderer.prepare { post { clearArtworkCache() } }
+    private fun requestArtwork() {
+        val pixels = min(width, height)
+        if (pixels <= 0) return
+        val key = ArtworkKey(pixels, resources.displayMetrics.density, definition)
+        if (requestedKey == key) return
+        requestedKey = key
+        staticBoard = null
+        artworkReady = false
+        onArtworkReadyChanged?.invoke(false)
+        cached(key)?.let { installArtwork(key, it); return }
+        prepareArtwork(key) { bitmap ->
+            post { if (requestedKey == key) installArtwork(key, bitmap) }
+        }
     }
 
-    private fun clearArtworkCache() {
-        // Canvas may still reference the previous bitmap in a display list.
-        staticBoard = null
+    private fun installArtwork(key: ArtworkKey, bitmap: Bitmap?) {
+        if (requestedKey != key) return
+        staticBoard = bitmap
+        // A failed decoration bake must still release the playable base-board fallback.
+        artworkReady = true
         invalidate()
+        onArtworkReadyChanged?.invoke(true)
     }
 
     init {
@@ -41,16 +54,15 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         reloadStyle()
-        prepareArtwork()
+        requestArtwork()
     }
 
     fun reloadStyle() {
         val next = BoardRegistry.resolve(CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
-        if (next.rendererKey != definition.rendererKey) renderer = BoardRendererRegistry.create(next)
         if (next != definition) {
             definition = next
-            clearArtworkCache()
-            prepareArtwork()
+            requestedKey = null
+            requestArtwork()
         }
         invalidate()
     }
@@ -60,18 +72,7 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         val size = min(width, height).toFloat()
         if (size <= 0f) return
         val cell = size / 15f
-        val pixels = size.toInt()
-        val density = resources.displayMetrics.density
-        var artwork = staticBoard
-        if (artwork == null || artwork.width != pixels || cacheDensity != density) {
-            artwork = Bitmap.createBitmap(pixels, pixels, Bitmap.Config.ARGB_8888)
-            val target = Canvas(artwork)
-            renderer.draw(target, size, density, definition)
-            yardHabitatRenderer.draw(target, cell)
-            staticBoard = artwork
-            cacheDensity = density
-        }
-        canvas.drawBitmap(artwork, 0f, 0f, null)
+        staticBoard?.let { canvas.drawBitmap(it, 0f, 0f, null) }
         // The base owns the four finish triangles and pawn coordinates. Joined
         // animated houses are rendered above them by the shared 3D scene.
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
@@ -79,9 +80,84 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         footprintSource?.drawFinishRanksOverlay(canvas, cell)
     }
 
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        requestArtwork()
+    }
+
+    override fun onDetachedFromWindow() {
+        // Ignore an obsolete asynchronous result after this view leaves its host.
+        requestedKey = null
+        super.onDetachedFromWindow()
+    }
+
     fun setFootprintSource(source: LudoBoardView) {
         if (footprintSource === source) return
         footprintSource = source
         invalidate()
     }
+    private data class ArtworkKey(val pixels: Int, val density: Float, val definition: BoardDefinition)
+
+    companion object {
+        private val artworkLock = Any()
+        private val completed = linkedMapOf<ArtworkKey, Bitmap>()
+        private val pending = mutableMapOf<ArtworkKey, MutableList<(Bitmap?) -> Unit>>()
+        private val artworkWorker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+            Thread(task, "LudoPawsBoardArtwork").apply { isDaemon = true }
+        }
+
+        private fun cached(key: ArtworkKey): Bitmap? = synchronized(artworkLock) { completed[key] }
+
+        /** Precompose the equipped board while the player is still on Home. */
+        fun prewarm(context: Context) {
+            val metrics = context.resources.displayMetrics
+            val contentWidth = if (LudoProofTheme.isExpandedWidth(context)) {
+                minOf(metrics.widthPixels, LudoProofTheme.dp(context, LudoProofTheme.pageMaxContentWidthDp(context)))
+            } else metrics.widthPixels
+            val pixels = (contentWidth - LudoProofTheme.dp(context, 2)).coerceAtLeast(1)
+            val definition = BoardRegistry.resolve(
+                CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD),
+            )
+            prepareArtwork(ArtworkKey(pixels, metrics.density, definition)) {}
+        }
+
+        private fun prepareArtwork(key: ArtworkKey, onReady: (Bitmap?) -> Unit) {
+            synchronized(artworkLock) {
+                completed[key]?.let { onReady(it); return }
+                pending[key]?.let { it.add(onReady); return }
+                pending[key] = mutableListOf(onReady)
+            }
+            val renderer = BoardRendererRegistry.create(key.definition)
+            renderer.prepare {
+                LudoPawsYardHabitatRenderer.prepare {
+                    artworkWorker.execute {
+                        val result = runCatching {
+                            val size = key.pixels.toFloat()
+                            val cell = size / 15f
+                            val density = key.density
+                            val definition = key.definition
+                            val artwork = Bitmap.createBitmap(key.pixels, key.pixels, Bitmap.Config.ARGB_8888)
+                            val target = Canvas(artwork)
+                            val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
+                            renderer.draw(target, size, density, definition)
+                            yardHabitatRenderer.draw(target, cell)
+                            artwork
+                        }
+                        val bitmap = result.getOrNull()
+                        val callbacks = synchronized(artworkLock) {
+                            if (bitmap != null) {
+                                completed[key] = bitmap
+                                // Two screen/style variants bound memory; never recycle a displayed bitmap.
+                                while (completed.size > 2) completed.remove(completed.keys.first())
+                            }
+                            pending.remove(key).orEmpty()
+                        }
+                        result.onFailure { android.util.Log.w("BoardArtwork", "Board bake failed", it) }
+                        callbacks.forEach { it(bitmap) }
+                    }
+                }
+            }
+        }
+    }
+
 }

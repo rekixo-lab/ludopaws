@@ -50,11 +50,17 @@ assert.match(chrome, /yardHabitatRenderer\.draw\(target, cell\)/);
 assert.match(board, /boardChrome\.rotation = chromeQuarterTurns \* 90f/);
 assert.match(reactive, /pawn3DScene/);
 assert.match(scene, /LudoPawsFxBoardGeometry\.tokenCenter\(/);
-const drawOrder=[
-  "renderer.draw(target, size", "yardHabitatRenderer.draw(target, cell)",
-  "drawYardPawPrintsOverlay(canvas, cell)", "drawFinishRanksOverlay(canvas, cell)",
-].map(x=>chrome.indexOf(x));
-assert.ok(drawOrder.every((v,i)=>v>=0 && (!i || v>drawOrder[i-1])), "Art draw order must remain unchanged");
+// Composition happens once on the artwork worker; dynamic overlays stay above the cached image.
+assert.ok(chrome.indexOf("renderer.draw(target, size") < chrome.indexOf("yardHabitatRenderer.draw(target, cell)"));
+const presentStart = chrome.indexOf("override fun onDraw(");
+const presentEnd = chrome.indexOf("override fun onSizeChanged", presentStart);
+const presentation = chrome.slice(presentStart, presentEnd);
+assert.ok(presentation.indexOf("canvas.drawBitmap") < presentation.indexOf("drawYardPawPrintsOverlay"));
+assert.ok(presentation.indexOf("drawYardPawPrintsOverlay") < presentation.indexOf("drawFinishRanksOverlay"));
+assert.doesNotMatch(presentation, /Bitmap\.createBitmap|renderer\.draw|yardHabitatRenderer\.draw/,
+  "Expensive board composition must not return to the UI drawing pass");
+assert.match(chrome, /Thread\(task, "LudoPawsBoardArtwork"\)/);
+assert.match(reactive, /board\.artworkReady && sceneReady/);
 assert.match(classic, /drawCrossTileDepth\(canvas, cell\)/);
 assert.match(classic, /drawCenterDepth\(canvas, cell\)/);
 assert.match(geomTests, /clean yards fill all four complete five-cell quadrants without color strips/);

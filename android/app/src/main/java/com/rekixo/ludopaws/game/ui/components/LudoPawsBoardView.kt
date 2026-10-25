@@ -258,6 +258,11 @@ class LudoPawsBoardView @JvmOverloads constructor(
      * hidden completely during normal 3D play so no circular legacy pawn can leak
      * through or move out of sync with an animal.
      */
+    internal val artworkReady: Boolean get() = boardChrome.artworkReady
+    internal var onArtworkReadyChanged: ((Boolean) -> Unit)?
+        get() = boardChrome.onArtworkReadyChanged
+        set(value) { boardChrome.onArtworkReadyChanged = value }
+
     fun setClassicPawnFallbackVisible(visible: Boolean) {
         if (classicPawnFallbackVisible == visible) {
             return
