@@ -6,6 +6,11 @@ plugins {
 }
 
 val qaBuild = providers.gradleProperty("LUDOPAWS_QA_BUILD").orElse("false").get().toBooleanStrict()
+val devBuild = providers.gradleProperty("LUDOPAWS_DEV_BUILD").orElse("false").get().toBooleanStrict()
+require(!(qaBuild && devBuild)) { "Choose either isolated QA or developer preview mode." }
+require(!devBuild || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
+    "Developer preview mode is debug-only; release tasks require LUDOPAWS_DEV_BUILD=false."
+}
 require(!qaBuild || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
     "QA isolation is for debug device tests only; release tasks require LUDOPAWS_QA_BUILD=false."
 }
@@ -51,6 +56,9 @@ require(!(ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) || adSafetyRev
 }
 require(!qaBuild || !(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
     "Isolated QA builds cannot enable purchases or ads. Use the signed internal Play build."
+}
+require(!devBuild || !(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
+    "The .dev package uses preview tools and demo ads only. Use integration debug for Play Billing."
 }
 val admobAppId =
     providers.gradleProperty("ADMOB_APP_ID")
@@ -236,6 +244,12 @@ android {
     buildTypes {
         getByName("debug") {
             isMinifyEnabled = false
+            if (devBuild) {
+                applicationIdSuffix = ".dev"
+                versionNameSuffix = "-dev"
+                resValue("string", "app_name", "LudoPaws Dev")
+                manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-3940256099942544~3347511713"
+            }
             if (qaBuild) {
                 applicationIdSuffix = ".qa"
                 versionNameSuffix = "-qa"
