@@ -52,6 +52,7 @@ class AccountRepository(context: Context) {
         return parseAndSaveSession(response, guestRecoveryEligible = true)
     }
 
+    @Synchronized
     fun requireSession(): AccountSession {
         val current = sessions.load()
             ?: throw AccountApiException(401, "ACCOUNT_SESSION_REQUIRED", "Sign in or continue as a guest to use the store.")
@@ -62,6 +63,14 @@ class AccountRepository(context: Context) {
 
     @Synchronized
     fun validSession(current: AccountSession): AccountSession {
+        val latest = sessions.load()
+            ?: throw AccountApiException(401, "ACCOUNT_SESSION_REQUIRED", "Reconnect to your game account.")
+        if (latest.accountId != current.accountId || latest.sessionId != current.sessionId) {
+            throw AccountApiException(409, "ACCOUNT_SESSION_CHANGED", "The active account changed. Please try again.")
+        }
+        // Another request may already have rotated this session. Never reuse its old
+        // refresh token or restore a cached session after account switch/logout.
+        if (latest != current) return validSession(latest)
         val nowSeconds = System.currentTimeMillis() / 1000
         if (current.accessExpiresAt > nowSeconds + 45) return current
         val requestId = sessions.pendingRefreshRequestId()
@@ -120,6 +129,7 @@ class AccountRepository(context: Context) {
         }
     }
 
+    @Synchronized
     fun restoreGoogleAccount(idToken: String, nonce: String): AccountSession {
         val response = request(
             "POST",
@@ -284,6 +294,7 @@ class AccountRepository(context: Context) {
         return credential
     }
 
+    @Synchronized
     fun deleteCurrentAccount(): JSONObject {
         val current = sessions.load()
             ?: throw AccountApiException(401, "ACCOUNT_SESSION_REQUIRED", "Sign in again before deleting your account.")
@@ -301,6 +312,7 @@ class AccountRepository(context: Context) {
         return response
     }
 
+    @Synchronized
     fun logout() {
         val session = requireSession()
         request(
@@ -312,6 +324,7 @@ class AccountRepository(context: Context) {
         sessions.clear()
     }
 
+    @Synchronized
     fun clearLocalSession() = sessions.clearSession()
 
     fun requiresIdentityRecovery(): Boolean = sessions.hasPendingIdentityRecovery()

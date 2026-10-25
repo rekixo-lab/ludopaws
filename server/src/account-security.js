@@ -48,8 +48,14 @@ export async function verifyGoogleIdToken(env, idToken, expectedNonce, fetchImpl
 
   const now = Math.floor(nowMs / 1000);
   const audienceMatches = claims?.aud === clientId || (Array.isArray(claims?.aud) && claims.aud.includes(clientId));
+  // Android presents a token intended for the Web backend: azp can be its
+  // distinct Android OAuth client. Never infer trust from a shared project prefix.
+  const presenters = new Set([clientId, ...String(env?.GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS ?? "")
+    .split(",").map((value) => value.trim()).filter(Boolean)]);
+  const presenterMatches = claims?.azp == null ||
+    (typeof claims.azp === "string" && presenters.has(claims.azp));
   if (!GOOGLE_ISSUERS.has(String(claims?.iss ?? "")) || !audienceMatches ||
-      (claims?.azp != null && claims.azp !== clientId) ||
+      !presenterMatches ||
       typeof claims?.sub !== "string" || claims.sub.length < 1 || claims.sub.length > 255 ||
       !Number.isSafeInteger(claims?.exp) || claims.exp <= now - CLOCK_SKEW_SECONDS ||
       !Number.isSafeInteger(claims?.iat) || claims.iat > now + CLOCK_SKEW_SECONDS || claims.iat < now - 7200 ||

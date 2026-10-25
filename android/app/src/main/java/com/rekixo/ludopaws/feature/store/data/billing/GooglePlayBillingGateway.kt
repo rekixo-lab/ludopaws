@@ -155,6 +155,11 @@ class GooglePlayBillingGateway(
             return
         }
 
+        if (!OBFUSCATED_ACCOUNT_ID_REGEX.matches(currentBillingAccountId)) {
+            listener.onBillingUnavailable("Reconnect to your game account before purchasing.")
+            return
+        }
+
         val details =
             productDetails[
                 productId
