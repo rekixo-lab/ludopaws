@@ -9,7 +9,7 @@ import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
 const MAX_BALANCE = 2_000_000_000;
 const NAME_LENGTH = 24;
 const DEFAULT_COSMETICS = [
-  ["board_classic", "BOARD"], ["dice_classic", "DICE"], ["dice_pumpkin", "DICE"],
+  ["board_classic", "BOARD"], ["dice_classic", "DICE"],
   ["avatar_9", "AVATAR"], ["avatar_4", "AVATAR"], ["avatar_3", "AVATAR"],
   ["avatar_5", "AVATAR"], ["avatar_6", "AVATAR"], ["avatar_7", "AVATAR"],
   ["avatar_1", "AVATAR"], ["avatar_8", "AVATAR"], ["character_pack_starter_paws", "CHARACTER_PACK"],
@@ -26,13 +26,13 @@ const COSMETICS = Object.freeze({
   board_alien: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 22, ads: 0 },
   board_penguin: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   dice_classic: { category: "DICE", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
-  dice_pumpkin: { category: "DICE", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
-  dice_diwali: { category: "DICE", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 5 },
-  dice_football: { category: "DICE", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 10 },
-  dice_cricket: { category: "DICE", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 20 },
-  dice_summers: { category: "DICE", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 30 },
-  dice_colors: { category: "DICE", kind: "GEMS", available: true, gemPrice: 200, level: 0, ads: 0 },
-  dice_heart: { category: "DICE", kind: "GEMS", available: true, gemPrice: 250, level: 0, ads: 0 },
+  dice_pumpkin: { category: "DICE", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
+  dice_diwali: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
+  dice_football: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
+  dice_cricket: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 20 },
+  dice_summers: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 30 },
+  dice_colors: { category: "DICE", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
+  dice_heart: { category: "DICE", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   avatar_9: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_4: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_3: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
@@ -43,6 +43,8 @@ const COSMETICS = Object.freeze({
   avatar_8: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_2: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 500, level: 0, ads: 0 },
   avatar_10: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 500, level: 0, ads: 0 },
+  character_goat_lumi: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 10 },
+  character_donkey: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 15 },
   character_pack_starter_paws: { category: "CHARACTER_PACK", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   character_pack_safari_paws: { category: "CHARACTER_PACK", kind: "LEVEL", available: false, gemPrice: 0, level: 8, ads: 0 },
   character_pack_farm_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 300, level: 0, ads: 0 },
@@ -504,6 +506,9 @@ export class PlayerAccount {
         this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", nextBalance, now, accountId);
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_ad_progress (cosmetic_id, progress, updated_at) VALUES (?, ?, ?) ON CONFLICT(cosmetic_id) DO UPDATE SET progress = excluded.progress, updated_at = excluded.updated_at", cosmeticId, next, now);
         this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", 5, nextBalance, transactionHash, now);
+        if (next >= cosmetic.ads && ["character_goat_lumi", "character_donkey"].includes(cosmeticId)) {
+          this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
+        }
       });
       return json(200, { ok: true, replay, wallet: this.#walletSnapshot(accountId) });
     }

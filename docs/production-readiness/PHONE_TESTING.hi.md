@@ -20,11 +20,17 @@ Demo ads Google test units हैं; reward callback का मतलब वा
 Dev में production Billing/Store Ads और Google/Play Games login बंद हैं।
 
 **All content / lock reasons / dice previews** में हर item का actual gate दिखता है।
-सभी आठ ready dice बिना gems खरीदे preview कर सकते हैं। **Try in Dev games** केवल `.dev`
+अभी केवल Classic dice उपलब्ध है; बाकी dice के artwork/unlock actions Coming Soon हैं। **Try in Dev games** केवल `.dev`
 app में visual dice selection बदलता है; server inventory, ownership या wallet नहीं बदलता।
 **Reset Dev dice to normal selection** से override हटाएँ। अधूरे boards/Paws packs के लिए
 Coming Soon लिखा रहेगा; उनका actual content implement किए बिना वे उपलब्ध नहीं हो सकते।
 Developer panel का **Open full testing app (LudoPaws)** original-package app खोलता है।
+
+Lumi Goat का unlock 10 और Donkey का 15 अलग-अलग server-verified rewarded ads पर है।
+Store में संबंधित character पर progress दिखता है; Offline setup और saved selections भी
+वही account entitlement जाँचते हैं। Demo ads ownership/progress नहीं बढ़ाते। वास्तविक
+unlock के लिए नए PlayerAccount backend code का deploy और Ads-enabled build जरूरी हैं।
+Classic board का Store preview गेम के साझा 3D renderer से आता है; Classic मुफ्त रहता है।
 
 वास्तविक Google linking और Play purchases के लिए:
 

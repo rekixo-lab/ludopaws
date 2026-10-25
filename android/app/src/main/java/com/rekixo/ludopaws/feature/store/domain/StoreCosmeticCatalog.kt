@@ -19,6 +19,18 @@ object StoreCosmeticCatalog {
     private val builtInBoards = BoardRegistry.all.map { it.offer }
     private val builtInDice = DiceRegistry.all.map { it.offer }
 
+    val characterUnlocks = listOf(
+        cosmetic("character_goat_lumi", "LUMI GOAT", CosmeticCategory.CHARACTER_PACK,
+            CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFF4E4CD.toInt(), 0xFF806249.toInt(),
+            ads = 10, characterPackId = "starter_paws"),
+        cosmetic("character_donkey", "DONKEY", CosmeticCategory.CHARACTER_PACK,
+            CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFC7C6C3.toInt(), 0xFF555862.toInt(),
+            ads = 15, characterPackId = "starter_paws"),
+    )
+
+    fun characterUnlock(characterId: String): StoreCosmetic? =
+        characterUnlocks.firstOrNull { it.id == "character_$characterId" }
+
     private val builtInAvatars =
         listOf(
             cosmetic("avatar_9","Avatar 9",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A9",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
@@ -144,7 +156,7 @@ object StoreCosmeticCatalog {
         get() = mergedForCategory(CosmeticCategory.CHARACTER_PACK)
 
     val all: List<StoreCosmetic>
-        get() = boards + dice + avatars + characterPacks
+        get() = boards + dice + avatars + characterPacks + characterUnlocks
 
     // Only shipped, locally renderable defaults are granted at account creation.
     // Remote FREE offers never become locally owned merely by appearing in a catalog.
@@ -175,7 +187,7 @@ object StoreCosmeticCatalog {
     }
 
     fun findBuiltIn(id: String): StoreCosmetic? =
-        (builtInBoards + builtInDice + builtInAvatars + builtInCharacterPacks)
+        (builtInBoards + builtInDice + builtInAvatars + builtInCharacterPacks + characterUnlocks)
             .firstOrNull { it.id == id }
 
     fun find(

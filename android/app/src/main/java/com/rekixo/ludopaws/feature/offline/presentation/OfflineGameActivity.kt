@@ -249,6 +249,11 @@ class OfflineGameActivity : ComponentActivity() {
         colorSelectionStatus = null
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (characterCards.isNotEmpty()) refreshCharacterSelectionUi()
+    }
+
     override fun onDestroy() {
         exitConfirmationDialog
             ?.dismiss()

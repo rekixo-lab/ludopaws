@@ -157,4 +157,24 @@ class StarterPawsAssignmentPolicyTest {
         }
         assertFalse(StarterPawsAssignmentPolicy.starterCharacterIds.isEmpty())
     }
+    @Test
+    fun `saved locked animals cannot bypass human entitlement selection`() {
+        val free = setOf("dog", "goat", "duck", "cat")
+        val local = StarterPawsAssignmentPolicy.normalize(4, listOf("goat_lumi", "donkey", "dog", "cat"), "goat_lumi", false, free)
+        assertEquals(free, local.toSet())
+        val computer = StarterPawsAssignmentPolicy.normalize(4, listOf("goat_lumi"), "goat_lumi", true, free)
+        assertEquals("dog", computer.first())
+        val rejected = StarterPawsAssignmentPolicy.select(4, local, 0, "donkey", false, free)
+        assertEquals(local, rejected)
+    }
+
+    @Test
+    fun `unlocking lumi does not unlock donkey or duplicate another local animal`() {
+        val unlocked = setOf("dog", "goat", "duck", "cat", "goat_lumi")
+        val selected = StarterPawsAssignmentPolicy.select(4, listOf("dog", "goat", "duck", "cat"), 0, "goat_lumi", false, unlocked)
+        assertEquals("goat_lumi", selected.first())
+        assertEquals(4, selected.toSet().size)
+        assertFalse("donkey" in selected)
+    }
+
 }

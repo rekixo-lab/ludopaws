@@ -59,6 +59,7 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
             requestedCharacterIds = selectedCharacterIds,
             preferredCharacterId = characterSelectionStore.load().characterId,
             computerMode = isComputerMode,
+            unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
         )
     selectedColorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
         playerCount, selectedColorsBySeat, selectedColorsBySeat.firstOrNull() ?: "BLUE",
@@ -96,6 +97,11 @@ internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
 }
 
 internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: String) {
+    if (!characterSelectionStore.isUnlocked(characterId)) {
+        startActivity(android.content.Intent(this, com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java)
+            .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS"))
+        return
+    }
     selectedCharacterIds =
         StarterPawsAssignmentPolicy.select(
             playerCount = selectedPlayers,
@@ -103,6 +109,7 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
             selectedSlot = selectedCharacterSlot,
             requestedCharacterId = characterId,
             computerMode = isComputerMode,
+            unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
         )
 
     selectedCharacterIds
@@ -335,7 +342,7 @@ private fun OfflineGameActivity.characterChoiceCard(
         addView(
             TextView(this@characterChoiceCard).apply {
                 text =
-                    character.personality.name
+                    if (!characterSelectionStore.isUnlocked(character.id)) "🔒 ${com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(character.id)?.requiredAdViews} ADS" else character.personality.name
                         .lowercase()
                         .replaceFirstChar(Char::uppercase)
                 textSize = if (isCompactSetup()) 9.5f else 10.5f
@@ -368,15 +375,13 @@ private fun OfflineGameActivity.characterChoiceCard(
     }
 
 internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
-    if (selectedCharacterIds.size != selectedPlayers) {
-        selectedCharacterIds =
-            StarterPawsAssignmentPolicy.normalize(
-                playerCount = selectedPlayers,
-                requestedCharacterIds = selectedCharacterIds,
-                preferredCharacterId = characterSelectionStore.load().characterId,
-                computerMode = isComputerMode,
-            )
-    }
+    selectedCharacterIds = StarterPawsAssignmentPolicy.normalize(
+        playerCount = selectedPlayers,
+        requestedCharacterIds = selectedCharacterIds,
+        preferredCharacterId = characterSelectionStore.load().characterId,
+        computerMode = isComputerMode,
+        unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
+    )
 
     val expectedSlots =
         if (isComputerMode) {
@@ -454,6 +459,10 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         card.findViewWithTag<TextView>(CHARACTER_NAME_TAG)
             ?.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
         card.findViewWithTag<TextView>(CHARACTER_PERSONALITY_TAG)?.apply {
+            text = if (!characterSelectionStore.isUnlocked(characterId)) {
+                "🔒 ${com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(characterId)?.requiredAdViews} ADS"
+            } else com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.character(characterId)
+                ?.personality?.name?.lowercase()?.replaceFirstChar(Char::uppercase).orEmpty()
             setTextColor(0xFFBCD5FF.toInt())
             background = null
         }

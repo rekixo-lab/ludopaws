@@ -30,6 +30,7 @@ data class ActiveOfflineCharacterSetup(
 class OfflineCharacterSetupStore(
     context: Context,
 ) {
+    private val characterSelection = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(context)
     private val prefs =
         context.applicationContext
             .getSharedPreferences(
@@ -68,6 +69,7 @@ class OfflineCharacterSetupStore(
                 requestedCharacterIds = ids,
                 preferredCharacterId = preferredCharacterId,
                 computerMode = mode == GameMode.COMPUTER,
+                unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
             )
         val storedColors = parseIds(prefs.getString(setupColorsKey(mode), null))
         val colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
@@ -119,6 +121,7 @@ class OfflineCharacterSetupStore(
                 requestedCharacterIds = snapshot.characterIds,
                 preferredCharacterId = preferred,
                 computerMode = mode == GameMode.COMPUTER,
+                unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
             )
         val safeSlot =
             if (mode == GameMode.COMPUTER) {
@@ -180,6 +183,7 @@ class OfflineCharacterSetupStore(
                 preferredCharacterId = characterIds.firstOrNull()
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
                 computerMode = mode == GameMode.COMPUTER,
+                unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
             )
         val active =
             ActiveOfflineCharacterSetup(
@@ -242,6 +246,7 @@ class OfflineCharacterSetupStore(
                 preferredCharacterId = ids.firstOrNull()
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
                 computerMode = mode == GameMode.COMPUTER,
+                unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
             )
 
         return ActiveOfflineCharacterSetup(
