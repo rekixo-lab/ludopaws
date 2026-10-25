@@ -7,6 +7,17 @@ import com.rekixo.ludopaws.feature.characters.domain.model.CharacterSelection
 class CharacterSelectionStore(
     context: Context,
 ) {
+    private val appContext = context.applicationContext
+
+    fun isUnlocked(characterId: String): Boolean {
+        val canonical = LudoPawsCharacterCatalog.canonicalCharacterId(characterId) ?: return false
+        val offer = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(canonical)
+            ?: return LudoPawsCharacterCatalog.character(canonical) != null
+        return com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(appContext).isOwned(offer.id)
+    }
+
+    fun unlockedCharacterIds(): Set<String> =
+        LudoPawsCharacterCatalog.characters.filter { isUnlocked(it.id) }.map { it.id }.toSet()
     private val prefs =
         context.applicationContext
             .getSharedPreferences(
@@ -37,7 +48,7 @@ class CharacterSelectionStore(
                             KEY_CHARACTER_ID,
                             null,
                         ),
-                )
+                ).takeIf { isUnlocked(it.characterId) } ?: LudoPawsCharacterCatalog.defaultSelection
 
         val storedPack =
             prefs.getString(
@@ -71,7 +82,7 @@ class CharacterSelectionStore(
                 LudoPawsCharacterCatalog
                     .isValidSelection(
                         selection,
-                    )
+                    ) && isUnlocked(selection.characterId)
             ) {
                 selection
             } else {

@@ -45,8 +45,11 @@ internal object LumiGoatRenderer : CharacterRenderer {
                 when (rig) {
                     LumiRig.EYE_LEFT, LumiRig.EYE_RIGHT -> {
                         val side = if (rig == LumiRig.EYE_LEFT) -1f else 1f
-                        Matrix.translateM(transform, 0, side * .188f, 1.066f, .30f)
-                        Matrix.scaleM(transform, 0, 1f, (life?.blink ?: 1f).coerceAtLeast(.035f), 1f)
+                        // Enlarge lid, iris, pupil and catchlight as one eye, keeping
+                        // the outer lid seated inside the head's silhouette.
+                        Matrix.translateM(transform, 0, side * .165f, 1.066f, .315f)
+                        Matrix.scaleM(transform, 0, 1.70f,
+                            1.70f * (life?.blink ?: 1f).coerceAtLeast(.035f), 1.08f)
                         Matrix.translateM(transform, 0, (life?.gazeX ?: 0f) * .06f,
                             (life?.gazeY ?: 0f) * .05f, 0f)
                         Matrix.translateM(transform, 0, -side * .188f, -1.066f, -.30f)
@@ -102,7 +105,7 @@ internal enum class LumiRig(val headAttached: Boolean = false) {
 }
 
 internal enum class LumiTint(hex: Int, val surface: CharacterSurface) {
-    FUR(0xF5F1E8, CharacterSurface.LUMI_FUR), INNER(0xB2A496, CharacterSurface.LUMI_FUR),
+    FUR(0xF5F1E8, CharacterSurface.LUMI_FUR), INNER(0xC48D89, CharacterSurface.LUMI_FUR),
     HORN(0xA79B85, CharacterSurface.LUMI_GLOSS), HOOF(0x393934, CharacterSurface.LUMI_GLOSS),
     LID(0x59564C, CharacterSurface.LUMI_FUR), IRIS(0x594430, CharacterSurface.LUMI_EYE),
     PUPIL(0x171612, CharacterSurface.LUMI_EYE), GLINT(0xF8F6ED, CharacterSurface.LUMI_EYE),

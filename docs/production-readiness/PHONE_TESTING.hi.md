@@ -1,5 +1,56 @@
 # अपने Android मोबाइल पर सुरक्षित QA जाँच
 
+## रोजमर्रा की full feature testing
+
+Repo root से Node.js, Java/Android SDK और authenticated GitHub CLI (`gh auth login`) के साथ:
+
+```bash
+node scripts/android-local-testing.mjs configure
+node scripts/android-local-testing.mjs dev
+```
+
+`configure` केवल public GitHub Actions variables पढ़कर `~/.config/ludopaws/android-testing.json`
+(या `XDG_CONFIG_HOME` के अंदर) में रखता है। Repo में config, keystore या APK copy नहीं होता।
+अगली बार सिर्फ `dev` चलाएँ; public configuration बदलने पर `configure` refresh करें।
+
+`dev` और `integration` दोनों अब **LudoPaws Test** बनाते हैं: original package
+`com.rekixo.ludopaws`, Billing ON, Google linking/Play Games IDs configured और rewarded/
+interstitial **Google TEST ADS ON**। Build सफल होने पर सही ऐप अपने-आप खुलता है।
+Google IDs अधूरी हों तो helper disabled build लगाने के बजाय साफ error देता है।
+
+Store में GEMS/payment section और TEST AD button मिलेगा। Test ads production SSV/account
+जानकारी नहीं भेजते और असली wallet, gems या character unlock progress नहीं बढ़ाते।
+Consent/family treatment लागू रहता है। Test-ad configuration release tasks में स्वीकार नहीं है।
+
+Google purchases के लिए फोन का Google account Play Console में **license tester** होना चाहिए।
+Purchase dialog में account/test payment जाँचें; internal-track membership अकेली पर्याप्त नहीं।
+हर code change पर Play upload जरूरी नहीं: https://developer.android.com/google/play/billing/test
+Google login के लिए original package + इस machine के debug signing SHA-1 की Android OAuth
+credential सही होनी चाहिए। SHA-1 Home → **Dev tools** में या इस command से देखें:
+
+```bash
+bash android/gradlew -p android :app:signingReport
+```
+
+Age/privacy, Google account selection और account-linking की जरूरी choices स्वयं करें।
+Real ad rewards/10-ad Lumi Goat और 15-ad Donkey unlock के लिए production ad units वाला
+Ads-enabled build, नया PlayerAccount backend deploy और verified SSV callbacks जरूरी हैं।
+Test ad देखकर genuine server entitlement नहीं दिया जाता।
+
+अलग local visual previews के लिए ही `node scripts/android-local-testing.mjs preview` चलाएँ।
+यह `com.rekixo.ludopaws.dev` / **LudoPaws Preview** है; इसमें Billing/Google/Store Ads OFF हैं।
+इसे full testing app न समझें। Home → **Dev tools** (या Settings → **Developer tools**) में
+board scenarios, character previews, server/build status और हर content item का lock कारण देखें।
+केवल Classic dice उपलब्ध है; बाकी Coming Soon हैं। Classic board का Store preview gameplay
+के साझा 3D renderer से आता है और Classic मुफ्त है। Preview fixture saved match/wallet नहीं बदलता।
+
+पहले से Play-signed app होने पर debug signature अलग होने से installation reject हो सकती है।
+Helper uninstall/data-clear/downgrade नहीं करता। ऐसे मामले में अलग test device या compatible
+signature जरूरी है। कई phones जुड़े हों तो `export ANDROID_SERIAL=<serial>` करें।
+केवल APK बनाना हो तो command में `--assemble` जोड़ें। Output standard ignored
+`android/app/build/outputs/apk/debug/app-debug.apk` में रहता है। Developer activity केवल debug
+source set में है; release में शामिल नहीं होती।
+
 इस काम में डाउनलोड किया गया local emulator, API35 system image और `ludopaws_family_api35` AVD user के निर्देश पर हटा दिए गए हैं। इन्हें दोबारा डाउनलोड/चलाना नहीं है। Local emulator run अधूरा था; उसे device pass का प्रमाण नहीं माना गया है।
 
 ## Test app

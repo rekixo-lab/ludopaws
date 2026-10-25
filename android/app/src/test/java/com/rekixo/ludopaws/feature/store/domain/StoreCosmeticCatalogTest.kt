@@ -93,14 +93,22 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
-    fun classicAndPumpkinDiceRemainFreeContentReadyStyles() {
-        val classic = requireNotNull(StoreCosmeticCatalog.find("dice_classic"))
-        val pumpkin = requireNotNull(StoreCosmeticCatalog.find("dice_pumpkin"))
-        assertTrue(classic.contentAvailable)
-        assertTrue(pumpkin.contentAvailable)
-        assertEquals(CosmeticUnlockKind.FREE, classic.unlockKind)
-        assertEquals(CosmeticUnlockKind.FREE, pumpkin.unlockKind)
-        assertTrue("dice_pumpkin" in StoreCosmeticCatalog.defaultOwnedIds)
+    fun onlyClassicDiceAreAvailableAndGrantedByDefault() {
+        val available = StoreCosmeticCatalog.dice.filter { it.contentAvailable }
+        assertEquals(listOf("dice_classic"), available.map { it.id })
+        assertEquals(CosmeticUnlockKind.FREE, available.single().unlockKind)
+        assertEquals(setOf("dice_classic"), StoreCosmeticCatalog.defaultOwnedIds.filter { it.startsWith("dice_") }.toSet())
+    }
+
+    @Test
+    fun lumiAndDonkeyHaveIndependentVerifiedAdRequirements() {
+        assertEquals(10, StoreCosmeticCatalog.characterUnlock("goat_lumi")?.requiredAdViews)
+        assertEquals(15, StoreCosmeticCatalog.characterUnlock("donkey")?.requiredAdViews)
+        StoreCosmeticCatalog.characterUnlocks.forEach {
+            assertTrue(it.contentAvailable)
+            assertEquals(CosmeticUnlockKind.REWARDED_ADS, it.unlockKind)
+            assertTrue(it.id !in StoreCosmeticCatalog.defaultOwnedIds)
+        }
     }
 
     @Test

@@ -134,8 +134,8 @@ internal class LudoPawsCenterHouses3D {
     }.build()
     private val houseApron = MeshBuilder().apply {
         // A shallow cream terrace joins each facade to lawn and steps, without filling the courts.
-        val inner = .66f
-        val outer = .785f
+        val inner = LudoPawsFxBoardGeometry.CENTER_HOUSE_SCALE - .04f
+        val outer = LudoPawsFxBoardGeometry.CENTER_HOUSE_SCALE + .065f
         quad(v(-inner, inner, -.021f), v(inner, inner, -.021f),
             v(outer, outer, -.021f), v(-outer, outer, -.021f))
     }.build()
@@ -271,7 +271,7 @@ internal class LudoPawsCenterHouses3D {
         val halfSpan = size / 6f
         // Scale the complete group about its shared center. Leave a perimeter strip
         // even around the flowers, thresholds and fully outward-swinging doors.
-        val artworkHalfSpan = halfSpan * .75f
+        val artworkHalfSpan = halfSpan * LudoPawsFxBoardGeometry.CENTER_HOUSE_SCALE
         val previousSurface = context.surface
         context.surface = CharacterSurface.HOUSE_WALL
         context.life = null
@@ -375,7 +375,8 @@ internal class LudoPawsCenterHouses3D {
             Matrix.setIdentityM(house, 0)
             Matrix.translateM(house, 0, size * .5f, size * .5f, 0f)
             Matrix.rotateM(house, 0, (turns * 90 + index * 90).toFloat(), 0f, 0f, 1f)
-            Matrix.scaleM(house, 0, size / 6f * .75f, size / 6f * .75f, size / 6f * .75f)
+            val modelSpan = size / 6f * LudoPawsFxBoardGeometry.CENTER_HOUSE_SCALE
+            Matrix.scaleM(house, 0, modelSpan, modelSpan, modelSpan)
             System.arraycopy(house, 0, facade, 0, 16)
             Matrix.translateM(facade, 0, 0f, 1f, .02f)
             Matrix.rotateM(facade, 0, -48.990913f, 1f, 0f, 0f)
@@ -403,13 +404,13 @@ internal class LudoPawsCenterHouses3D {
             // Broken low edging defines the building without closing the lane-to-door entrance.
             for (edge in intArrayOf(-1, 1)) {
                 repeat(3) { block ->
-                    part(c, garden, stoneBlock, edge * (.285f + block * .145f), .785f, -.006f,
+                    part(c, garden, stoneBlock, edge * (.20f + block * .10f), LudoPawsFxBoardGeometry.CENTER_HOUSE_SCALE + .065f, -.006f,
                         .067f, .022f, .012f, if (block % 2 == 0) STONE else TERRACE_STONE)
                 }
             }
             // Broad graduated steps have visible risers and shaded joints, like the reference.
             repeat(3) { step ->
-                val y = .792f + step * .078f
+                val y = LudoPawsFxBoardGeometry.CENTER_DOOR_OUTWARD + .042f + step * .078f
                 val stepWidth = .105f + step * .008f
                 c.surface = CharacterSurface.GARDEN_GROUND
                 c.drawPart(garden, .009f, y + .014f, -.020f, stepWidth + .009f, .041f, .003f, CONTACT_SHADE)

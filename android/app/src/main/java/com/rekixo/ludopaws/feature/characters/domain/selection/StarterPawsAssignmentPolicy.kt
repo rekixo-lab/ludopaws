@@ -23,10 +23,11 @@ object StarterPawsAssignmentPolicy {
         requestedCharacterIds: List<String>,
         preferredCharacterId: String,
         computerMode: Boolean,
+        unlockedCharacterIds: Set<String> = starterCharacterIds.toSet(),
     ): List<String> {
         requirePlayerCount(playerCount)
 
-        val available = starterCharacterIds
+        val available = starterCharacterIds.filter { computerMode || it in unlockedCharacterIds }
         require(available.size >= playerCount) {
             "Starter Paws must contain at least $playerCount characters"
         }
@@ -36,7 +37,7 @@ object StarterPawsAssignmentPolicy {
                 .canonicalCharacterId(preferredCharacterId)
         val safePreferred =
             canonicalPreferred
-                ?.takeIf(available::contains)
+                ?.takeIf { it in available && it in unlockedCharacterIds }
                 ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
                     .takeIf(available::contains)
                 ?: available.first()
@@ -97,23 +98,25 @@ object StarterPawsAssignmentPolicy {
         selectedSlot: Int,
         requestedCharacterId: String,
         computerMode: Boolean,
+        unlockedCharacterIds: Set<String> = starterCharacterIds.toSet(),
     ): List<String> {
         requirePlayerCount(playerCount)
         require(selectedSlot in 0 until playerCount) {
             "Character slot $selectedSlot is outside the active player range"
         }
 
-        val available = starterCharacterIds
+        val available = starterCharacterIds.filter { computerMode || it in unlockedCharacterIds }
         val canonicalRequested =
             LudoPawsCharacterCatalog
                 .canonicalCharacterId(requestedCharacterId)
-        if (canonicalRequested == null || canonicalRequested !in available) {
+        if (canonicalRequested == null || canonicalRequested !in available || canonicalRequested !in unlockedCharacterIds) {
             return normalize(
                 playerCount = playerCount,
                 requestedCharacterIds = currentCharacterIds,
                 preferredCharacterId = currentCharacterIds.firstOrNull()
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
                 computerMode = computerMode,
+                unlockedCharacterIds = unlockedCharacterIds,
             )
         }
 
@@ -131,6 +134,7 @@ object StarterPawsAssignmentPolicy {
                 requestedCharacterIds = listOf(humanCharacterId),
                 preferredCharacterId = humanCharacterId,
                 computerMode = true,
+                unlockedCharacterIds = unlockedCharacterIds,
             )
         }
 
@@ -141,6 +145,7 @@ object StarterPawsAssignmentPolicy {
                 preferredCharacterId = currentCharacterIds.firstOrNull()
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
                 computerMode = false,
+                unlockedCharacterIds = unlockedCharacterIds,
             )
                 .toMutableList()
 

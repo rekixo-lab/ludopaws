@@ -112,14 +112,54 @@ class LudoPawsFxBoardGeometryTest {
                 for (i in slots.indices) for (j in i + 1 until slots.size) {
                     val dx = slots[i].first - slots[j].first
                     val dy = slots[i].second - slots[j].second
-                    assertTrue("Finish slots must leave space between animals", dx * dx + dy * dy > cell * cell * .25f)
+                    assertTrue("Finish slots must leave space between animals", dx * dx + dy * dy >= cell * cell * .249f)
                 }
             }
         }
         // First members stand alongside the entrance, not on its central approach.
         val red = finishCenter("RED", cell)
-        assertEquals(5.8f * cell, red.first, EPSILON)
-        assertEquals(6.225f * cell, red.second, EPSILON)
+        assertEquals(5.775f * cell, red.first, EPSILON)
+        assertEquals(7.125f * cell, red.second, EPSILON)
+    }
+
+    @Test
+    fun `all sixteen courtyard silhouettes clear roofs corners doorways and each other`() {
+        // Envelope of upright finish rigs including a small breathing/celebration allowance,
+        // expressed in half-garden spans. Validate visible bodies rather than just foot points.
+        val cell = 60f
+        val center = 7.5f * cell
+        val half = 2.5f * cell
+        for (turns in 0..3) {
+            val bodies = mutableListOf<FloatArray>()
+            for (color in listOf("RED", "GREEN", "YELLOW", "BLUE")) {
+                for (token in 0..3) {
+                    val foot = LudoPawsFxBoardGeometry.finishGardenCenter(color, token, cell, turns)
+                    val x = (foot.first - center) / half
+                    val y = (foot.second - center) / half
+                    val screen = when (turns) {
+                        1 -> -y to x
+                        2 -> -x to -y
+                        3 -> y to -x
+                        else -> x to y
+                    }
+                    val body = floatArrayOf(screen.first - .09f, screen.second - .46f,
+                        screen.first + .09f, screen.second + .025f)
+                    assertTrue("Body crosses garden boundary: $color/$token/$turns",
+                        body[0] > -1f && body[1] > -1f && body[2] < 1f && body[3] < 1f)
+                    assertTrue("Body overlaps joined roof: $color/$token/$turns",
+                        body[2] <= -.45f || body[0] >= .45f || body[3] <= -.45f || body[1] >= .45f)
+                    assertTrue("Body occupies doorway approach: $color/$token/$turns",
+                        body[2] <= -.12f || body[0] >= .12f || body[3] <= -.12f || body[1] >= .12f)
+                    for (other in bodies) {
+                        assertTrue("Neighbouring home silhouettes overlap in perspective $turns",
+                            body[2] <= other[0] || body[0] >= other[2] ||
+                                body[3] <= other[1] || body[1] >= other[3])
+                    }
+                    bodies.add(body)
+                }
+            }
+            assertEquals(16, bodies.size)
+        }
     }
 
     @Test

@@ -353,20 +353,20 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
   const { account, sql } = makeAccount();
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Test Player" })).json();
-  sql.wallet.get(accountId).balance = 500;
+  sql.wallet.get(accountId).balance = 750;
 
   const purchase = {
     accountId,
     sessionId: created.sessionId,
-    cosmeticId: "dice_heart",
+    cosmeticId: "avatar_2",
     clientRequestId: "4c4e7f90-68e5-4c30-8fb8-c5a7b0f0f8aa",
   };
   const firstResponse = await post(account, "/wallet/cosmetic/purchase", purchase);
   assert.equal(firstResponse.status, 200);
   const first = await firstResponse.json();
   assert.equal(first.wallet.balance, 250);
-  assert.equal(first.wallet.ownedCosmetics.includes("dice_heart"), true);
-  assert.equal(first.wallet.selectedCosmetics.DICE, "dice_heart");
+  assert.equal(first.wallet.ownedCosmetics.includes("avatar_2"), true);
+  assert.equal(first.wallet.selectedCosmetics.AVATAR, "avatar_2");
   assert.equal(sql.walletTransactions.size, 1);
 
   const replayResponse = await post(account, "/wallet/cosmetic/purchase", purchase);
@@ -382,20 +382,20 @@ test("content-ready cosmetic purchases do not require client-only level progress
   const { account, sql } = makeAccount();
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Cosmetic Tester" })).json();
-  sql.wallet.get(accountId).balance = 500;
+  sql.wallet.get(accountId).balance = 800;
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
     accountId,
     sessionId: created.sessionId,
-    cosmeticId: "dice_colors",
+    cosmeticId: "avatar_10",
     clientRequestId: "8a9b7c6d-5e4f-4321-9876-123456789abc",
   });
 
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.wallet.balance, 300);
-  assert.equal(body.wallet.ownedCosmetics.includes("dice_colors"), true);
-  assert.equal(body.wallet.selectedCosmetics.DICE, "dice_colors");
+  assert.equal(body.wallet.ownedCosmetics.includes("avatar_10"), true);
+  assert.equal(body.wallet.selectedCosmetics.AVATAR, "avatar_10");
 });
 
 test("refresh-token retries with the same request ID return the same rotated token", async () => {
@@ -431,7 +431,7 @@ test("cosmetic-targeted AdMob view grants the configured 5 gems and progress exa
     accountId,
     transactionId: "a1b2c3d4e5f60718293a4b5c6d7e8f90",
     kind: "cosmetic",
-    cosmeticId: "dice_diwali",
+    cosmeticId: "character_goat_lumi",
   };
 
   const firstResponse = await post(account, "/wallet/reward-ad", event);
@@ -439,7 +439,7 @@ test("cosmetic-targeted AdMob view grants the configured 5 gems and progress exa
   const first = await firstResponse.json();
   assert.equal(first.wallet.balance, 5);
   assert.equal(sql.wallet.get(accountId).balance, 5);
-  assert.equal(sql.adProgress.get("dice_diwali"), 1);
+  assert.equal(sql.adProgress.get("character_goat_lumi"), 1);
   assert.equal(sql.walletTransactions.size, 1);
   const transaction = [...sql.walletTransactions.values()][0];
   assert.equal(transaction.kind, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS");
@@ -452,7 +452,7 @@ test("cosmetic-targeted AdMob view grants the configured 5 gems and progress exa
   assert.equal(replay.replay, true);
   assert.equal(replay.wallet.balance, 5);
   assert.equal(sql.wallet.get(accountId).balance, 5);
-  assert.equal(sql.adProgress.get("dice_diwali"), 1);
+  assert.equal(sql.adProgress.get("character_goat_lumi"), 1);
   assert.equal(sql.walletTransactions.size, 1);
 });
 
@@ -460,7 +460,7 @@ test("cosmetic-targeted AdMob view grants the configured 5 gems and progress exa
 test("catalog-managed purchases use the current server price and grant the catalog category", async () => {
   const { account, sql } = makeAccount({
     LUDOPROOF_STORE_CATALOG: makeCatalogNamespace([
-      catalogItem({ id: "dice_heart", category: "DICE", name: "Heart Festival" }),
+      catalogItem({ id: "avatar_2", category: "AVATAR", name: "Premium Avatar" }),
     ]),
   });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
@@ -468,7 +468,7 @@ test("catalog-managed purchases use the current server price and grant the catal
   sql.wallet.get(accountId).balance = 200;
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
     clientRequestId: "d47ddef4-9c33-44da-9187-5d774267a3c5",
     catalogCountry: "IN",
     // A client has no price field here; the DO takes its price from published catalog state.
@@ -476,16 +476,16 @@ test("catalog-managed purchases use the current server price and grant the catal
   assert.equal(response.status, 200);
   const result = await response.json();
   assert.equal(result.wallet.balance, 75);
-  assert.ok(result.wallet.ownedCosmetics.includes("dice_heart"));
-  assert.equal(result.wallet.selectedCosmetics.DICE, "dice_heart");
+  assert.ok(result.wallet.ownedCosmetics.includes("avatar_2"));
+  assert.equal(result.wallet.selectedCosmetics.AVATAR, "avatar_2");
   assert.equal(sql.walletTransactions.size, 1);
 });
 
 test("archived catalog entry cannot bypass its status by falling back to the legacy cosmetic ID", async () => {
   const archived = catalogItem({
-    id: "dice_heart",
-    category: "DICE",
-    name: "Archived Heart",
+    id: "avatar_2",
+    category: "AVATAR",
+    name: "Archived Avatar",
     status: "ARCHIVED",
     unlock: { channels: ["GEMS"], gems: { enabled: true, price: 1 } },
   });
@@ -497,7 +497,7 @@ test("archived catalog entry cannot bypass its status by falling back to the leg
   sql.wallet.get(accountId).balance = 500;
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
     clientRequestId: "e25b0212-af25-44ef-b9f4-c280c9d32e31",
   });
   assert.equal(response.status, 400);
@@ -508,9 +508,9 @@ test("archived catalog entry cannot bypass its status by falling back to the leg
 
 test("catalog-managed multi-channel purchase requires an explicit enabled channel and respects country rules", async () => {
   const multi = catalogItem({
-    id: "dice_heart",
-    category: "DICE",
-    name: "Multi-channel Heart",
+    id: "avatar_2",
+    category: "AVATAR",
+    name: "Multi-channel Avatar",
     unlock: {
       channels: ["GEMS", "REWARDED_ADS"],
       gems: { enabled: true, price: 90 },
@@ -529,14 +529,14 @@ test("catalog-managed multi-channel purchase requires an explicit enabled channe
   sql.wallet.get(accountId).balance = 150;
 
   const wrongCountry = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
     clientRequestId: "b6b07c67-7c13-4a54-83ab-37e79d097d6f", catalogCountry: "US",
   });
   assert.equal(wrongCountry.status, 400);
   assert.equal((await wrongCountry.json()).error, "COSMETIC_UNAVAILABLE");
 
   const ambiguous = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
     clientRequestId: "8cc64312-e42b-4d4d-a6b2-3cfd16c3f098", catalogCountry: "IN",
   });
   assert.equal(ambiguous.status, 400);
@@ -544,7 +544,7 @@ test("catalog-managed multi-channel purchase requires an explicit enabled channe
   assert.equal(sql.wallet.get(accountId).balance, 150);
 
   const selectedChannel = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart", unlockChannel: "GEMS",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2", unlockChannel: "GEMS",
     clientRequestId: "c0e51f8e-2663-4d35-a0d1-248eaf508282", catalogCountry: "IN",
   });
   assert.equal(selectedChannel.status, 200);
@@ -553,9 +553,9 @@ test("catalog-managed multi-channel purchase requires an explicit enabled channe
 
 test("catalog-managed rewarded ads verify current eligibility and can progress to ownership", async () => {
   const rewardItem = catalogItem({
-    id: "dice_diwali",
-    category: "DICE",
-    name: "Diwali Dice",
+    id: "avatar_2",
+    category: "AVATAR",
+    name: "Reward Avatar",
     unlock: {
       channels: ["REWARDED_ADS"],
       rewardedAds: { enabled: true, requiredCompletedAds: 2 },
@@ -573,19 +573,19 @@ test("catalog-managed rewarded ads verify current eligibility and can progress t
     "b1c2d3e4f5a60718293a4b5c6d7e8f90",
   ]) {
     const reward = await post(account, "/wallet/reward-ad", {
-      accountId, transactionId, kind: "cosmetic", cosmeticId: "dice_diwali", catalogCountry: "IN",
+      accountId, transactionId, kind: "cosmetic", cosmeticId: "avatar_2", catalogCountry: "IN",
     });
     assert.equal(reward.status, 200);
   }
   assert.equal(sql.wallet.get(accountId).balance, 10);
-  assert.equal(sql.adProgress.get("dice_diwali"), 2);
+  assert.equal(sql.adProgress.get("avatar_2"), 2);
 
   const purchase = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: (await created.json()).sessionId, cosmeticId: "dice_diwali",
+    accountId, sessionId: (await created.json()).sessionId, cosmeticId: "avatar_2",
     clientRequestId: "7ab6933e-2465-4b01-9cd2-aa33b2020605", catalogCountry: "IN",
   });
   assert.equal(purchase.status, 200);
-  assert.ok((await purchase.json()).wallet.ownedCosmetics.includes("dice_diwali"));
+  assert.ok((await purchase.json()).wallet.ownedCosmetics.includes("avatar_2"));
 });
 
 test("new catalog IDs stay unpurchasable until server renderer and entitlement support ship", async () => {
@@ -610,7 +610,7 @@ test("new catalog IDs stay unpurchasable until server renderer and entitlement s
 });
 
 test("archived dynamic cosmetic cannot be equipped but prior ownership is retained", async () => {
-  const paw = catalogItem({ id: "dice_heart", category: "DICE", name: "Heart Festival" });
+  const paw = catalogItem({ id: "avatar_2", category: "AVATAR", name: "Premium Avatar" });
   const catalog = makeCatalogNamespace([paw]);
   const { account, sql } = makeAccount({ LUDOPROOF_STORE_CATALOG: catalog });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
@@ -618,23 +618,23 @@ test("archived dynamic cosmetic cannot be equipped but prior ownership is retain
   sql.wallet.get(accountId).balance = 200;
 
   const bought = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
     clientRequestId: "afc2b41d-9f61-47b1-9732-0b4890ff3d42", catalogCountry: "IN",
   });
   assert.equal(bought.status, 200);
-  assert.ok((await bought.json()).wallet.ownedCosmetics.includes("dice_heart"));
+  assert.ok((await bought.json()).wallet.ownedCosmetics.includes("avatar_2"));
 
   // The namespace is a test double over current state; archive after ownership exists.
   paw.status = "ARCHIVED";
   const select = await post(account, "/wallet/cosmetic/select", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart", catalogCountry: "IN",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2", catalogCountry: "IN",
   });
   assert.equal(select.status, 400);
   assert.equal((await select.json()).error, "COSMETIC_UNAVAILABLE");
 
   const wallet = await post(account, "/wallet/get", { accountId, sessionId: created.sessionId });
   assert.equal(wallet.status, 200);
-  assert.ok((await wallet.json()).wallet.ownedCosmetics.includes("dice_heart"));
+  assert.ok((await wallet.json()).wallet.ownedCosmetics.includes("avatar_2"));
 });
 
 test("catalog service outage fails closed for purchase and does not use the legacy table", async () => {
@@ -646,7 +646,7 @@ test("catalog service outage fails closed for purchase and does not use the lega
   sql.wallet.get(accountId).balance = 500;
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
-    accountId, sessionId: created.sessionId, cosmeticId: "dice_heart",
+    accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
     clientRequestId: "d6c8e7f9-8251-48c7-93b8-60d532f78626",
   });
   assert.equal(response.status, 503);
@@ -702,3 +702,51 @@ test("deletion preview locks account mutations until the deletion saga commits o
   assert.equal(sql.deletedAccounts.has(accountId), true);
 });
 
+
+
+for (const [cosmeticId, required] of [["character_goat_lumi", 10], ["character_donkey", 15]]) {
+  test(`${cosmeticId} unlocks only at ${required} unique verified ads`, async () => {
+    const { account, sql } = makeAccount();
+    const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+    const session = await (await post(account, "/session/create", { accountId, displayName: "Character Tester" })).json();
+    for (let i = 1; i <= required; i++) {
+      const event = { accountId, kind: "cosmetic", cosmeticId, transactionId: i.toString(16).padStart(32, "0") };
+      const result = await post(account, "/wallet/reward-ad", event);
+      assert.equal(result.status, 200);
+      const body = await result.json();
+      assert.equal(body.wallet.rewardedAdProgress[cosmeticId], i);
+      assert.equal(body.wallet.ownedCosmetics.includes(cosmeticId), i === required);
+      const replay = await (await post(account, "/wallet/reward-ad", event)).json();
+      assert.equal(replay.replay, true);
+      assert.equal(replay.wallet.rewardedAdProgress[cosmeticId], i);
+      assert.equal(replay.wallet.balance, i * 5);
+    }
+    assert.equal(sql.ownedCosmetics.has(cosmeticId), true);
+    const other = cosmeticId === "character_goat_lumi" ? "character_donkey" : "character_goat_lumi";
+    assert.equal(sql.ownedCosmetics.has(other), false);
+    const equip = await post(account, "/wallet/cosmetic/select", { accountId, sessionId: session.sessionId, cosmeticId });
+    assert.equal(equip.status, 200);
+  });
+}
+
+test("only Classic dice are granted; Coming Soon dice cannot consume gems or ads", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Dice Tester" })).json();
+  assert.ok(session.wallet.ownedCosmetics.includes("dice_classic"));
+  assert.equal(session.wallet.ownedCosmetics.includes("dice_pumpkin"), false);
+  sql.wallet.get(accountId).balance = 1000;
+  for (const cosmeticId of ["dice_pumpkin", "dice_diwali", "dice_football", "dice_cricket", "dice_summers", "dice_colors", "dice_heart"]) {
+    const purchase = await post(account, "/wallet/cosmetic/purchase", {
+      accountId, sessionId: session.sessionId, cosmeticId, clientRequestId: crypto.randomUUID(),
+    });
+    assert.equal(purchase.status, 400);
+    assert.equal((await purchase.json()).error, "COSMETIC_UNAVAILABLE");
+    const ad = await post(account, "/wallet/reward-ad", {
+      accountId, cosmeticId, kind: "cosmetic", transactionId: "cccccccccccccccccccccccccccccccc",
+    });
+    assert.equal(ad.status, 400);
+  }
+  assert.equal(sql.wallet.get(accountId).balance, 1000);
+  assert.equal(sql.walletTransactions.size, 0);
+});

@@ -4,6 +4,8 @@ import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Paint
 import android.graphics.Path
 import android.os.SystemClock
@@ -38,6 +40,49 @@ internal class LudoPaws3DLegalPulseView(
             style = Paint.Style.STROKE
             strokeCap = Paint.Cap.ROUND
         }
+
+    // Unit-sized hand paths/materials are reused throughout the pulse animation.
+    private val handPath = Path().apply {
+        moveTo(0f, .38f)
+        lineTo(-.16f, .12f)
+        quadTo(-.22f, -.02f, -.08f, 0f)
+        lineTo(0f, .10f)
+        lineTo(0f, -.33f)
+        cubicTo(.01f, -.44f, .14f, -.44f, .15f, -.30f)
+        lineTo(.15f, -.02f)
+        quadTo(.21f, -.05f, .23f, .015f)
+        quadTo(.30f, -.015f, .31f, .065f)
+        quadTo(.39f, .04f, .39f, .14f)
+        lineTo(.33f, .38f)
+        close()
+    }
+    private val handFill = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = LinearGradient(-.16f, -.36f, .36f, .36f,
+            intArrayOf(0xFFFFE6C7.toInt(), 0xFFF4BC86.toInt(), 0xFFC67F50.toInt()),
+            floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP)
+    }
+    private val handShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x60382214 }
+    private val handEdge = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFF865235.toInt()
+        style = Paint.Style.STROKE
+        strokeJoin = Paint.Join.ROUND
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val handHighlight = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFF1DC.toInt()
+        style = Paint.Style.STROKE
+        strokeCap = Paint.Cap.ROUND
+    }
+    private val handShine = Path().apply {
+        moveTo(.035f, -.08f)
+        lineTo(.035f, -.30f)
+        quadTo(.065f, -.385f, .105f, -.31f)
+    }
+    private val handCreases = Path().apply {
+        moveTo(.185f, .10f); lineTo(.18f, .19f)
+        moveTo(.265f, .12f); lineTo(.255f, .21f)
+        moveTo(.02f, .18f); quadTo(.10f, .15f, .15f, .25f)
+    }
 
     init {
         isClickable = false
@@ -168,24 +213,30 @@ internal class LudoPaws3DLegalPulseView(
                     canvas.drawLine(corner.first, corner.second, alongY.first, alongY.second, glintPaint)
                 }
             }
-            // Intermittent small finger outline points at the body, with no destination preview.
+            // Intermittent shaded hand points at the body, with no destination preview.
             if (SystemClock.uptimeMillis() % 3600L < 1400L) {
                 val hx = x + radius * .72f
                 val hy = y - bodyHeight * .55f + radius * .08f * breath
-                sparklePaint.color = Color.argb(sparkleAlpha, 255, 240, 184)
-                sparklePaint.strokeWidth = density(1.4f)
-                canvas.drawPath(Path().apply {
-                    moveTo(hx, hy + radius * .38f)
-                    lineTo(hx - radius * .16f, hy + radius * .12f)
-                    quadTo(hx - radius * .22f, hy - radius * .02f, hx - radius * .08f, hy)
-                    lineTo(hx, hy + radius * .10f)
-                    lineTo(hx, hy - radius * .33f)
-                    quadTo(hx + radius * .08f, hy - radius * .46f,
-                        hx + radius * .15f, hy - radius * .30f)
-                    lineTo(hx + radius * .15f, hy - radius * .02f)
-                    lineTo(hx + radius * .37f, hy + radius * .04f)
-                    lineTo(hx + radius * .33f, hy + radius * .38f)
-                }, sparklePaint)
+                val handSave = canvas.save()
+                canvas.translate(hx, hy)
+                canvas.scale(radius, radius)
+                handShadow.alpha = sparkleAlpha * 3 / 10
+                canvas.save()
+                canvas.translate(.035f, .045f)
+                canvas.drawPath(handPath, handShadow)
+                canvas.restore()
+                handFill.alpha = sparkleAlpha
+                canvas.drawPath(handPath, handFill)
+                handEdge.alpha = sparkleAlpha
+                handEdge.strokeWidth = maxOf(.025f, density(.65f) / radius)
+                canvas.drawPath(handPath, handEdge)
+                handHighlight.alpha = sparkleAlpha * 3 / 4
+                handHighlight.strokeWidth = maxOf(.025f, density(.55f) / radius)
+                canvas.drawPath(handShine, handHighlight)
+                handEdge.alpha = sparkleAlpha / 2
+                handEdge.strokeWidth = maxOf(.018f, density(.40f) / radius)
+                canvas.drawPath(handCreases, handEdge)
+                canvas.restoreToCount(handSave)
             }
 
             // A short sheen sits over the pawn body itself. It brightens/fades

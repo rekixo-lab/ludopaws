@@ -6,10 +6,12 @@ import android.graphics.Rect
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.TouchDelegate
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.ProgressBar
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsVoicePlayer
 import com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType
 import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsIdleReactionPolicy
@@ -38,6 +40,21 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
     private val legalPulse = LudoPaws3DLegalPulseView(context)
     private val gameFxOverlay = LudoPawsGameFxOverlayView(context)
     private val voicePlayer = LudoPawsVoicePlayer(context)
+    private var sceneReady = false
+    private val startupCover = FrameLayout(context).apply {
+        setBackgroundColor(LudoPawsBoardPalette.maple)
+        contentDescription = "Loading game board"
+        val indicator = ProgressBar(context).apply {
+            indeterminateTintList = android.content.res.ColorStateList.valueOf(LudoPawsBoardPalette.text)
+        }
+        val side = (32f * resources.displayMetrics.density).roundToInt()
+        addView(indicator, LayoutParams(side, side, Gravity.CENTER))
+    }
+
+    private fun updateStartupCover() {
+        startupCover.visibility = if (board.artworkReady && sceneReady) View.GONE else View.VISIBLE
+    }
+
 
     private var previousSnapshot: MatchSnapshot? = null
     private var currentSnapshot: MatchSnapshot? = null
@@ -128,10 +145,21 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             ),
         )
 
+        addView(startupCover, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        board.onArtworkReadyChanged = { updateStartupCover() }
+        pawn3DScene.onStartupFailure = {
+            // Release the cover for the playable classic fallback if GL cannot start.
+            sceneReady = true
+            board.setClassicPawnFallbackVisible(true)
+            updateStartupCover()
+        }
+
         pawn3DScene.onOperationalChanged =
             { available ->
                 if (available) {
+                    sceneReady = true
                     board.setClassicPawnFallbackVisible(false)
+                    updateStartupCover()
                 } else if (
                     isShown &&
                     windowVisibility == View.VISIBLE
@@ -144,7 +172,8 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             }
     }
 
-    override fun dispatchTouchEvent(event: MotionEvent): Boolean = board.dispatchTouchEvent(event)
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean =
+        if (startupCover.visibility == View.VISIBLE) true else board.dispatchTouchEvent(event)
 
     override fun dispatchHoverEvent(event: MotionEvent): Boolean = board.dispatchHoverEvent(event)
 

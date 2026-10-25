@@ -19,12 +19,13 @@ import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
+import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        // These are the registered live, selectable 3D characters from the free Starter Paws pack.
+        // Shipped Starter Paws characters; Lumi and Donkey have individual verified-ad entitlements.
         val starterCharacters =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
                 .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
@@ -126,6 +127,9 @@ private fun StoreActivity.pawsCharacterCard(
     selected: Boolean,
 ): LinearLayout =
     LinearLayout(this).apply {
+        val unlock = StoreCosmeticCatalog.characterUnlock(character.id)
+        val owned = unlock == null || cosmetics.isOwned(unlock.id)
+        val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         clipChildren = false
@@ -146,7 +150,8 @@ private fun StoreActivity.pawsCharacterCard(
         isClickable = true
         isFocusable = true
         contentDescription =
-            "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
+            if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
+            else "${character.displayName}, locked, $progress of ${unlock?.requiredAdViews} rewarded ads"
 
         addView(
             LudoPawsCharacterAvatarView(this@pawsCharacterCard).apply {
@@ -186,7 +191,7 @@ private fun StoreActivity.pawsCharacterCard(
 
         addView(
             TextView(this@pawsCharacterCard).apply {
-                text = "🔓 UNLOCKED"
+                text = if (owned) "🔓 UNLOCKED" else "🔒 $progress/${unlock?.requiredAdViews} ADS"
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(
@@ -220,6 +225,10 @@ private fun StoreActivity.pawsCharacterCard(
 
         setOnClickListener { clicked ->
             clicked.playSelectionPopAnimation {
+                if (!owned) {
+                    handleCosmeticTap(requireNotNull(unlock))
+                    return@playSelectionPopAnimation
+                }
                 CharacterSelectionStore(this@pawsCharacterCard).select(
                     packId = LudoPawsCharacterCatalog.STARTER_PACK_ID,
                     characterId = character.id,

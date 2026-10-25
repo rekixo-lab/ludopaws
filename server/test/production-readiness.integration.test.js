@@ -248,7 +248,7 @@ test("wallet free-equip mutations advance revision but reads do not", async () =
   const next = await call(room, "/wallet/cosmetic/select", {
     accountId,
     sessionId: session.sessionId,
-    cosmeticId: "dice_pumpkin",
+    cosmeticId: "dice_classic",
   });
   assert.equal(next.status, 200);
   assert.ok(next.body.wallet.revision > first.body.wallet.revision);

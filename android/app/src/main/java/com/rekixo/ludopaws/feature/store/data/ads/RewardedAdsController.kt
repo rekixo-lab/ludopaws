@@ -2,6 +2,7 @@ package com.rekixo.ludopaws.feature.store.data.ads
 
 import android.app.Activity
 import android.util.Log
+import com.rekixo.ludopaws.BuildConfig
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
@@ -100,7 +101,7 @@ internal class RewardedAdsController(
         }
 
         rewardedAd = null
-        ad.setServerSideVerificationOptions(
+        if (!BuildConfig.LUDOPAWS_TEST_ADS) ad.setServerSideVerificationOptions(
             ServerSideVerificationOptions.Builder()
                 .setUserId(userId)
                 .setCustomData(customData)

@@ -88,6 +88,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     }
 
     var onOperationalChanged: ((Boolean) -> Unit)? = null
+    internal var onStartupFailure: (() -> Unit)? = null
 
     init {
         isOpaque = false
@@ -896,7 +897,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                 renderer.onSurfaceCreated()
                 var renderedWidth = -1
                 var renderedHeight = -1
-                post { if (renderLoop === this) setOperational(true) }
+                var firstBoardSubmitted = false
 
                 while (running) {
                     val frameTimeNanos = awaitPresentationVisible() ?: break
@@ -926,6 +927,12 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                         nowMillis = frameStartedAtMillis,
                     )
                     if (!egl.swapBuffers()) error("EGL swapBuffers failed")
+                    if (frameState.snapshot != null && !firstBoardSubmitted) {
+                        firstBoardSubmitted = true
+                        // Release the cover only after a complete board buffer is available.
+                        // Do not depend on TextureView updates while an opaque cover is above it.
+                        post { if (renderLoop === this) setOperational(true) }
+                    }
                 }
             } catch (interrupted: InterruptedException) {
                 // Normal shutdown path.
@@ -945,7 +952,10 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                 }
                 post {
                     if (retiringLoops[surfaceTexture] === this) retiringLoops.remove(surfaceTexture)
-                    if (renderLoop === this) setOperational(false)
+                    if (renderLoop === this) {
+                        setOperational(false)
+                        if (running) onStartupFailure?.invoke()
+                    }
                 }
             }
         }
