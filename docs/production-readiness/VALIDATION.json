@@ -45,16 +45,18 @@
       "callbackStatus": "Google verification succeeded; saved and reopened to confirm. Verification fixture does not grant wallet value.",
       "appApproval": "Requires review",
       "storeLink": "Not linked; exact package search returned no matching app."
-    }
+    },
+    "playConsoleAccess": "Read-only checked via owner finworkar@gmail.com: invited ai@rekixo.com has app Admin/all permissions. Billing service account has View financial data and Manage orders/subscriptions. No permissions changed."
   },
   "deployment": {
-    "backend": "Successful main deployment run 40174040405 attempt 2; no production server changes in this audit batch.",
+    "backend": "Successful production deployment 40197165242, main aab6ef1d; health, readiness, store flags and live game flow checks passed.",
     "lastSignedArtifact": "1.0.0-rc8 versionCode 8, run 40174474992; not uploaded to Play in this audit.",
-    "observedProductionReview": "1.0.0-rc6 Production candidate; managed publishing OFF. Existing submission left unchanged."
+    "observedProductionReview": "1.0.0-rc6 Production candidate; managed publishing OFF. Existing submission left unchanged.",
+    "candidateBuild": "Signed rc9 / versionCode 9 workflow 40197368881 succeeded; APK/AAB hashes match CI evidence; not yet uploaded to Play."
   },
   "remainingAcceptance": [
-    "Install current audited candidate from internal Play track.",
-    "Verify actual Google save/restore and Play Games on physical device, including current Play signing certificate mapping.",
+    "Install current audited candidate from internal Play track; Google linking and Play Games now passed on original-package Test APK, but Play-signed candidate/recovery still needs acceptance.",
+    "Resolve native Google Play item-unavailable result; verify test purchase, server grant, duplicate recovery, refund and restore.",
     "Verify Play test purchase, server grant, duplicate recovery, refund and restore.",
     "Complete AdMob store linking/review and real rewarded callback-to-wallet/cosmetic acceptance; test ads do not grant real value.",
     "Two-device online/reconnect/Team Up and longer performance sessions; no scale or low-end-device certification claimed."
@@ -63,7 +65,8 @@
   "safety": "No emulator, real-money purchase, real account deletion or production review replacement performed.",
   "deviceAcceptance": {
     "testApk": "Updated on physical phone, preserving application data.",
-    "googleIdentity": "Picker succeeded; backend rejected Android presenter. Exact-client allowlist fix passed regression tests; deployment and successful retry pending.",
-    "store": "Gem products show localized Google Play INR prices; TEST AD action visible. No purchase performed."
+    "googleIdentity": "Succeeded after Android presenter fix deployment: user selected Google identity; Account saved confirmation retained guest identity. Play Games Profile displayed CONNECTED.",
+    "store": "Localized Play prices loaded. Native checkout twice returned item could not be found, including after fresh app/Billing restart. Seven products active; ai@rekixo.com is a configured license tester, user confirmed selected in phone Play Store, and web opt-in is active. Console access is not a missing-permission explanation. No purchase made.",
+    "testAds": "Google sample rewarded ad completed and dismissed; app explicitly confirmed no real Gems/unlock change; wallet remained 0."
   }
 }

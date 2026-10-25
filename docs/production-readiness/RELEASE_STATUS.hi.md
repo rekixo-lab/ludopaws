@@ -45,3 +45,19 @@ Temporary audit logs/screenshots repository के बाहर रखे गए
 ## Physical acceptance follow-up
 
 नवीन Test APK original package पर data सुरक्षित रखते हुए install हुआ। Shop में Google Play की INR prices और TEST AD control दिखाई दिए। Google picker खुला, लेकिन चुने account का token backend पर reject हुआ। Verifier में Android authorized presenter (`azp`) को Web audience (`aud`) के बराबर मानने की गलत शर्त मिली। अब अलग explicit Android client allowlist है; केवल अपने verified Play-signing/debug OAuth clients configured हैं। Signature, Web audience, nonce और expiry validation कायम है; unknown presenter reject होता है। इस change के बाद Node 22 backend **284/284** तथा runtime/preflight **21/21** tests पास हैं। Production deployment और successful phone retry का परिणाम अभी दर्ज होना बाकी है।
+
+## Deployed fix और phone retry का परिणाम
+
+Main **aab6ef1d** का backend deploy **40197165242** सफल हुआ; health/readiness/store/live-game verification पास हैं। उसके बाद user ने Google picker में अपना account चुना और फोन पर **Account saved** मिला: मौजूदा guest identity रखते हुए Google linking सफल हुई। Profile में Play Games **CONNECTED** भी दिखा।
+
+Google sample rewarded ad पूरा होकर dismiss हुआ। App ने साफ बताया कि test ad ने real Gems/unlock नहीं बदले; Home wallet 0 रहा। वास्तविक production ad/SSV credit अभी acceptance में बाकी है।
+
+Shop prices Google Play से लोड हुईं, पर native checkout ने **The item that you were attempting to purchase could not be found** दिया। कोई payment नहीं किया गया। Console में सातों products और Starter का backwards-compatible purchase option Active है। License testing में केवल दो configured billing testers हैं; फोन का वास्तविक Play billing account उनसे मिलाना बाकी है। इस error को production purchase success नहीं माना गया है।
+
+इसी main source का signed **rc9 / versionCode 9** build run **40197368881** शुरू है; Play upload और पुराने rc6 production review में कोई बदलाव नहीं किया गया।
+
+## Owner-account verification और rc9 artifact
+
+`finworkar@gmail.com` owner session से Users and permissions पढ़े गए। Invited `ai@rekixo.com` में app Admin/all permissions तथा backend billing service account में View financial data और Manage orders/subscriptions पहले से enabled हैं। कोई permission change नहीं किया गया। User ने फोन Play Store में ai account selected होने की पुष्टि की; यह license tester है और web internal opt-in भी active मिला। Fresh app/Billing restart के बाद भी native checkout में item-not-found आया। इसलिए केवल Console permission की कमी को कारण नहीं माना जा सकता। Play-distributed candidate पर checkout acceptance अगला कदम है।
+
+Signed **rc9 / versionCode 9** run **40197368881** सफल है। Main source `aab6ef1d` के APK/AAB signatures CI में verified हैं; downloaded bytes/hash release evidence से मिले। AAB SHA-256: `fd9eea38afadf3161a53631f28417f83b821a8d4ca5d7ebfcb4c28f2e5631837`। APK/AAB और evidence `/tmp` में हैं, repository में नहीं। Internal upload/release की specific अनुमति माँगी गई है; अभी upload या production-review replacement नहीं किया गया है।
