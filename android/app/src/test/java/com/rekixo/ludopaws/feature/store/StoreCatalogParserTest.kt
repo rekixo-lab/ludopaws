@@ -15,9 +15,9 @@ class StoreCatalogParserTest {
             catalogResponse(
                 items = arrayOf(
                     catalogItem(
-                        id = "dice_heart",
+                        id = "dice_classic",
                         category = "DICE",
-                        name = "HEART FESTIVAL",
+                        name = "CLASSIC DICE",
                         channels = arrayOf("GEMS"),
                         gemPrice = 175,
                     ),
@@ -28,14 +28,31 @@ class StoreCatalogParserTest {
         )
 
         val item = snapshot.items.single()
-        assertEquals("dice_heart", item.id)
-        assertEquals("HEART FESTIVAL", item.title)
+        assertEquals("dice_classic", item.id)
+        assertEquals("CLASSIC DICE", item.title)
         assertEquals(175, item.gemPrice)
         assertEquals(7, snapshot.catalogVersion)
         assertEquals(1, item.catalogVersion)
         assertTrue(item.remoteManaged)
         assertTrue(item.contentAvailable)
         assertEquals("DICE", item.backendCategory)
+    }
+
+    @Test
+    fun publishedMetadataCannotEnableComingSoonDice() {
+        val snapshot = StoreCatalogParser.parse(
+            catalogResponse(
+                items = arrayOf(
+                    catalogItem("dice_heart", "DICE", "HEART FESTIVAL", arrayOf("GEMS"), gemPrice = 175),
+                ),
+            ),
+        )
+
+        val item = snapshot.items.single()
+        assertEquals("HEART FESTIVAL", item.title)
+        assertEquals(175, item.gemPrice)
+        assertTrue(item.remoteManaged)
+        assertFalse(item.contentAvailable)
     }
 
     @Test
