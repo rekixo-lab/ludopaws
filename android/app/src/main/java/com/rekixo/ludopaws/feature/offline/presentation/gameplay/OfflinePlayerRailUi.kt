@@ -37,12 +37,9 @@ internal fun OfflineGameActivity.renderPlayerRails(
     val top = topPlayerRail ?: return
     val bottom = bottomPlayerRail ?: return
 
-    diceView?.stopRolling()
+    val previousDice = diceView
     diceView = null
     diceHost = null
-
-    top.removeAllViews()
-    bottom.removeAllViews()
 
     val presentationBlocked =
         SystemClock.uptimeMillis() < gameplayActionBlockedUntilMillis
@@ -60,34 +57,67 @@ internal fun OfflineGameActivity.renderPlayerRails(
             }
             ?: state.players.getOrNull(state.turnSeat)
 
-    addPlayerSlot(
-        top,
-        state,
-        OfflinePlayerLayout.Slot.TOP_LEFT,
-        alignEnd = false,
-        activePlayer = activePlayer,
-    )
-    addPlayerSlot(
-        top,
-        state,
-        OfflinePlayerLayout.Slot.TOP_RIGHT,
-        alignEnd = true,
-        activePlayer = activePlayer,
-    )
-    addPlayerSlot(
-        bottom,
-        state,
-        OfflinePlayerLayout.Slot.BOTTOM_LEFT,
-        alignEnd = false,
-        activePlayer = activePlayer,
-    )
-    addPlayerSlot(
-        bottom,
-        state,
-        OfflinePlayerLayout.Slot.BOTTOM_RIGHT,
-        alignEnd = true,
-        activePlayer = activePlayer,
-    )
+    val quickChatEnabled = GameSettingsStore(this).snapshot().quickChatEnabled
+    val structureKey = buildString {
+        append(state.matchId).append('|').append(state.status).append('|')
+        append(isCompactSetup()).append('|').append(quickChatEnabled)
+        state.players.forEach { append('|').append(it.playerId).append(':').append(it.color).append(':').append(it.seat) }
+    }
+    if (top.tag != structureKey) {
+        top.tag = structureKey
+        top.removeAllViews()
+        bottom.removeAllViews()
+        addPlayerSlot(
+            top,
+            state,
+            OfflinePlayerLayout.Slot.TOP_LEFT,
+            alignEnd = false,
+            activePlayer = activePlayer,
+        )
+        addPlayerSlot(
+            top,
+            state,
+            OfflinePlayerLayout.Slot.TOP_RIGHT,
+            alignEnd = true,
+            activePlayer = activePlayer,
+        )
+        addPlayerSlot(
+            bottom,
+            state,
+            OfflinePlayerLayout.Slot.BOTTOM_LEFT,
+            alignEnd = false,
+            activePlayer = activePlayer,
+        )
+        addPlayerSlot(
+            bottom,
+            state,
+            OfflinePlayerLayout.Slot.BOTTOM_RIGHT,
+            alignEnd = true,
+            activePlayer = activePlayer,
+        )
+    }
+    state.players.forEach { player ->
+        val active = player.playerId == activePlayer?.playerId && state.status == "ACTIVE"
+        val slot = OfflinePlayerLayout.slotForColor(player.color, state.players.firstOrNull()?.color ?: "BLUE")
+        playerCardViewsBySeat[player.seat]?.bind(
+            player = player,
+            characterId = activeCharacterIdsBySeat.getOrNull(player.seat),
+            active = active,
+            computer = engine.isComputerPlayer(player.playerId),
+            compact = isCompactSetup(),
+            portraitOnEnd = slot == OfflinePlayerLayout.Slot.TOP_RIGHT || slot == OfflinePlayerLayout.Slot.BOTTOM_RIGHT,
+        )
+        val control = top.findViewWithTag<FrameLayout>("dice:${player.playerId}")
+            ?: bottom.findViewWithTag<FrameLayout>("dice:${player.playerId}")
+        control?.visibility = if (active) View.VISIBLE else View.GONE
+        if (active && control != null) {
+            diceHost = control
+            diceView = control.getChildAt(0) as DiceView
+            control.isEnabled = !engine.isComputerPlayer(player.playerId) && !presentationBlocked
+        }
+    }
+
+    if (previousDice !== diceView) previousDice?.stopRolling()
 
     // A committed move advances the authoritative turn immediately, but the
     // previous player's resolved dice face still belongs to the animation that
@@ -192,19 +222,12 @@ private fun OfflineGameActivity.addPlayerSlot(
                 quickChatEnabled &&
                 !computerPlayer
 
-        val activeDiceView =
-            if (active) {
-                activeDiceControl(player).apply {
-                    if (reserveProfileFooter) {
-                        translationY = -dp(15).toFloat()
-                    }
-                }
-            } else {
-                null
-            }
-        if (alignEnd && active) {
-            host.addView(requireNotNull(activeDiceView))
+        val activeDiceView = activeDiceControl(player).apply {
+            tag = "dice:${player.playerId}"
+            visibility = if (active) View.VISIBLE else View.GONE
+            if (reserveProfileFooter) translationY = -dp(15).toFloat()
         }
+        if (alignEnd) host.addView(activeDiceView)
 
         // Preserve the same portrait instance across turns, dice rolls and
         // quick-chat rebinds. Recreating it briefly flashes vector fallback art.
@@ -303,8 +326,8 @@ private fun OfflineGameActivity.addPlayerSlot(
             ),
         )
 
-        if (!alignEnd && active) {
-            host.addView(requireNotNull(activeDiceView))
+        if (!alignEnd) {
+            host.addView(activeDiceView)
         }
     }
 
@@ -341,7 +364,6 @@ private fun OfflineGameActivity.activeDiceControl(
                 ).apply {
                     setPlayerTeamColor(player.color)
                 }
-            diceView = newDice
             addView(
                 newDice,
                 FrameLayout.LayoutParams(
@@ -351,7 +373,6 @@ private fun OfflineGameActivity.activeDiceControl(
                 ),
             )
         }
-    diceHost = control
 
     val cpuTurn =
         engine.isComputerPlayer(

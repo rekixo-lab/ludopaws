@@ -108,6 +108,18 @@ object GameJson {
     private val matchModes = setOf("ONLINE", "FRIENDS", "TEAM_UP")
     private val pendingStatuses = setOf("CREATING", "COMMITTED", "RESOLVING", "RESOLVED")
 
+    private val preparedEnvelopes = java.util.WeakHashMap<JSONObject, Result<GameEnvelope>>()
+
+    fun prepareEnvelope(response: JSONObject) {
+        val parsed = runCatching { envelope(response) }
+        synchronized(preparedEnvelopes) { preparedEnvelopes[response] = parsed }
+    }
+
+    fun preparedEnvelope(response: JSONObject): GameEnvelope {
+        val prepared = synchronized(preparedEnvelopes) { preparedEnvelopes[response] }
+        return prepared?.getOrThrow() ?: envelope(response)
+    }
+
     fun envelope(response: JSONObject): GameEnvelope {
         val stateObject =
             response.optJSONObject("state")

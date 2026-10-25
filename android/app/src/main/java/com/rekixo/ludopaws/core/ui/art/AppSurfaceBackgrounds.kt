@@ -53,11 +53,13 @@ internal fun plywoodBackground(
     context: Context,
     cornerRadiusDp: Float = 15f,
     rimThicknessDp: Float = 5.5f,
+    gameplayFinish: Boolean = false,
 ): android.graphics.drawable.Drawable =
     PlywoodTextureDrawable(
         density = context.resources.displayMetrics.density,
         cornerRadiusDp = cornerRadiusDp,
         rimThicknessDp = rimThicknessDp,
+        gameplayFinish = gameplayFinish,
     )
 
 /** Shared factory for a curved, recessed plywood pocket for 3D character/art panels. */

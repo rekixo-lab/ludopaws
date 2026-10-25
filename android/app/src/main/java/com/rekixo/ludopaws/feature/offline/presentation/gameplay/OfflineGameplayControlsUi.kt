@@ -45,7 +45,7 @@ private fun OfflineGameActivity.ensureOfflineResultActions(
             OFFLINE_RESULT_ACTIONS_TAG,
         )
 
-    if (state.status != "FINISHED") {
+    if (state.status != "FINISHED" || SystemClock.uptimeMillis() < gameplayActionBlockedUntilMillis) {
         existing?.visibility = View.GONE
         return
     }
@@ -300,17 +300,27 @@ internal fun OfflineGameActivity.renderGame(
             .coerceAtLeast(0L)
 
     val active = state.players.getOrNull(state.turnSeat)
-    val winner =
-        state.players.find {
-            it.playerId == state.winnerPlayerId
-        }
-
     if (state.status == "FINISHED") {
-        val winnerName = winner?.displayName ?: "Player"
-        resultPanel.visibility = View.VISIBLE
+        resultPanel.visibility = if (blockedRemainingMillis > 0L) View.GONE else View.VISIBLE
         // Phase 11 compatibility marker retained for the integration gate:
         // You brought all 4 paws home.
-        resultTitleText.text = if (state.players.size == 2) "${winnerName.uppercase()} WINS" else "MATCH COMPLETE"
+        val humanRank = engine.humanPlayerId()?.let { LudoPawsFinishPresentation.ranks(state)[it] }
+        val title = if (isComputerMode) LudoPawsFinishPresentation.headline(humanRank) else "MATCH COMPLETE"
+        val standings = LudoPawsFinishPresentation.standings(state)
+        val detail = if (isComputerMode && humanRank == 4)
+            "WELL PLAYED!\n$standings" else standings
+        resultTitleText.text = android.text.SpannableStringBuilder(title).apply {
+            if (detail.isNotBlank()) {
+                append("\n\n")
+                val start = length
+                append(detail)
+                setSpan(android.text.style.RelativeSizeSpan(.55f), start, length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                setSpan(android.text.style.ForegroundColorSpan(0xFFFFF1D8.toInt()), start, length,
+                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            }
+        }
+        resultTitleText.contentDescription = "$title. $detail"
     } else {
         resultPanel.visibility = View.GONE
     }
@@ -556,9 +566,8 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
 
     val eventKey =
         "single-legal:${state.matchId}:${pending.eventIndex}:$tokenIndex"
-    val host = diceHost ?: return
-    if (host.tag == eventKey) return
-    host.tag = eventKey
+    if (singleLegalMoveKey == eventKey) return
+    singleLegalMoveKey = eventKey
 
     showStatus("Only one effective move • holding the dice result…")
 
@@ -568,6 +577,7 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
             .gameSpeed
     handler.postDelayed(
         {
+            if (singleLegalMoveKey != eventKey) return@postDelayed
             val latest = session.snapshot()
             val latestPending = latest?.pendingRoll
             val latestOutcome = latestPending?.outcome
@@ -575,6 +585,7 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                 latest?.players?.getOrNull(latest.turnSeat)
             val stillSameMove =
                 latest != null &&
+                    latest.matchId == state.matchId &&
                     latest.status == "ACTIVE" &&
                     latestActive != null &&
                     latestActive.playerId == activePlayerId &&
@@ -588,12 +599,11 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                     ) == tokenIndex
 
             if (!stillSameMove) {
-                if (host.tag == eventKey) {
-                    host.tag = null
-                }
+                singleLegalMoveKey = null
                 return@postDelayed
             }
 
+            singleLegalMoveKey = null
             runCatching {
                 session.move(tokenIndex)
             }.onSuccess { next ->
@@ -608,9 +618,6 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                     current = next,
                 )
             }.onFailure { error ->
-                if (host.tag == eventKey) {
-                    host.tag = null
-                }
                 showStatus(
                     error.message ?: "Automatic move failed",
                 )

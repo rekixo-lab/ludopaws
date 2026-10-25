@@ -59,6 +59,7 @@ const footprintTests = read(footprintTestsPath);
 const reactiveBoard = read(reactiveBoardPath);
 const scene = read(scenePath);
 const renderer = read(rendererPath);
+const visualLayoutTests = read("android/app/src/test/java/com/rekixo/ludopaws/LudoPawsPawnLayoutVisualPolicyTest.kt");
 const policy = read(policyPath);
 const cadencePolicy = read(cadencePolicyPath);
 const layout = read(layoutPath);
@@ -155,8 +156,8 @@ for (const token of [
   "pawPrintEdgePaint",
   "pawPrintTexturePaint",
   "toePad(",
-  "val scale = (cell * 0.34f)",
-  "pawPrintDetailPaint.color = Color.argb(66, 38, 33, 29)",
+  "val scale = (cell * 0.25f)",
+  "pawPrintDetailPaint.color = Color.argb(48, 38, 33, 29)",
   "classicTokenDrawingEnabled",
 ]) {
   requireText(
@@ -254,12 +255,15 @@ for (const token of [
   ".positionAtVisualStep(",
   "LudoPawsPawnLayout",
   ".tokenOffsetFraction(",
-  ".radiusScale(",
+  ".roadPresentation(",
+  "val radius = fit.radius",
   "LudoPawsCaptureReturnPlacement",
   "captureReturnVisual(",
   "CharacterRegistry.resolve",
   "pawn.character.renderer.sample",
   "pawn.character.renderer.draw",
+  "LudoPawsPawnLayout.rootYForFootContact(",
+  "LudoPawsPawnLayout.contactShadowRadius(",
 ]) {
   requireText(
     renderer,
@@ -270,6 +274,7 @@ for (const token of [
 
 for (const token of [
   "radiusScale",
+  "val original = cell * radiusScale(position, occupancy)",
   "tokenOffsetFraction",
   "StackPlacementCache",
   "WeakReference",
@@ -281,6 +286,30 @@ for (const token of [
     token,
     `Production pawn layout/cache policy is missing required marker: ${token}`,
   );
+}
+
+// The enlarged 3D model must be planted at its foot pivot, not at the
+// model-origin/body-center; otherwise it appears on the NEXT board cell.
+for (const marker of [
+  "fun rootYForFootContact(",
+  "boardCenterY + modelScale * groundPivotY",
+  "fun contactShadowRadius(",
+  "cell * 0.30f",
+]) {
+  requireText(layout, marker, "Pawn foot-contact anchoring rule missing: " + marker);
+}
+requireText(renderer, "boardCenterY = pawn.y", "3D pawns must ground to actual board position");
+requireText(renderer, "groundPivotY = pawn.character.definition.groundPivotY", "Each species needs its own physical foot pivot");
+requireText(renderer, "pawn.x,\n            pawn.y,\n            -0.80f", "Shadow must mark exact cell, not offset toward next tile");
+if (renderer.includes("pawn.radius * pawn.character.definition.rootYOffsetPerRadius") ||
+    renderer.includes("pawn.radius * pawn.character.definition.footBaselinePerRadius")) {
+  throw new Error("Enlarged pawns must not move their contact center with size-based body offsets.");
+}
+for (const marker of [
+  "each animal species stands on the exact authoritative tile at enlarged scale",
+  "contact shadow stays small and tile centered even with larger models",
+]) {
+  requireText(visualLayoutTests, marker, "Foot-contact geometry regression missing: " + marker);
 }
 
 const reactiveHost =

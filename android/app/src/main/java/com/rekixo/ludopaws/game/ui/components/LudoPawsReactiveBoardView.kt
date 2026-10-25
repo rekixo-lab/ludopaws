@@ -6,6 +6,8 @@ import android.graphics.Rect
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.TouchDelegate
 import android.view.View
 import android.widget.FrameLayout
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsVoicePlayer
@@ -29,6 +31,9 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
 ) : FrameLayout(context, attrs) {
     private val board = LudoPawsBoardView(context)
+    private var overflowParent: View? = null
+    private var overflowDelegate: TouchDelegate? = null
+    private var previousTouchDelegate: TouchDelegate? = null
     private val pawn3DScene = LudoPaws3DSceneView(context)
     private val legalPulse = LudoPaws3DLegalPulseView(context)
     private val gameFxOverlay = LudoPawsGameFxOverlayView(context)
@@ -55,7 +60,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
 
     init {
         isFocusable = false
-        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_AUTO
 
         // The approved board itself remains square and unchanged. Only the
         // transparent 3D pawn surface is allowed to extend above this container
@@ -139,6 +144,56 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             }
     }
 
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean = board.dispatchTouchEvent(event)
+
+    override fun dispatchHoverEvent(event: MotionEvent): Boolean = board.dispatchHoverEvent(event)
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        super.onLayout(changed, left, top, right, bottom)
+        val host = parent as? View ?: return
+        if (overflowParent === host && host.touchDelegate === overflowDelegate) return
+        restoreOverflowDelegate()
+        overflowParent = host
+        previousTouchDelegate = host.touchDelegate
+        val prior = previousTouchDelegate
+        val delegate = object : TouchDelegate(Rect(), this) {
+            private var tracking = false
+            override fun onTouchEvent(event: MotionEvent): Boolean {
+                val hostLocation = IntArray(2)
+                val boardLocation = IntArray(2)
+                host.getLocationOnScreen(hostLocation)
+                board.getLocationOnScreen(boardLocation)
+                val x = event.x + hostLocation[0] - boardLocation[0]
+                val y = event.y + hostLocation[1] - boardLocation[1]
+                if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                    // Only claim real pawn overhangs, leaving all other controls to the parent.
+                    tracking = (y < 0f || x < 0f || x > width || y > height) &&
+                        board.hasPawnAt(x, y)
+                }
+                if (!tracking) return prior?.onTouchEvent(event) ?: false
+                val translated = MotionEvent.obtain(event)
+                translated.offsetLocation((hostLocation[0] - boardLocation[0]).toFloat(),
+                    (hostLocation[1] - boardLocation[1]).toFloat())
+                val handled = dispatchTouchEvent(translated)
+                translated.recycle()
+                if (event.actionMasked == MotionEvent.ACTION_UP ||
+                    event.actionMasked == MotionEvent.ACTION_CANCEL) tracking = false
+                return handled
+            }
+        }
+        overflowDelegate = delegate
+        host.touchDelegate = delegate
+    }
+
+    private fun restoreOverflowDelegate() {
+        overflowParent?.let { host ->
+            if (host.touchDelegate === overflowDelegate) host.touchDelegate = previousTouchDelegate
+        }
+        overflowParent = null
+        overflowDelegate = null
+        previousTouchDelegate = null
+    }
+
     fun bind(
         state: MatchSnapshot?,
         playerId: String?,
@@ -180,6 +235,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             playerId = playerId,
             perspectiveColor = perspectiveColor,
             characterIdsBySeat = characterIdsBySeat,
+            alreadyPresentedMillis = committedMovePreviewElapsedMillis,
         )
         pawn3DScene.bind(
             state = state,
@@ -191,6 +247,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             state = state,
             playerId = playerId,
             perspectiveColor = perspectiveColor,
+            characterIdsBySeat = characterIdsBySeat,
         )
         gameFxOverlay.bind(
             previous = previous,
@@ -253,6 +310,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        restoreOverflowDelegate()
         removeCallbacks(idleReactionRunnable)
         gameFxOverlay.stop()
         voicePlayer.shutdown()

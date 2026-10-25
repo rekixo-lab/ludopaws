@@ -215,7 +215,8 @@ internal fun MainActivity.updateControls(
         matchStatusPanel.setPadding(0, 0, 0, 0)
     }
     turnText.visibility = if (waiting) View.VISIBLE else View.GONE
-    resultPanel.visibility = if (finished) View.VISIBLE else View.GONE
+    val finishingPresentation = SystemClock.uptimeMillis() < onlineGameplayActionBlockedUntilMillis
+    resultPanel.visibility = if (finished && !finishingPresentation) View.VISIBLE else View.GONE
     boardFrame.visibility = if (active || finished) View.VISIBLE else View.GONE
     actionPanel.visibility = View.VISIBLE
     if (waiting) {

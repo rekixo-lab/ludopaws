@@ -70,9 +70,9 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout =
         val height =
             dp(
                 if (isCompactOnline()) {
-                    148
+                    190
                 } else {
-                    166
+                    210
                 },
             )
 
@@ -142,7 +142,7 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout =
                         )
                         gravity = Gravity.START
                         setPadding(0, dp(3), 0, 0)
-                        maxLines = 2
+                        maxLines = 10
                     }
                 addView(resultSubtitleText)
             }

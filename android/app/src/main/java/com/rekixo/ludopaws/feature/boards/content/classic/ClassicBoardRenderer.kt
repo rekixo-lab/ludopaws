@@ -4,11 +4,15 @@ import android.graphics.Bitmap
 import android.graphics.BitmapShader
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import java.util.Random
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import kotlin.math.min
 
 import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
@@ -40,14 +44,39 @@ internal class ClassicBoardRenderer : BoardRenderer {
             style = Paint.Style.FILL
             shader =
                 BitmapShader(
-                    createGrainBitmap(),
+                    texture(0),
                     Shader.TileMode.REPEAT,
                     Shader.TileMode.REPEAT,
                 )
         }
 
 
+    private val stoneGrainPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        shader = BitmapShader(texture(1), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+    }
+
+    private var pebbleShader = BitmapShader(
+        texture(2), Shader.TileMode.REPEAT, Shader.TileMode.REPEAT,
+    )
+    private val pebblePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
+        shader = pebbleShader
+    }
+    private val pebbleMatrix = Matrix()
+    private var appliedTextures: Array<Bitmap>? = null
+    override fun prepare(onReady: () -> Unit) = prepareTextures(onReady)
+
+    private fun applyPreparedTextures() {
+        val ready = preparedTextures ?: return
+        if (appliedTextures === ready) return
+        appliedTextures = ready
+        grainPaint.shader = BitmapShader(ready[0], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        stoneGrainPaint.shader = BitmapShader(ready[1], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        pebbleShader = BitmapShader(ready[2], Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)
+        pebblePaint.shader = pebbleShader
+    }
+
     override fun draw(canvas: Canvas, size: Float, density: Float, definition: BoardDefinition) {
+        applyPreparedTextures()
         this.density = density
         theme = definition
         val cell = size / 15f
@@ -287,131 +316,173 @@ internal class ClassicBoardRenderer : BoardRenderer {
         row: Int,
         col: Int,
     ) {
-        val raw =
-            RectF(
-                axisBoundary(col, cell),
-                axisBoundary(row, cell),
-                axisBoundary(col + 1, cell),
-                axisBoundary(row + 1, cell),
-            )
-        val tileSize = min(raw.width(), raw.height())
-        val inset = tileSize * 0.035f
-        val depth = tileSize * 0.075f
-        val radius = tileSize * 0.105f
-
-        // Keep enough lower depth for the approved raised-board look, but remove the
-        // old hard grey strip. The softer shadow now reads as molded thickness.
-        val shadow =
-            RectF(
-                raw.left + inset,
-                raw.top + inset + depth,
-                raw.right - inset,
-                raw.bottom - inset,
-            )
-        shadowPaint.color = 0x26000000
-        canvas.drawRoundRect(
-            shadow,
-            radius,
-            radius,
-            shadowPaint,
-        )
-
-        val face =
-            RectF(
-                raw.left + inset,
-                raw.top + inset,
-                raw.right - inset,
-                raw.bottom - inset - depth * 0.42f,
-            )
-
-        // Premium glossy face. A vertical translucent gradient preserves the actual
-        // white/colored road cell underneath instead of turning its lower half grey.
-        fillPaint.shader =
-            LinearGradient(
-                face.left,
-                face.top,
-                face.left,
-                face.bottom,
-                intArrayOf(
-                    0x28FFFFFF,
-                    0x18FFFFFF,
-                    0x0AFFFFFF,
-                    0x08000000,
-                ),
-                floatArrayOf(0f, 0.25f, 0.70f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            face,
-            radius,
-            radius,
-            fillPaint,
-        )
+        COLORED_ROADS[row to col]?.let { color ->
+            drawStoneRoadCell(canvas, cell, row, col, theme.teamColor(color))
+            return
+        }
+        val raw = RectF(axisBoundary(col, cell), axisBoundary(row, cell),
+            axisBoundary(col + 1, cell), axisBoundary(row + 1, cell))
+        val unit = min(raw.width(), raw.height())
+        // Leave the original grid stroke completely exposed, including its inner half.
+        val inset = maxOf(unit * .045f, dp(1.1f))
+        val surface = RectF(raw.left + inset, raw.top + inset,
+            raw.right - inset, raw.bottom - inset)
+        val saved = canvas.save()
+        canvas.clipRect(surface)
+        // Square texture coordinates preserve pebble proportions on the stretched lanes.
+        pebbleMatrix.setScale(unit / 112f, unit / 112f)
+        pebbleMatrix.postTranslate(raw.left + col * unit * .731f,
+            raw.top + row * unit * .619f)
+        pebbleShader.setLocalMatrix(pebbleMatrix)
+        canvas.drawRect(surface, pebblePaint)
+        fillPaint.shader = LinearGradient(surface.left, surface.top,
+            surface.right, surface.bottom,
+            intArrayOf(0x18FFFFFF, Color.TRANSPARENT, 0x163D3932),
+            floatArrayOf(0f, .56f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawRect(surface, fillPaint)
         fillPaint.shader = null
-
-        // Broad reflected-light band instead of a drawn white outline. The fade makes
-        // each road tile look polished/glassy without the previous capsule-button line.
-        val sheenInset = tileSize * 0.055f
-        val sheen =
-            RectF(
-                face.left + sheenInset,
-                face.top + tileSize * 0.025f,
-                face.right - sheenInset,
-                face.top + face.height() * 0.46f,
-            )
-        fillPaint.shader =
-            LinearGradient(
-                sheen.left,
-                sheen.top,
-                sheen.left,
-                sheen.bottom,
-                intArrayOf(
-                    0x28FFFFFF,
-                    0x10FFFFFF,
-                    Color.TRANSPARENT,
-                ),
-                floatArrayOf(0f, 0.46f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            sheen,
-            radius * 0.82f,
-            radius * 0.82f,
-            fillPaint,
-        )
-        fillPaint.shader = null
-
-        // A very light lower polish keeps the face visually clean while the separate
-        // shadow underneath supplies depth. There is intentionally no hard bottom/right stroke.
-        val lowerPolish =
-            RectF(
-                face.left + sheenInset,
-                face.top + face.height() * 0.70f,
-                face.right - sheenInset,
-                face.bottom - tileSize * 0.025f,
-            )
-        fillPaint.shader =
-            LinearGradient(
-                lowerPolish.left,
-                lowerPolish.top,
-                lowerPolish.left,
-                lowerPolish.bottom,
-                intArrayOf(
-                    Color.TRANSPARENT,
-                    0x0CFFFFFF,
-                ),
-                floatArrayOf(0f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            lowerPolish,
-            radius * 0.72f,
-            radius * 0.72f,
-            fillPaint,
-        )
-        fillPaint.shader = null
-        drawGrain(canvas, face, radius)
+        canvas.restoreToCount(saved)
+        if ((row to col) in NEUTRAL_SAFE_CELLS) drawSafeShield(canvas, raw, cell)
     }
+
+    /** Shield and checkmark identify neutral safe cells without covering their stone surface. */
+    private fun drawSafeShield(canvas: Canvas, raw: RectF, cell: Float) {
+        val cx = raw.centerX()
+        val cy = raw.centerY()
+        val r = cell * .28f
+        val shield = Path().apply {
+            moveTo(cx, cy - r)
+            lineTo(cx + r * .83f, cy - r * .65f)
+            lineTo(cx + r * .75f, cy + r * .12f)
+            quadTo(cx + r * .58f, cy + r * .70f, cx, cy + r)
+            quadTo(cx - r * .58f, cy + r * .70f, cx - r * .75f, cy + r * .12f)
+            lineTo(cx - r * .83f, cy - r * .65f)
+            close()
+        }
+        val saved = canvas.save()
+        canvas.clipRect(raw.left + dp(1.1f), raw.top + dp(1.1f),
+            raw.right - dp(1.1f), raw.bottom - dp(1.1f))
+        canvas.save()
+        canvas.translate(0f, cell * .025f)
+        fillPaint.color = 0x50314952
+        canvas.drawPath(shield, fillPaint)
+        canvas.restore()
+        fillPaint.shader = LinearGradient(cx - r, cy - r, cx + r, cy + r,
+            intArrayOf(0xFF47979D.toInt(), LudoPawsBoardPalette.safe),
+            null, Shader.TileMode.CLAMP)
+        canvas.drawPath(shield, fillPaint)
+        fillPaint.shader = null
+        strokePaint.strokeWidth = cell * .025f
+        strokePaint.color = LudoPawsBoardPalette.stoneLight
+        canvas.drawPath(shield, strokePaint)
+        strokePaint.strokeWidth = cell * .045f
+        strokePaint.strokeCap = Paint.Cap.ROUND
+        strokePaint.color = Color.WHITE
+        canvas.drawPath(Path().apply {
+            moveTo(cx - r * .36f, cy)
+            lineTo(cx - r * .06f, cy + r * .30f)
+            lineTo(cx + r * .40f, cy - r * .28f)
+        }, strokePaint)
+        strokePaint.strokeCap = Paint.Cap.BUTT
+        fillPaint.color = Color.WHITE
+        canvas.restoreToCount(saved)
+    }
+
+    /** Opaque stone treatment only for the four colored lanes and their colored entry cells. */
+    private fun drawStoneRoadCell(canvas: Canvas, cell: Float, row: Int, col: Int, team: Int) {
+        val raw = RectF(axisBoundary(col, cell), axisBoundary(row, cell),
+            axisBoundary(col + 1, cell), axisBoundary(row + 1, cell))
+        val unit = min(raw.width(), raw.height())
+        val gap = maxOf(unit * .045f, dp(1.1f))
+        val depth = unit * .11f
+        val body = RectF(raw.left + gap, raw.top + gap + depth * .42f,
+            raw.right - gap, raw.bottom - gap)
+        val face = RectF(raw.left + gap, raw.top + gap,
+            raw.right - gap, raw.bottom - gap - depth)
+        val corner = unit * .055f
+        val shapeSeed = row * 71L + col * 137L
+        // Clean mineral pigment with only a little warm stone tint.
+        val hsv = FloatArray(3)
+        Color.colorToHSV(team, hsv)
+        hsv[1] = (hsv[1] * 1.03f).coerceAtMost(1f)
+        hsv[2] = (hsv[2] * 1.04f).coerceAtMost(1f)
+        // Coral stays consistent across the roof, yard and red road without a saturation boost.
+        val pigment = if (COLORED_ROADS[row to col] == RED) LudoPawsBoardPalette.coral
+            else mixStone(Color.HSVToColor(hsv), LudoPawsBoardPalette.stoneLight, .025f)
+        val bodyPath = chamferedStone(body, corner, shapeSeed)
+        fillPaint.color = Color.WHITE
+        fillPaint.shader = LinearGradient(body.left, body.top, body.right, body.bottom,
+            intArrayOf(mixStone(pigment, Color.WHITE, .10f), darken(pigment, .70f)),
+            null, Shader.TileMode.CLAMP)
+        canvas.drawPath(bodyPath, fillPaint)
+        fillPaint.shader = null
+
+        // A wide sloping bevel gives the colored stone slab a raised edge.
+        fillPaint.shader = LinearGradient(face.left, face.top, face.right, face.bottom,
+            intArrayOf(mixStone(pigment, Color.WHITE, .23f), pigment, darken(pigment, .78f)),
+            floatArrayOf(0f, .43f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawPath(chamferedStone(face, corner, shapeSeed), fillPaint)
+        fillPaint.shader = null
+        val bevel = unit * .029f
+        val top = RectF(face.left + bevel, face.top + bevel,
+            face.right - bevel, face.bottom - bevel)
+        val topPath = chamferedStone(top, corner * .67f, shapeSeed)
+        fillPaint.shader = LinearGradient(top.left, top.top, top.right, top.bottom,
+            intArrayOf(mixStone(pigment, Color.WHITE, .11f), pigment, darken(pigment, .94f)),
+            floatArrayOf(0f, .62f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawPath(topPath, fillPaint)
+        fillPaint.shader = null
+        // Fine mineral grain only; no diagonal or wavy bands across the walking face.
+        canvas.drawPath(topPath, stoneGrainPaint)
+
+        // Restore the original team-colored entry marker beside each starting yard.
+        if ((row to col) in COLORED_ENTRIES) {
+            val star = Path()
+            repeat(10) { index ->
+                val angle = Math.toRadians(index * 36.0 - 90.0)
+                val radius = cell * .27f * if (index % 2 == 0) 1f else .43f
+                val x = raw.centerX() + kotlin.math.cos(angle).toFloat() * radius
+                val y = raw.centerY() + kotlin.math.sin(angle).toFloat() * radius
+                if (index == 0) star.moveTo(x, y) else star.lineTo(x, y)
+            }
+            star.close()
+            fillPaint.color = team
+            canvas.drawPath(star, fillPaint)
+            fillPaint.color = Color.WHITE
+        }
+    }
+
+    private fun chamferedStone(rect: RectF, corner: Float, seed: Long): Path = Path().apply {
+        val random = Random(seed)
+        // Small inward chips preserve the cell boundary and break machine-cut symmetry.
+        moveTo(rect.left + corner, rect.top)
+        lineTo(rect.right - corner, rect.top)
+        lineTo(rect.right, rect.top + corner)
+        for (index in 1..4) {
+            lineTo(rect.right - random.nextFloat() * corner * .60f,
+                rect.top + rect.height() * index / 5f)
+        }
+        lineTo(rect.right, rect.bottom - corner)
+        lineTo(rect.right - corner, rect.bottom)
+        for (index in 1..4) {
+            lineTo(rect.right - rect.width() * index / 5f,
+                rect.bottom - random.nextFloat() * corner * .65f)
+        }
+        lineTo(rect.left + corner, rect.bottom)
+        lineTo(rect.left, rect.bottom - corner)
+        for (index in 4 downTo 1) {
+            lineTo(rect.left + random.nextFloat() * corner * .55f,
+                rect.top + rect.height() * index / 5f)
+        }
+        lineTo(rect.left, rect.top + corner)
+        close()
+    }
+
+    private fun mixStone(a: Int, b: Int, amount: Float): Int = Color.rgb(
+        (Color.red(a) * (1f - amount) + Color.red(b) * amount).toInt(),
+        (Color.green(a) * (1f - amount) + Color.green(b) * amount).toInt(),
+        (Color.blue(a) * (1f - amount) + Color.blue(b) * amount).toInt(),
+    )
 
     private fun drawCenterDepth(
         canvas: Canvas,
@@ -513,10 +584,174 @@ internal class ClassicBoardRenderer : BoardRenderer {
         value * density
 
     private companion object {
-        val RED = Color.rgb(241, 37, 47)
-        val GREEN = Color.rgb(0, 169, 80)
-        val YELLOW = Color.rgb(255, 216, 27)
-        val BLUE = Color.rgb(48, 151, 215)
+        @Volatile private var preparedTextures: Array<Bitmap>? = null
+        private val neutralTexture = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
+        private val waiting = mutableListOf<() -> Unit>()
+        private var preparing = false
+        private val textureWorker = java.util.concurrent.Executors.newSingleThreadExecutor { work ->
+            Thread(work, "LudoPawsRoadTextures").apply { isDaemon = true }
+        }
+        private fun texture(index: Int): Bitmap = preparedTextures?.get(index) ?: neutralTexture
+        private fun prepareTextures(onReady: () -> Unit) {
+            synchronized(waiting) {
+                if (preparedTextures != null) { onReady(); return }
+                waiting += onReady
+                if (preparing) return
+                preparing = true
+            }
+            textureWorker.execute {
+                val result = runCatching { arrayOf(createGrainBitmap(), createStoneGrainBitmap(),
+                    createPebbleBitmap()) }
+                val callbacks = synchronized(waiting) {
+                    result.onSuccess { preparedTextures = it }
+                    preparing = false
+                    waiting.toList().also { waiting.clear() }
+                }
+                result.onFailure { android.util.Log.e("RoadTextures", "Texture preparation failed", it) }
+                callbacks.forEach { it() }
+            }
+        }
+
+        val RED = LudoPawsBoardPalette.coral
+        val GREEN = LudoPawsBoardPalette.jade
+        val YELLOW = LudoPawsBoardPalette.honey
+        val BLUE = LudoPawsBoardPalette.sky
+
+        // Logical coordinates mirror the released lanes. No white road cell is included.
+        val COLORED_ENTRIES = setOf(6 to 1, 1 to 8, 8 to 13, 13 to 6)
+        val COLORED_ROADS = buildMap<Pair<Int, Int>, Int> {
+            for (index in 1..5) {
+                put(7 to index, RED)
+                put(index to 7, GREEN)
+                put(7 to (14 - index), YELLOW)
+                put((14 - index) to 7, BLUE)
+            }
+            put(6 to 1, RED)
+            put(1 to 8, GREEN)
+            put(8 to 13, YELLOW)
+            put(13 to 6, BLUE)
+        }
+
+        val NEUTRAL_SAFE_CELLS = setOf(2 to 6, 6 to 12, 12 to 8, 8 to 2)
+
+        /** Large cached patch of randomly packed gravel, with three stone size ranges. */
+        private fun createPebbleBitmap(): Bitmap {
+            val size = 512
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            canvas.drawColor(0xFFB9B6AD.toInt())
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+            val random = Random(0x504542424CL)
+            val packed = ArrayList<FloatArray>()
+            // Place large stones first, then fill the gaps with smaller chips.
+            repeat(6000) { attempt ->
+                val radius = when {
+                    attempt < 700 -> 10f + random.nextFloat() * 12f
+                    attempt < 2600 -> 5f + random.nextFloat() * 6f
+                    else -> 2.5f + random.nextFloat() * 3.5f
+                }
+                val x = random.nextFloat() * size
+                val y = random.nextFloat() * size
+                val overlaps = packed.any { previous ->
+                    val dx = kotlin.math.abs(x - previous[0]).let { min(it, size - it) }
+                    val dy = kotlin.math.abs(y - previous[1]).let { min(it, size - it) }
+                    val separation = (radius + previous[2]) * .88f + 1f
+                    dx * dx + dy * dy < separation * separation
+                }
+                if (!overlaps) packed.add(floatArrayOf(x, y, radius))
+            }
+            for (stoneData in packed) {
+                val radius = stoneData[2]
+                val stretch = .64f + random.nextFloat() * .34f
+                val rotation = random.nextFloat() * Math.PI * 2.0
+                val points = List(9) { index ->
+                    val angle = index * Math.PI * 2.0 / 9.0
+                    val r = radius * (.78f + random.nextFloat() * .24f)
+                    val px = kotlin.math.cos(angle) * r
+                    val py = kotlin.math.sin(angle) * r * stretch
+                    Pair((px * kotlin.math.cos(rotation) - py * kotlin.math.sin(rotation)).toFloat(),
+                        (px * kotlin.math.sin(rotation) + py * kotlin.math.cos(rotation)).toFloat())
+                }
+                val path = Path().apply {
+                    moveTo((points.last().first + points[0].first) * .5f,
+                        (points.last().second + points[0].second) * .5f)
+                    repeat(points.size) { index ->
+                        val a = points[index]
+                        val b = points[(index + 1) % points.size]
+                        quadTo(a.first, a.second, (a.first + b.first) * .5f,
+                            (a.second + b.second) * .5f)
+                    }
+                    close()
+                }
+                val tone = 198 + random.nextInt(46)
+                val relief = 1.2f + random.nextFloat() * 2.8f
+                for (dy in -1..1) for (dx in -1..1) {
+                    val saved = canvas.save()
+                    canvas.translate(stoneData[0] + dx * size, stoneData[1] + dy * size)
+                    paint.shader = null
+                    paint.color = 0x38443D32
+                    canvas.save()
+                    canvas.translate(relief * .65f, relief)
+                    canvas.drawPath(path, paint)
+                    canvas.restore()
+                    paint.shader = RadialGradient(-radius * .32f, -radius * .40f,
+                        radius * 1.45f,
+                        intArrayOf(Color.rgb(min(255, tone + 28), min(255, tone + 27),
+                            min(255, tone + 22)), Color.rgb(tone, tone, tone - 5),
+                            Color.rgb(tone - 64, tone - 65, tone - 67)),
+                        floatArrayOf(0f, .48f, 1f), Shader.TileMode.CLAMP)
+                    canvas.drawPath(path, paint)
+                    // Uneven mineral faces break the smooth oval/button appearance.
+                    canvas.clipPath(path)
+                    paint.shader = null
+                    paint.color = 0x153C3830
+                    canvas.drawPath(Path().apply {
+                        moveTo(-radius, radius * .1f)
+                        lineTo(radius * .1f, -radius * .16f)
+                        lineTo(radius * .5f, radius)
+                        lineTo(-radius, radius)
+                        close()
+                    }, paint)
+                    canvas.restoreToCount(saved)
+                }
+            }
+            paint.shader = null
+            repeat(14000) {
+                paint.color = if (random.nextBoolean()) 0x24FFFFFF else 0x203E3A34
+                canvas.drawCircle(random.nextFloat() * size, random.nextFloat() * size,
+                    .18f + random.nextFloat() * .52f, paint)
+            }
+            return bitmap
+        }
+
+        private fun createStoneGrainBitmap(): Bitmap {
+            val bitmap = Bitmap.createBitmap(128, 128, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { strokeCap = Paint.Cap.ROUND }
+            val random = Random(0x53544F4EL)
+            repeat(1_100) {
+                val tone = if (random.nextBoolean()) 255 else 38
+                paint.color = Color.argb(6 + random.nextInt(15), tone, tone, tone)
+                val x = random.nextFloat() * 128f
+                val y = random.nextFloat() * 128f
+                val radius = .16f + random.nextFloat() * .58f
+                canvas.drawOval(x - radius, y - radius * .6f, x + radius, y + radius * .6f, paint)
+            }
+            // Faint short mineral veins, not dark cracks or painted stepping markers.
+            paint.style = Paint.Style.STROKE
+            paint.strokeWidth = .45f
+            repeat(16) { index ->
+                paint.color = if (index % 2 == 0) 0x0DFFFFFF else 0x0A3D3830
+                val x = random.nextFloat() * 128f
+                val y = random.nextFloat() * 128f
+                canvas.drawPath(Path().apply {
+                    moveTo(x, y)
+                    rQuadTo(3f, -1.8f, 7f, -.8f)
+                    rQuadTo(2f, 1.1f, 5f, -.9f)
+                }, paint)
+            }
+            return bitmap
+        }
 
         private fun createGrainBitmap(): Bitmap {
             val size = 128

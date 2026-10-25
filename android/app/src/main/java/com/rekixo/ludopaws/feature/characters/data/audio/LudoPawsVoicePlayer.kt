@@ -58,7 +58,7 @@ class LudoPawsVoicePlayer(
 
             val plan =
                 LudoPawsReactionAudioProfile.plan(
-                    characterId = character.id,
+                    characterId = if (character.id == "goat_lumi") "goat" else character.id,
                     species = character.species,
                     reaction = reaction,
                 ) ?: return@forEach

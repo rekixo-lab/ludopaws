@@ -93,7 +93,7 @@ class LudoBoardView @JvmOverloads constructor(
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeWidth = density(1f)
-            color = Color.rgb(70, 70, 70)
+            color = LudoPawsBoardPalette.joint
         }
     private val tokenStrokePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -535,7 +535,7 @@ class LudoBoardView @JvmOverloads constructor(
             strokePaint,
         )
         strokePaint.strokeWidth = density(1f)
-        strokePaint.color = Color.rgb(70, 70, 70)
+        strokePaint.color = LudoPawsBoardPalette.joint
     }
 
     /**
@@ -780,7 +780,8 @@ class LudoBoardView @JvmOverloads constructor(
                 axisBoundary(row + 1, cell),
             )
         canvas.drawRect(rect, fillPaint)
-        canvas.drawRect(rect, strokePaint)
+        // Road-grid experiment: keep the cell fill, without the painted grey outline.
+        // The raised stone edges remain in the visual renderer above this layer.
     }
 
     private fun drawTokens(
@@ -813,7 +814,7 @@ class LudoBoardView @JvmOverloads constructor(
                         ?: return@forEachIndexed
 
                 val offset =
-                    if (position in 0..57) {
+                    if (position in 0 until LudoPathEncoding.HOME_POSITION) {
                         tokenOffset(
                             tokenIndex + player.seat,
                             cell,
@@ -874,29 +875,18 @@ class LudoBoardView @JvmOverloads constructor(
 
     internal fun drawFinishRanksOverlay(canvas: Canvas, cell: Float) {
         val state = snapshot ?: return
-        if (state.players.size != 4 || state.status == "WAITING" || state.matchMode == "TEAM_UP") return
-        val rankedIds = state.finishOrderPlayerIds.take(4).toMutableList()
-        // Remote classic servers may expose only the winner, not the full finish order.
-        // In that case, mark only the authoritative winner as First; never invent the other ranks.
-        if (state.status == "FINISHED" && rankedIds.isEmpty()) {
-            state.winnerPlayerId?.let { rankedIds += it }
-        }
-        // Local classic games finish after three players have placed. Only then is the
-        // single remaining player safely known to be Fourth.
-        if (state.status == "FINISHED" && state.finishOrderPlayerIds.size == state.players.size - 1) {
-            state.players.firstOrNull { it.playerId !in rankedIds }?.let { rankedIds += it.playerId }
-        }
-        if (rankedIds.isEmpty()) return
-        val labels = listOf("First", "Second", "Third", "Fourth")
-        val labelsByPlayerId = rankedIds.take(4).mapIndexed { rank, id -> id to labels[rank] }.toMap()
+        if (state.players.size !in 2..4 || state.status == "WAITING" || state.matchMode == "TEAM_UP") return
+        val ranks = LudoPawsFinishPresentation.ranks(state)
+        if (ranks.isEmpty()) return
         val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.rgb(34, 43, 58)
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
-            textSize = (cell * 0.34f).coerceIn(density(7f), density(12f))
+            textSize = (cell * .40f).coerceIn(density(8f), density(14f))
         }
+        val badgePaint = Paint(Paint.ANTI_ALIAS_FLAG)
         state.players.forEach { player ->
-            val label = labelsByPlayerId[player.playerId] ?: return@forEach
+            val rank = ranks[player.playerId] ?: return@forEach
+            val label = LudoPawsFinishPresentation.label(rank)
             val origin = when (player.color) {
                 "RED" -> 0 to 0
                 "GREEN" -> 0 to 9
@@ -910,6 +900,25 @@ class LudoBoardView @JvmOverloads constructor(
             val centerX = left + whiteSize * 0.5f
             val centerY = top + whiteSize * 0.5f
             val baseline = centerY - (labelPaint.ascent() + labelPaint.descent()) * 0.5f
+            val halfWidth = cell * (if (rank == 1) 1.47f else 1.10f)
+            val halfHeight = cell * .40f
+            val radius = cell * .16f
+            badgePaint.color = 0x65000000
+            canvas.drawRoundRect(centerX - halfWidth + cell * .03f, centerY - halfHeight + cell * .08f,
+                centerX + halfWidth + cell * .03f, centerY + halfHeight + cell * .08f, radius, radius, badgePaint)
+            val metal = LudoPawsFinishPresentation.metalColor(rank, colorFor(player.color))
+            badgePaint.color = metal
+            canvas.drawRoundRect(centerX - halfWidth, centerY - halfHeight,
+                centerX + halfWidth, centerY + halfHeight, radius, radius, badgePaint)
+            badgePaint.color = 0xFF253849.toInt()
+            val inset = cell * .055f
+            canvas.drawRoundRect(centerX - halfWidth + inset, centerY - halfHeight + inset,
+                centerX + halfWidth - inset, centerY + halfHeight - inset, radius * .7f, radius * .7f, badgePaint)
+            badgePaint.color = 0x99FFFFFF.toInt()
+            canvas.drawRoundRect(centerX - halfWidth + inset * 2, centerY - halfHeight + inset,
+                centerX + halfWidth - inset * 2, centerY - halfHeight + inset * 1.6f,
+                inset, inset, badgePaint)
+            labelPaint.color = metal
             canvas.drawText(label, centerX, baseline, labelPaint)
         }
     }
@@ -956,25 +965,26 @@ class LudoBoardView @JvmOverloads constructor(
         teamColor: Int,
     ) {
         val artwork = pawPrintArtwork[species] ?: return
-        // Slightly enlarge the impression while keeping all four starting slots
-        // visually separate. The team's outer edge/glow colours remain unchanged.
-        val scale = (cell * 0.34f).coerceAtLeast(density(0.1f))
+        // A restrained imprint belongs INSIDE an empty start slot. The old
+        // 0.34f size and opaque team-colored rim dominated the natural habitat.
+        // Keep the same canonical position, just a smaller softer footprint.
+        val scale = (cell * 0.25f).coerceAtLeast(density(0.1f))
         val red = Color.red(teamColor)
         val green = Color.green(teamColor)
         val blue = Color.blue(teamColor)
 
         // Warm, compressed-dirt pigment instead of a cold, flat grey stamp.
         pawPrintFillPaint.shader = null
-        pawPrintFillPaint.color = Color.argb(54, 59, 51, 43)
-        pawPrintGlowPaint.color = Color.argb(76, red, green, blue)
-        pawPrintEdgePaint.color = Color.argb(232, red, green, blue)
+        pawPrintFillPaint.color = Color.argb(43, 59, 51, 43)
+        pawPrintGlowPaint.color = Color.argb(42, red, green, blue)
+        pawPrintEdgePaint.color = Color.argb(145, red, green, blue)
         // Creases read as shallow grooves inside the print, not white decorative
         // lines. Fine grain adds small irregularity without changing the outline.
-        pawPrintDetailPaint.color = Color.argb(66, 38, 33, 29)
+        pawPrintDetailPaint.color = Color.argb(48, 38, 33, 29)
         // Canvas scaling also scales stroke widths, so normalize them to retain
         // stable dp-sized highlights on phones, tablets and high-density screens.
-        pawPrintGlowPaint.strokeWidth = density(3.5f) / scale
-        pawPrintEdgePaint.strokeWidth = density(1.35f) / scale
+        pawPrintGlowPaint.strokeWidth = density(2.5f) / scale
+        pawPrintEdgePaint.strokeWidth = density(1.0f) / scale
         pawPrintDetailPaint.strokeWidth = density(0.8f) / scale
 
         canvas.save()
@@ -1661,60 +1671,27 @@ class LudoBoardView @JvmOverloads constructor(
         }
 
         if (renderPosition == LudoPathEncoding.HOME_POSITION) {
-            val left = axisBoundary(6, cell)
-            val top = axisBoundary(6, cell)
-            val right = axisBoundary(9, cell)
-            val bottom = axisBoundary(9, cell)
-            val cx = (left + right) / 2f
-            val cy = (top + bottom) / 2f
-            val offset = (right - left) * 0.20f
-            return when (player.color) {
-                "RED" -> cx - offset to cy
-                "GREEN" -> cx to cy - offset
-                "YELLOW" -> cx + offset to cy
-                "BLUE" -> cx to cy + offset
-                else -> cx to cy
-            }
+            return LudoPawsFxBoardGeometry.finishGardenCenter(
+                player.color, tokenIndex, cell,
+                perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
+            )
         }
 
         return null
     }
 
-    // YARD TOKEN LOCK: the four resting-token slots are tied to the fixed 4x4 white home.
-    // Keep the 0.5-cell inset and 25%/75% slot fractions unchanged unless the board is redesigned.
+    // Share yard foot anchors with the 3D renderer, including perspective-aware headroom.
     private fun yardTokenCenter(
         color: String,
         tokenIndex: Int,
         cell: Float,
-    ): Pair<Float, Float>? {
-        val origin =
-            when (color) {
-                "RED" -> 0 to 0
-                "GREEN" -> 0 to 9
-                "YELLOW" -> 9 to 9
-                "BLUE" -> 9 to 0
-                else -> return null
-            }
-
-        val yardRect =
-            RectF(
-                axisBoundary(origin.second, cell),
-                axisBoundary(origin.first, cell),
-                axisBoundary(origin.second + 6, cell),
-                axisBoundary(origin.first + 6, cell),
-            )
-        val whiteLeft = yardRect.left + cell * 0.5f
-        val whiteTop = yardRect.top + cell * 0.5f
-        val whiteSize = cell * 4f
-
-        val rowFraction =
-            if (tokenIndex < 2) 0.25f else 0.75f
-        val colFraction =
-            if (tokenIndex % 2 == 0) 0.25f else 0.75f
-
-        return (whiteLeft + whiteSize * colFraction) to
-            (whiteTop + whiteSize * rowFraction)
-    }
+    ): Pair<Float, Float>? = LudoPawsFxBoardGeometry.tokenCenter(
+        color = color,
+        tokenIndex = tokenIndex,
+        position = -1,
+        cell = cell,
+        perspectiveQuarterTurns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
+    )
 
     private fun tokenOffset(
         slot: Int,
@@ -1773,14 +1750,7 @@ class LudoBoardView @JvmOverloads constructor(
     private fun colorFor(
         name: String,
     ): Int {
-        val classic =
-            when (name) {
-                "RED" -> Color.rgb(241, 37, 47)
-                "GREEN" -> Color.rgb(0, 169, 80)
-                "YELLOW" -> Color.rgb(255, 216, 27)
-                "BLUE" -> Color.rgb(48, 151, 215)
-                else -> Color.rgb(108, 117, 125)
-            }
+        val classic = LudoPawsBoardPalette.teamColor(name) ?: 0xFF74817F.toInt()
 
         return BoardRegistry.resolve(boardThemeId).teamColor(classic)
     }

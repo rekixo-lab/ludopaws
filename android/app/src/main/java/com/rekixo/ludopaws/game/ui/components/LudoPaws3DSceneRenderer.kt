@@ -30,16 +30,32 @@ internal class LudoPaws3DSceneRenderer {
     private var width = 1
     private var height = 1
     private var program = 0
+    private var uEntryFadeLocation = -1
+    private var uEntryClipLocation = -1
     private var uMvpLocation = -1
     private var uColorLocation = -1
     private var uLightDirectionLocation = -1
     private var uNormalMatrixLocation = -1
     private lateinit var sphere: CharacterMesh
     private var uMaterialLocation = -1
+    private var uPartyClockLocation = -1
+    private var uPartyEnergyLocation = -1
+    private var boundPartyEnergy = Float.NaN
     private var uLimbBendLocation = -1
+    private var boundSurface: CharacterSurface? = null
+    private var boundBendY = Float.NaN
+    private var boundBendZ = Float.NaN
     private val customMeshes = mutableMapOf<MeshGeometry, CharacterMesh>()
 
+    private val renderPawnScratch = ArrayList<RenderPawn>(16)
+    private val visiblePawnKeys = HashSet<LudoPaws3DPawnKey>(16)
+    private val pawnDepthOrder = compareBy<RenderPawn> { it.y }
+    private var occupancySnapshot: MatchSnapshot? = null
+    private var occupancyCell = 0f
+    private var occupancyTurns = -1
+    private var cachedOccupancy: Map<String, Int> = emptyMap()
     private val lifeByPawn = mutableMapOf<LudoPaws3DPawnKey, LudoPaws3DLifeMotion>()
+    private val centerHouses by lazy { LudoPawsCenterHouses3D.acquire() }
     private val drawContext = object : CharacterDrawContext() {
         override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
             scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
@@ -78,6 +94,14 @@ internal class LudoPaws3DSceneRenderer {
                 FRAGMENT_SHADER.trimIndent(),
             )
         customMeshes.clear()
+        uPartyClockLocation = GLES30.glGetUniformLocation(program, "uPartyClock")
+        uPartyEnergyLocation = GLES30.glGetUniformLocation(program, "uPartyEnergy")
+        check(uPartyClockLocation >= 0 && uPartyEnergyLocation >= 0) { "Missing party light uniforms" }
+        boundPartyEnergy = Float.NaN
+        uEntryFadeLocation = GLES30.glGetUniformLocation(program, "uEntryFade")
+        check(uEntryFadeLocation >= 0) { "Missing entry fade uniform" }
+        uEntryClipLocation = GLES30.glGetUniformLocation(program, "uEntryClip")
+        check(uEntryClipLocation >= 0) { "Missing entry aperture uniform" }
         uLimbBendLocation = GLES30.glGetUniformLocation(program, "uLimbBend")
         check(uLimbBendLocation >= 0) { "Missing limb deformation uniform" }
         uMaterialLocation = GLES30.glGetUniformLocation(program, "uMaterial")
@@ -92,14 +116,26 @@ internal class LudoPaws3DSceneRenderer {
                 uLightDirectionLocation >= 0 &&
                 uNormalMatrixLocation >= 0,
         ) { "3D pawn shader is missing a required uniform" }
+        GLES30.glUseProgram(program)
+        GLES30.glUniform3f(uLightDirectionLocation, .40f, -1f, -.65f)
+        boundSurface = null
+        boundBendY = Float.NaN
+        boundBendZ = Float.NaN
         sphere =
             CharacterMesh(
                 geometry = SphereGeometry.standard,
                 uMvpLocation = uMvpLocation,
                 uColorLocation = uColorLocation,
-                uLightDirectionLocation = uLightDirectionLocation,
                 uNormalMatrixLocation = uNormalMatrixLocation,
             )
+    }
+
+    fun release() {
+        customMeshes.values.forEach { it.release() }
+        customMeshes.clear()
+        if (::sphere.isInitialized) sphere.release()
+        if (program != 0) GLES30.glDeleteProgram(program)
+        program = 0
     }
 
     /**
@@ -184,6 +220,8 @@ internal class LudoPaws3DSceneRenderer {
         teamColorName: String,
         pose: CharacterPose = CharacterPose(),
         previewLife: LudoPaws3DLifeMotion? = null,
+        previewZoom: Float = 1f,
+        synchronizeGpu: Boolean = true,
     ) {
         if (program == 0) return
 
@@ -203,7 +241,9 @@ internal class LudoPaws3DSceneRenderer {
         bodyStretch = pose.bodyScaleY
         groundPivotY = character.definition.groundPivotY
         val size = min(width, height).toFloat()
-        val modelScale = size * 0.30f
+        GLES30.glUniform1f(uEntryFadeLocation, 1f)
+        GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
+        val modelScale = size * 0.30f * previewZoom.coerceIn(.6f, 1.5f)
         prepareRoot(
             x = width * 0.5f,
             y = height * 0.62f,
@@ -213,7 +253,8 @@ internal class LudoPaws3DSceneRenderer {
         )
 
         character.renderer.draw(drawContext, root, pose, teamColor)
-        GLES30.glFinish()
+        // Bitmap readback needs completion; an animated window swaps buffers itself.
+        if (synchronizeGpu) GLES30.glFinish()
     }
 
     fun drawFrame(
@@ -227,6 +268,8 @@ internal class LudoPaws3DSceneRenderer {
         val snapshot = state.snapshot ?: return
         if (program == 0) return
         GLES30.glUseProgram(program)
+        // Keep precision stable after long device uptimes; all cycles divide 100 seconds.
+        GLES30.glUniform1f(uPartyClockLocation, (nowMillis % 100_000L) / 1000f)
 
         val size = min(width, height).toFloat()
         val cell = size / LudoPawsFxBoardGeometry.BOARD_SIZE
@@ -234,19 +277,42 @@ internal class LudoPaws3DSceneRenderer {
             state.perspectiveColor
                 ?.let(OfflinePlayerLayout::rotationQuarterTurns)
                 ?: 0
+        GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
+        GLES30.glUniform1f(uEntryFadeLocation, 1f)
+        centerHouses.drawStoneRoads(drawContext, size, turns)
+        // Pawn and house depth are independent of the static road relief.
+        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
+        // Clip decorative volume (including an outward-swinging door) to the
+        // exact stretched center square so no home-lane or road cell is covered.
+        val centerStart = floor(size / 3f).toInt()
+        val centerEnd = kotlin.math.ceil(size * 2f / 3f).toInt()
+        val boardBottom = height - (height - width).coerceAtLeast(0)
+        GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+        GLES30.glScissor(centerStart, boardBottom - centerEnd,
+            centerEnd - centerStart, centerEnd - centerStart)
+        GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
+        GLES30.glUniform1f(uEntryFadeLocation, 1f)
+        centerHouses.draw(drawContext, size, turns, state, nowMillis)
+        GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        // Houses retain their internal depth, while all authoritative pawns remain
+        // visible above the center artwork, including the four finish positions.
+        GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
         val occupancy =
             occupancyByCenter(
                 snapshot = snapshot,
                 cell = cell,
+                turns = turns,
             )
         val stackPlacements =
             LudoPawsPawnLayout.stackPlacements(
                 snapshot = snapshot,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             )
 
         val renderPawns =
-            buildList {
+            renderPawnScratch.apply {
+                clear()
                 snapshot.players.forEach { player ->
                     val teamColor =
                         LudoPawsTeamIdentityPolicy.resolve(player.color)
@@ -270,11 +336,18 @@ internal class LudoPaws3DSceneRenderer {
                                         tokenIndex = tokenIndex,
                                         capture = capture,
                                         cell = cell,
+                                        turns = turns,
                                         nowMillis = nowMillis,
                                     )
                                 }
 
-                        val rawCenter =
+                        val entry = state.homeEntries[player.playerId]
+                            ?.takeIf { currentPosition == LudoPathEncoding.HOME_POSITION }
+                        val entryElapsed = entry?.elapsed(nowMillis) ?: -1L
+                        val entryProgress = if (entry != null)
+                            LudoPawsHomeEntryPolicy.walk(entryElapsed, tokenIndex) else 0f
+                        if (entry != null && entryProgress >= 1f) return@forEachIndexed
+                        var rawCenter =
                             captureVisual?.center
                                 ?: animatedCenter(
                                     player = player,
@@ -285,6 +358,18 @@ internal class LudoPaws3DSceneRenderer {
                                     nowMillis = nowMillis,
                                 )
                                 ?: return@forEachIndexed
+                        if (entryProgress > 0f) {
+                            val normal = homeNormal(player.color)
+                            val half = size / 6f
+                            val approach = LudoPawsHomeEntryPolicy.smooth(entryProgress / .60f)
+                            val inside = LudoPawsHomeEntryPolicy.smooth((entryProgress - .60f) / .40f)
+                            val gate = size * .5f + normal.first * half * .88f to
+                                size * .5f + normal.second * half * .88f
+                            rawCenter = rawCenter.first + (gate.first - rawCenter.first) * approach -
+                                normal.first * half * .23f * inside to
+                                rawCenter.second + (gate.second - rawCenter.second) * approach -
+                                normal.second * half * .23f * inside
+                        }
                         val stackPlacement =
                             if (captureVisual == null) {
                                 stackPlacements[
@@ -326,18 +411,24 @@ internal class LudoPaws3DSceneRenderer {
                                             tokenIndex = tokenIndex,
                                             position = currentPosition,
                                             cell = cell,
+                                            perspectiveQuarterTurns = turns,
                                         ),
                                     )
                                 occupancy[occupancyKey] ?: 1
                             }
-                        val radius =
-                            cell *
-                                LudoPawsPawnLayout.radiusScale(
-                                    position = renderPosition,
-                                    occupancy = occupants,
-                                )
+                        val fit = LudoPawsPawnLayout.roadPresentation(
+                            rawCenter.first, rawCenter.second, cell, renderPosition, occupants,
+                            character.id, turns,
+                        )
+                        val radius = fit.radius
                         val facingYawDegrees =
-                            if (captureVisual == null) {
+                            if (entryProgress > 0f) {
+                                val n = homeNormal(player.color)
+                                val direction = rotatePoint(size * .5f - n.first * cell,
+                                    size * .5f - n.second * cell, size, turns)
+                                LudoPawsPawnFacingPolicy.yawForVisibleDelta(
+                                    direction.first - size * .5f, direction.second - size * .5f)
+                            } else if (captureVisual == null) {
                                 facingYawDegrees(
                                     player = player,
                                     tokenIndex = tokenIndex,
@@ -358,11 +449,15 @@ internal class LudoPaws3DSceneRenderer {
                                 teamColor = teamColor,
                                 seat = player.seat,
                                 x = rotated.first,
-                                y = rotated.second,
+                                y = rotated.second + fit.footDrop,
                                 radius = radius,
                                 facingYawDegrees = facingYawDegrees,
-                                presentationScale =
-                                    captureVisual?.scale ?: 1f,
+                                presentationScale = if (entryProgress > 0f)
+                                    1f - .72f * LudoPawsHomeEntryPolicy.smooth(entryProgress)
+                                    else captureVisual?.scale ?: 1f,
+                                entryProgress = entryProgress,
+                                entryClip = if (entryProgress > 0f)
+                                    entryAperture(player.color, size, turns, entryProgress) else null,
                                 attentionScale =
                                     legalAttentionScale(
                                         state = state,
@@ -373,24 +468,66 @@ internal class LudoPaws3DSceneRenderer {
                         )
                     }
                 }
-            }.sortedBy(RenderPawn::y)
+            }.also { it.sortWith(pawnDepthOrder) }
 
         // Shadows are drawn as a separate background pass so one pawn's shadow
         // can never darken another pawn that was already painted in front of it.
         // The board coordinates remain authoritative; this pass is visual only.
-        lifeByPawn.keys.retainAll(renderPawns.map { it.key }.toSet())
-        renderPawns.forEach(::drawContactShadow)
+        visiblePawnKeys.clear()
+        renderPawns.forEach { visiblePawnKeys.add(it.key) }
+        lifeByPawn.keys.retainAll(visiblePawnKeys)
+        renderPawns.forEach { if (it.entryProgress < .60f) drawContactShadow(it) }
 
         renderPawns.forEach { pawn ->
             // Preserve depth inside one animal but use painter ordering between
             // animals. This prevents one pawn's nose/ear depth cutting another.
             GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
+            GLES30.glUniform1f(uEntryFadeLocation,
+                1f - LudoPawsHomeEntryPolicy.smooth((pawn.entryProgress - .85f) / .15f))
+            pawn.entryClip?.let { clip ->
+                GLES30.glUniform4f(uEntryClipLocation, clip[0], min(width, height) - clip[3],
+                    clip[2], min(width, height) - clip[1])
+            }
             drawPawn(
                 pawn = pawn,
                 state = state,
                 nowMillis = nowMillis,
             )
+            GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
+            GLES30.glUniform1f(uEntryFadeLocation, 1f)
         }
+        if (renderPawns.any { it.entryProgress in .55f..0.9999f }) {
+            GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
+            GLES30.glEnable(GLES30.GL_SCISSOR_TEST)
+            GLES30.glScissor(centerStart, boardBottom - centerEnd,
+                centerEnd - centerStart, centerEnd - centerStart)
+            centerHouses.drawEntryForeground(drawContext, size, turns, state, nowMillis)
+            GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        }
+    }
+
+    private fun homeNormal(color: String): Pair<Float, Float> = when (color) {
+        "RED" -> -1f to 0f
+        "GREEN" -> 0f to -1f
+        "YELLOW" -> 1f to 0f
+        else -> 0f to 1f
+    }
+
+    private fun entryAperture(color: String, size: Float, turns: Int, progress: Float): FloatArray {
+        val n = homeNormal(color)
+        val half = size / 6f
+        val points = buildList {
+            for (radial in floatArrayOf(.49f, .78f)) for (tangent in floatArrayOf(-.17f, .17f)) {
+                add(rotatePoint(size * .5f + (n.first * radial - n.second * tangent) * half,
+                    size * .5f + (n.second * radial + n.first * tangent) * half, size, turns))
+            }
+        }
+        val aperture = floatArrayOf(points.minOf { it.first }, points.minOf { it.second },
+            points.maxOf { it.first }, points.maxOf { it.second })
+        // Gradually seat the whole silhouette behind the jamb instead of popping it off.
+        val blend = LudoPawsHomeEntryPolicy.smooth((progress - .60f) / .25f)
+        val full = floatArrayOf(size / 3f, size / 3f, size * 2f / 3f, size * 2f / 3f)
+        return FloatArray(4) { full[it] + (aperture[it] - full[it]) * blend }
     }
 
     private fun drawPawn(
@@ -398,8 +535,16 @@ internal class LudoPaws3DSceneRenderer {
         state: LudoPaws3DSceneState,
         nowMillis: Long,
     ) {
-        val frame =
-            motionFrame(
+        val entry = state.homeEntries[pawn.key.playerId]
+        val entryElapsedForPose = entry?.elapsed(nowMillis) ?: -1L
+        val frame = if (entryElapsedForPose in 0 until LudoPawsHomeEntryPolicy.CELEBRATE_MS) {
+            MotionFrame(CharacterMotion.HOME,
+                entryElapsedForPose.toFloat() / LudoPawsHomeEntryPolicy.CELEBRATE_MS)
+        } else if (pawn.entryProgress > 0f && pawn.entryProgress < .60f) {
+            MotionFrame(CharacterMotion.HOP, (pawn.entryProgress * 5f) % 1f)
+        } else if (pawn.entryProgress >= .60f) {
+            idleMotionFrame(pawn, nowMillis)
+        } else motionFrame(
                 pawn = pawn,
                 state = state,
                 nowMillis = nowMillis,
@@ -412,7 +557,9 @@ internal class LudoPaws3DSceneRenderer {
             )
         // Locomotion owns weight/contact. Keep facial reactions, but fade a competing
         // celebration bounce/scale through the existing springs before landing.
-        val reactionTarget = if (frame.kind == CharacterMotion.HOP) {
+        val entryElapsed = state.homeEntries[pawn.key.playerId]?.elapsed(nowMillis)
+        val reactionTarget = if (frame.kind == CharacterMotion.HOP ||
+            (entryElapsed != null && entryElapsed >= LudoPawsHomeEntryPolicy.CELEBRATE_MS)) {
             rawReactionTarget.copy(liftY = 0f, scale = 1f, bodyYawDegrees = 0f, bodyPitchDegrees = 0f)
         } else rawReactionTarget
         val living = lifeByPawn.getOrPut(pawn.key) { LudoPaws3DLifeMotion() }
@@ -444,9 +591,15 @@ internal class LudoPaws3DSceneRenderer {
                 pawn.presentationScale *
                 pawn.attentionScale *
                 reaction.scale
+        // The fixed board coordinate is the FOOT CONTACT, not the body origin.
+        // Species-specific pivot and the *current* animated scale determine the
+        // root translation, so a 32%-larger pawn cannot stand on the next square.
         val rootY =
-            pawn.y +
-                pawn.radius * pawn.character.definition.rootYOffsetPerRadius
+            LudoPawsPawnLayout.rootYForFootContact(
+                boardCenterY = pawn.y,
+                modelScale = modelScale,
+                groundPivotY = pawn.character.definition.groundPivotY,
+            )
 
         val sampled = pawn.character.renderer.sample(frame.kind, frame.progress, frame.hopPlayback)
         val base = if(frame.kind == CharacterMotion.IDLE) living.idlePose(sampled) else sampled
@@ -576,6 +729,7 @@ internal class LudoPaws3DSceneRenderer {
         tokenIndex: Int,
         capture: LudoPaws3DCaptureReturnState,
         cell: Float,
+        turns: Int,
         nowMillis: Long,
     ): CaptureVisual? {
         if (capture.durationMillis <= 0L) return null
@@ -591,6 +745,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = capture.motion.fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val toBase =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -598,6 +753,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = -1,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val fromOffset =
             LudoPawsPawnLayout.tokenOffsetFraction(
@@ -639,6 +795,7 @@ internal class LudoPaws3DSceneRenderer {
         state: LudoPaws3DSceneState,
         nowMillis: Long,
     ): Pair<Float, Float>? {
+        val turns = state.perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0
         val motion =
             state.forwardMotion
                 ?.takeIf {
@@ -651,6 +808,7 @@ internal class LudoPaws3DSceneRenderer {
                     tokenIndex = tokenIndex,
                     position = currentPosition,
                     cell = cell,
+                    perspectiveQuarterTurns = turns,
                 )
         val elapsed =
             (nowMillis - state.forwardStartedAtMillis)
@@ -666,6 +824,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = currentPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             )
         }
 
@@ -697,6 +856,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val to =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -704,6 +864,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = toPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return from
 
         // Stay on the cell-center path; characters may hold translation during planted
@@ -834,6 +995,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = fromPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val to =
             LudoPawsFxBoardGeometry.tokenCenter(
@@ -841,6 +1003,7 @@ internal class LudoPaws3DSceneRenderer {
                 tokenIndex = tokenIndex,
                 position = toPosition,
                 cell = cell,
+                perspectiveQuarterTurns = turns,
             ) ?: return null
         val visibleFrom =
             rotatePoint(
@@ -865,7 +1028,9 @@ internal class LudoPaws3DSceneRenderer {
     private fun occupancyByCenter(
         snapshot: MatchSnapshot,
         cell: Float,
+        turns: Int,
     ): Map<String, Int> {
+        if (occupancySnapshot === snapshot && occupancyCell == cell && occupancyTurns == turns) return cachedOccupancy
         val counts = mutableMapOf<String, Int>()
         snapshot.players.forEach { player ->
             player.tokens.forEachIndexed { tokenIndex, position ->
@@ -876,11 +1041,16 @@ internal class LudoPaws3DSceneRenderer {
                             tokenIndex = tokenIndex,
                             position = position,
                             cell = cell,
+                            perspectiveQuarterTurns = turns,
                         ),
                     )
                 counts[key] = (counts[key] ?: 0) + 1
             }
         }
+        occupancySnapshot = snapshot
+        occupancyCell = cell
+        occupancyTurns = turns
+        cachedOccupancy = counts
         return counts
     }
 
@@ -930,18 +1100,23 @@ internal class LudoPaws3DSceneRenderer {
     }
 
     private fun drawContactShadow(pawn: RenderPawn) {
-        val visualRadius =
-            pawn.radius * pawn.presentationScale
-        val shadowY =
-            pawn.y +
-                pawn.radius * pawn.character.definition.footBaselinePerRadius
+        // The shadow marks the authoritative occupied square, not the bottom
+        // of the oversized 3D body's on-screen bounding box. Keep it within
+        // the smallest physical board cells and independent of body breathing.
+        val cell = min(width, height).toFloat() / LudoPawsFxBoardGeometry.BOARD_SIZE
+        val contactRadius =
+            LudoPawsPawnLayout.contactShadowRadius(
+                cell = cell,
+                pawnRadius = pawn.radius,
+                presentationScale = pawn.presentationScale,
+            )
 
         Matrix.setIdentityM(root, 0)
         Matrix.translateM(
             root,
             0,
             pawn.x,
-            shadowY,
+            pawn.y,
             -0.80f,
         )
 
@@ -953,8 +1128,8 @@ internal class LudoPaws3DSceneRenderer {
             translateX = 0f,
             translateY = 0f,
             translateZ = 0f,
-            scaleX = visualRadius * 1.70f,
-            scaleY = visualRadius * 0.42f,
+            scaleX = contactRadius,
+            scaleY = contactRadius * 0.36f,
             scaleZ = 0.02f,
             color = SHADOW_OUTER,
         )
@@ -963,8 +1138,8 @@ internal class LudoPaws3DSceneRenderer {
             translateX = 0f,
             translateY = 0f,
             translateZ = 0.01f,
-            scaleX = visualRadius * 1.45f,
-            scaleY = visualRadius * 0.30f,
+            scaleX = contactRadius * 0.75f,
+            scaleY = contactRadius * 0.24f,
             scaleZ = 0.02f,
             color = SHADOW_INNER,
         )
@@ -1026,15 +1201,29 @@ internal class LudoPaws3DSceneRenderer {
         normalMatrix[7] = inverseModel[6]
         normalMatrix[8] = inverseModel[10]
         val mesh = if (geometry == null) sphere else customMeshes.getOrPut(geometry) {
-            CharacterMesh(geometry, uMvpLocation, uColorLocation, uLightDirectionLocation, uNormalMatrixLocation)
+            CharacterMesh(geometry, uMvpLocation, uColorLocation, uNormalMatrixLocation)
         }
-        GLES30.glUniform2f(uLimbBendLocation, drawContext.limbBendY, drawContext.limbBendZ)
-        GLES30.glUniform2f(uMaterialLocation, drawContext.surface.kind, drawContext.surface.gloss)
+        if (boundBendY != drawContext.limbBendY || boundBendZ != drawContext.limbBendZ) {
+            boundBendY = drawContext.limbBendY
+            boundBendZ = drawContext.limbBendZ
+            GLES30.glUniform2f(uLimbBendLocation, boundBendY, boundBendZ)
+        }
+        if (boundSurface != drawContext.surface) {
+            boundSurface = drawContext.surface
+            GLES30.glUniform2f(uMaterialLocation, drawContext.surface.kind, drawContext.surface.gloss)
+        }
+        if (boundPartyEnergy != drawContext.partyEnergy) {
+            boundPartyEnergy = drawContext.partyEnergy
+            GLES30.glUniform1f(uPartyEnergyLocation, boundPartyEnergy)
+        }
+        val reflectedLight = drawContext.surface == CharacterSurface.PARTY_GLOW
+        if (reflectedLight) GLES30.glDepthMask(false)
         mesh.draw(
             normalMatrix = normalMatrix,
             mvp = mvp,
             color = color,
         )
+        if (reflectedLight) GLES30.glDepthMask(true)
     }
 
     private fun lerp(
@@ -1084,7 +1273,7 @@ internal class LudoPaws3DSceneRenderer {
                     1f
                 ) *
                 .5f
-        return 1f + breath * .0975f
+        return 1f + breath * .14f
     }
 
     private data class RenderPawn(
@@ -1097,6 +1286,8 @@ internal class LudoPaws3DSceneRenderer {
         val radius: Float,
         val facingYawDegrees: Float = LudoPawsPawnFacingPolicy.FRONT_YAW_DEGREES,
         val presentationScale: Float = 1f,
+        val entryProgress: Float = 0f,
+        val entryClip: FloatArray? = null,
         val attentionScale: Float = 1f,
     )
 

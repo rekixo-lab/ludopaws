@@ -1,7 +1,6 @@
 package com.rekixo.ludopaws
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
@@ -56,7 +55,7 @@ class LudoPawsPlayerCardView(
 
         nameText.apply {
             setTypeface(Typeface.DEFAULT_BOLD)
-            setTextColor(Color.WHITE)
+            setTextColor(LudoPawsBoardPalette.text)
             textSize = 11.5f
             maxLines = 1
         }
@@ -66,7 +65,7 @@ class LudoPawsPlayerCardView(
             maxLines = 1
         }
         progressText.apply {
-            setTextColor(0xFFDCEBFF.toInt())
+            setTextColor(LudoPawsBoardPalette.textSecondary)
             textSize = 9f
             maxLines = 1
         }
@@ -84,6 +83,12 @@ class LudoPawsPlayerCardView(
         )
     }
 
+    private data class Binding(
+        val player: PlayerSnapshot, val characterId: String?, val active: Boolean,
+        val computer: Boolean, val compact: Boolean, val localPlayer: Boolean, val portraitOnEnd: Boolean,
+    )
+    private var lastBinding: Binding? = null
+
     fun bind(
         player: PlayerSnapshot,
         characterId: String?,
@@ -93,6 +98,9 @@ class LudoPawsPlayerCardView(
         localPlayer: Boolean = true,
         portraitOnEnd: Boolean = false,
     ) {
+        val next = Binding(player, characterId, active, computer, compact, localPlayer, portraitOnEnd)
+        if (lastBinding == next) return
+        lastBinding = next
         layoutDirection =
             if (portraitOnEnd) {
                 View.LAYOUT_DIRECTION_RTL
@@ -146,9 +154,9 @@ class LudoPawsPlayerCardView(
         stateText.text = "$characterName • $turnLabel"
         stateText.setTextColor(
             if (active) {
-                0xFFFFD54F.toInt()
+                LudoPawsBoardPalette.gold
             } else {
-                0xFF76E4F7.toInt()
+                LudoPawsBoardPalette.aqua
             },
         )
         stateText.textSize =
@@ -227,17 +235,15 @@ class LudoPawsPlayerCardView(
     ): GradientDrawable =
         GradientDrawable().apply {
             cornerRadius = dp(15).toFloat()
-            setColor(
-                if (active) {
-                    0xF22B3550.toInt()
-                } else {
-                    0xE01A2337.toInt()
-                },
+            orientation = GradientDrawable.Orientation.TL_BR
+            colors = intArrayOf(
+                if (active) 0xFF2B4855.toInt() else LudoPawsBoardPalette.ink,
+                LudoPawsBoardPalette.inkDeep,
             )
             // Active turns may change stroke weight, but never override the
             // player's team identity with a shared yellow highlight.
             setStroke(
-                dp(if (active) 2 else 1),
+                dp(if (active) 3 else 2),
                 playerColor(colorName),
             )
         }
@@ -245,13 +251,7 @@ class LudoPawsPlayerCardView(
     private fun playerColor(
         colorName: String,
     ): Int =
-        when (colorName) {
-            "RED" -> 0xFFF1252F.toInt()
-            "GREEN" -> 0xFF00A950.toInt()
-            "YELLOW" -> 0xFFFFD81B.toInt()
-            "BLUE" -> 0xFF3097D7.toInt()
-            else -> 0xFF6C757D.toInt()
-        }
+        LudoPawsBoardPalette.teamColor(colorName) ?: 0xFF74817F.toInt()
 
     private fun dp(
         value: Int,

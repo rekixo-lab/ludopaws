@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application />
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <application>
+        <!-- Allow explicit adb preview commands on the developer's installed debug build. -->
+        <activity android:name=".CharacterPreviewActivity"
+            android:exported="true" tools:replace="android:exported" />
+    </application>
 </manifest>

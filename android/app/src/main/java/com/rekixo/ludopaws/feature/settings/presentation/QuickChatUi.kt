@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.ui.quickchat
 
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -10,7 +11,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -18,7 +18,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.TextView
-import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.transparentDarkBlueStrokeBackground
 import kotlin.math.min
 import kotlin.math.roundToInt
 
@@ -70,21 +70,21 @@ internal class QuickChatButtonView(
         val radius = size * .465f
 
         fill.shader = null
-        fill.color = 0xFF51170D.toInt()
+        fill.color = LudoPawsBoardPalette.woodShade
         fill.setShadowLayer(size * .10f, 0f, size * .035f, 0xAA000000.toInt())
         canvas.drawCircle(cx, cy, radius, fill)
         fill.clearShadowLayer()
 
         fill.shader = LinearGradient(
             cx, cy - radius, cx, cy + radius,
-            intArrayOf(0xFFFFD85B.toInt(), 0xFFE9A000.toInt(), 0xFFB93716.toInt()),
+            intArrayOf(0xFFF4E3BB.toInt(), LudoPawsBoardPalette.gold, LudoPawsBoardPalette.wood),
             null,
             Shader.TileMode.CLAMP,
         )
         canvas.drawCircle(cx, cy, radius * .91f, fill)
         fill.shader = null
 
-        stroke.color = 0xFF8B2617.toInt()
+        stroke.color = LudoPawsBoardPalette.woodShade
         stroke.strokeWidth = size * .055f
         canvas.drawCircle(cx, cy, radius * .82f, stroke)
 
@@ -96,7 +96,7 @@ internal class QuickChatButtonView(
         )
         canvas.drawCircle(cx, cy, radius * .68f, fill)
         fill.shader = null
-        stroke.color = 0xFFB67827.toInt()
+        stroke.color = LudoPawsBoardPalette.maple
         stroke.strokeWidth = size * .025f
         canvas.drawCircle(cx, cy, radius * .68f, stroke)
 
@@ -109,7 +109,7 @@ internal class QuickChatButtonView(
         fill.color = 0xFFF5F7FA.toInt()
         canvas.drawPath(bubble, fill)
 
-        fill.color = 0xFF233448.toInt()
+        fill.color = LudoPawsBoardPalette.inkDeep
         val dotRadius = size * .055f
         val dotY = cy
         canvas.drawCircle(cx - radius * .28f, dotY, dotRadius, fill)
@@ -153,30 +153,18 @@ internal fun showQuickChatPopup(
         clipChildren = false
         clipToPadding = false
         setPadding(dp(9), dp(8), dp(9), dp(9))
-        background = plywoodBackground(
+        // A busier board needs more separation than the rating stars' 20% tint.
+        // Keep translucency local to the picker; surrounding gameplay remains undimmed.
+        background = transparentDarkBlueStrokeBackground(
             context = context,
             cornerRadiusDp = 20f,
-        )
-        elevation = dp(10).toFloat()
+        ).apply {
+            orientation = android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM
+            colors = intArrayOf(0xA315384C.toInt(), 0xB3102536.toInt())
+            setStroke(dp(1), 0x8872E2E1.toInt())
+        }
+        elevation = dp(3).toFloat()
     }
-
-    panel.addView(
-        TextView(context).apply {
-            text = "QUICK CHAT"
-            textSize = 19f
-            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-            setTextColor(0xFFFFD84C.toInt())
-            gravity = Gravity.CENTER
-            includeFontPadding = false
-            setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), 0xA5000000.toInt())
-            setPadding(0, dp(6), 0, dp(9))
-            contentDescription = "Quick Chat emoji picker"
-        },
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            dp(38),
-        ),
-    )
 
     QuickChatEmojiCatalog.EMOJIS.chunked(6).forEach { rowEmojis ->
         val row = LinearLayout(context).apply {
@@ -186,15 +174,12 @@ internal fun showQuickChatPopup(
             clipToPadding = false
         }
         rowEmojis.forEach { emoji ->
-            val cell = TextView(context).apply {
-                text = emoji
-                textSize = 24f
-                gravity = Gravity.CENTER
-                includeFontPadding = false
+            val cell = QuickChatAnimatedEmojiView(context, emoji, animated = false).apply {
+                tag = emoji
                 isClickable = true
                 isFocusable = true
                 contentDescription = "Send $emoji"
-                // Keep the emoji glyphs clean: no circular chip behind each one.
+                setPadding(dp(4), dp(4), dp(4), dp(4))
                 background = null
             }
             row.addView(
@@ -226,17 +211,16 @@ internal fun showQuickChatPopup(
     val arrow = TextView(context).apply {
         textSize = 18f
         setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-        setTextColor(0xFFFFCD38.toInt())
+        setTextColor(0xB372E2E1.toInt())
         gravity = Gravity.CENTER
         includeFontPadding = false
-        setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), 0x99000000.toInt())
     }
 
     val location = IntArray(2)
     anchor.getLocationOnScreen(location)
     val visibleFrame = Rect()
     anchor.rootView.getWindowVisibleDisplayFrame(visibleFrame)
-    val estimatedHeight = dp(38 + 8 + 9 + 4 * 47 + 12)
+    val estimatedHeight = dp(8 + 9 + 4 * 47 + 16)
     val spaceBelow = visibleFrame.bottom - (location[1] + anchor.height)
     val spaceAbove = location[1] - visibleFrame.top
     val openAbove = spaceBelow < estimatedHeight && spaceAbove > spaceBelow
@@ -266,7 +250,7 @@ internal fun showQuickChatPopup(
         setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
         isOutsideTouchable = true
         isClippingEnabled = true
-        elevation = dp(12).toFloat()
+        elevation = 0f
         inputMethodMode = PopupWindow.INPUT_METHOD_NOT_NEEDED
         animationStyle = android.R.style.Animation_Dialog
     }
@@ -286,7 +270,7 @@ internal fun showQuickChatPopup(
                 val cell = rowView.getChildAt(i)
                 cell.setOnClickListener {
                     if (selectionInProgress) return@setOnClickListener
-                    val emoji = (cell as? TextView)?.text?.toString() ?: return@setOnClickListener
+                    val emoji = cell.tag as? String ?: return@setOnClickListener
                     selectionInProgress = true
                     cell.pivotX = cell.width / 2f
                     cell.pivotY = cell.height / 2f
@@ -331,68 +315,76 @@ internal fun showQuickChatPopup(
     }
 }
 
-/** Animated non-authoritative reaction bubble layered over the board. */
+/** One reaction per sender, anchored next to their current player card. */
 internal fun animateQuickChatReaction(
     parent: FrameLayout,
-    previous: View?,
     emoji: String,
-    displayName: String,
+    senderPlayerId: String,
+    anchor: View,
 ): View {
-    previous?.animate()?.cancel()
-    (previous?.parent as? ViewGroup)?.removeView(previous)
-    val context = parent.context
-    val density = context.resources.displayMetrics.density
-    fun dp(value: Int) = (value * density).roundToInt()
-
-    val bubble = TextView(context).apply {
-        text = "$emoji  $displayName"
-        gravity = Gravity.CENTER
-        textSize = 20f
-        setTextColor(0xFFF8FBFF.toInt())
-        setPadding(dp(14), dp(7), dp(14), dp(7))
-        background = GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0xF20B2E70.toInt(), 0xF2071D4C.toInt()),
-        ).apply {
-            cornerRadius = dp(18).toFloat()
-            setStroke(dp(2), 0xFFFFD34E.toInt())
+    val host = parent.rootView.findViewById<FrameLayout>(android.R.id.content) ?: parent
+    val tag = "quickchat-reaction:$senderPlayerId"
+    for (index in host.childCount - 1 downTo 0) {
+        val old = host.getChildAt(index)
+        if (old.tag == tag) {
+            (old as? QuickChatAnimatedEmojiView)?.dispose()
+            host.removeView(old)
         }
-        elevation = dp(10).toFloat()
+    }
+    val density = host.resources.displayMetrics.density
+    fun dp(value: Int) = (value * density).roundToInt()
+    val sticker = QuickChatAnimatedEmojiView(host.context, emoji, animated = true).apply {
+        this.tag = tag
         isClickable = false
         isFocusable = false
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        elevation = dp(24).toFloat()
         alpha = 0f
-        scaleX = .78f
-        scaleY = .78f
-        translationY = dp(12).toFloat()
+        scaleX = .65f
+        scaleY = .65f
     }
-    parent.addView(
-        bubble,
-        FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-        ).apply {
-            topMargin = dp(12)
-        },
-    )
-    bubble.animate()
-        .alpha(1f)
-        .scaleX(1f)
-        .scaleY(1f)
-        .translationY(0f)
-        .setDuration(170L)
-        .withEndAction {
-            bubble.animate()
-                .alpha(0f)
-                .translationY(-dp(44).toFloat())
-                .setStartDelay(720L)
-                .setDuration(420L)
-                .withEndAction {
-                    (bubble.parent as? ViewGroup)?.removeView(bubble)
-                }
-                .start()
+    val stickerSize = dp(68)
+    host.addView(sticker, FrameLayout.LayoutParams(stickerSize, stickerSize))
+    fun remove() {
+        sticker.dispose()
+        (sticker.parent as? ViewGroup)?.removeView(sticker)
+    }
+    sticker.post {
+        if (!anchor.isAttachedToWindow || !host.isAttachedToWindow) {
+            remove()
+            return@post
         }
-        .start()
-    return bubble
+        val origin = IntArray(2)
+        val card = IntArray(2)
+        host.getLocationOnScreen(origin)
+        anchor.getLocationOnScreen(card)
+        val cardX = card[0] - origin[0]
+        val cardY = card[1] - origin[1]
+        val leftSide = cardX + anchor.width / 2f < host.width / 2f
+        // Keep clear of dice beside the lower cards and chat controls below their centers.
+        sticker.x = (if (leftSide) cardX + anchor.width - stickerSize * .25f
+            else cardX - stickerSize * .75f)
+            .coerceIn(0f, (host.width - stickerSize).coerceAtLeast(0).toFloat())
+        val topRail = cardY + anchor.height / 2f < host.height / 2f
+        sticker.y = (if (topRail) cardY - stickerSize - dp(6).toFloat()
+            else cardY + anchor.height + dp(6).toFloat())
+            .coerceIn(0f, (host.height - stickerSize).coerceAtLeast(0).toFloat())
+        sticker.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180L).start()
+        sticker.postDelayed({
+            if (sticker.isAttachedToWindow) sticker.animate().alpha(0f)
+                .scaleX(.85f).scaleY(.85f).setDuration(220L).withEndAction { remove() }.start()
+        }, 3000L)
+    }
+    return sticker
+}
+
+internal fun clearQuickChatReactions(parent: View) {
+    val host = parent.rootView.findViewById<FrameLayout>(android.R.id.content) ?: return
+    for (index in host.childCount - 1 downTo 0) {
+        val view = host.getChildAt(index)
+        if ((view.tag as? String)?.startsWith("quickchat-reaction:") == true) {
+            (view as? QuickChatAnimatedEmojiView)?.dispose()
+            host.removeView(view)
+        }
+    }
 }

@@ -34,6 +34,11 @@ class HomeActivity : Activity() {
         savedInstanceState: Bundle?,
     ) {
         super.onCreate(savedInstanceState)
+        com.rekixo.ludopaws.feature.boards.rendering.BoardRendererRegistry
+            .create(com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve("board_classic"))
+            .prepare {}
+        LudoPawsYardHabitatRenderer.prepare {}
+        LudoPawsCenterHouses3D.prepare()
         LudoProofTheme.configureWindow(this)
 
         val (root, host) =

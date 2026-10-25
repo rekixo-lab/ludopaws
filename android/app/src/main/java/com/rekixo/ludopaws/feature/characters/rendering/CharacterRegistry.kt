@@ -5,6 +5,7 @@ import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCa
 import com.rekixo.ludopaws.feature.characters.domain.model.CharacterDefinition
 import com.rekixo.ludopaws.feature.characters.content.dog.*
 import com.rekixo.ludopaws.feature.characters.content.goat.*
+import com.rekixo.ludopaws.feature.characters.content.lumi.*
 import com.rekixo.ludopaws.feature.characters.content.duck.*
 import com.rekixo.ludopaws.feature.characters.content.cat.*
 import com.rekixo.ludopaws.feature.characters.content.donkey.*
@@ -21,6 +22,7 @@ internal object CharacterRegistry {
         RegisteredCharacter(DuckDefinition.content, DuckRenderer, DuckAvatarRenderer),
         RegisteredCharacter(CatDefinition.content, CatRenderer, CatAvatarRenderer),
         RegisteredCharacter(DonkeyDefinition.content, DonkeyRenderer, DonkeyAvatarRenderer),
+        RegisteredCharacter(LumiGoatDefinition.content, LumiGoatRenderer, LumiGoatAvatarRenderer),
     )
     private val byId = all.associateBy { it.id }
     init {

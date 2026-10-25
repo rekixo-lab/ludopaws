@@ -122,6 +122,7 @@ object LudoPawsGameplayPacingPolicy {
         previous: MatchSnapshot?,
         current: MatchSnapshot,
         speed: GameSpeed,
+        includeHomeEntry: Boolean = true,
     ): Long {
         if (
             previous == null ||
@@ -166,6 +167,10 @@ object LudoPawsGameplayPacingPolicy {
                 0L
             }
 
+        if (includeHomeEntry && LudoPawsHomeEntryPolicy.newlyComplete(previous, current)) {
+            return forwardAnimationDurationMillis(speed, forward?.visualSteps ?: 1) +
+                LudoPawsHomeEntryPolicy.DURATION_MS
+        }
         return forwardDuration +
             captureDuration +
             postMoveBreathMillis(

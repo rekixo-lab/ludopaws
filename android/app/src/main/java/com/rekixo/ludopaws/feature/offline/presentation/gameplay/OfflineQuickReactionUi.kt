@@ -1,20 +1,13 @@
 package com.rekixo.ludopaws.ui.offline.gameplay
 
 import android.os.SystemClock
-import android.view.Gravity
-import android.view.View
-import android.view.ViewGroup
-import android.widget.FrameLayout
-import android.widget.TextView
-import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.OfflineGameActivity
 import com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback
 import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
 import com.rekixo.ludopaws.ui.quickchat.QuickChatEmojiCatalog
-import com.rekixo.ludopaws.ui.offline.common.*
 
 /**
- * Presents one lightweight, non-authoritative emoji reaction above the board.
+ * Presents a local animated reaction beside its sender, without gameplay text.
  * Gameplay status copy is intentionally left untouched.
  */
 internal fun OfflineGameActivity.presentQuickReaction(
@@ -34,77 +27,14 @@ internal fun OfflineGameActivity.presentQuickReaction(
         ) ?: return false
     val board = boardView ?: return false
 
-    quickReactionView
-        ?.animate()
-        ?.cancel()
-    (quickReactionView?.parent as? ViewGroup)
-        ?.removeView(quickReactionView)
-
-    val bubble =
-        TextView(this).apply {
-            text = "${presentation.emoji}  ${presentation.displayName}"
-            gravity = Gravity.CENTER
-            textSize = if (isCompactSetup()) 18f else 20f
-            setTextColor(0xFFF8FBFF.toInt())
-            setPadding(
-                dp(if (isCompactSetup()) 12 else 14),
-                dp(7),
-                dp(if (isCompactSetup()) 12 else 14),
-                dp(7),
-            )
-            background =
-                LudoProofTheme.hudPanelDrawable(
-                    this@presentQuickReaction,
-                    goldBorder = true,
-                )
-            elevation = dp(10).toFloat()
-            isClickable = false
-            isFocusable = false
-            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            alpha = 0f
-            scaleX = 0.84f
-            scaleY = 0.84f
-            translationY = dp(12).toFloat()
-        }
-
-    board.addView(
-        bubble,
-        FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-        ).apply {
-            topMargin = dp(if (isCompactSetup()) 10 else 14)
-        },
+    val anchor = playerCardViewsBySeat[presentation.seat] ?: return false
+    quickReactionView = com.rekixo.ludopaws.ui.quickchat.animateQuickChatReaction(
+        parent = board,
+        emoji = presentation.emoji,
+        senderPlayerId = presentation.playerId,
+        anchor = anchor,
     )
-
-    quickReactionView = bubble
     quickReactionLastShownAtMs = now
     GameSoundFeedback.click(this)
-
-    fun removeBubble() {
-        if (quickReactionView === bubble) {
-            quickReactionView = null
-        }
-        (bubble.parent as? ViewGroup)?.removeView(bubble)
-    }
-
-    bubble.animate()
-            .alpha(1f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .translationY(0f)
-            .setDuration(170L)
-            .withEndAction {
-                bubble.animate()
-                    .alpha(0f)
-                    .translationY(-dp(presentation.riseDp).toFloat())
-                    .setStartDelay(260L)
-                    .setDuration((presentation.durationMs - 430L).coerceAtLeast(500L))
-                    .withEndAction(::removeBubble)
-                    .start()
-            }
-            .start()
-
     return true
 }
