@@ -10,7 +10,7 @@ import com.rekixo.ludopaws.feature.characters.rendering.CharacterAvatarRenderer
 
 /** Separate starter character; the original Goat and saved Goat selections stay intact. */
 object LumiGoatDefinition {
-    internal const val MODEL_SIZE_MULTIPLIER = 1.2f
+    internal const val MODEL_SIZE_MULTIPLIER = 1.38f
 
     val content = GoatDefinition.content.let { goat ->
         goat.copy(
