@@ -363,8 +363,8 @@ internal class LudoPaws3DSceneRenderer {
                             val half = size / 6f
                             val approach = LudoPawsHomeEntryPolicy.smooth(entryProgress / .60f)
                             val inside = LudoPawsHomeEntryPolicy.smooth((entryProgress - .60f) / .40f)
-                            val gate = size * .5f + normal.first * half * .88f to
-                                size * .5f + normal.second * half * .88f
+                            val gate = size * .5f + normal.first * half * LudoPawsFxBoardGeometry.CENTER_DOOR_OUTWARD to
+                                size * .5f + normal.second * half * LudoPawsFxBoardGeometry.CENTER_DOOR_OUTWARD
                             rawCenter = rawCenter.first + (gate.first - rawCenter.first) * approach -
                                 normal.first * half * .23f * inside to
                                 rawCenter.second + (gate.second - rawCenter.second) * approach -
@@ -517,10 +517,12 @@ internal class LudoPaws3DSceneRenderer {
         val n = homeNormal(color)
         val half = size / 6f
         val points = buildList {
-            for (radial in floatArrayOf(.49f, .78f)) for (tangent in floatArrayOf(-.17f, .17f)) {
-                add(rotatePoint(size * .5f + (n.first * radial - n.second * tangent) * half,
-                    size * .5f + (n.second * radial + n.first * tangent) * half, size, turns))
-            }
+            val houseScale = LudoPawsFxBoardGeometry.CENTER_HOUSE_SCALE
+            for (radial in floatArrayOf(houseScale * .65f, houseScale * 1.04f))
+                for (tangent in floatArrayOf(-houseScale * .227f, houseScale * .227f)) {
+                    add(rotatePoint(size * .5f + (n.first * radial - n.second * tangent) * half,
+                        size * .5f + (n.second * radial + n.first * tangent) * half, size, turns))
+                }
         }
         val aperture = floatArrayOf(points.minOf { it.first }, points.minOf { it.second },
             points.maxOf { it.first }, points.maxOf { it.second })

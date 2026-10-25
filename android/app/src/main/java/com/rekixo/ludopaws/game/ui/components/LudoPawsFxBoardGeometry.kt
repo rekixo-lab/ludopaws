@@ -13,6 +13,10 @@ package com.rekixo.ludopaws
  */
 internal object LudoPawsFxBoardGeometry {
     const val BOARD_SIZE = 15f
+    // Shared by courtyard slots, the house meshes and the doorway animation.
+    const val CENTER_HOUSE_SCALE = .50f
+    const val CENTER_DOOR_OUTWARD = CENTER_HOUSE_SCALE
+
 
     fun tokenCenter(
         color: String,
@@ -77,21 +81,6 @@ internal object LudoPawsFxBoardGeometry {
         val right = axisBoundary(9, cell)
         val center = (left + right) * .5f
         val halfSpan = (right - left) * .5f
-        // Permanent pairs straddle the entrance; no slot is on the stone approach.
-        val lateral = when (tokenIndex.coerceIn(0, 3)) {
-            0 -> -.68f
-            1 -> -.46f
-            2 -> .46f
-            else -> .68f
-        }
-        val outward = .87f
-        val canonical = when (color) {
-            "RED" -> -outward to lateral
-            "GREEN" -> -lateral to -outward
-            "YELLOW" -> outward to -lateral
-            "BLUE" -> lateral to outward
-            else -> return center to center
-        }
         val turns = Math.floorMod(perspectiveQuarterTurns, 4)
         fun rotate(x: Float, y: Float, turns: Int): Pair<Float, Float> = when (turns) {
             1 -> -y to x
@@ -99,20 +88,26 @@ internal object LudoPawsFxBoardGeometry {
             3 -> y to -x
             else -> x to y
         }
-        val screen = rotate(canonical.first, canonical.second, turns)
-        // Bodies stand upright on screen even when the houses rotate. Adjust feet
-        // accordingly so the upper silhouettes avoid the door and center clipping.
-        val sideFacade = kotlin.math.abs(screen.first) > .8f
+        val normal = when (color) {
+            "RED" -> -1f to 0f
+            "GREEN" -> 0f to -1f
+            "YELLOW" -> 1f to 0f
+            "BLUE" -> 0f to 1f
+            else -> return center to center
+        }
+        val facing = rotate(normal.first, normal.second, turns)
+        val index = tokenIndex.coerceIn(0, 3)
         val screenX: Float
         val screenY: Float
-        if (sideFacade) {
-            // Outer partners sit slightly inward to clear the corner planting and boundary.
-            val outwardDepth = if (kotlin.math.abs(screen.second) > .6f) .68f else .87f
-            screenX = if (screen.first < 0f) -outwardDepth else outwardDepth
-            screenY = (screen.second + .17f).coerceAtMost(.78f)
+        if (facing.first != 0f) {
+            // Two columns above the side doorway and two below it. No corner slots.
+            screenX = facing.first * if (index % 2 == 0) .69f else .89f
+            screenY = if (index < 2) -.15f else .62f
         } else {
-            screenX = screen.first
-            screenY = screen.second + if (screen.second < 0f) .31f else 0f
+            // Upright silhouettes extend UP from their feet. Top and bottom courts
+            // therefore need different foot rows, independent of the board rotation.
+            screenX = when (index) { 0 -> -.47f; 1 -> -.25f; 2 -> .25f; else -> .47f }
+            screenY = if (facing.second < 0f) -.52f else .96f
         }
         val logical = rotate(screenX, screenY, Math.floorMod(-turns, 4))
         return center + logical.first * halfSpan to center + logical.second * halfSpan

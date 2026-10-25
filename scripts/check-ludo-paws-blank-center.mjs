@@ -51,8 +51,8 @@ assert.match(classic, /axisBoundary\(9, cell\)/);
 
 // Finished pawns use the shared court layout, leaving the doorway clear.
 assert.match(finish, /return finishGardenCenter\(color, tokenIndex, cell, perspectiveQuarterTurns\)/);
-for (const lateral of ["0 -> -.68f", "1 -> -.46f", "2 -> .46f", "else -> .68f"]) {
-  assert.ok(finish.includes(lateral), "Finish pairs must leave the central doorway clear: " + lateral);
+for (const marker of ["CENTER_HOUSE_SCALE", "if (index < 2)", "if (facing.second < 0f)"]) {
+  assert.ok(finish.includes(marker), "Screen-space courtyard layout missing: " + marker);
 }
 const scene = read(root + "LudoPaws3DSceneRenderer.kt");
 assert.match(scene, /centerHouses\.draw\(/);
