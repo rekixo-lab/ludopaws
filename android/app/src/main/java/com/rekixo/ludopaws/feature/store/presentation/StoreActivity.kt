@@ -91,8 +91,8 @@ class StoreActivity :
     }
     internal val adsEnabledForBuild: Boolean
         get() =
-            rewardedAdsEnabledByServer &&
-                BuildConfig.LUDOPROOF_ADS_ENABLED
+            (rewardedAdsEnabledByServer && BuildConfig.LUDOPROOF_ADS_ENABLED) ||
+                (BuildConfig.DEBUG && BuildConfig.LUDOPAWS_TEST_ADS && BuildConfig.LUDOPROOF_ADS_ENABLED)
     private val rewardedAds by lazy {
         rewardedAdsWasCreated = true
         RewardedAdsController(
@@ -141,6 +141,7 @@ class StoreActivity :
 
     override fun onStart() {
         super.onStart()
+        if (BuildConfig.DEBUG && BuildConfig.LUDOPAWS_TEST_ADS) rewardedAds.prepare()
         billingAvailable = false
         billingProductCatalogLoaded = false
 
@@ -390,6 +391,14 @@ class StoreActivity :
     internal fun requestRewardedAd(
         cosmeticId: String? = null,
     ) {
+        if (BuildConfig.DEBUG && BuildConfig.LUDOPAWS_TEST_ADS) {
+            // Demo ads do not need a live account and never carry production SSV/account data.
+            rewardedAds.showRewardedAd(
+                userId = "00000000-0000-4000-8000-000000000000",
+                customData = "debug-test-ad",
+            ) { showStoreMessage("Test ad completed. Real Gems and character unlocks were not changed.") }
+            return
+        }
         if (!BuildConfig.LUDOPROOF_ADS_ENABLED) {
             showStoreMessage("Rewarded ads are unavailable in this build.")
             return

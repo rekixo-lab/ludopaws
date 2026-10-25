@@ -78,7 +78,7 @@ class DeveloperToolsActivity : Activity() {
         action("Back to game Home") { finish() }
         if (BuildConfig.APPLICATION_ID == "com.rekixo.ludopaws.dev") {
             label("PREVIEW APP: purchases and Google login are in the original LudoPaws integration app. This separate Dev app provides visual previews.")
-            action("Open full testing app (LudoPaws)") {
+            action("Open full testing app (LudoPaws Test)") {
                 runCatching {
                     startActivity(Intent().setClassName("com.rekixo.ludopaws", "com.rekixo.ludopaws.HomeActivity"))
                 }.onFailure { status.text = "Install it first: node scripts/android-local-testing.mjs integration" }
@@ -90,6 +90,7 @@ class DeveloperToolsActivity : Activity() {
             appendLine("Billing: ${onOff(BuildConfig.LUDOPROOF_BILLING_ENABLED)}")
             appendLine("Rewarded ads: ${onOff(BuildConfig.LUDOPROOF_ADS_ENABLED)}")
             appendLine("Interstitial ads: ${onOff(BuildConfig.LUDOPROOF_INTERSTITIAL_ADS_ENABLED)}")
+            appendLine("Google test-ad mode: ${onOff(BuildConfig.LUDOPAWS_TEST_ADS)} (no real wallet rewards)")
             appendLine("Google linking: ${if (BuildConfig.GOOGLE_SIGN_IN_WEB_CLIENT_ID.isBlank()) "MISSING CLIENT ID" else "configured; OAuth certificate must match"}")
             appendLine("Play Games: ${if (BuildConfig.PLAY_GAMES_PROJECT_ID == "0") "MISSING PROJECT ID" else "configured; Android credential/tester required"}")
             appendLine("Family mode: ${onOff(BuildConfig.LUDOPAWS_FAMILY_MODE)}")

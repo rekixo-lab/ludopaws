@@ -379,7 +379,7 @@ private fun StoreActivity.rewardedAdCard():
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
-        contentDescription = "Watch ad to earn 5 gems"
+        contentDescription = if (BuildConfig.LUDOPAWS_TEST_ADS) "Show Google test ad; no real wallet reward" else "Watch ad to earn 5 gems"
         setPadding(dp(7), 0, dp(7), 0)
         background =
             LudoProofTheme.rounded(
@@ -396,7 +396,7 @@ private fun StoreActivity.rewardedAdCard():
 
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = "5"
+                text = if (BuildConfig.LUDOPAWS_TEST_ADS) "" else "5"
                 textSize = 12f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
@@ -406,6 +406,7 @@ private fun StoreActivity.rewardedAdCard():
         addView(
             GemClusterView(this@rewardedAdCard).apply {
                 contentDescription = "Gems"
+                visibility = if (BuildConfig.LUDOPAWS_TEST_ADS) android.view.View.GONE else android.view.View.VISIBLE
             },
             LinearLayout.LayoutParams(
                 dp(18),
@@ -417,7 +418,7 @@ private fun StoreActivity.rewardedAdCard():
         )
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = "WATCH AD"
+                text = if (BuildConfig.LUDOPAWS_TEST_ADS) "TEST AD" else "WATCH AD"
                 textSize = 10.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)

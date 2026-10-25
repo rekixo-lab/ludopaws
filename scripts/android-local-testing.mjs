@@ -53,17 +53,19 @@ function main() {
   node scripts/android-local-testing.mjs configure
   node scripts/android-local-testing.mjs dev [--assemble]
   node scripts/android-local-testing.mjs integration [--assemble]
+  node scripts/android-local-testing.mjs preview [--assemble]
 
-dev: separate .dev app, previews and Google demo ads; production Billing/Ads off.
-integration: original package, configured Google linking and license-test Billing.
+dev / integration: LudoPaws Test, original package, Billing and Google configured,
+  rewarded/interstitial Google test ads ON. Opens the installed app automatically.
+preview: separate .dev package, visual previews only; Billing/Google/Store Ads OFF.
 --assemble builds without installing. Otherwise installs on ANDROID_SERIAL/the connected device.
 Configuration stays in ${cache}. configure refreshes public GitHub variables.
 Integration does not uninstall a Play-signed app or clear its data. A different signing
 certificate or a higher installed versionCode must be resolved explicitly.
-Ads in the Store remain off; use Developer tools for demo ads without wallet rewards.`);
+Test ads exercise the UI but do not grant real gems or verified character unlocks.`);
     return;
   }
-  if (!["configure", "dev", "integration"].includes(mode) || options.some(value => value !== "--assemble") ||
+  if (!["configure", "dev", "integration", "preview"].includes(mode) || options.some(value => value !== "--assemble") ||
       (mode === "configure" && options.length)) throw new Error("Invalid arguments; use --help.");
   if (mode === "configure") { configure(); return; }
   const saved = fs.existsSync(cache) ? JSON.parse(fs.readFileSync(cache, "utf8")) : configure();
@@ -75,27 +77,39 @@ Ads in the Store remain off; use Developer tools for demo ads without wallet rew
   properties.LUDOPROOF_API_BASE_URL ||= "https://api.ludopaws.rekixo.com";
   properties.PLAY_GAMES_PROJECT_ID ||= "0";
   properties.LUDOPAWS_QA_BUILD = "false";
-  properties.LUDOPAWS_DEV_BUILD = String(mode === "dev");
-  // Integration explicitly tests Billing; the server remains authoritative for fulfillment.
-  properties.LUDOPROOF_BILLING_ENABLED = String(mode === "integration");
-  properties.LUDOPROOF_ADS_ENABLED = "false";
-  properties.LUDOPROOF_INTERSTITIAL_ADS_ENABLED = "false";
+  const fullTesting = mode !== "preview";
+  properties.LUDOPAWS_DEV_BUILD = String(!fullTesting);
+  properties.LUDOPAWS_TEST_ADS = String(fullTesting);
+  properties.LUDOPROOF_BILLING_ENABLED = String(fullTesting);
+  properties.LUDOPROOF_ADS_ENABLED = String(fullTesting);
+  properties.LUDOPROOF_INTERSTITIAL_ADS_ENABLED = String(fullTesting);
   delete properties.GOOGLE_PLAY_BILLING_ENABLED;
-  if (mode === "dev") {
+  if (!fullTesting) {
     properties.GOOGLE_SIGN_IN_WEB_CLIENT_ID = "";
     properties.PLAY_GAMES_PROJECT_ID = "0";
+  } else {
+    if (!properties.GOOGLE_SIGN_IN_WEB_CLIENT_ID?.endsWith(".apps.googleusercontent.com") ||
+        !/^[1-9][0-9]*$/.test(properties.PLAY_GAMES_PROJECT_ID)) {
+      throw new Error("Google configuration is missing. Run configure, or provide the correct Google Web Client ID and Play Games project ID. Refusing to install another partly disabled build.");
+    }
+    properties.ADMOB_APP_ID = "ca-app-pub-3940256099942544~3347511713";
+    properties.ADMOB_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
+    properties.ADMOB_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712";
   }
   const sdk = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT || path.join(os.homedir(), "Android", "Sdk");
   const env = { ...process.env, ANDROID_HOME: sdk };
   console.log(`${mode}: ${options.includes("--assemble") ? "building" : "installing"} debug APK; no Play upload, no release tasks.`);
-  console.log(mode === "dev" ? "Install alongside Play; Settings → Developer tools." :
-    "Use a Play license tester account. Debug OAuth needs this machine's debug certificate. Store Ads remain off.");
-  console.log(mode === "dev" ?
-    "PREVIEW ONLY: Google login and Billing are OFF in .dev. For real features run the integration command and open LudoPaws (not LudoPaws Dev)." :
-    "Open LudoPaws, not LudoPaws Dev. Home → Dev tools shows the actual build flags and server status.");
+  console.log(fullTesting ?
+    "FULL TESTING: LudoPaws Test — Billing ON, Google configured, rewarded/interstitial TEST ADS ON. Use a Play license tester account; debug OAuth certificate must match." :
+    "PREVIEW ONLY: LudoPaws Preview — Billing and Google OFF. Use dev for full testing.");
   // Command-line properties take precedence over user/project gradle.properties.
   run("bash", ["android/gradlew", "-p", "android", options.includes("--assemble") ? ":app:assembleDebug" : ":app:installDebug",
     ...Object.entries(properties).map(([key, value]) => `-P${key}=${value}`), "--console=plain"], { env, stdio: "inherit" });
+  if (!options.includes("--assemble")) {
+    const adb = path.join(sdk, "platform-tools", process.platform === "win32" ? "adb.exe" : "adb");
+    const packageName = fullTesting ? "com.rekixo.ludopaws" : "com.rekixo.ludopaws.dev";
+    run(adb, ["shell", "am", "start", "-n", `${packageName}/com.rekixo.ludopaws.HomeActivity`], { env, stdio: "inherit" });
+  }
 }
 
 try { main(); } catch (error) { console.error(error.message); process.exitCode = 1; }
