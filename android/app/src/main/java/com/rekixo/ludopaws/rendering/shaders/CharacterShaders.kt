@@ -75,7 +75,9 @@ internal object CharacterShaders {
                     float seed = fract(sin(dot(fibreCell, vec3(127.1, 311.7, 74.7))) * 43758.5453);
                     float hairs = sin(flow * 1350.0 + seed * 6.283 + p.y * 19.0);
                     float tufts = sin(p.x * 31.0 + sin(p.y * 17.0 + p.z * 23.0) * 2.0);
-                    vec3 diffuse = uColor.rgb * (0.70 + key * 0.28 + fill * 0.09);
+                    // Leave highlight headroom for the board's 1.10x pawn brightness.
+                    // Lower ambient light preserves the white kid's face and limb volume.
+                    vec3 diffuse = uColor.rgb * (0.60 + key * 0.32 + fill * 0.08);
                     diffuse *= 1.0 + hairs * detail * 0.035 + tufts * 0.016;
                     // Anatomical pigment stays in the skin coordinates, including on fur tips.
                     float crownEdge = p.y + sin(p.x * 29.0 + p.z * 13.0) * 0.022;
@@ -106,11 +108,13 @@ internal object CharacterShaders {
                     vec3 shoulderSpot = (coat - vec3(0.10, 0.73, -0.04)) / vec3(0.17, 0.18, 0.21);
                     vec3 chestSpot = (coat - vec3(-0.075, 0.55, 0.335)) / vec3(0.115, 0.15, 0.11);
                     vec3 lowerSpot = (coat - vec3(0.10, 0.24, 0.30)) / vec3(0.09, 0.105, 0.09);
-                    float spotDistance = min(min(dot(backSpot, backSpot), dot(shoulderSpot, shoulderSpot)),
-                        min(dot(chestSpot, chestSpot), dot(lowerSpot, lowerSpot)));
-                    float coatSpots = 1.0 - smoothstep(0.38, 1.45, spotDistance);
-                    diffuse *= mix(vec3(1.0), vec3(0.07, 0.075, 0.08), coatSpots * 0.94);
-                    float velvet = pow(1.0 - max(normal.z, 0.0), 2.0) * 0.055;
+                    float backDistance = min(dot(backSpot, backSpot), dot(shoulderSpot, shoulderSpot));
+                    float frontDistance = min(dot(chestSpot, chestSpot), dot(lowerSpot, lowerSpot));
+                    float backMarking = (1.0 - smoothstep(0.38, 1.45, backDistance)) * 0.94;
+                    float frontMarking = (1.0 - smoothstep(0.25, 1.65, frontDistance)) * 0.58;
+                    float coatSpots = max(backMarking, frontMarking);
+                    diffuse *= mix(vec3(1.0), vec3(0.07, 0.075, 0.08), coatSpots);
+                    float velvet = pow(1.0 - max(normal.z, 0.0), 2.0) * 0.035;
                     outColor = vec4(diffuse + vec3(velvet), uColor.a * uEntryFade);
                     return;
                 }
