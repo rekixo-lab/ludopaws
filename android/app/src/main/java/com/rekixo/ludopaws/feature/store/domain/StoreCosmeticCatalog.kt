@@ -17,7 +17,7 @@ object StoreCosmeticCatalog {
         "character_pack_starter_paws"
 
     private val builtInBoards = BoardRegistry.all.map { CosmeticPricing.apply(it.offer) }
-    private val builtInDice = DiceRegistry.all.map { it.offer }
+    private val builtInDice = DiceRegistry.all.map { CosmeticPricing.apply(it.offer) }
 
     val characterUnlocks = listOf(
         cosmetic("character_goat_lumi", "LUMI GOAT", CosmeticCategory.CHARACTER_PACK,

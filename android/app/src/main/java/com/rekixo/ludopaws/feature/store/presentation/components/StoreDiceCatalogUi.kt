@@ -39,7 +39,7 @@ internal fun StoreActivity.diceCatalogContent(): LinearLayout =
                     dicePanel(dice, dice.id in ownedIds, dice.id in ownedIds && selectedId == dice.id),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(188),
+                        dp(208),
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -50,7 +50,7 @@ internal fun StoreActivity.diceCatalogContent(): LinearLayout =
             repeat(2 - rowDice.size) {
                 row.addView(
                     TextView(this@diceCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(188), 1f),
+                    LinearLayout.LayoutParams(0, dp(208), 1f),
                 )
             }
 
@@ -137,12 +137,12 @@ private fun StoreActivity.dicePanel(
                 DiceView(this@dicePanel).apply {
                     // Preview this offer's actual renderer palette without equipping it.
                     setPreviewStyle(dice.id)
-                    showOutcome(6, animate = false)
+                    showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(dice.id).previewFace, animate = false)
                     setPlayerTeamColor(null)
                     isClickable = false
                     isFocusable = false
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    contentDescription = "Classic gameplay dice preview"
+                    contentDescription = "${dice.title} dice preview"
                 },
                 LinearLayout.LayoutParams(
                     dp(104),
@@ -199,7 +199,10 @@ private fun StoreActivity.diceStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "🔓 UNLOCKED"
-            dice.gemPrice > 0 -> "${dice.gemPrice} GEMS"
+            dice.gemPrice > 0 && dice.requiredAdViews > 0 -> android.text.SpannableStringBuilder("🔒 ").append(
+                CosmeticPriceLabels.gems(this@diceStatusBadge, dice.gemPrice,
+                    "\nOR ${cosmetics.rewardedAdProgress(dice.id).coerceAtMost(dice.requiredAdViews)}/${dice.requiredAdViews} ADS"))
+            dice.gemPrice > 0 -> CosmeticPriceLabels.gems(this@diceStatusBadge, dice.gemPrice)
             dice.requiredAdViews > 0 -> "${dice.requiredAdViews} ADS"
             else -> "GET"
         }
@@ -215,7 +218,7 @@ private fun StoreActivity.diceStatusBadge(
         )
         gravity = Gravity.CENTER
         includeFontPadding = false
-        maxLines = 1
+        maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
         background =

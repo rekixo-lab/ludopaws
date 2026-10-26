@@ -34,7 +34,8 @@ Promotion characters start their hop after three seconds so short Home slides
 include a noticeable pose change; the Store's existing animation timing is retained.
 One live preview is reused per card, and hidden, overlapping or unfocused cards stop requesting frames.
 Content-ready boards share the same center slot and their actual layered previews.
-Non-default dice can use the same slot when their shipped content becomes available;
+Pearl Paw uses the same center slot with its native cube preview and 100-Gem/20-ad
+unlock copy. Other non-default dice join when their shipped content becomes available;
 unavailable Coming Soon assets are never advertised. Characters, boards and supported
 dice interleave, with only content-ready, currently unowned items eligible. Owned
 or unlocked assets never appear in Home/gameplay promotions. Item rotation is every 12 seconds

@@ -14,3 +14,11 @@ export const COSMETIC_PRICING = Object.freeze(Object.fromEntries(
       ? ["GEMS", "PLAY_PRODUCT", "REWARDED_ADS"] : ["GEMS", "PLAY_PRODUCT"]),
   })]),
 ));
+
+export const COSMETIC_UNLOCK_PRICING = Object.freeze({
+  ...COSMETIC_PRICING,
+  dice_pearl_paw: Object.freeze({
+    kind: "GEMS", gemPrice: 100, level: 0, ads: 20,
+    channels: Object.freeze(["GEMS", "REWARDED_ADS"]),
+  }),
+});

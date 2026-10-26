@@ -175,6 +175,8 @@ internal class GamePawsPromotionView(
         name.text = offer.title
         categoryLabel.text = if (offer.characterId != null) "MEET" else "DISCOVER"
         priceLabel.text = when {
+            offer.cosmetic.gemPrice > 0 && offer.cosmetic.requiredAdViews > 0 ->
+                CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice, "\nor ${offer.cosmetic.requiredAdViews} ADS")
             offer.cosmetic.gemPrice > 0 -> CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice)
             offer.cosmetic.requiredAdViews > 0 -> "${offer.cosmetic.requiredAdViews} ADS"
             else -> "MAKE IT YOURS"
@@ -202,7 +204,7 @@ internal class GamePawsPromotionView(
                 }
                 CosmeticCategory.DICE -> com.rekixo.ludopaws.DiceView(context).apply {
                     setPreviewStyle(offer.cosmetic.id)
-                    showOutcome(6, animate = false)
+                    showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(offer.cosmetic.id).previewFace, animate = false)
                     setPlayerTeamColor(null)
                 }
                 else -> null

@@ -5,7 +5,7 @@ import {
   issueAccessToken, newRefreshToken, SESSION_TTL_MS, validRefreshToken, sha256Hex,
 } from "./account-security.js";
 import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
-import { COSMETIC_PRICING, PAID_CHARACTER_IDS } from "./cosmetic-pricing.js";
+import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS } from "./cosmetic-pricing.js";
 
 const MAX_BALANCE = 2_000_000_000;
 const NAME_LENGTH = 24;
@@ -36,6 +36,7 @@ const COSMETICS = Object.freeze({
   board_alien: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 22, ads: 0 },
   board_penguin: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   dice_classic: { category: "DICE", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
+  dice_pearl_paw: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_pearl_paw },
   dice_pumpkin: { category: "DICE", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
   dice_diwali: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
   dice_football: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
@@ -549,7 +550,7 @@ export class PlayerAccount {
         this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", nextBalance, now, accountId);
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_ad_progress (cosmetic_id, progress, updated_at) VALUES (?, ?, ?) ON CONFLICT(cosmetic_id) DO UPDATE SET progress = excluded.progress, updated_at = excluded.updated_at", cosmeticId, next, now);
         this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", 5, nextBalance, transactionHash, now);
-        if (next >= cosmetic.ads && ["character_goat_lumi", "character_donkey"].includes(cosmeticId)) {
+        if (next >= cosmetic.ads && ["character_goat_lumi", "character_donkey", "dice_pearl_paw"].includes(cosmeticId)) {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
         }
       });

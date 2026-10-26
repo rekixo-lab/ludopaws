@@ -10,6 +10,11 @@ internal object CosmeticPricing {
     val productIds = paidCharacterIds.map { "character_$it" } + paidBoardIds
 
     fun apply(offer: StoreCosmetic): StoreCosmetic {
+        if (offer.id == "dice_pearl_paw") return offer.copy(
+            unlockKind = CosmeticUnlockKind.GEMS, gemPrice = 100, requiredLevel = 0,
+            requiredAdViews = 20,
+            unlockChannels = listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS),
+        )
         if (offer.id !in productIds) return offer
         val astral = offer.id == "board_astral"
         return offer.copy(
