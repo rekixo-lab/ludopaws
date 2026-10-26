@@ -23,9 +23,7 @@ internal fun StoreActivity.diceCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        // Render every catalog item. Content availability controls previews; account ownership
-        // controls whether an item is equipped or presented as an unlock offer.
-        val panels = StoreCosmeticCatalog.dice
+        val panels = StoreCosmeticCatalog.dice.filter { it.contentAvailable }
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.DICE)
 

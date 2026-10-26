@@ -138,7 +138,9 @@ internal class FeaturedPawsCard(
             val unlock = StoreCosmeticCatalog.characterUnlock(id)
             val offer = unlock?.let { StoreCosmeticCatalog.find(it.id) }
             CharacterRegistry.find(id) != null && (unlock == null || offer?.contentAvailable == true) &&
-                (detail || unlock == null || unlock.id in ownedIds || BuildConfig.LUDOPROOF_ADS_ENABLED)
+                (detail || unlock == null || unlock.id in ownedIds ||
+                    offer?.unlockKind == CosmeticUnlockKind.GEMS && BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED ||
+                    BuildConfig.LUDOPROOF_ADS_ENABLED)
         }.sortedBy { definition ->
             val offer = StoreCosmeticCatalog.characterUnlock(definition.character.id)
             if (offer != null && offer.id !in ownedIds) 0 else 1
@@ -163,6 +165,7 @@ internal class FeaturedPawsCard(
         val progress = offer?.let { inventory.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         description.text = when {
             owned -> "Cute moves. Your next match companion."
+            offer != null && offer.unlockChannels.size > 1 -> "${offer.gemPrice} Gems or Google Play purchase"
             offer?.unlockKind == CosmeticUnlockKind.REWARDED_ADS -> "$progress/${offer.requiredAdViews} verified ads completed"
             offer?.unlockKind == CosmeticUnlockKind.GEMS -> "Unlock with ${offer.gemPrice} Gems"
             else -> "Explore this character in the Store"
@@ -172,6 +175,7 @@ internal class FeaturedPawsCard(
             selected -> "SELECTED ✓"
             owned -> "SELECT PAW"
             offer == null || !offer.contentAvailable -> "UNAVAILABLE"
+            offer.unlockChannels.size > 1 -> "UNLOCK OPTIONS"
             offer.unlockKind == CosmeticUnlockKind.REWARDED_ADS && progress < offer.requiredAdViews &&
                 !BuildConfig.LUDOPROOF_ADS_ENABLED -> "ADS UNAVAILABLE"
             offer.unlockKind == CosmeticUnlockKind.REWARDED_ADS && progress < offer.requiredAdViews -> "WATCH AD · $progress/${offer.requiredAdViews}"

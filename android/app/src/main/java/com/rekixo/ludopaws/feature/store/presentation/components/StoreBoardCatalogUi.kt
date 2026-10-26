@@ -22,9 +22,7 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        // Render the full catalog. Draft content stays non-clickable until its
-        // renderer/artwork gate is explicitly enabled in the catalog.
-        val panels = StoreCosmeticCatalog.boards
+        val panels = StoreCosmeticCatalog.boards.filter { it.contentAvailable }
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
         val selectionUpdates = mutableMapOf<String, (Boolean, Boolean) -> Unit>()
@@ -121,6 +119,15 @@ private fun StoreActivity.boardPanel(
                 ),
             )
         } else {
+            if (!owned && board.requiredAdViews > 0) {
+                addView(TextView(this@boardPanel).apply {
+                    text = "or ${board.requiredAdViews} ads"
+                    textSize = 9f
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER
+                })
+            }
             addView(
                 BoardIconView(this@boardPanel, board.id).apply {
                     isClickable = false
@@ -129,8 +136,8 @@ private fun StoreActivity.boardPanel(
                     contentDescription = "${board.title} board preview"
                 },
                 LinearLayout.LayoutParams(
-                    dp(104),
-                    dp(104),
+                    dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
+                    dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
                 ).apply {
                     topMargin = dp(1)
                     bottomMargin = dp(1)
@@ -213,6 +220,7 @@ private fun StoreActivity.boardStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "TAP TO SELECT"
+            board.unlockChannels.size > 1 -> "${board.gemPrice} GEMS · BUY"
             board.gemPrice > 0 -> "${board.gemPrice} GEMS"
             board.requiredAdViews > 0 -> "${board.requiredAdViews} ADS"
             else -> "GET"

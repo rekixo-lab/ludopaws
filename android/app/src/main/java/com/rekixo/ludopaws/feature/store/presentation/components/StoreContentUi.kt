@@ -55,7 +55,7 @@ private fun StoreActivity.gemsContent():
             StoreCatalog
                 .products
                 .filter {
-                    !it.featured
+                    !it.featured && it.kind == com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind.CONSUMABLE_GEMS
                 }
 
         packs.chunked(

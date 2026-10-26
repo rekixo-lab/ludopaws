@@ -298,12 +298,14 @@ class GooglePlayBillingGateway(
                     }
                     val purchaseAccountId = purchase.accountIdentifiers?.obfuscatedAccountId
                     val restorableNonConsumable =
-                        productId.let(StoreCatalog::find)?.kind ==
-                            StoreProductKind.NON_CONSUMABLE_REMOVE_ADS
+                        productId.let(StoreCatalog::find)?.kind in setOf(
+                            StoreProductKind.NON_CONSUMABLE_REMOVE_ADS,
+                            StoreProductKind.NON_CONSUMABLE_COSMETIC,
+                        )
                     val validPurchaseAccountId = purchaseAccountId?.takeIf(OBFUSCATED_ACCOUNT_ID_REGEX::matches)
                     if (purchaseAccountId == null && restorableNonConsumable) {
                         listener.onBillingUnavailable(
-                            "This Remove Ads purchase has no recoverable Ludo Paws account binding. Restore the account that made the purchase; no entitlement was granted.",
+                            "This purchase has no recoverable Ludo Paws account binding. Restore the account that made the purchase; no entitlement was granted.",
                         )
                         return@forEach
                     }

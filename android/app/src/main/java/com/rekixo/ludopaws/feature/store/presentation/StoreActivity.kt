@@ -675,7 +675,7 @@ class StoreActivity :
             return
         }
         val owned = cosmetics.isOwned(cosmetic.id)
-        if (!owned && cosmetic.remoteManaged && cosmetic.unlockChannels.size > 1) {
+        if (!owned && cosmetic.unlockChannels.size > 1) {
             val channels = cosmetic.unlockChannels
             val labels = channels.map { channel ->
                 when (channel) {
@@ -684,13 +684,18 @@ class StoreActivity :
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS ->
                         "${cosmetic.gemPrice} Gems"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.REWARDED_ADS ->
-                        "Watch ${cosmetic.requiredAdViews} rewarded ads"
+                        cosmetics.rewardedAdProgress(cosmetic.id).let { progress ->
+                            if (progress >= cosmetic.requiredAdViews) "Unlock · ads completed"
+                            else "Watch ad · $progress/${cosmetic.requiredAdViews} completed"
+                        }
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.LEVEL ->
                         "Reach level ${cosmetic.requiredLevel}"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.EVENT ->
                         "Event unlock"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT ->
-                        "Google Play purchase (not available yet)"
+                        StoreCatalog.cosmeticProductId(cosmetic.id)?.let { productId ->
+                            liveProducts[productId]?.formattedPrice?.let { "Buy · $it" }
+                        } ?: "Google Play · price unavailable"
                 }
             }
             PlywoodAlertDialogBuilder(this)
@@ -702,7 +707,7 @@ class StoreActivity :
                     ) {
                         requestRewardedAd(cosmetic.id)
                     } else {
-                        performCosmeticPurchaseOrSelect(cosmetic, channel.name)
+                        chooseCosmeticUnlock(cosmetic, channel.name)
                     }
                 }
                 .setNegativeButton("Cancel", null)
@@ -710,12 +715,35 @@ class StoreActivity :
             return
         }
 
-        val unlockChannel = if (cosmetic.remoteManaged && cosmetic.unlockChannels.size == 1) {
+        val unlockChannel = if (cosmetic.unlockChannels.size == 1) {
             cosmetic.unlockChannels.single().name
         } else {
             null
         }
-        performCosmeticPurchaseOrSelect(cosmetic, unlockChannel)
+        if (owned) performCosmeticPurchaseOrSelect(cosmetic, null)
+        else chooseCosmeticUnlock(cosmetic, unlockChannel)
+    }
+
+    private fun chooseCosmeticUnlock(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+        channel: String?,
+    ) {
+        if (channel == "PLAY_PRODUCT") {
+            val productId = StoreCatalog.cosmeticProductId(cosmetic.id)
+            if (productId == null) showStoreMessage("This item has no verified Google Play product.")
+            else requestPurchase(productId)
+            return
+        }
+        if (channel == "GEMS" || channel == null && cosmetic.unlockKind ==
+            com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS) {
+            PlywoodAlertDialogBuilder(this)
+                .setTitle("Unlock ${cosmetic.title}?")
+                .setMessage("Spend ${cosmetic.gemPrice} Gems? This unlock is saved to your account.")
+                .setPositiveButton("Unlock") { _, _ -> performCosmeticPurchaseOrSelect(cosmetic, channel) }
+                .setNegativeButton("Cancel", null).show()
+            return
+        }
+        performCosmeticPurchaseOrSelect(cosmetic, channel)
     }
 
     private fun performCosmeticPurchaseOrSelect(
@@ -745,7 +773,7 @@ class StoreActivity :
                 } else {
                     accountRepository.purchaseCosmetic(
                         cosmetic.id,
-                        unlockChannel = if (cosmetic.remoteManaged) unlockChannel else null,
+                        unlockChannel = unlockChannel,
                     )
                 }
                 val serverWallet = response.optJSONObject("wallet") ?: accountRepository.wallet()

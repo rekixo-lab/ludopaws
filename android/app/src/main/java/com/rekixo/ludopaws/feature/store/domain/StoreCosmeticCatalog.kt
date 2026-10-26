@@ -16,7 +16,7 @@ object StoreCosmeticCatalog {
     const val DEFAULT_CHARACTER_PACK =
         "character_pack_starter_paws"
 
-    private val builtInBoards = BoardRegistry.all.map { it.offer }
+    private val builtInBoards = BoardRegistry.all.map { CosmeticPricing.apply(it.offer) }
     private val builtInDice = DiceRegistry.all.map { it.offer }
 
     val characterUnlocks = listOf(
@@ -26,7 +26,13 @@ object StoreCosmeticCatalog {
         cosmetic("character_donkey", "DONKEY", CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFC7C6C3.toInt(), 0xFF555862.toInt(),
             ads = 15, characterPackId = "starter_paws"),
-    )
+    ) + CosmeticPricing.paidCharacterIds.map { characterId ->
+        CosmeticPricing.apply(cosmetic(
+            "character_$characterId", characterId.uppercase(), CosmeticCategory.CHARACTER_PACK,
+            CosmeticUnlockKind.GEMS, "PAW", 0xFFD9C9A7.toInt(), 0xFF63513B.toInt(),
+            gems = 300, characterPackId = "starter_paws",
+        ))
+    }
 
     fun characterUnlock(characterId: String): StoreCosmetic? =
         characterUnlocks.firstOrNull { it.id == "character_$characterId" }
@@ -156,7 +162,7 @@ object StoreCosmeticCatalog {
         get() = mergedForCategory(CosmeticCategory.CHARACTER_PACK)
 
     val all: List<StoreCosmetic>
-        get() = boards + dice + avatars + characterPacks + characterUnlocks
+        get() = boards + dice + avatars + characterPacks
 
     // Only shipped, locally renderable defaults are granted at account creation.
     // Remote FREE offers never become locally owned merely by appearing in a catalog.
@@ -209,7 +215,7 @@ object StoreCosmeticCatalog {
             CosmeticCategory.BOARD -> builtInBoards
             CosmeticCategory.DICE -> builtInDice
             CosmeticCategory.AVATAR -> builtInAvatars
-            CosmeticCategory.CHARACTER_PACK -> builtInCharacterPacks
+            CosmeticCategory.CHARACTER_PACK -> builtInCharacterPacks + characterUnlocks
         }
         val hiddenIds = suppressedLegacyIds
         val remote = remoteItemsById
@@ -240,7 +246,7 @@ object StoreCosmeticCatalog {
         val newRemoteItems = remote.values
             .filter { it.category == category && it.id !in builtInIds }
             .map { it.copy(contentAvailable = false) }
-        return visibleBuiltIns + newRemoteItems
+        return (visibleBuiltIns + newRemoteItems).map(CosmeticPricing::apply)
     }
 
     fun defaultId(
