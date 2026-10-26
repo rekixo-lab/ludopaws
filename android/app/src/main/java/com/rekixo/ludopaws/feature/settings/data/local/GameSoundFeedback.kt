@@ -123,7 +123,7 @@ object GameSoundFeedback {
                         LudoPawsProceduralAudio.Sfx.MOVE_WEB,
                         LudoPawsAudioCatalog.Sfx.MOVE_STEP_DUCK,
                     )
-                "cat", "elephant" ->
+                "cat", "elephant", "rabbit" ->
                     Triple(
                         listOf("lp_sfx_move_paw"),
                         LudoPawsProceduralAudio.Sfx.MOVE_PAW,

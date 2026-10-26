@@ -25,6 +25,7 @@ enum class LudoPawsProceduralVocal {
     ELEPHANT_RUMBLE,
     HORSE_NEIGH,
     HORSE_SNORT,
+    RABBIT_SNUFFLE,
 }
 
 data class LudoPawsVocalPlan(
@@ -88,7 +89,7 @@ object LudoPawsReactionAudioProfile {
                     species = species,
                     cue = cue,
                 ),
-            volume = volumeFor(cue),
+            volume = volumeFor(cue) * if (species == AnimalSpecies.RABBIT) .55f else 1f,
             playbackRate = playbackRateFor(species, cue),
             probabilityPercent = probability,
             delayMillis = delayFor(reaction.momentType),
@@ -198,6 +199,8 @@ object LudoPawsReactionAudioProfile {
 
                     else -> LudoPawsProceduralVocal.DUCK_QUACK
                 }
+
+            AnimalSpecies.RABBIT -> LudoPawsProceduralVocal.RABBIT_SNUFFLE
 
             AnimalSpecies.HORSE ->
                 when (cue) {

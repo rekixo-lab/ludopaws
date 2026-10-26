@@ -17,6 +17,7 @@ enum class LudoPaws3DSpecies {
     CAT,
     ELEPHANT,
     HORSE,
+    RABBIT,
 }
 
 internal object LudoPaws3DCharacterPolicy {
@@ -51,6 +52,7 @@ internal object LudoPaws3DCharacterPolicy {
             "pig" -> LudoPaws3DSpecies.GOAT
             "elephant" -> LudoPaws3DSpecies.ELEPHANT
             "horse" -> LudoPaws3DSpecies.HORSE
+            "rabbit" -> LudoPaws3DSpecies.RABBIT
             "goat", "goat_lumi" -> LudoPaws3DSpecies.GOAT
             "duck", "cock" -> LudoPaws3DSpecies.DUCK
             "cat" -> LudoPaws3DSpecies.CAT

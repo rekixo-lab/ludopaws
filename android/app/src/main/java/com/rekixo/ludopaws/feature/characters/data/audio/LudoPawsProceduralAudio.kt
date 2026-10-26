@@ -196,6 +196,18 @@ internal object LudoPawsProceduralAudio {
                     vibratoDepth = .05,
                 )
 
+            LudoPawsProceduralVocal.RABBIT_SNUFFLE ->
+                synth(
+                    durationMs = 180,
+                    rate = rate,
+                    startHz = 220.0,
+                    endHz = 160.0,
+                    harmonic = .10,
+                    noise = .30,
+                    tremoloHz = 16.0,
+                    doublePulse = true,
+                )
+
             LudoPawsProceduralVocal.HORSE_NEIGH ->
                 synth(
                     durationMs = 550,
