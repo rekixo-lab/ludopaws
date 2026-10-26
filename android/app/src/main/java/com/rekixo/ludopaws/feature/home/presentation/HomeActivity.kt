@@ -5,7 +5,8 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.ImageView
+import android.content.Intent
+import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
@@ -29,6 +30,7 @@ class HomeActivity : Activity() {
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
     internal var homeGuideVisible: Boolean = false
+    private var pawsShowcase: HomePawsShowcase? = null
 
     override fun onCreate(
         savedInstanceState: Bundle?,
@@ -106,28 +108,18 @@ class HomeActivity : Activity() {
             ),
         )
 
-        // The supplied artwork already contains the complete Home hero:
-        // Ludo Paws logo, wood, pets, pedestals and paw die. Render it as one
-        // transparent image so the old generated logo/pet layers cannot stack
-        // or leak into the center area. Mode/footer positions stay unchanged.
         val heroWidth =
             minOf(
                 topHudWidth,
                 dp(if (isCompact()) 350 else 388),
             )
         contentHost.addView(
-            ImageView(this).apply {
-                setImageResource(
-                    R.drawable.ludo_paws_home_hero,
-                )
-                scaleType =
-                    ImageView.ScaleType.FIT_CENTER
-                adjustViewBounds = false
-                contentDescription =
-                    "Ludo Paws characters"
-                importantForAccessibility =
-                    View.IMPORTANT_FOR_ACCESSIBILITY_YES
-            },
+            HomePawsShowcase(this) { characterId ->
+                startActivity(Intent(this, StoreActivity::class.java).apply {
+                    putExtra(StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
+                    putExtra(StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId)
+                })
+            }.also { pawsShowcase = it },
             FrameLayout.LayoutParams(
                 heroWidth,
                 dp(if (isCompact()) 272 else 302),
@@ -230,6 +222,7 @@ class HomeActivity : Activity() {
         window.decorView.postOnAnimation {
             window.decorView.post {
                 if (homeResumed && !isFinishing && !isDestroyed) {
+                    pawsShowcase?.setActive(true)
                     LudoPawsCenterHouses3D.prepare()
                     LudoPawsBoardChromeView.prewarm(this)
                     val selected = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load()
@@ -263,6 +256,7 @@ class HomeActivity : Activity() {
 
     override fun onPause() {
         homeResumed = false
+        pawsShowcase?.setActive(false)
         super.onPause()
     }
 

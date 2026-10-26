@@ -47,6 +47,9 @@ class StoreActivity :
     internal var selectedTab =
         StoreTab.GEMS
     internal var refreshBoardSelection: (() -> Unit)? = null
+    internal var featuredCharacterId: String? = null
+    internal var featuredPawsCard: com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsCard? = null
+    internal var showcaseResumed = false
     private var cosmeticUpdateInProgress = false
     private var cosmeticFeedback: Toast? = null
     internal var liveProducts:
@@ -135,11 +138,31 @@ class StoreActivity :
         selectedTab =
             requestedInitialTab()
                 ?: StoreTab.GEMS
+        featuredCharacterId = intent.getStringExtra(EXTRA_FEATURED_CHARACTER_ID)
+            ?.takeIf { com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.find(it) != null }
         if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
             intent
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
                 ?.takeIf { it == StoreCatalog.REMOVE_ADS }
+        renderStore()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        showcaseResumed = true
+        featuredPawsCard?.setActive(true)
+    }
+
+    override fun onPause() {
+        showcaseResumed = false
+        featuredPawsCard?.setActive(false)
+        super.onPause()
+    }
+
+    internal fun showFeaturedCharacter(characterId: String) {
+        featuredCharacterId = characterId
+        selectedTab = StoreTab.PAWS
         renderStore()
     }
 
@@ -911,6 +934,8 @@ class StoreActivity :
 
     internal fun renderStore() {
         if (!canRenderStoreUi()) return
+        featuredPawsCard?.setActive(false)
+        featuredPawsCard = null
         refreshBoardSelection = null
         val renderStartedAt = android.os.SystemClock.elapsedRealtime()
 
@@ -1064,6 +1089,7 @@ class StoreActivity :
     }
 
     companion object {
+        const val EXTRA_FEATURED_CHARACTER_ID = "ludo_paws_featured_character_id"
         const val EXTRA_INITIAL_TAB =
             "ludo_paws_store_initial_tab"
         const val EXTRA_PURCHASE_PRODUCT_ID =
