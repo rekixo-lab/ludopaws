@@ -18,7 +18,11 @@ import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.characters.shared.LudoPaws3DLifeMotion
 import java.util.concurrent.atomic.AtomicBoolean
 
-internal class FeaturedPawsPreview(context: Context) : TextureView(context), TextureView.SurfaceTextureListener {
+internal class FeaturedPawsPreview(
+    context: Context,
+    private val frameIntervalMillis: Long = 33L,
+    private val playful: Boolean = false,
+) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
             if (field != value) {
@@ -42,7 +46,7 @@ internal class FeaturedPawsPreview(context: Context) : TextureView(context), Tex
             if (visible && (animated || needsFrame)) {
                 if (session?.draw(characterId, animated, needsFrame) == true) needsFrame = false
             }
-            postDelayed(this, if (visible && animated) 33L else 250L)
+            postDelayed(this, if (visible && animated) frameIntervalMillis.coerceAtLeast(33L) else 250L)
         }
     }
 
@@ -142,10 +146,12 @@ internal class FeaturedPawsPreview(context: Context) : TextureView(context), Tex
                     lastFrame = now
                     val clock = if (animate) elapsed else 0L
                     val character = CharacterRegistry.resolve(id)
-                    val cycle = clock % 12000L
+                    val idleEnd = if (playful) 3000L else 8000L
+                    val hopEnd = idleEnd + 1500L
+                    val cycle = clock % if (playful) 7000L else 12000L
                     val motion = when {
-                        cycle < 8000L -> CharacterMotion.IDLE
-                        cycle < 9500L -> CharacterMotion.HOP
+                        cycle < idleEnd -> CharacterMotion.IDLE
+                        cycle < hopEnd -> CharacterMotion.HOP
                         else -> CharacterMotion.HOME
                     }
                     val duration = when (motion) {
@@ -155,8 +161,8 @@ internal class FeaturedPawsPreview(context: Context) : TextureView(context), Tex
                     }.coerceAtLeast(1L)
                     val phase = when (motion) {
                         CharacterMotion.IDLE -> cycle
-                        CharacterMotion.HOP -> cycle - 8000L
-                        CharacterMotion.HOME -> cycle - 9500L
+                        CharacterMotion.HOP -> cycle - idleEnd
+                        CharacterMotion.HOME -> cycle - hopEnd
                     }
                     life.update(10000L + clock, 37, motion == CharacterMotion.IDLE,
                         0f, 0f, LudoPaws3DReactionPose())

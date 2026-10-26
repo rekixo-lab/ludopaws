@@ -1,8 +1,19 @@
 # First-party Paws showcase, phase one
 
-Home has no promotional card. Its original fixed menu layout and full hero image
-are restored: 350/388 dp maximum width, 272/302 dp image allocation, FIT_CENTER,
-with the original mode and footer offsets. The source artwork is unchanged.
+Home uses the original hero allocation as a two-page carousel: complete FIT_CENTER
+hero first, then the shared centered Store promotion. Width, height, mode controls
+and footer offsets remain unchanged. The source artwork is unchanged.
+
+Each Home entry starts on the hero. After 2.4 seconds the hero slides left while
+the promotion slides in from the right. The promotion stays for 10 seconds, then
+the hero returns for 7 seconds before the next automatic slide. Slides last 420 ms.
+Horizontal finger drags snap to a page; vertical movement is not treated as a
+page swipe. Touch/manual navigation defers the next automatic slide for 20 seconds.
+Indicators and accessibility scroll actions expose both pages. Disabled system
+animations disable automatic sliding but retain immediate manual page changes.
+Pausing, losing focus, hiding or detaching stops automatic work and live previews.
+Only the settled visible promotion page starts its renderer. Home Explore opens
+the corresponding Store tab and, for characters, that exact character's detail.
 
 Active offline and online matches place one compact Paws promotion between Back
 and Settings, starting in the existing 52 dp header row. It grows downwards into
@@ -14,9 +25,19 @@ The card clips its artwork to its own bounds. If there is insufficient space or
 the card intersects the board/player rails on a short viewport, only the promotion
 becomes transparent and non-interactive; gameplay is never moved to make room.
 
-The match variant uses the shared cached 3D portrait, not a second live EGL scene.
-A subtle native bob/tilt and 12-second character rotation run only while visible
-and focused, honoring disabled animations. They stop on hiding or detachment.
+The promoted artwork is geometrically centered between equal-width text columns:
+category/name on the left, ownership/unlock amount and Store action on the right.
+Characters use the Store's live 3D idle/hop/celebration renderer, not the previous
+static portrait bob. Gameplay is capped at roughly 15 FPS, Home at 20 FPS and Store
+at 30 FPS. Static portraits remain the immediate/failure fallback.
+Promotion characters start their hop after three seconds so short Home slides
+include a noticeable pose change; the Store's existing animation timing is retained.
+One live preview is reused per card, and hidden, overlapping or unfocused cards stop requesting frames.
+Content-ready boards share the same center slot and their actual layered previews.
+Non-default dice can use the same slot when their shipped content becomes available;
+unavailable Coming Soon assets are never advertised. Characters, boards and supported
+dice interleave, with unowned items prioritized. Item rotation is every 12 seconds
+in gameplay and 7 seconds on Home; disabled animations stop automatic item rotation.
 Tapping this promotion only shows an after-match Store reminder. It never opens
 another Activity, pauses the match, starts an ad or launches a purchase.
 
@@ -49,8 +70,8 @@ than accumulating every featured model in the live preview's GPU cache.
 
 Detail cards stack vertically below 320 dp or with larger system text. Names
 ellipsize instead of clipping and buttons remain 48 dp tall. The match header
-uses a portrait that grows from 44 dp with the available header space and single-line
-ellipsized labels. Setup titles retain their original 52 dp row. Availability and
+uses artwork that grows with the available header space, balanced side text and
+two-line ellipsized names. Setup titles retain their original 52 dp row. Availability and
 ownership are refreshed on return rather than frozen at card construction. A
 completed verified ad requirement can still be claimed when new ads are disabled.
 
@@ -60,13 +81,13 @@ prices (including currency symbols) without deriving currency from the phone loc
 or hardcoding USD. The detail preview uses the same live price. Missing products
 remain price unavailable; Play Console configuration is still required.
 
-This is the character-first stage of the gameplay-header + Store showcase. Board
-dioramas, mesh-based dice promotions, match-result placements and analytics are
+This is the Home-carousel + gameplay-header + Store showcase. New board dioramas,
+new premium dice content, match-result placements and analytics are
 not included. Existing board/dice catalog previews and gameplay controls are unchanged.
 
 No build, tests, lint, installation or PR was run/created, as requested. Device QA
 remains pending for compact header spacing, overlap suppression, touch pass-through,
-restored Home hero visibility, localized prices, transparent GL
+Home auto/manual sliding and touch delays, full hero visibility, localized prices, transparent GL
 composition, scroll clipping, pause/resume, static fallback, repeated navigation,
 verified ad progress and successful/failed unlock flows. Performance and purchase
 conversion have not been measured.
