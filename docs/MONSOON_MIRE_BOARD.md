@@ -12,8 +12,10 @@ rims. These are geometry with normals and depth, not a photo or animated bitmap.
 
 Thirty-six staggered rain emitters cover a six-by-six grid across the whole
 board, including lanes, yards and center. Impact positions change each cycle;
-some drops also target the eight original puddles. Additional shallow slicks
-and muddy smears appear at road edges without covering safe-cell stars.
+some drops also target the eight original puddles. The original Monsoon base
+artwork, colors, tile finish and eight puddles are retained. No permanent road
+stains or extra static puddles are added: rain, splashes and fading movement
+prints are transient effects layered over the original theme.
 Each landing produces a short 3D splash crown and expanding, fading elliptical
 ripple. Surface classification chooses water ripples, smaller wet-stone splashes
 or earthy mud-colored splashes. The loop is stylized and

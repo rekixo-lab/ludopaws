@@ -31,15 +31,6 @@ internal class MonsoonBoardScene {
     private var observedStart = -1L
     private var lastLanding = 0
     private val printColor = floatArrayOf(.30f, .20f, .12f, 1f)
-    private val slicks = buildList {
-        for (row in 0..14) for (column in 0..14) {
-            if ((row + column) % 4 != 0) continue
-            if (column in 6..8 && (row < 6 || row > 8) ||
-                row in 6..8 && (column < 6 || column > 8)) {
-                add(Patch(axis(column + 1) - 2f, axis(row) + 2f, 1.2f, .72f))
-            }
-        }
-    }
     private val puddleX = floatArrayOf(10f, 39f, 110f, 139f, 110f, 139f, 10f, 39f)
     private val puddleY = floatArrayOf(37f, 11f, 37f, 11f, 137f, 111f, 137f, 111f)
     private val mudColor = floatArrayOf(.39f, .28f, .19f, 1f)
@@ -61,7 +52,6 @@ internal class MonsoonBoardScene {
             disc(puddleX[index], puddleY[index], if (wide) 5.4f else 4.5f,
                 if (wide) 3.4f else 2.9f, .38f)
         }
-        slicks.forEach { disc(it.x, it.y, it.radiusX, it.radiusY, .38f) }
     }.build()
     private val pawPrint = Builder().apply {
         disc(0f, .15f, .48f, .42f, 0f, 12)
@@ -186,11 +176,6 @@ internal class MonsoonBoardScene {
             val deltaY = (positionY - puddleY[index]) / radiusY
             if (deltaX * deltaX + deltaY * deltaY <= 1f) return 0
         }
-        slicks.forEach { patch ->
-            val deltaX = (positionX - patch.x) / patch.radiusX
-            val deltaY = (positionY - patch.y) / patch.radiusY
-            if (deltaX * deltaX + deltaY * deltaY <= 1f) return 0
-        }
         return if (positionX in 50f..100f || positionY in 50f..100f) 1 else 2
     }
 
@@ -312,8 +297,6 @@ internal class MonsoonBoardScene {
         var y = 0f
         var started = -1L
     }
-
-    private data class Patch(val x: Float, val y: Float, val radiusX: Float, val radiusY: Float)
 
     private data class Point(val x: Float, val y: Float, val z: Float)
 
