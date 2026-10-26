@@ -13,6 +13,7 @@ data class BoardDefinition(
     val rendererKey: String = "classic",
     val yardHabitatEnabled: Boolean = true,
     val stoneRoadOverlayEnabled: Boolean = true,
+    val monsoonEffectsEnabled: Boolean = false,
 ) {
     val id: String get() = offer.id
     fun teamColor(classic: Int): Int {

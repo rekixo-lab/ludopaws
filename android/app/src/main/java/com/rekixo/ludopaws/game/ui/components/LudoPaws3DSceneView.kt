@@ -36,6 +36,8 @@ internal data class LudoPaws3DCaptureReturnState(
 internal data class LudoPaws3DSceneState(
     val snapshot: MatchSnapshot? = null,
     val stoneRoadOverlayEnabled: Boolean = true,
+    val monsoonEffectsEnabled: Boolean = false,
+    val monsoonAnimationEnabled: Boolean = true,
     val localPlayerId: String? = null,
     val perspectiveColor: String? = null,
     val characterIdsBySeat: List<String> = emptyList(),
@@ -430,6 +432,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             LudoPaws3DSceneState(
                 snapshot = state,
                 stoneRoadOverlayEnabled = previousState.stoneRoadOverlayEnabled,
+                monsoonEffectsEnabled = previousState.monsoonEffectsEnabled,
+                monsoonAnimationEnabled = previousState.monsoonAnimationEnabled,
                 localPlayerId = playerId,
                 perspectiveColor =
                     perspectiveColor?.takeIf {
@@ -609,7 +613,12 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             ?: com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(context)
                 .selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
         val definition = com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve(themeId)
-        sceneState = sceneState.copy(stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled)
+        sceneState = sceneState.copy(
+            stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled,
+            monsoonEffectsEnabled = definition.monsoonEffectsEnabled,
+            monsoonAnimationEnabled = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+                android.animation.ValueAnimator.areAnimatorsEnabled(),
+        )
     }
 
     internal fun setBoardThemeOverride(themeId: String) {

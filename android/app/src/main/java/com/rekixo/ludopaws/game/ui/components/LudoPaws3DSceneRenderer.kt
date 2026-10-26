@@ -56,6 +56,9 @@ internal class LudoPaws3DSceneRenderer {
     private var cachedOccupancy: Map<String, Int> = emptyMap()
     private val lifeByPawn = mutableMapOf<LudoPaws3DPawnKey, LudoPaws3DLifeMotion>()
     private val centerHouses by lazy { LudoPawsCenterHouses3D.acquire() }
+    private val monsoonBoard by lazy {
+        com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardScene()
+    }
     private val drawContext = object : CharacterDrawContext() {
         override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
             scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
@@ -280,6 +283,9 @@ internal class LudoPaws3DSceneRenderer {
         GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
         if (state.stoneRoadOverlayEnabled) centerHouses.drawStoneRoads(drawContext, size, turns)
+        if (state.monsoonEffectsEnabled) {
+            monsoonBoard.draw(drawContext, size, turns, nowMillis, state.monsoonAnimationEnabled)
+        }
         // Pawn and house depth are independent of the static road relief.
         GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
         // Clip decorative volume (including an outward-swinging door) to the
