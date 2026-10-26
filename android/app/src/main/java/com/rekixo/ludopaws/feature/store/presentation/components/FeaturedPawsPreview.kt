@@ -1,11 +1,14 @@
 package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.content.Context
-import android.graphics.PixelFormat
 import android.graphics.Rect
-import android.opengl.GLES30
-import android.opengl.GLSurfaceView
+import android.graphics.SurfaceTexture
+import android.opengl.EGL14
+import android.opengl.EGLExt
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.SystemClock
+import android.view.TextureView
 import android.view.View
 import com.rekixo.ludopaws.LudoPaws3DReactionPose
 import com.rekixo.ludopaws.LudoPaws3DSceneRenderer
@@ -13,15 +16,21 @@ import com.rekixo.ludopaws.feature.characters.rendering.CharacterHopPlayback
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterMotion
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.characters.shared.LudoPaws3DLifeMotion
-import javax.microedition.khronos.egl.EGLConfig
-import javax.microedition.khronos.opengles.GL10
+import java.util.concurrent.atomic.AtomicBoolean
 
-internal class FeaturedPawsPreview(context: Context) : GLSurfaceView(context) {
-    @Volatile var characterId = "dog"
-    @Volatile private var animated = true
+internal class FeaturedPawsPreview(context: Context) : TextureView(context), TextureView.SurfaceTextureListener {
+    var characterId = "dog"
+        set(value) {
+            if (field != value) {
+                field = value
+                needsFrame = true
+            }
+        }
+    private var animated = true
     private var active = false
-    private var running = true
     private var failed = false
+    private var needsFrame = true
+    private var session: Session? = null
     private val visibleRect = Rect()
     var onReady: (() -> Unit)? = null
     var onUnavailable: (() -> Unit)? = null
@@ -30,59 +39,110 @@ internal class FeaturedPawsPreview(context: Context) : GLSurfaceView(context) {
             if (!active || !isAttachedToWindow || failed) return
             val visible = isShown && hasWindowFocus() && windowVisibility == View.VISIBLE &&
                 getGlobalVisibleRect(visibleRect) && visibleRect.height() >= height / 2
-            setRunning(visible)
-            if (visible) requestRender()
+            if (visible && (animated || needsFrame)) {
+                if (session?.draw(characterId, animated, needsFrame) == true) needsFrame = false
+            }
             postDelayed(this, if (visible && animated) 33L else 250L)
         }
     }
 
     init {
+        isOpaque = false
         isClickable = false
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-        setEGLContextClientVersion(3)
-        setEGLConfigChooser(8, 8, 8, 8, 24, 0)
-        holder.setFormat(PixelFormat.TRANSLUCENT)
-        setZOrderMediaOverlay(true)
-        setRenderer(object : GLSurfaceView.Renderer {
-            private var scene: LudoPaws3DSceneRenderer? = null
-            private var previousId = ""
-            private var started = 0L
-            private var life = LudoPaws3DLifeMotion()
-            private var notified = false
+        surfaceTextureListener = this
+    }
 
-            override fun onSurfaceCreated(gl: GL10?, config: EGLConfig?) {
-                try {
-                    scene = LudoPaws3DSceneRenderer().also { it.onPortraitSurfaceCreated() }
-                    GLES30.glClearColor(0f, 0f, 0f, 0f)
-                    previousId = ""
-                    notified = false
-                } catch (error: RuntimeException) {
-                    unavailable(error)
-                }
-            }
+    fun setActive(value: Boolean) {
+        active = value
+        needsFrame = true
+        animated = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+            android.animation.ValueAnimator.areAnimatorsEnabled()
+        removeCallbacks(ticker)
+        if (value && !failed && isAttachedToWindow) post(ticker)
+    }
 
-            override fun onSurfaceChanged(gl: GL10?, width: Int, height: Int) {
-                try {
-                    scene?.onPortraitSurfaceChanged(width, height)
-                } catch (error: RuntimeException) {
-                    scene = null
-                    unavailable(error)
-                }
-            }
+    override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
+        session = Session(texture, width, height)
+        needsFrame = true
+    }
 
-            override fun onDrawFrame(gl: GL10?) {
-                val renderer = scene ?: return
+    override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
+        session?.resize(width, height)
+        needsFrame = true
+    }
+
+    override fun onSurfaceTextureDestroyed(texture: SurfaceTexture): Boolean {
+        val previous = session
+        session = null
+        if (previous != null) previous.close() else texture.release()
+        needsFrame = true
+        return false
+    }
+
+    override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (active && !failed) {
+            removeCallbacks(ticker)
+            post(ticker)
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        setActive(false)
+        super.onDetachedFromWindow()
+    }
+
+    private inner class Session(private val texture: SurfaceTexture, width: Int, height: Int) {
+        private val thread = HandlerThread("LudoPawsPromotion").apply { start() }
+        private val handler = Handler(thread.looper)
+        private val closed = AtomicBoolean(false)
+        private val pending = AtomicBoolean(false)
+        private var window: EglWindow? = null
+        private var renderer: LudoPaws3DSceneRenderer? = null
+        private var previousId = ""
+        private var elapsed = 0L
+        private var lastFrame = 0L
+        private var life = LudoPaws3DLifeMotion()
+
+        init {
+            handler.post {
+                if (closed.get()) return@post
                 try {
-                    val id = characterId
-                    val now = SystemClock.uptimeMillis()
-                    if (id != previousId) {
-                        previousId = id
-                        started = now
-                        life = LudoPaws3DLifeMotion()
+                    val egl = EglWindow()
+                    window = egl
+                    egl.open(texture)
+                    renderer = LudoPaws3DSceneRenderer().also {
+                        it.onPortraitSurfaceCreated()
+                        it.onPortraitSurfaceChanged(width.coerceAtLeast(1), height.coerceAtLeast(1))
                     }
-                    val elapsed = if (animated) now - started else 0L
+                } catch (error: RuntimeException) {
+                    fail(error)
+                }
+            }
+        }
+
+        fun draw(id: String, animate: Boolean, notifyReady: Boolean): Boolean {
+            if (closed.get() || !pending.compareAndSet(false, true)) return false
+            handler.post {
+                try {
+                    if (closed.get()) return@post
+                    val scene = renderer ?: return@post
+                    val now = SystemClock.uptimeMillis()
+                    if (previousId != id) {
+                        if (previousId.isNotEmpty()) scene.clearPortraitMeshes()
+                        previousId = id
+                        elapsed = 0L
+                        life = LudoPaws3DLifeMotion()
+                        lastFrame = 0L
+                    }
+                    if (animate && lastFrame > 0L && now - lastFrame < 250L) elapsed += now - lastFrame
+                    lastFrame = now
+                    val clock = if (animate) elapsed else 0L
                     val character = CharacterRegistry.resolve(id)
-                    val cycle = elapsed % 12000L
+                    val cycle = clock % 12000L
                     val motion = when {
                         cycle < 8000L -> CharacterMotion.IDLE
                         cycle < 9500L -> CharacterMotion.HOP
@@ -93,62 +153,119 @@ internal class FeaturedPawsPreview(context: Context) : GLSurfaceView(context) {
                         CharacterMotion.HOP -> 1500L
                         CharacterMotion.HOME -> character.definition.homeDurationMillis
                     }.coerceAtLeast(1L)
-                    val motionElapsed = when (motion) {
+                    val phase = when (motion) {
                         CharacterMotion.IDLE -> cycle
                         CharacterMotion.HOP -> cycle - 8000L
                         CharacterMotion.HOME -> cycle - 9500L
                     }
-                    life.update(10000L + elapsed, 37, motion == CharacterMotion.IDLE,
+                    life.update(10000L + clock, 37, motion == CharacterMotion.IDLE,
                         0f, 0f, LudoPaws3DReactionPose())
-                    val sampled = character.renderer.sample(motion, (motionElapsed % duration) / duration.toFloat(),
+                    val sampled = character.renderer.sample(motion, (phase % duration) / duration.toFloat(),
                         CharacterHopPlayback.ISOLATED)
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled) else sampled
-                    renderer.drawPortrait(id, "BLUE", pose, life, previewZoom = .9f, synchronizeGpu = false)
-                    if (!notified) {
-                        notified = true
-                        post { if (!failed) onReady?.invoke() }
+                    scene.drawPortrait(id, "BLUE", pose, life, previewZoom = .9f, synchronizeGpu = false)
+                    check(window?.swap() == true) { "Showcase buffer swap failed" }
+                    if (notifyReady) post {
+                        if (session === this && active && characterId == id && !failed) onReady?.invoke()
                     }
                 } catch (error: RuntimeException) {
-                    scene = null
-                    unavailable(error)
+                    fail(error)
+                } finally {
+                    pending.set(false)
                 }
             }
-        })
-        renderMode = RENDERMODE_WHEN_DIRTY
-        setRunning(false)
-    }
+            return true
+        }
 
-    private fun unavailable(error: RuntimeException) {
-        android.util.Log.w("FeaturedPaws", "Live preview unavailable", error)
-        post {
-            failed = true
-            setActive(false)
-            visibility = View.INVISIBLE
-            onUnavailable?.invoke()
+        fun resize(width: Int, height: Int) {
+            handler.post {
+                if (closed.get()) return@post
+                try {
+                    renderer?.onPortraitSurfaceChanged(width.coerceAtLeast(1), height.coerceAtLeast(1))
+                } catch (error: RuntimeException) {
+                    fail(error)
+                }
+            }
+        }
+
+        private fun fail(error: RuntimeException) {
+            android.util.Log.w("FeaturedPaws", "Live preview unavailable", error)
+            post {
+                if (session === this) {
+                    failed = true
+                    setActive(false)
+                    visibility = View.INVISIBLE
+                    onUnavailable?.invoke()
+                }
+            }
+            release()
+        }
+
+        private fun release() {
+            try {
+                runCatching { renderer?.release() }
+                    .onFailure { android.util.Log.w("FeaturedPaws", "Preview cleanup failed", it) }
+            } finally {
+                renderer = null
+                window?.release()
+                window = null
+            }
+        }
+
+        fun close() {
+            if (!closed.compareAndSet(false, true)) return
+            handler.post {
+                try {
+                    release()
+                } finally {
+                    texture.release()
+                    thread.quitSafely()
+                }
+            }
         }
     }
 
-    fun setActive(value: Boolean) {
-        active = value
-        animated = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
-            android.animation.ValueAnimator.areAnimatorsEnabled()
-        removeCallbacks(ticker)
-        if (value && !failed) post(ticker) else setRunning(false)
-    }
+    private class EglWindow {
+        private var display = EGL14.EGL_NO_DISPLAY
+        private var context = EGL14.EGL_NO_CONTEXT
+        private var surface = EGL14.EGL_NO_SURFACE
+        private var initialized = false
 
-    private fun setRunning(value: Boolean) {
-        if (running == value) return
-        running = value
-        if (value) onResume() else onPause()
-    }
+        fun open(texture: SurfaceTexture) {
+            display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
+            check(display != EGL14.EGL_NO_DISPLAY) { "No EGL display" }
+            val version = IntArray(2)
+            check(EGL14.eglInitialize(display, version, 0, version, 1)) { "EGL initialization failed" }
+            initialized = true
+            val attributes = intArrayOf(EGL14.EGL_SURFACE_TYPE, EGL14.EGL_WINDOW_BIT,
+                EGL14.EGL_RENDERABLE_TYPE, EGLExt.EGL_OPENGL_ES3_BIT_KHR,
+                EGL14.EGL_RED_SIZE, 8, EGL14.EGL_GREEN_SIZE, 8, EGL14.EGL_BLUE_SIZE, 8,
+                EGL14.EGL_ALPHA_SIZE, 8, EGL14.EGL_DEPTH_SIZE, 16, EGL14.EGL_NONE)
+            val configs = arrayOfNulls<android.opengl.EGLConfig>(1)
+            val count = IntArray(1)
+            check(EGL14.eglChooseConfig(display, attributes, 0, configs, 0, 1, count, 0) && count[0] > 0) {
+                "No ES3 showcase configuration"
+            }
+            val config = checkNotNull(configs[0])
+            context = EGL14.eglCreateContext(display, config, EGL14.EGL_NO_CONTEXT,
+                intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE), 0)
+            check(context != EGL14.EGL_NO_CONTEXT) { "Showcase context creation failed" }
+            surface = EGL14.eglCreateWindowSurface(display, config, texture, intArrayOf(EGL14.EGL_NONE), 0)
+            check(surface != EGL14.EGL_NO_SURFACE) { "Showcase surface creation failed" }
+            check(EGL14.eglMakeCurrent(display, surface, surface, context)) { "Showcase makeCurrent failed" }
+            EGL14.eglSwapInterval(display, 1)
+        }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        if (active && !failed) post(ticker)
-    }
+        fun swap(): Boolean = EGL14.eglSwapBuffers(display, surface)
 
-    override fun onDetachedFromWindow() {
-        setActive(false)
-        super.onDetachedFromWindow()
+        fun release() {
+            if (!initialized) return
+            EGL14.eglMakeCurrent(display, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT)
+            if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface)
+            if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, context)
+            EGL14.eglTerminate(display)
+            EGL14.eglReleaseThread()
+            initialized = false
+        }
     }
 }

@@ -135,6 +135,11 @@ internal class LudoPaws3DSceneRenderer {
             )
     }
 
+    internal fun clearPortraitMeshes() {
+        customMeshes.values.forEach { it.release() }
+        customMeshes.clear()
+    }
+
     fun release() {
         monsoonBoard?.reset()
         monsoonWasEnabled = false

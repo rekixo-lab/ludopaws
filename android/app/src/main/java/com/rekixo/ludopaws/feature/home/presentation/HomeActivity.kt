@@ -164,7 +164,21 @@ class HomeActivity : Activity() {
         )
 
         content.addView(
-            modeSection(),
+            modeSection().also { modes ->
+                modes.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+                    val showcase = pawsShowcase ?: return@addOnLayoutChangeListener
+                    val params = showcase.layoutParams as FrameLayout.LayoutParams
+                    val hudBottom = content.top + content.getChildAt(0).bottom
+                    val top = maxOf(dp(if (isCompact()) 158 else 168), hudBottom + dp(8))
+                    val available = content.top + modes.top - top - dp(12)
+                    val height = minOf(dp(if (isCompact()) 272 else 302), available).coerceAtLeast(0)
+                    if (params.height != height || params.topMargin != top) {
+                        params.height = height
+                        params.topMargin = top
+                        showcase.layoutParams = params
+                    }
+                }
+            },
             LinearLayout.LayoutParams(
                 modeSectionWidth,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
