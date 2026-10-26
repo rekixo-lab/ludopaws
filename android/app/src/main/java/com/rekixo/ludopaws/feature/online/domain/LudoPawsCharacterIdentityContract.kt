@@ -24,6 +24,7 @@ object LudoPawsCharacterIdentityContract {
             "cock" -> "duck"
             "pig" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
             "elephant" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
+            "horse" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
             else -> canonical
         }
     }

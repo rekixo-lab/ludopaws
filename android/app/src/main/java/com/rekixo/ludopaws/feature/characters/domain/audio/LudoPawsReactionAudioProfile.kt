@@ -23,6 +23,8 @@ enum class LudoPawsProceduralVocal {
     PIG_SQUEAL,
     ELEPHANT_TRUMPET,
     ELEPHANT_RUMBLE,
+    HORSE_NEIGH,
+    HORSE_SNORT,
 }
 
 data class LudoPawsVocalPlan(
@@ -195,6 +197,13 @@ object LudoPawsReactionAudioProfile {
                     -> LudoPawsProceduralVocal.DUCK_SOFT_QUACK
 
                     else -> LudoPawsProceduralVocal.DUCK_QUACK
+                }
+
+            AnimalSpecies.HORSE ->
+                when (cue) {
+                    VoiceCue.SIX, VoiceCue.YARD_EXIT, VoiceCue.CAPTURED,
+                    VoiceCue.HOME, VoiceCue.VICTORY -> LudoPawsProceduralVocal.HORSE_NEIGH
+                    else -> LudoPawsProceduralVocal.HORSE_SNORT
                 }
 
             AnimalSpecies.ELEPHANT ->

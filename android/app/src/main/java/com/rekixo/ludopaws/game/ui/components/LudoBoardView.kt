@@ -1146,6 +1146,20 @@ class LudoBoardView @JvmOverloads constructor(
             }
 
         return mapOf(
+            LudoPaws3DSpecies.HORSE to
+                PawPrintArtwork(
+                    pads = listOf(path {
+                        moveTo(-.48f, .62f)
+                        cubicTo(-.92f, -.15f, -.63f, -.82f, 0f, -.84f)
+                        cubicTo(.63f, -.82f, .92f, -.15f, .48f, .62f)
+                        close()
+                    }),
+                    details = listOf(path {
+                        moveTo(-.29f, .39f)
+                        lineTo(0f, -.24f)
+                        lineTo(.29f, .39f)
+                    }),
+                ),
             LudoPaws3DSpecies.ELEPHANT to
                 PawPrintArtwork(
                     pads = listOf(path { addOval(RectF(-.70f, -.76f, .70f, .76f), Path.Direction.CW) }),

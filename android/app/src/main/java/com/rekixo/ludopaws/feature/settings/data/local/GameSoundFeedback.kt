@@ -111,7 +111,7 @@ object GameSoundFeedback {
 
         val movement =
             when (characterId) {
-                "goat", "goat_lumi", "pig" ->
+                "goat", "goat_lumi", "pig", "horse" ->
                     Triple(
                         listOf("lp_sfx_move_hoof"),
                         LudoPawsProceduralAudio.Sfx.MOVE_HOOF,
@@ -138,7 +138,7 @@ object GameSoundFeedback {
             }
         val volume =
             when (characterId) {
-                "goat", "goat_lumi", "pig" -> .30f
+                "goat", "goat_lumi", "pig", "horse" -> .30f
                 "duck" -> .28f
                 else -> .30f
             }

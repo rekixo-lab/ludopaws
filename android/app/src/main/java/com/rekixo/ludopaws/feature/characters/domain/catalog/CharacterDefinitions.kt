@@ -9,10 +9,11 @@ import com.rekixo.ludopaws.feature.characters.content.donkey.DonkeyDefinition
 import com.rekixo.ludopaws.feature.characters.content.cock.CockDefinition
 import com.rekixo.ludopaws.feature.characters.content.pig.PigDefinition
 import com.rekixo.ludopaws.feature.characters.content.elephant.ElephantDefinition
+import com.rekixo.ludopaws.feature.characters.content.horse.HorseDefinition
 
 /** Add new shipped character definitions here; UI/catalog entries derive from this list. */
 object CharacterDefinitions {
-    val all = listOf(DogDefinition.content, GoatDefinition.content, DuckDefinition.content, CatDefinition.content, DonkeyDefinition.content, LumiGoatDefinition.content, CockDefinition.content, PigDefinition.content, ElephantDefinition.content)
+    val all = listOf(DogDefinition.content, GoatDefinition.content, DuckDefinition.content, CatDefinition.content, DonkeyDefinition.content, LumiGoatDefinition.content, CockDefinition.content, PigDefinition.content, ElephantDefinition.content, HorseDefinition.content)
     init {
         require(all.map { it.character.id }.distinct().size == all.size) { "Duplicate character definition" }
     }

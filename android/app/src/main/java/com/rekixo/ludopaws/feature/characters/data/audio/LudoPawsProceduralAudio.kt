@@ -196,6 +196,31 @@ internal object LudoPawsProceduralAudio {
                     vibratoDepth = .05,
                 )
 
+            LudoPawsProceduralVocal.HORSE_NEIGH ->
+                synth(
+                    durationMs = 550,
+                    rate = rate,
+                    startHz = 680.0,
+                    endHz = 310.0,
+                    harmonic = .58,
+                    noise = .06,
+                    vibratoHz = 13.0,
+                    vibratoDepth = .12,
+                    tremoloHz = 9.0,
+                )
+
+            LudoPawsProceduralVocal.HORSE_SNORT ->
+                synth(
+                    durationMs = 240,
+                    rate = rate,
+                    startHz = 165.0,
+                    endHz = 105.0,
+                    harmonic = .24,
+                    noise = .38,
+                    tremoloHz = 24.0,
+                    doublePulse = true,
+                )
+
             LudoPawsProceduralVocal.ELEPHANT_TRUMPET ->
                 synth(
                     durationMs = 560,
