@@ -196,6 +196,33 @@ internal object LudoPawsProceduralAudio {
                     vibratoDepth = .05,
                 )
 
+            LudoPawsProceduralVocal.PIG_OINK ->
+                synth(
+                    durationMs = 270,
+                    rate = rate,
+                    startHz = 185.0,
+                    endHz = 125.0,
+                    harmonic = .65,
+                    noise = .15,
+                    vibratoHz = 17.0,
+                    vibratoDepth = .08,
+                    tremoloHz = 11.0,
+                    doublePulse = true,
+                )
+
+            LudoPawsProceduralVocal.PIG_SQUEAL ->
+                synth(
+                    durationMs = 330,
+                    rate = rate,
+                    startHz = 760.0,
+                    endHz = 1100.0,
+                    harmonic = .40,
+                    noise = .06,
+                    vibratoHz = 15.0,
+                    vibratoDepth = .065,
+                    tremoloHz = 8.0,
+                )
+
             LudoPawsProceduralVocal.COCK_CROW ->
                 synth(
                     durationMs = 560,

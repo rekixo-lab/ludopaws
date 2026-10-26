@@ -46,6 +46,7 @@ internal object LudoPaws3DCharacterPolicy {
                 .canonicalCharacterId(characterId)
         ) {
             "dog" -> LudoPaws3DSpecies.DOG
+            "pig" -> LudoPaws3DSpecies.GOAT
             "goat", "goat_lumi" -> LudoPaws3DSpecies.GOAT
             "duck", "cock" -> LudoPaws3DSpecies.DUCK
             "cat" -> LudoPaws3DSpecies.CAT

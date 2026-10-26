@@ -19,6 +19,8 @@ enum class LudoPawsProceduralVocal {
     CAT_HUFF,
     COCK_CROW,
     COCK_CLUCK,
+    PIG_OINK,
+    PIG_SQUEAL,
 }
 
 data class LudoPawsVocalPlan(
@@ -191,6 +193,13 @@ object LudoPawsReactionAudioProfile {
                     -> LudoPawsProceduralVocal.DUCK_SOFT_QUACK
 
                     else -> LudoPawsProceduralVocal.DUCK_QUACK
+                }
+
+            AnimalSpecies.PIG ->
+                when (cue) {
+                    VoiceCue.CAPTURED, VoiceCue.THIRD_SIX,
+                    VoiceCue.VICTORY -> LudoPawsProceduralVocal.PIG_SQUEAL
+                    else -> LudoPawsProceduralVocal.PIG_OINK
                 }
 
             AnimalSpecies.COCK ->
