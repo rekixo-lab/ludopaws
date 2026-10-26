@@ -18,5 +18,6 @@ object ClassicBoardDefinition {
             ),
         surfaceColor = LudoPawsBoardPalette.joint,
         neutralCellColor = LudoPawsBoardPalette.stone,
+        classicRoadReliefEnabled = true,
     )
 }

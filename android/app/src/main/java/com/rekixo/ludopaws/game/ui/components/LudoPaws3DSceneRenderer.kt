@@ -58,6 +58,9 @@ internal class LudoPaws3DSceneRenderer {
     private val centerHouses by lazy { LudoPawsCenterHouses3D.acquire() }
     private var monsoonBoard: com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardScene? = null
     private var monsoonWasEnabled = false
+    private val classicRoads by lazy {
+        com.rekixo.ludopaws.feature.boards.content.classic.ClassicRoadScene()
+    }
     private val drawContext = object : CharacterDrawContext() {
         override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
             scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
@@ -283,7 +286,11 @@ internal class LudoPaws3DSceneRenderer {
                 ?: 0
         GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
-        if (state.stoneRoadOverlayEnabled) centerHouses.drawStoneRoads(drawContext, size, turns)
+        if (state.classicRoadReliefEnabled) {
+            classicRoads.draw(drawContext, size, turns)
+        } else if (state.stoneRoadOverlayEnabled) {
+            centerHouses.drawStoneRoads(drawContext, size, turns)
+        }
         if (state.monsoonEffectsEnabled) {
             val weather = monsoonBoard ?: com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardScene()
                 .also { monsoonBoard = it }
