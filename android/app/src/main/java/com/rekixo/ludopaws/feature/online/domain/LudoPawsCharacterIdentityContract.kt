@@ -21,6 +21,7 @@ object LudoPawsCharacterIdentityContract {
         return when (canonical) {
             "donkey" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
             "goat_lumi" -> "goat"
+            "cock" -> "duck"
             else -> canonical
         }
     }

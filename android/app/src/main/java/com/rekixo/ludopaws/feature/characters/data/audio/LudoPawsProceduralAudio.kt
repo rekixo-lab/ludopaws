@@ -196,6 +196,32 @@ internal object LudoPawsProceduralAudio {
                     vibratoDepth = .05,
                 )
 
+            LudoPawsProceduralVocal.COCK_CROW ->
+                synth(
+                    durationMs = 560,
+                    rate = rate,
+                    startHz = 620.0,
+                    endHz = 980.0,
+                    harmonic = .55,
+                    noise = .07,
+                    vibratoHz = 7.0,
+                    vibratoDepth = .10,
+                    tremoloHz = 6.0,
+                    doublePulse = true,
+                )
+
+            LudoPawsProceduralVocal.COCK_CLUCK ->
+                synth(
+                    durationMs = 180,
+                    rate = rate,
+                    startHz = 580.0,
+                    endHz = 270.0,
+                    harmonic = .50,
+                    noise = .09,
+                    tremoloHz = 13.0,
+                    doublePulse = true,
+                )
+
             LudoPawsProceduralVocal.DUCK_QUACK ->
                 synth(
                     durationMs = 185,

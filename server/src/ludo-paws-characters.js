@@ -11,6 +11,7 @@ export const LUDO_PAWS_CHARACTER_IDS = Object.freeze([
   "cat",
   "donkey",
   "goat_lumi",
+  "cock",
 ]);
 
 const CHARACTER_IDS = new Set(LUDO_PAWS_CHARACTER_IDS);

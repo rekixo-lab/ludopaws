@@ -47,7 +47,7 @@ internal object LudoPaws3DCharacterPolicy {
         ) {
             "dog" -> LudoPaws3DSpecies.DOG
             "goat", "goat_lumi" -> LudoPaws3DSpecies.GOAT
-            "duck" -> LudoPaws3DSpecies.DUCK
+            "duck", "cock" -> LudoPaws3DSpecies.DUCK
             "cat" -> LudoPaws3DSpecies.CAT
             "donkey" -> LudoPaws3DSpecies.GOAT
             else -> null
