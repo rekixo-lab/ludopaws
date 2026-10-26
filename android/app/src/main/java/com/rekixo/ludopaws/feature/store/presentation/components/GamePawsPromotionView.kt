@@ -40,7 +40,7 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
     }
     private val cycle = object : Runnable {
         override fun run() {
-            if (!canAnimate()) return
+            if (!shouldAnimatePromotion()) return
             if (candidates.size > 1) {
                 index = (index + 1) % candidates.size
                 bindCharacter()
@@ -132,7 +132,7 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
         bindCharacter()
     }
 
-    private fun canAnimate(): Boolean = spaceAvailable && isAttachedToWindow && isShown && windowVisibility == VISIBLE && hasWindowFocus() &&
+    private fun shouldAnimatePromotion(): Boolean = spaceAvailable && isAttachedToWindow && isShown && windowVisibility == VISIBLE && hasWindowFocus() &&
         (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
     private fun updateMotion() {
@@ -141,7 +141,7 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
         motion = null
         avatar.translationY = 0f
         avatar.rotation = 0f
-        if (!canAnimate()) return
+        if (!shouldAnimatePromotion()) return
         motion = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 1800L
             repeatCount = ValueAnimator.INFINITE
