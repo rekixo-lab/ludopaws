@@ -1,14 +1,22 @@
 # First-party Paws showcase, phase one
 
-Home places the featured character card below the Shop/Badges/Leaderboard/Remove Ads
-shortcuts, followed by the complete original hero artwork and then the mode buttons.
-The original image file is unchanged and uses FIT_CENTER with no Canvas mask or crop:
-the title, pets, pedestals and die remain visible at a smaller scale. These sections
-share a vertical layout rather than overlapping absolute offsets. Short screens can
-scroll the content above the reserved fixed footer instead of hiding sections behind
-it. Character cards rotate every 12 seconds
-when system animations are enabled. The Explore action opens the Store Paws tab
-with that exact character selected for inspection, not equipped or purchased.
+Home has no promotional card. Its original fixed menu layout and full hero image
+are restored: 350/388 dp maximum width, 272/302 dp image allocation, FIT_CENTER,
+with the original mode and footer offsets. The source artwork is unchanged.
+
+Active offline and online matches place one compact Paws promotion between Back
+and Settings, entirely inside the existing 52 dp header row. It has 8 dp clearance
+from each fixed side button. Setup and matchmaking retain their titles rather than
+showing the promotion. No board, player-rail, name, profile or dice geometry changes.
+The card clips its artwork to its own bounds. If there is insufficient space or
+the card intersects the board/player rails on a short viewport, only the promotion
+becomes transparent and non-interactive; gameplay is never moved to make room.
+
+The match variant uses the shared cached 3D portrait, not a second live EGL scene.
+A subtle native bob/tilt and 12-second character rotation run only while visible
+and focused, honoring disabled animations. They stop on hiding or detachment.
+Tapping this promotion only shows an after-match Store reminder. It never opens
+another Activity, pauses the match, starts an ad or launches a purchase.
 
 The Store Paws tab has one featured detail viewport above the existing lightweight
 portrait grid. Tapping a grid character opens its detail rather than automatically
@@ -29,7 +37,7 @@ EGL setup, frame submission and cleanup stay on its worker; failed setup restore
 the portrait. SurfaceTexture release is deferred until worker cleanup completes.
 Rendering is
 request-driven at approximately 30 FPS, pauses while offscreen, unfocused or in
-the background, and detaches with its view. Home pauses before the Store starts.
+the background, and detaches with its view.
 Store grid portraits do not become separate live GL scenes. Disabled system
 animations retain a single static frame and disable automatic item rotation.
 Animation clocks do not jump across background or offscreen pauses. Old character
@@ -38,9 +46,8 @@ Rotating characters discard the prior model's context-local mesh buffers rather
 than accumulating every featured model in the live preview's GPU cache.
 
 Detail cards stack vertically below 320 dp or with larger system text. Names
-ellipsize instead of clipping, buttons remain 48 dp tall and the narrow Home
-variant reduces thumbnail width. Home hides secondary copy at larger font sizes;
-the showcase stays below the HUD and above the hero and mode controls. Availability and
+ellipsize instead of clipping and buttons remain 48 dp tall. The match header
+uses a 44 dp portrait and single-line ellipsized labels. Availability and
 ownership are refreshed on return rather than frozen at card construction. A
 completed verified ad requirement can still be claimed when new ads are disabled.
 
@@ -50,12 +57,13 @@ prices (including currency symbols) without deriving currency from the phone loc
 or hardcoding USD. The detail preview uses the same live price. Missing products
 remain price unavailable; Play Console configuration is still required.
 
-This is the character-first stage of the proposed Home + Store showcase. Board
+This is the character-first stage of the gameplay-header + Store showcase. Board
 dioramas, mesh-based dice promotions, match-result placements and analytics are
-not included. Existing board/dice catalog previews and match screens are unchanged.
+not included. Existing board/dice catalog previews and gameplay controls are unchanged.
 
 No build, tests, lint, installation or PR was run/created, as requested. Device QA
-remains pending for compact Home spacing, full hero visibility, localized prices, transparent GL
+remains pending for compact header spacing, overlap suppression, touch pass-through,
+restored Home hero visibility, localized prices, transparent GL
 composition, scroll clipping, pause/resume, static fallback, repeated navigation,
 verified ad progress and successful/failed unlock flows. Performance and purchase
 conversion have not been measured.

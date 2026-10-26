@@ -31,6 +31,8 @@ import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.store.domain.PostWinInterstitialPolicy
 
 class MainActivity : ComponentActivity() {
+    internal var gameplayPawsPromotion:
+        com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionSlot? = null
     internal val gameMode:
         GameMode by lazy {
         GameMode
