@@ -5,6 +5,7 @@ import com.rekixo.ludopaws.feature.boards.content.astral.AstralBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.lagoon.CloudLagoonBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.autumn.AutumnBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.spring.BlossomBoardDefinition
+import com.rekixo.ludopaws.feature.boards.content.winter.WinterBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.checkers.CheckersBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.chess.ChessBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.diwali.DiwaliBoardDefinition
@@ -19,6 +20,7 @@ object BoardRegistry {
         ClassicBoardDefinition.content,
         AutumnBoardDefinition.content,
         BlossomBoardDefinition.content,
+        WinterBoardDefinition.content,
         CloudLagoonBoardDefinition.content,
         AstralBoardDefinition.content,
         CheckersBoardDefinition.content,
