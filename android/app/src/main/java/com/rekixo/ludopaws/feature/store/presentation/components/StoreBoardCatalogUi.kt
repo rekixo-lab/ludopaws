@@ -27,6 +27,14 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
         val panels = StoreCosmeticCatalog.boards
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
+        val selectionUpdates = mutableMapOf<String, (Boolean, Boolean) -> Unit>()
+        refreshBoardSelection = {
+            val currentOwned = cosmetics.ownedCosmeticIds()
+            val currentSelected = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
+            selectionUpdates.forEach { (id, update) ->
+                update(id in currentOwned, id in currentOwned && id == currentSelected)
+            }
+        }
 
         // Use the same two-card row rhythm as Paws so every board preview gets more room.
         panels.chunked(2).forEachIndexed { rowIndex, rowBoards ->
@@ -38,7 +46,7 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
 
             rowBoards.forEach { board ->
                 row.addView(
-                    boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id),
+                    boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
                     LinearLayout.LayoutParams(
                         0,
                         dp(188),
@@ -72,6 +80,7 @@ private fun StoreActivity.boardPanel(
     board: StoreCosmetic,
     owned: Boolean,
     selected: Boolean,
+    selectionUpdates: MutableMap<String, (Boolean, Boolean) -> Unit>,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -79,32 +88,8 @@ private fun StoreActivity.boardPanel(
         setPadding(dp(6), dp(8), dp(6), dp(8))
 
         val locked = !board.contentAvailable
-        // Only the timber panel is used. No blue/purple arcade face or coloured icon well.
-        background =
-            if (locked || !owned) {
-                plywoodBackground(this@boardPanel, cornerRadiusDp = 13f)
-            } else {
-                playerCountSelectionBackground(
-                    context = this@boardPanel,
-                    selected = selected,
-                    outerCornerRadiusDp = 13f,
-                    checkBadgeAtTopEnd = true,
-                    emphasizeSelected = true,
-                    showCheckBadge = selected,
-                    checkMarkScale = 2.0f,
-                    useRecessedPlywood = false,
-                )
-            }
-        elevation = dp(if (selected) 4 else 2).toFloat()
         isClickable = !locked
         isFocusable = !locked
-        contentDescription =
-            when {
-                locked && board.remoteManaged -> "${board.title}, not available in this app build yet"
-                locked -> "$LOCKED_BOARD_TITLE, locked, coming soon"
-                !owned -> "${board.title}, available to unlock"
-                else -> "${board.title}, unlocked" + if (selected) ", selected" else ""
-            }
 
         addView(
             TextView(this@boardPanel).apply {
@@ -153,8 +138,9 @@ private fun StoreActivity.boardPanel(
             )
         }
 
+        val statusBadge = boardStatusBadge(board = board, locked = locked, owned = owned, selected = selected)
         addView(
-            boardStatusBadge(board = board, locked = locked, owned = owned, selected = selected),
+            statusBadge,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -162,6 +148,35 @@ private fun StoreActivity.boardPanel(
                 topMargin = dp(8)
             },
         )
+
+        val updateSelection: (Boolean, Boolean) -> Unit = { currentOwned, currentSelected ->
+            isSelected = currentSelected
+            background = if (locked || !currentOwned) {
+                plywoodBackground(this@boardPanel, cornerRadiusDp = 13f)
+            } else {
+                playerCountSelectionBackground(
+                    context = this@boardPanel,
+                    selected = currentSelected,
+                    outerCornerRadiusDp = 13f,
+                    checkBadgeAtTopEnd = true,
+                    emphasizeSelected = true,
+                    showCheckBadge = currentSelected,
+                    checkMarkScale = 2.0f,
+                    useRecessedPlywood = false,
+                )
+            }
+            elevation = dp(if (currentSelected) 4 else 2).toFloat()
+            contentDescription = when {
+                locked && board.remoteManaged -> "${board.title}, not available in this app build yet"
+                locked -> "$LOCKED_BOARD_TITLE, locked, coming soon"
+                !currentOwned -> "${board.title}, available to unlock"
+                currentSelected -> "${board.title}, selected"
+                else -> "${board.title}, unlocked, tap to select"
+            }
+            boardStatusBadge(board, locked, currentOwned, currentSelected, statusBadge)
+        }
+        selectionUpdates[board.id] = updateSelection
+        updateSelection(owned, selected)
 
         if (locked) {
             addView(
@@ -179,9 +194,8 @@ private fun StoreActivity.boardPanel(
             )
         } else {
             setOnClickListener { clicked ->
-                clicked.playSelectionPopAnimation {
-                    handleCosmeticTap(board)
-                }
+                handleCosmeticTap(board)
+                clicked.playSelectionPopAnimation {}
             }
             AppFocusRing.apply(this, cornerRadiusDp = 13f)
         }
@@ -192,12 +206,13 @@ private fun StoreActivity.boardStatusBadge(
     locked: Boolean,
     owned: Boolean,
     selected: Boolean,
+    badge: TextView = TextView(this),
 ): TextView =
-    TextView(this).apply {
+    badge.apply {
         text = when {
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
-            owned -> "🔓 UNLOCKED"
+            owned -> "TAP TO SELECT"
             board.gemPrice > 0 -> "${board.gemPrice} GEMS"
             board.requiredAdViews > 0 -> "${board.requiredAdViews} ADS"
             else -> "GET"

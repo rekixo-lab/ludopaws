@@ -10,6 +10,9 @@ import android.widget.ScrollView
 import android.widget.LinearLayout
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
+import com.rekixo.ludopaws.LudoPawsBoardView
+import com.rekixo.ludopaws.LudoPawsBoardChromeView
+import com.rekixo.ludopaws.LudoPawsReactiveBoardView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.profile.domain.ProfileProgression
 import com.rekixo.ludopaws.feature.settings.data.local.GameMusicController
@@ -323,7 +326,7 @@ internal fun showSettingsDialog(
                 .forCategory(
                     CosmeticCategory.BOARD,
                 )
-                .filter { it.id in ownedCosmeticIds }
+                .filter { it.contentAvailable && it.id in ownedCosmeticIds }
         val selectedBoard =
             StoreCosmeticCatalog
                 .find(
@@ -367,6 +370,7 @@ internal fun showSettingsDialog(
                                 selected
                         }
                         ?: return@showSettingsChoiceDialog
+                if (cosmetics.selectedId(CosmeticCategory.BOARD) == cosmetic.id) return@showSettingsChoiceDialog
                 boardField.isEnabled = false
                 selectSettingsCosmetic(activity, cosmetic, onApplied = {
                     boardField.isEnabled = true
@@ -394,7 +398,7 @@ internal fun showSettingsDialog(
                 .forCategory(
                     CosmeticCategory.DICE,
                 )
-                .filter { it.id in ownedCosmeticIds }
+                .filter { it.contentAvailable && it.id in ownedCosmeticIds }
         val selectedDice =
             StoreCosmeticCatalog
                 .find(
@@ -438,6 +442,7 @@ internal fun showSettingsDialog(
                                 selected
                         }
                         ?: return@showSettingsChoiceDialog
+                if (cosmetics.selectedId(CosmeticCategory.DICE) == cosmetic.id) return@showSettingsChoiceDialog
                 diceField.isEnabled = false
                 selectSettingsCosmetic(activity, cosmetic, onApplied = {
                     diceField.isEnabled = true
@@ -537,6 +542,16 @@ private fun reloadVisibleCosmetics(
     view: View,
 ) {
     when (view) {
+        is LudoPawsReactiveBoardView -> {
+            view.reloadStyle()
+            return
+        }
+        is LudoPawsBoardView -> {
+            view.reloadStyle()
+            return
+        }
+        is LudoPawsBoardChromeView ->
+            view.reloadStyle()
         is LudoBoardView ->
             view.reloadStyle()
         is DiceView ->

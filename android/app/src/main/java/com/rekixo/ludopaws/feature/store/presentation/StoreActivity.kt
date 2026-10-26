@@ -46,6 +46,9 @@ class StoreActivity :
 
     internal var selectedTab =
         StoreTab.GEMS
+    internal var refreshBoardSelection: (() -> Unit)? = null
+    private var cosmeticUpdateInProgress = false
+    private var cosmeticFeedback: Toast? = null
     internal var liveProducts:
         Map<
             String,
@@ -634,8 +637,18 @@ class StoreActivity :
     }
 
     internal fun purchaseOrSelectCosmetic(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic) {
-        if (BuildConfig.LUDOPAWS_FAMILY_MODE && cosmetics.selectOfflineFreeCosmetic(cosmetic)) {
-            renderStore()
+        if (cosmeticUpdateInProgress) {
+            showCosmeticFeedback("Saving selection…")
+            return
+        }
+        if (cosmetics.selectOfflineFreeCosmetic(cosmetic)) {
+            val refresh = refreshBoardSelection
+            if (cosmetic.category == com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD && refresh != null) {
+                refresh()
+            } else {
+                renderStore()
+            }
+            showCosmeticFeedback("${cosmetic.title} selected")
             return
         }
         val owned = cosmetics.isOwned(cosmetic.id)
@@ -686,6 +699,7 @@ class StoreActivity :
         cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
         unlockChannel: String?,
     ) {
+        if (cosmeticUpdateInProgress) return
         if (unlockChannel == "PLAY_PRODUCT" || unlockChannel == "LEVEL" || unlockChannel == "EVENT") {
             showStoreMessage(
                 "This unlock method is not available yet. No Gems or entitlements were changed.",
@@ -698,6 +712,8 @@ class StoreActivity :
             requestRewardedAd(cosmetic.id)
             return
         }
+        cosmeticUpdateInProgress = true
+        showCosmeticFeedback("Saving ${cosmetic.title}…")
         billingExecutor.execute {
             try {
                 val session = accountRepository.requireSession()
@@ -716,10 +732,13 @@ class StoreActivity :
                 cosmetics.applyServerSnapshot(serverWallet, session.accountId)
                 cosmetics.clearOfflineSelection(cosmetic.category)
                 runOnUiThread {
+                    cosmeticUpdateInProgress = false
                     if (!canRenderStoreUi()) return@runOnUiThread
                     renderStore()
                     showStoreMessage(
-                        if (response.optBoolean("alreadyOwned", false)) {
+                        if (cosmetics.selectedId(cosmetic.category) == cosmetic.id) {
+                            "${cosmetic.title} selected."
+                        } else if (response.optBoolean("alreadyOwned", false)) {
                             "${cosmetic.title} is already owned."
                         } else {
                             "${cosmetic.title} was saved to your account."
@@ -742,11 +761,17 @@ class StoreActivity :
                     else -> error.message ?: "The store could not update your account. Try again when connected."
                 }
                 runOnUiThread {
+                    cosmeticUpdateInProgress = false
                     if (!canRenderStoreUi()) return@runOnUiThread
                     showStoreMessage(message)
                 }
             }
         }
+    }
+
+    private fun showCosmeticFeedback(message: String) {
+        cosmeticFeedback?.cancel()
+        cosmeticFeedback = Toast.makeText(this, message, Toast.LENGTH_SHORT).also { it.show() }
     }
 
     private fun refreshWalletAfterRewardedAd(
@@ -886,6 +911,7 @@ class StoreActivity :
 
     internal fun renderStore() {
         if (!canRenderStoreUi()) return
+        refreshBoardSelection = null
         val renderStartedAt = android.os.SystemClock.elapsedRealtime()
 
         val (root, host) =
