@@ -2,6 +2,7 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.animation.ValueAnimator
 import android.content.Context
+import android.content.SharedPreferences
 import android.app.ActivityManager
 import android.graphics.Color
 import android.graphics.Rect
@@ -21,6 +22,7 @@ import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.data.local.StorePreferences
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
@@ -42,6 +44,16 @@ internal class GamePawsPromotionView(
     private val leftCopy = LinearLayout(context)
     private val rightCopy = LinearLayout(context)
     private var candidates = emptyList<Offer>()
+    val hasLockedOffers: Boolean get() = candidates.isNotEmpty()
+    var onAvailabilityChanged: ((Boolean) -> Unit)? = null
+    private val inventoryPreferences = context.applicationContext.getSharedPreferences(StorePreferences.PREFS_NAME, Context.MODE_PRIVATE)
+    private val refreshOwnedOffers = Runnable { refreshCandidates() }
+    private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID) {
+            removeCallbacks(refreshOwnedOffers)
+            post(refreshOwnedOffers)
+        }
+    }
     private var index = 0
     private var preview: FeaturedPawsPreview? = null
     private var extraPreview: View? = null
@@ -58,12 +70,7 @@ internal class GamePawsPromotionView(
     private val cycle = object : Runnable {
         override fun run() {
             if (!canPresentPromotion() || !animationsAllowed()) return
-            if (candidates.size > 1) {
-                index = (index + 1) % candidates.size
-                bindCharacter()
-            } else {
-                postDelayed(this, if (gameplay) 12000L else 7000L)
-            }
+            refreshCandidates(advance = true)
         }
     }
     private val startPreview = Runnable {
@@ -144,6 +151,10 @@ internal class GamePawsPromotionView(
         AppFocusRing.apply(this, cornerRadiusDp = 12f)
         setOnClickListener {
             val offer = candidates.getOrNull(index) ?: return@setOnClickListener
+            if (CosmeticInventoryStore(context).isOwned(offer.cosmetic.id)) {
+                refreshCandidates()
+                return@setOnClickListener
+            }
             if (!gameplay) {
                 onExplore?.invoke(when (offer.cosmetic.category) {
                     CosmeticCategory.BOARD -> "BOARD"
@@ -163,9 +174,7 @@ internal class GamePawsPromotionView(
         val offer = candidates.getOrNull(index) ?: return
         name.text = offer.title
         categoryLabel.text = if (offer.characterId != null) "MEET" else "DISCOVER"
-        val owned = CosmeticInventoryStore(context).isOwned(offer.cosmetic.id)
         priceLabel.text = when {
-            owned -> "YOURS TO PLAY"
             offer.cosmetic.gemPrice > 0 -> CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice)
             offer.cosmetic.requiredAdViews > 0 -> "${offer.cosmetic.requiredAdViews} ADS"
             else -> "MAKE IT YOURS"
@@ -236,10 +245,7 @@ internal class GamePawsPromotionView(
         val available = width >= dp(120) && availableHeight >= dp(52) && height <= availableHeight
         if (available == spaceAvailable) return true
         spaceAvailable = available
-        alpha = if (available) 1f else 0f
-        isClickable = available
-        isFocusable = available
-        importantForAccessibility = if (available) IMPORTANT_FOR_ACCESSIBILITY_AUTO else IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        updateOfferVisibility()
         updateMotion()
         return true
     }
@@ -258,7 +264,18 @@ internal class GamePawsPromotionView(
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
-    private fun refreshCandidates() {
+    fun refreshOffers() = refreshCandidates()
+
+    private fun updateOfferVisibility() {
+        val available = spaceAvailable && hasLockedOffers
+        alpha = if (available) 1f else 0f
+        isClickable = available
+        isFocusable = available
+        importantForAccessibility = if (available) IMPORTANT_FOR_ACCESSIBILITY_AUTO else IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+    }
+
+    private fun refreshCandidates(advance: Boolean = false) {
+        val previouslyAvailable = hasLockedOffers
         val previousId = candidates.getOrNull(index)?.cosmetic?.id
         val ownedIds = CosmeticInventoryStore(context).ownedCosmeticIds()
         val characters = CharacterDefinitions.all.mapNotNull { definition ->
@@ -273,13 +290,23 @@ internal class GamePawsPromotionView(
             .map { Offer(it, it.title) }
         candidates = (0 until maxOf(characters.size, boards.size, dice.size)).flatMap { position ->
             listOfNotNull(characters.getOrNull(position), boards.getOrNull(position), dice.getOrNull(position))
-        }.sortedBy { if (it.cosmetic.id in ownedIds) 1 else 0 }
-        index = candidates.indexOfFirst { it.cosmetic.id == previousId }.coerceAtLeast(0)
-        if (candidates.isEmpty()) visibility = GONE
-        bindCharacter()
+        }.filter { it.cosmetic.id !in ownedIds }
+        val previousIndex = candidates.indexOfFirst { it.cosmetic.id == previousId }
+        index = if (advance && previousIndex >= 0) (previousIndex + 1) % candidates.size else previousIndex.coerceAtLeast(0)
+        updateOfferVisibility()
+        if (hasLockedOffers) bindCharacter() else {
+            name.text = ""
+            priceLabel.text = ""
+            contentDescription = ""
+            preview?.alpha = 0f
+            extraPreview?.let { artwork.removeView(it) }
+            extraPreview = null
+            updateMotion()
+        }
+        if (previouslyAvailable != hasLockedOffers) onAvailabilityChanged?.invoke(hasLockedOffers)
     }
 
-    private fun canPresentPromotion(): Boolean = promotionActive && spaceAvailable && isAttachedToWindow && isShown && windowVisibility == VISIBLE && hasWindowFocus()
+    private fun canPresentPromotion(): Boolean = hasLockedOffers && promotionActive && spaceAvailable && isAttachedToWindow && isShown && windowVisibility == VISIBLE && hasWindowFocus()
 
     private fun animationsAllowed(): Boolean = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
 
@@ -300,6 +327,7 @@ internal class GamePawsPromotionView(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        inventoryPreferences.registerOnSharedPreferenceChangeListener(inventoryListener)
         refreshCandidates()
         viewTreeObserver.addOnPreDrawListener(spaceObserver)
         updateMotion()
@@ -307,7 +335,7 @@ internal class GamePawsPromotionView(
 
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) {
         super.onWindowFocusChanged(hasWindowFocus)
-        updateMotion()
+        if (hasWindowFocus && isAttachedToWindow) refreshCandidates() else updateMotion()
     }
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
@@ -321,6 +349,8 @@ internal class GamePawsPromotionView(
     }
 
     override fun onDetachedFromWindow() {
+        inventoryPreferences.unregisterOnSharedPreferenceChangeListener(inventoryListener)
+        removeCallbacks(refreshOwnedOffers)
         if (viewTreeObserver.isAlive) viewTreeObserver.removeOnPreDrawListener(spaceObserver)
         removeCallbacks(cycle)
         removeCallbacks(startPreview)
@@ -334,22 +364,30 @@ internal class GamePawsPromotionView(
 
 internal class GamePawsPromotionSlot(context: Context, private val fallback: View?) : FrameLayout(context) {
     private val promotion = GamePawsPromotionView(context)
+    private var matchActive = false
 
     init {
         clipChildren = true
         clipToPadding = true
         fallback?.let { addView(it, LayoutParams(-1, -1)) }
         addView(promotion, LayoutParams(-1, -1))
+        promotion.onAvailabilityChanged = { updateContentVisibility() }
         setMatchActive(false)
     }
 
     fun setMatchActive(active: Boolean) {
-        fallback?.visibility = if (active) GONE else VISIBLE
-        promotion.visibility = if (active) VISIBLE else GONE
+        matchActive = active
+        updateContentVisibility()
         promotion.setActive(active)
         if (!active && layoutParams != null && layoutParams.height != (52 * resources.displayMetrics.density + .5f).toInt()) {
             layoutParams = layoutParams.apply { height = (52 * resources.displayMetrics.density + .5f).toInt() }
         }
+    }
+
+    private fun updateContentVisibility() {
+        fallback?.visibility = if (matchActive) GONE else VISIBLE
+        promotion.visibility = if (matchActive && promotion.hasLockedOffers) VISIBLE else GONE
+        visibility = if (matchActive && !promotion.hasLockedOffers) GONE else VISIBLE
     }
 
     fun protect(views: List<View>) = promotion.protect(views)

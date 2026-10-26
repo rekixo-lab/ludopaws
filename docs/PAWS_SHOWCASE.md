@@ -36,8 +36,19 @@ One live preview is reused per card, and hidden, overlapping or unfocused cards 
 Content-ready boards share the same center slot and their actual layered previews.
 Non-default dice can use the same slot when their shipped content becomes available;
 unavailable Coming Soon assets are never advertised. Characters, boards and supported
-dice interleave, with unowned items prioritized. Item rotation is every 12 seconds
+dice interleave, with only content-ready, currently unowned items eligible. Owned
+or unlocked assets never appear in Home/gameplay promotions. Item rotation is every 12 seconds
 in gameplay and 7 seconds on Home; disabled animations stop automatic item rotation.
+Inventory/account-wallet preference updates refresh eligibility immediately, as do
+activation, focus return and item rotation. The current eligible item is preserved
+when possible. Tap rechecks ownership before opening Store. Store catalog browsing
+and owned-item selection are unchanged.
+
+When no locked assets remain, the gameplay promotion becomes non-interactive and
+invisible. Home keeps only the hero, hides pager indicators and disables manual and
+automatic promotion paging instead of showing a blank or already-owned offer.
+Inventory listeners are removed on detachment; refund/relock updates can restore
+eligible promotions without changing board or player controls.
 Tapping this promotion only shows an after-match Store reminder. It never opens
 another Activity, pauses the match, starts an ad or launches a purchase.
 

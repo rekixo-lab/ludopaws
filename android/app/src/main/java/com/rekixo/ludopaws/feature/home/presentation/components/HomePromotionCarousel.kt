@@ -62,12 +62,26 @@ internal class HomePromotionCarousel(
             marginEnd = dp(4)
         })
         isFocusable = true
+        promotion.onAvailabilityChanged = { available ->
+            if (!available) {
+                removeCallbacks(autoSlide)
+                transition?.cancel()
+                transition = null
+                page = 0
+                touching = false
+                dragging = false
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            updatePageState()
+            scheduleAutoSlide()
+        }
         promotion.setActive(false)
         updatePageState()
     }
 
     fun setActive(value: Boolean) {
         active = value
+        if (value) promotion.refreshOffers()
         if (value) page = 0
         touching = false
         dragging = false
@@ -83,7 +97,7 @@ internal class HomePromotionCarousel(
     private fun systemMotionAllowed(): Boolean = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
         ValueAnimator.areAnimatorsEnabled()
 
-    private fun canAutoSlide(): Boolean = active && isAttachedToWindow && isShown &&
+    private fun canAutoSlide(): Boolean = promotion.hasLockedOffers && active && isAttachedToWindow && isShown &&
         hasWindowFocus() && windowVisibility == VISIBLE && !touching && !dragging && systemMotionAllowed()
 
     private fun scheduleAutoSlide() {
@@ -98,12 +112,14 @@ internal class HomePromotionCarousel(
     }
 
     private fun updatePageState() {
+        if (!promotion.hasLockedOffers) page = 0
         positionPages(-page * width.toFloat())
         hero.visibility = if (page == 0) VISIBLE else INVISIBLE
         promotion.visibility = if (page == 1) VISIBLE else INVISIBLE
         promotion.setActive(active && page == 1 && hasWindowFocus() && windowVisibility == VISIBLE)
         indicator.text = if (page == 0) "●  ○" else "○  ●"
-        contentDescription = if (page == 0) "Ludo Paws hero. Page 1 of 2. Swipe left to explore Store." else
+        indicator.visibility = if (promotion.hasLockedOffers) VISIBLE else GONE
+        contentDescription = if (!promotion.hasLockedOffers) "Ludo Paws hero" else if (page == 0) "Ludo Paws hero. Page 1 of 2. Swipe left to explore Store." else
             "Store spotlight. Page 2 of 2. Swipe right for Ludo Paws hero."
     }
 
@@ -114,6 +130,11 @@ internal class HomePromotionCarousel(
     }
 
     private fun slideTo(target: Int, manual: Boolean) {
+        if (target == 1 && !promotion.hasLockedOffers) {
+            stopTransition()
+            removeCallbacks(autoSlide)
+            return
+        }
         removeCallbacks(autoSlide)
         transition?.cancel()
         transition = null
@@ -158,6 +179,7 @@ internal class HomePromotionCarousel(
     }
 
     private fun drag(event: MotionEvent) {
+        if (!promotion.hasLockedOffers) return
         val delta = event.x - downX
         if (!dragging && abs(delta) > touchSlop && abs(delta) > abs(event.y - downY)) {
             dragging = true
@@ -213,13 +235,16 @@ internal class HomePromotionCarousel(
 
     override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
         super.onInitializeAccessibilityNodeInfo(info)
-        info.isScrollable = true
-        info.addAction(if (page == 0) AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD else
-            AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD)
+        info.isScrollable = promotion.hasLockedOffers
+        if (promotion.hasLockedOffers) {
+            info.addAction(if (page == 0) AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD else
+                AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD)
+        }
     }
 
     override fun performAccessibilityAction(action: Int, arguments: android.os.Bundle?): Boolean {
         if (action == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD || action == AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD) {
+            if (!promotion.hasLockedOffers) return false
             slideTo(if (action == AccessibilityNodeInfo.ACTION_SCROLL_FORWARD) 1 else 0, manual = true)
             return true
         }
