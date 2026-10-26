@@ -56,9 +56,8 @@ internal class LudoPaws3DSceneRenderer {
     private var cachedOccupancy: Map<String, Int> = emptyMap()
     private val lifeByPawn = mutableMapOf<LudoPaws3DPawnKey, LudoPaws3DLifeMotion>()
     private val centerHouses by lazy { LudoPawsCenterHouses3D.acquire() }
-    private val monsoonBoard by lazy {
-        com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardScene()
-    }
+    private var monsoonBoard: com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardScene? = null
+    private var monsoonWasEnabled = false
     private val drawContext = object : CharacterDrawContext() {
         override fun drawPart(parent: FloatArray, translateX: Float, translateY: Float, translateZ: Float,
             scaleX: Float, scaleY: Float, scaleZ: Float, color: FloatArray,
@@ -134,6 +133,8 @@ internal class LudoPaws3DSceneRenderer {
     }
 
     fun release() {
+        monsoonBoard?.reset()
+        monsoonWasEnabled = false
         customMeshes.values.forEach { it.release() }
         customMeshes.clear()
         if (::sphere.isInitialized) sphere.release()
@@ -284,8 +285,13 @@ internal class LudoPaws3DSceneRenderer {
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
         if (state.stoneRoadOverlayEnabled) centerHouses.drawStoneRoads(drawContext, size, turns)
         if (state.monsoonEffectsEnabled) {
-            monsoonBoard.draw(drawContext, size, turns, nowMillis, state.monsoonAnimationEnabled)
+            val weather = monsoonBoard ?: com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardScene()
+                .also { monsoonBoard = it }
+            weather.draw(drawContext, size, turns, nowMillis, state.monsoonAnimationEnabled, state)
+        } else if (monsoonWasEnabled) {
+            monsoonBoard?.reset()
         }
+        monsoonWasEnabled = state.monsoonEffectsEnabled
         // Pawn and house depth are independent of the static road relief.
         GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
         // Clip decorative volume (including an outward-swinging door) to the
@@ -300,6 +306,10 @@ internal class LudoPaws3DSceneRenderer {
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
         centerHouses.draw(drawContext, size, turns, state, nowMillis)
         GLES30.glDisable(GLES30.GL_SCISSOR_TEST)
+        if (state.monsoonEffectsEnabled && state.monsoonAnimationEnabled) {
+            GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
+            monsoonBoard?.drawWeather(drawContext, nowMillis)
+        }
         // Houses retain their internal depth, while all authoritative pawns remain
         // visible above the center artwork, including the four finish positions.
         GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)

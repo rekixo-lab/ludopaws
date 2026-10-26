@@ -131,6 +131,12 @@ internal class MonsoonBoardRenderer : BoardRenderer {
             stroke.color = 0xFF687B71.toInt()
             stroke.strokeWidth = .25f
             canvas.drawRoundRect(face, 1.3f, 1.3f, stroke)
+            fill.color = 0x99826645.toInt()
+            canvas.drawOval(face.left + .6f, face.bottom - 1.6f,
+                face.left + 2.8f, face.bottom - .5f, fill)
+            fill.color = 0xAA5E8586.toInt()
+            canvas.drawOval(face.right - 2.4f, face.top + 1.1f,
+                face.right - .7f, face.top + 2f, fill)
             stroke.color = 0xFFDADECC.toInt()
             stroke.strokeWidth = .4f
             canvas.drawLine(face.left + 1.2f, face.top + .65f, face.right - 1.2f, face.top + .65f, stroke)

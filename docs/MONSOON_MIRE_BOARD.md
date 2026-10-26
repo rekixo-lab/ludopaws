@@ -10,23 +10,41 @@ tiles and readable team lanes. In gameplay the existing OpenGL scene adds actual
 lit mesh geometry: raised mud banks, glossy puddle surfaces and bevelled road
 rims. These are geometry with normals and depth, not a photo or animated bitmap.
 
-Sixteen staggered raindrops fall toward eight puddles and their muddy banks.
+Thirty-six staggered rain emitters cover a six-by-six grid across the whole
+board, including lanes, yards and center. Impact positions change each cycle;
+some drops also target the eight original puddles. Additional shallow slicks
+and muddy smears appear at road edges without covering safe-cell stars.
 Each landing produces a short 3D splash crown and expanding, fading elliptical
-ripple; bank impacts use earthy mud-colored splashes. The loop is stylized and
+ripple. Surface classification chooses water ripples, smaller wet-stone splashes
+or earthy mud-colored splashes. The loop is stylized and
 gentle, with no lightning flashes, downloaded video, new audio or physics system.
 Rain impacts are ambient visual events, not changes to pawn movement or rules.
 
 Only this theme enables the extra scene. Meshes are created once per renderer and
 reuse the existing GL program, context and buffers. Static terrain is batched into
-three draws; animated effects use at most 32 additional draws, with no per-frame
-mesh creation, preference reads or texture uploads. Visibility/pause/cleanup use
+three draws. Fixed pools cap rain at 36 emitters, trails at 48 prints and movement
+impacts at 12; oldest entries are recycled. Glyph and splash meshes are shared,
+with no per-frame mesh creation, preference reads or texture uploads. Visibility/pause/cleanup use
 the existing scene lifecycle. Disabling system animators retains static 3D relief
 but disables rain and impact motion when the style reloads.
 
-Effects rotate with the board, stay within the yard regions and render underneath
-characters and houses. Track geometry, safe-cell stars, home lanes, hit testing,
+Terrain and footprints render beneath architecture. Rain and splashes render
+above architecture but underneath characters so the center also receives rain.
+All positions rotate with the board. Track geometry, safe-cell stars, home lanes, hit testing,
 proof state and gameplay remain shared. Classic habitat and stone-road overlays
 are disabled only for this theme.
+
+## Movement traces
+
+The active forward route supplies actual cell contacts, step timing and species
+travel/lift samples. Each landed step leaves a pair of oriented mud prints and a
+550 ms surface-specific impact. Airborne travel, idle poses, teleports, snapshot
+refreshes and flying capture returns do not generate dotted connecting trails.
+Print glyphs distinguish paws, split hooves and bird toes; a smear glyph is
+available for turtle contacts. Each print holds for two seconds, then fades over
+four seconds. Trails use canonical board coordinates, so resizing and perspective
+rotation do not move them onto another route. Match changes, leaving the theme,
+renderer release and disabled system animation clear transient traces.
 
 Store thumbnails deliberately remain lightweight static previews, not additional
 live GL scenes. Gameplay supplies the animated 3D layer. Free selection works in
@@ -34,6 +52,7 @@ Settings and Store without waiting for an older server wallet. Matching server
 source is registered for later deployment; no deployment was performed.
 
 No tests, builds or installations were run, as requested. Device checks remain:
-all four perspectives, visible splash timing, pawn/marker readability, repeated
+all four perspectives, full-board rain coverage, splash timing, contact-aligned
+prints and six-second fade, pawn/marker readability, repeated
 theme switches, pause/resume, disabled system animations and frame pacing on the
 target phone. Performance has not been measured on a real device.
