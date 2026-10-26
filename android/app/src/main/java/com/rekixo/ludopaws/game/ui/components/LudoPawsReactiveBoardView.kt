@@ -338,6 +338,10 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
         board.reloadStyle()
     }
 
+    internal fun setBoardThemeOverride(themeId: String) {
+        board.setBoardThemeOverride(themeId)
+    }
+
     override fun onDetachedFromWindow() {
         restoreOverflowDelegate()
         removeCallbacks(idleReactionRunnable)

@@ -137,14 +137,12 @@ private fun StoreActivity.boardPanel(
                 ),
             )
         } else {
-            // A passive Classic-only miniature mirrors the production board geometry and colors.
-            // It deliberately has no touch handling, so taps continue to reach the whole panel.
             addView(
-                ClassicBoardIconView(this@boardPanel, board.id).apply {
+                BoardIconView(this@boardPanel, board.id).apply {
                     isClickable = false
                     isFocusable = false
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    contentDescription = "Classic Ludo board preview"
+                    contentDescription = "${board.title} board preview"
                 },
                 LinearLayout.LayoutParams(
                     dp(104),
@@ -246,17 +244,17 @@ private fun StoreActivity.boardStatusBadge(
 
 
 /** The same board, relief, garden and joined houses used in gameplay; no duplicate flat artwork. */
-private class ClassicBoardIconView(
+private class BoardIconView(
     context: android.content.Context,
     previewThemeId: String,
 ) : android.widget.FrameLayout(context) {
     init {
-        require(previewThemeId == StoreCosmeticCatalog.DEFAULT_BOARD)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        contentDescription = "Classic 3D gameplay board preview"
+        contentDescription = "3D gameplay board preview"
         addView(com.rekixo.ludopaws.LudoPawsReactiveBoardView(context).apply {
+            setBoardThemeOverride(previewThemeId)
             bind(com.rekixo.ludopaws.MatchSnapshot(
-                matchId = "store-classic-preview", status = "WAITING", hostPlayerId = "",
+                matchId = "store-$previewThemeId-preview", status = "WAITING", hostPlayerId = "",
                 players = emptyList(), turnSeat = 0, randomEventIndex = 0, pendingRoll = null,
                 winnerPlayerId = null, rulesetId = "ludoproof-standard-v5", history = emptyList(),
             ), playerId = null, perspectiveColor = "YELLOW")

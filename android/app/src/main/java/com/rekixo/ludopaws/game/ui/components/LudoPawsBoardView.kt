@@ -544,6 +544,12 @@ class LudoPawsBoardView @JvmOverloads constructor(
         boardChrome.reloadStyle()
     }
 
+    internal fun setBoardThemeOverride(themeId: String) {
+        boardSurface.setBoardThemeOverride(themeId)
+        baseBoard.setBoardThemeOverride(themeId)
+        boardChrome.setBoardThemeOverride(themeId)
+    }
+
     // BOARD SIZE LOCK: exactly mirror the approved LudoBoardView square.
     override fun onMeasure(
         widthMeasureSpec: Int,

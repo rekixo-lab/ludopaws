@@ -11,6 +11,7 @@ data class BoardDefinition(
     val tintAmount: Float = 0f,
     val brightness: Float = 1f,
     val rendererKey: String = "classic",
+    val yardHabitatEnabled: Boolean = true,
 ) {
     val id: String get() = offer.id
     fun teamColor(classic: Int): Int {

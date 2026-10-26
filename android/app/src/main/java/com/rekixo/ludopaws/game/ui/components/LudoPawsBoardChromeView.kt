@@ -15,6 +15,7 @@ import kotlin.math.min
 internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var footprintSource: LudoBoardView? = null
     private var definition = BoardRegistry.resolve("board_classic")
+    private var previewBoardThemeId: String? = null
     private var staticBoard: Bitmap? = null
     private var requestedKey: ArtworkKey? = null
     internal var artworkReady = false
@@ -58,13 +59,19 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     }
 
     fun reloadStyle() {
-        val next = BoardRegistry.resolve(CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
+        val next = BoardRegistry.resolve(previewBoardThemeId ?: CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
         if (next != definition) {
             definition = next
             requestedKey = null
             requestArtwork()
         }
         invalidate()
+    }
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        require(BoardRegistry.find(themeId)?.offer?.contentAvailable == true)
+        previewBoardThemeId = themeId
+        reloadStyle()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -140,7 +147,7 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
                             val target = Canvas(artwork)
                             val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
                             renderer.draw(target, size, density, definition)
-                            yardHabitatRenderer.draw(target, cell)
+                            if (definition.yardHabitatEnabled) yardHabitatRenderer.draw(target, cell)
                             artwork
                         }
                         val bitmap = result.getOrNull()

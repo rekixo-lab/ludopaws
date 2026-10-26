@@ -238,13 +238,21 @@ class LudoBoardView @JvmOverloads constructor(
 
     fun reloadStyle() {
         boardThemeId =
-            CosmeticInventoryStore(
+            previewBoardThemeId ?: CosmeticInventoryStore(
                 context,
             )
                 .selectedId(
                     CosmeticCategory.BOARD,
                 )
         invalidate()
+    }
+
+    private var previewBoardThemeId: String? = null
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        require(BoardRegistry.find(themeId)?.offer?.contentAvailable == true)
+        previewBoardThemeId = themeId
+        reloadStyle()
     }
 
     override fun onDetachedFromWindow() {
