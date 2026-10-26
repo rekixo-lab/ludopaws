@@ -30,8 +30,12 @@ with no per-frame mesh creation, preference reads or texture uploads. Visibility
 the existing scene lifecycle. Disabling system animators retains static 3D relief
 but disables rain and impact motion when the style reloads.
 
-Rain uses brighter, slightly wider and longer streaks with a 1.4-second cycle
-and a longer airborne portion. This makes rainfall more noticeable without
+Rain uses translucent blue-grey, volumetric tapered drops instead of opaque pale
+triangles. A board-water material reduces white specular glare without changing
+character eye materials or the original puddle artwork. Wider, longer drops use
+a 1.4-second cycle and a longer airborne portion. Double fine ripple rings,
+rounded splash crowns and a batched six-droplet outward spray make impacts more
+legible. Mud impacts retain earthy colors. This makes rainfall more noticeable without
 altering the base theme, adding a fog filter or covering characters with effects.
 
 Terrain and footprints render beneath architecture. Rain and splashes render

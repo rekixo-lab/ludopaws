@@ -35,8 +35,8 @@ internal class MonsoonBoardScene {
     private val puddleY = floatArrayOf(37f, 11f, 37f, 11f, 137f, 111f, 137f, 111f)
     private val mudColor = floatArrayOf(.39f, .28f, .19f, 1f)
     private val waterColor = floatArrayOf(.32f, .49f, .51f, 1f)
-    private val rainColor = floatArrayOf(.83f, .91f, .89f, 1f)
-    private val impactColor = floatArrayOf(.60f, .74f, .71f, 1f)
+    private val rainColor = floatArrayOf(.30f, .57f, .65f, .88f)
+    private val impactColor = floatArrayOf(.35f, .59f, .64f, 1f)
     private val mudSplashColor = floatArrayOf(.62f, .45f, .29f, 1f)
     private val rimColor = floatArrayOf(.39f, .43f, .36f, 1f)
     private val banks = Builder().apply {
@@ -84,22 +84,46 @@ internal class MonsoonBoardScene {
             repeat(4) { side -> quad(outer[side], outer[(side + 1) % 4], inner[(side + 1) % 4], inner[side]) }
         }
     }.build()
-    private val ripple = Builder().apply { ovalRing(0f, 0f, 1f, 1f, .85f, 0f, .08f) }.build()
+    private val ripple = Builder().apply {
+        ovalRing(0f, 0f, 1f, 1f, .93f, 0f, .06f)
+        ovalRing(0f, 0f, .60f, .60f, .91f, 0f, .04f)
+    }.build()
     private val crown = Builder().apply {
-        repeat(12) { side ->
-            val angle = side * 2f * PI.toFloat() / 12f
-            val next = (side + 1) * 2f * PI.toFloat() / 12f
-            val middle = (angle + next) * .5f
-            triangle(Point(cos(angle) * .55f, sin(angle) * .55f, 0f),
-                Point(cos(next) * .55f, sin(next) * .55f, 0f),
-                Point(cos(middle) * .82f, sin(middle) * .82f, if (side % 2 == 0) 1.1f else .65f))
+        repeat(24) { side ->
+            val angle = side * 2f * PI.toFloat() / 24f
+            val next = (side + 1) * 2f * PI.toFloat() / 24f
+            fun rim(at: Float) = Point(cos(at) * .78f, sin(at) * .78f,
+                .55f + .18f * cos(at * 6f))
+            quad(Point(cos(angle) * .4f, sin(angle) * .4f, 0f),
+                Point(cos(next) * .4f, sin(next) * .4f, 0f), rim(next), rim(angle))
         }
     }.build()
     private val drop = Builder().apply {
-        val tip = Point(0f, 1f, 0f)
-        val tail = Point(0f, -1f, .2f)
-        triangle(tip, Point(-.16f, .3f, .1f), tail)
-        triangle(tip, tail, Point(.16f, .3f, .1f))
+        repeat(8) { side ->
+            val angle = side * 2f * PI.toFloat() / 8f
+            val next = (side + 1) * 2f * PI.toFloat() / 8f
+            fun shoulder(at: Float) = Point(cos(at) * .22f, .35f, sin(at) * .16f)
+            fun head(at: Float) = Point(cos(at) * .16f, .78f, sin(at) * .12f)
+            triangle(Point(0f, -1.4f, 0f), shoulder(angle), shoulder(next))
+            quad(shoulder(angle), head(angle), head(next), shoulder(next))
+            triangle(head(angle), Point(0f, 1f, 0f), head(next))
+        }
+    }.build()
+    private val spray = Builder().apply {
+        repeat(6) { index ->
+            val angle = index * 2f * PI.toFloat() / 6f
+            val centerX = cos(angle) * 1.1f
+            val centerY = sin(angle) * .75f
+            val front = Point(centerX, centerY, .22f)
+            val back = Point(centerX, centerY, -.12f)
+            val outline = arrayOf(Point(centerX - .13f, centerY, 0f),
+                Point(centerX, centerY - .22f, 0f), Point(centerX + .13f, centerY, 0f),
+                Point(centerX, centerY + .22f, 0f))
+            repeat(4) { side ->
+                triangle(front, outline[side], outline[(side + 1) % 4])
+                triangle(back, outline[(side + 1) % 4], outline[side])
+            }
+        }
     }.build()
 
     fun draw(context: CharacterDrawContext, size: Float, turns: Int, nowMillis: Long,
@@ -134,7 +158,7 @@ internal class MonsoonBoardScene {
         context.life = null
         context.limbBendY = 0f
         context.limbBendZ = 0f
-        context.surface = CharacterSurface.EYE
+        context.surface = CharacterSurface.BOARD_WATER
         repeat(64) { index ->
             val clock = nowMillis + index * 137L
             val cycle = clock / 1400L
@@ -150,13 +174,13 @@ internal class MonsoonBoardScene {
             }
             if (phase < .72f) {
                 val fall = 1f - phase / .72f
-                context.surface = CharacterSurface.EYE
+                context.surface = CharacterSurface.BOARD_WATER
                 context.drawGeometry(transform, drop, (targetX + fall * 3f).coerceIn(1f, 149f),
                     (targetY - fall * 9f).coerceIn(1f, 149f),
-                    1.3f + fall * 12f, 1.15f, 1.7f, 1f, rainColor, rotateZ = 18f)
+                    1.3f + fall * 12f, 1.4f, 2.1f, 1f, rainColor, rotateZ = 18f)
             } else {
                 val impact = (phase - .72f) / .28f
-                drawImpact(context, targetX, targetY, impact, .85f)
+                drawImpact(context, targetX, targetY, impact, 1.05f)
             }
         }
         stepImpacts.forEach { impact ->
@@ -187,7 +211,7 @@ internal class MonsoonBoardScene {
         splashColor[3] = (1f - progress) * if (surface == 1) .65f else .9f
         val radius = (.35f + progress * 2.2f) * scale * if (surface == 1) .65f else 1f
         val height = if (surface == 2) 1.16f else .76f
-        context.surface = if (surface == 2) CharacterSurface.MATTE else CharacterSurface.EYE
+        context.surface = if (surface == 2) CharacterSurface.MATTE else CharacterSurface.BOARD_WATER
         context.drawGeometry(transform, ripple, positionX, positionY, height,
             radius, radius * .70f, (1f - progress).coerceAtLeast(.08f), splashColor)
         if (progress < .48f) {
@@ -195,6 +219,14 @@ internal class MonsoonBoardScene {
             context.drawGeometry(transform, crown, positionX, positionY, height + .02f,
                 (.6f + progress) * scale, (.6f + progress) * scale, lift * scale,
                 splashColor, rotateX = -28f)
+        }
+        if (progress < .78f) {
+            val flight = progress / .78f
+            val bounce = sin(flight * PI.toFloat())
+            val spread = (.35f + flight * 2f) * scale
+            context.drawGeometry(transform, spray, positionX, positionY - bounce * scale * .8f,
+                height + .2f + bounce * scale * 1.3f, spread, spread, .7f,
+                splashColor, rotateZ = positionX * 17f + positionY * 11f)
         }
     }
 
