@@ -25,6 +25,7 @@ import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.components.storeContent
@@ -682,7 +683,7 @@ class StoreActivity :
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.FREE ->
                         "Free"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS ->
-                        "${cosmetic.gemPrice} Gems"
+                        CosmeticPriceLabels.gems(this, cosmetic.gemPrice)
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.REWARDED_ADS ->
                         cosmetics.rewardedAdProgress(cosmetic.id).let { progress ->
                             if (progress >= cosmetic.requiredAdViews) "Unlock · ads completed"
@@ -738,7 +739,9 @@ class StoreActivity :
             com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS) {
             PlywoodAlertDialogBuilder(this)
                 .setTitle("Unlock ${cosmetic.title}?")
-                .setMessage("Spend ${cosmetic.gemPrice} Gems? This unlock is saved to your account.")
+                .setMessage(android.text.SpannableStringBuilder("Spend ")
+                    .append(CosmeticPriceLabels.gems(this, cosmetic.gemPrice))
+                    .append("? This unlock is saved to your account."))
                 .setPositiveButton("Unlock") { _, _ -> performCosmeticPurchaseOrSelect(cosmetic, channel) }
                 .setNegativeButton("Cancel", null).show()
             return

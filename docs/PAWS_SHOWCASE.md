@@ -1,9 +1,12 @@
 # First-party Paws showcase, phase one
 
-Home now uses its existing hero allocation for a clipped wordmark and one featured
-character card. The original image file is unchanged; a wordmark-only Canvas mask
-keeps the old static pets from duplicating the live character. HUD, mode buttons
-and footer keep their existing positions. Character cards rotate every 12 seconds
+Home places the featured character card below the Shop/Badges/Leaderboard/Remove Ads
+shortcuts, followed by the complete original hero artwork and then the mode buttons.
+The original image file is unchanged and uses FIT_CENTER with no Canvas mask or crop:
+the title, pets, pedestals and die remain visible at a smaller scale. These sections
+share a vertical layout rather than overlapping absolute offsets. Short screens can
+scroll the content above the reserved fixed footer instead of hiding sections behind
+it. Character cards rotate every 12 seconds
 when system animations are enabled. The Explore action opens the Store Paws tab
 with that exact character selected for inspection, not equipped or purchased.
 
@@ -37,16 +40,22 @@ than accumulating every featured model in the live preview's GPU cache.
 Detail cards stack vertically below 320 dp or with larger system text. Names
 ellipsize instead of clipping, buttons remain 48 dp tall and the narrow Home
 variant reduces thumbnail width. Home hides secondary copy at larger font sizes;
-the showcase stays between the measured HUD and mode controls. Availability and
+the showcase stays below the HUD and above the hero and mode controls. Availability and
 ownership are refreshed on return rather than frozen at card construction. A
 completed verified ad requirement can still be claimed when new ads are disabled.
+
+Cosmetic prices use the existing drawn Gem artwork inline with their amounts.
+Store Paws/Board cards and the unlock chooser use localized Google Play product
+prices (including currency symbols) without deriving currency from the phone locale
+or hardcoding USD. The detail preview uses the same live price. Missing products
+remain price unavailable; Play Console configuration is still required.
 
 This is the character-first stage of the proposed Home + Store showcase. Board
 dioramas, mesh-based dice promotions, match-result placements and analytics are
 not included. Existing board/dice catalog previews and match screens are unchanged.
 
 No build, tests, lint, installation or PR was run/created, as requested. Device QA
-remains pending for compact Home spacing, wordmark masking, transparent GL
+remains pending for compact Home spacing, full hero visibility, localized prices, transparent GL
 composition, scroll clipping, pause/resume, static fallback, repeated navigation,
 verified ad progress and successful/failed unlock flows. Performance and purchase
 conversion have not been measured.

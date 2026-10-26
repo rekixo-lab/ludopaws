@@ -472,10 +472,13 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
 
 }
 
-private fun characterUnlockLabel(characterId: String): String {
+private fun OfflineGameActivity.characterUnlockLabel(characterId: String): CharSequence {
     val offer = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(characterId)
         ?: return "🔒 LOCKED"
-    return if (offer.gemPrice > 0) "🔒 ${offer.gemPrice} GEMS · BUY" else "🔒 ${offer.requiredAdViews} ADS"
+    return if (offer.gemPrice > 0) {
+        com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels.gems(this,
+            offer.gemPrice, " · STORE")
+    } else "🔒 ${offer.requiredAdViews} ADS"
 }
 
 private const val CHARACTER_AVATAR_TAG =

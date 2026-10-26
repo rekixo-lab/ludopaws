@@ -47,7 +47,7 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
                     boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(188),
+                        dp(208),
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -58,7 +58,7 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
             repeat(2 - rowBoards.size) {
                 row.addView(
                     TextView(this@boardCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(188), 1f),
+                    LinearLayout.LayoutParams(0, dp(208), 1f),
                 )
             }
 
@@ -220,8 +220,8 @@ private fun StoreActivity.boardStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "TAP TO SELECT"
-            board.unlockChannels.size > 1 -> "${board.gemPrice} GEMS · BUY"
-            board.gemPrice > 0 -> "${board.gemPrice} GEMS"
+            board.unlockChannels.size > 1 -> cosmeticPurchaseLabel(board)
+            board.gemPrice > 0 -> CosmeticPriceLabels.gems(this@boardStatusBadge, board.gemPrice)
             board.requiredAdViews > 0 -> "${board.requiredAdViews} ADS"
             else -> "GET"
         }
@@ -237,7 +237,7 @@ private fun StoreActivity.boardStatusBadge(
         )
         gravity = Gravity.CENTER
         includeFontPadding = false
-        maxLines = 1
+        maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
         background =

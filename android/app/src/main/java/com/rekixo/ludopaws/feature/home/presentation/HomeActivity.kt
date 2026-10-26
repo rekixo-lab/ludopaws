@@ -8,6 +8,7 @@ import android.widget.FrameLayout
 import android.content.Intent
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.profile.domain.model.ProfileGameMode
@@ -42,7 +43,10 @@ class HomeActivity : Activity() {
             LudoProofTheme.arcadeRoot(this)
 
         val contentHost =
-            FrameLayout(this)
+            ScrollView(this).apply {
+                isFillViewport = true
+                isVerticalScrollBarEnabled = false
+            }
 
         val horizontalPaddingDp =
             LudoProofTheme.pageHorizontalPaddingDp(this)
@@ -113,33 +117,30 @@ class HomeActivity : Activity() {
                 topHudWidth,
                 dp(if (isCompact()) 350 else 388),
             )
-        contentHost.addView(
+        content.addView(
             HomePawsShowcase(this) { characterId ->
                 startActivity(Intent(this, StoreActivity::class.java).apply {
                     putExtra(StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
                     putExtra(StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId)
                 })
             }.also { pawsShowcase = it },
-            FrameLayout.LayoutParams(
+            LinearLayout.LayoutParams(
                 heroWidth,
                 dp(if (isCompact()) 272 else 302),
-                Gravity.TOP or Gravity.CENTER_HORIZONTAL,
             ).apply {
-                topMargin =
-                    dp(if (isCompact()) 158 else 168)
+                gravity = Gravity.CENTER_HORIZONTAL
+                topMargin = dp(8)
             },
         )
 
-        // Home is a fixed game menu, not a document-style scrolling screen.
-        // Keeping the HUD/mode controls directly in the host prevents swipe
-        // gestures from sliding the profile/shortcut controls into the status
-        // bar/camera cutout while preserving their existing positions.
         host.addView(
             contentHost,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT,
-            ),
+            ).apply {
+                bottomMargin = dp(if (isCompact()) 112 else 126)
+            },
         )
 
         host.addView(
@@ -159,38 +160,17 @@ class HomeActivity : Activity() {
             },
         )
 
-        content.addView(
-            profileHud(),
-        )
+        content.addView(profileHud(), 0)
 
         content.addView(
-            modeSection().also { modes ->
-                modes.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                    val showcase = pawsShowcase ?: return@addOnLayoutChangeListener
-                    val params = showcase.layoutParams as FrameLayout.LayoutParams
-                    val hudBottom = content.top + content.getChildAt(0).bottom
-                    val top = maxOf(dp(if (isCompact()) 158 else 168), hudBottom + dp(8))
-                    val available = content.top + modes.top - top - dp(12)
-                    val height = minOf(dp(if (isCompact()) 272 else 302), available).coerceAtLeast(0)
-                    if (params.height != height || params.topMargin != top) {
-                        params.height = height
-                        params.topMargin = top
-                        showcase.layoutParams = params
-                    }
-                }
-            },
+            modeSection(),
             LinearLayout.LayoutParams(
                 modeSectionWidth,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
                 gravity =
                     Gravity.CENTER_HORIZONTAL
-                topMargin =
-                    // Lift only the five main game-mode cards. The hero artwork
-                    // and the top HUD keep their own existing positions.
-                    dp(
-                        if (isCompact()) 322 else 335,
-                    )
+                topMargin = dp(12)
             },
         )
 

@@ -28,6 +28,7 @@ internal class FeaturedPawsCard(
     context: Context,
     initialId: String? = null,
     private val detail: Boolean = false,
+    private val playPrice: (String) -> String? = { null },
     private val onAction: (String) -> Unit,
 ) : LinearLayout(context) {
     private val inventory = CosmeticInventoryStore(context)
@@ -165,9 +166,10 @@ internal class FeaturedPawsCard(
         val progress = offer?.let { inventory.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         description.text = when {
             owned -> "Cute moves. Your next match companion."
-            offer != null && offer.unlockChannels.size > 1 -> "${offer.gemPrice} Gems or Google Play purchase"
+            offer != null && offer.unlockChannels.size > 1 -> CosmeticPriceLabels.gems(context,
+                offer.gemPrice, playPrice(offer.id)?.let { " or $it" } ?: " or Google Play purchase")
             offer?.unlockKind == CosmeticUnlockKind.REWARDED_ADS -> "$progress/${offer.requiredAdViews} verified ads completed"
-            offer?.unlockKind == CosmeticUnlockKind.GEMS -> "Unlock with ${offer.gemPrice} Gems"
+            offer?.unlockKind == CosmeticUnlockKind.GEMS -> CosmeticPriceLabels.gems(context, offer.gemPrice)
             else -> "Explore this character in the Store"
         }
         action.text = when {
@@ -180,7 +182,7 @@ internal class FeaturedPawsCard(
                 !BuildConfig.LUDOPROOF_ADS_ENABLED -> "ADS UNAVAILABLE"
             offer.unlockKind == CosmeticUnlockKind.REWARDED_ADS && progress < offer.requiredAdViews -> "WATCH AD · $progress/${offer.requiredAdViews}"
             offer.unlockKind == CosmeticUnlockKind.REWARDED_ADS -> "UNLOCK PAW"
-            offer.unlockKind == CosmeticUnlockKind.GEMS -> "${offer.gemPrice} GEMS · UNLOCK"
+            offer.unlockKind == CosmeticUnlockKind.GEMS -> CosmeticPriceLabels.gems(context, offer.gemPrice, " · UNLOCK")
             offer.unlockKind == CosmeticUnlockKind.FREE -> "GET PAW"
             else -> "UNAVAILABLE"
         }

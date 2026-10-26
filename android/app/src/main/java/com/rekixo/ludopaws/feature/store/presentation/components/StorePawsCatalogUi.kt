@@ -21,7 +21,8 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        val featured = FeaturedPawsCard(this@pawsCatalogContent, featuredCharacterId, detail = true) { id ->
+        val featured = FeaturedPawsCard(this@pawsCatalogContent, featuredCharacterId, detail = true,
+            playPrice = { id -> cosmeticPlayPrice(id) }) { id ->
             val selections = CharacterSelectionStore(this@pawsCatalogContent)
             if (selections.isUnlocked(id)) {
                 selections.select(LudoPawsCharacterCatalog.STARTER_PACK_ID, id)
@@ -176,7 +177,7 @@ private fun StoreActivity.pawsCharacterCard(
             TextView(this@pawsCharacterCard).apply {
                 text = when {
                     owned -> "🔓 UNLOCKED"
-                    (unlock?.unlockChannels?.size ?: 0) > 1 -> "300 GEMS · BUY"
+                    unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
                     else -> "🔒 $progress/${unlock?.requiredAdViews} ADS"
                 }
                 textSize = 10f
