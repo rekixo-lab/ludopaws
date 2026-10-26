@@ -9,7 +9,7 @@ import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
 const MAX_BALANCE = 2_000_000_000;
 const NAME_LENGTH = 24;
 const DEFAULT_COSMETICS = [
-  ["board_classic", "BOARD"], ["board_astral", "BOARD"], ["dice_classic", "DICE"],
+  ["board_classic", "BOARD"], ["board_astral", "BOARD"], ["board_cloud_lagoon", "BOARD"], ["dice_classic", "DICE"],
   ["avatar_9", "AVATAR"], ["avatar_4", "AVATAR"], ["avatar_3", "AVATAR"],
   ["avatar_5", "AVATAR"], ["avatar_6", "AVATAR"], ["avatar_7", "AVATAR"],
   ["avatar_1", "AVATAR"], ["avatar_8", "AVATAR"], ["character_pack_starter_paws", "CHARACTER_PACK"],
@@ -18,6 +18,7 @@ const DEFAULT_SELECTIONS = { BOARD: "board_classic", DICE: "dice_classic", AVATA
 const COSMETICS = Object.freeze({
   board_classic: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_astral: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
+  board_cloud_lagoon: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_checkers: { category: "BOARD", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
   board_chess: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
   board_diwali: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
