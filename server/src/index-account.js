@@ -24,8 +24,10 @@ import { GOOGLE_PLAY_PRODUCTS, googlePlayBillingChecks, googlePlayBillingEnabled
 import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
+import { REFERRAL_PACKAGE, REFERRAL_REWARD, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
 
 export { BillingReconciliation } from "./billing-reconciliation.js";
+export { ReferralCampaign } from "./referral-campaign.js";
 
 export {
   ApiGate, FriendConversation, FriendDirectory, FriendRecentRoom, LeaderboardRoom,
@@ -101,6 +103,43 @@ export default {
 export async function handleAccountRequest(request, env) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/.well-known/assetlinks.json" && request.method === "GET") {
+        return json(200, signingCertificates(env).length ? [{ relation: ["delegate_permission/common.handle_all_urls"],
+          target: { namespace: "android_app", package_name: REFERRAL_PACKAGE,
+            sha256_cert_fingerprints: signingCertificates(env).map(value => value.match(/../g).join(":").toUpperCase()) } }] : []);
+      }
+      const invitePath = /^\/r\/([a-f0-9]{64})(\/download)?$/.exec(url.pathname);
+      if (invitePath) {
+        await rateLimit(env, request, "referral:landing", 20);
+        if (!referralsEnabled(env)) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
+        if (invitePath[2] && request.method === "POST") {
+          const response = await referralRequest(env, "/click", { token: invitePath[1] });
+          if (!response.ok) return response;
+          const click = await response.json();
+          const destination = new URL("https://play.google.com/store/apps/details");
+          destination.searchParams.set("id", REFERRAL_PACKAGE);
+          destination.searchParams.set("referrer", click.referrer);
+          return new Response(null, { status: 303, headers: { location: destination.href, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
+        }
+        if (!invitePath[2] && request.method === "GET") {
+          return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta property="og:title" content="A friend invited you to Ludo Paws"><meta name="description" content="Play a real match together. Your inviter can earn a friendship bundle."><title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button, link your Google account and finish a real Online or Friends match within 14 days. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems, once. New players only; install within 7 days of this download click. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing is optional. Existing items are not duplicated or exchanged. Verification can take time. Campaign ends ${new Date(Number(env.LUDOPAWS_REFERRAL_START_MS) + 90 * 86400000).toUTCString()}; your match must finish before then. No reward for the invited player. <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></html>`, {
+            headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer",
+              "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" },
+          });
+        }
+        return json(405, { error: "METHOD_NOT_ALLOWED" });
+      }
+      if (/^\/api\/referrals\/(status|invite|challenge|bind)$/.test(url.pathname)) {
+        const operation = url.pathname.split("/").pop();
+        if (request.method !== (operation === "status" ? "GET" : "POST")) return json(405, { error: "METHOD_NOT_ALLOWED" });
+        await rateLimit(env, request, "referral:" + operation, operation === "status" ? 30 : 6);
+        if (!(operation === "status" ? referralsConfigured(env) : referralsEnabled(env))) return operation === "status"
+          ? json(200, { ok: true, enabled: false, reward: REFERRAL_REWARD })
+          : json(503, { error: "REFERRALS_UNAVAILABLE", message: "Friendship rewards are not available yet." });
+        const session = await authenticate(request, env);
+        const body = request.method === "POST" ? await readJsonObject(request, 24 * 1024) : {};
+        return await referralRequest(env, "/" + operation, { ...body, accountId: session.accountId });
+      }
       if (url.pathname === "/ready" && request.method === "GET") {
         const base = await baseWorker.fetch(request, env);
         let body;
@@ -685,6 +724,10 @@ async function deleteAccountData(env, accountId, sessionId, {
     ...(guestDeletionCredentialHash ? { credentialHash: guestDeletionCredentialHash } : {}),
   });
   const links = await directoryRequest(env, "/identity/list", { accountId });
+
+  if (env?.LUDOPAWS_REFERRALS) {
+    await parseInternalResponse(await referralRequest(env, "/delete", { accountId }), "REFERRAL_DELETE_FAILED");
+  }
 
   if (wallet.deleted !== true && wallet.purchaseLedgerIds?.length) {
     if (!env?.LUDOPROOF_STORE_PURCHASES) throw httpError(503, "STORE_LEDGER_NOT_CONFIGURED", "purchase ledger is not configured for account deletion");

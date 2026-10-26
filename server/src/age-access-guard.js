@@ -13,6 +13,7 @@ const RESTRICTED_API = Object.freeze([
   /^\/api\/friends(?:\/|$)/,
   /^\/api\/leaderboard(?:\/|$)/,
   /^\/api\/wallet(?:\/|$)/,
+  /^\/api\/referrals(?:\/|$)/,
   /^\/api\/store\/(?:catalog|purchases)(?:\/|$)/,
   /^\/api\/admob\/ssv$/,
   /^\/api\/account\/(?:guest|profile|google\/link|link\/friend|link\/leaderboard)(?:\/|$)/,

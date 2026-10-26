@@ -61,6 +61,15 @@ class AccountRepository(context: Context) {
 
     fun currentSession(): AccountSession? = sessions.load()
 
+    fun referralRequest(operation: String, body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
+        require(operation in setOf("status", "invite", "challenge", "bind"))
+        val session = requireSession()
+        if (expectedAccountId != null && session.accountId != expectedAccountId) {
+            throw AccountApiException(409, "ACCOUNT_SESSION_CHANGED", "Your account changed. Please retry.")
+        }
+        return request(if (operation == "status") "GET" else "POST", "/api/referrals/$operation", body, session.accessToken)
+    }
+
     @Synchronized
     fun validSession(current: AccountSession): AccountSession {
         val latest = sessions.load()
@@ -387,7 +396,8 @@ class AccountRepository(context: Context) {
             if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
             if (body != null) {
                 val bytes = body.toString().toByteArray(Charsets.UTF_8)
-                require(bytes.size <= MAX_REQUEST_BYTES) { "Account request exceeded the safety limit." }
+                val maximumBytes = if (path == "/api/referrals/bind") 24 * 1024 else MAX_REQUEST_BYTES
+                require(bytes.size <= maximumBytes) { "Account request exceeded the safety limit." }
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.outputStream.use { it.write(bytes) }

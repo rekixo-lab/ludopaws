@@ -1,4 +1,5 @@
 import { familyProjection } from "./family-safety.js";
+import { referralsConfigured } from "./referral-config.js";
 import {
   MatchRoom as SocialMatchRoom,
 } from "./match-room-social.js";
@@ -40,6 +41,8 @@ export class MatchRoom extends SocialMatchRoom {
   }
 
   async alarm() {
+    const referralState = await this.ctx.storage.get(STATE_KEY);
+    if (referralState?.status === "FINISHED") await this.recordReferralResult(referralState);
     const turnExpired = await this.#enqueue(
       () => this.#expireTurnRollIfNeeded(),
     );
@@ -131,7 +134,9 @@ export class MatchRoom extends SocialMatchRoom {
     if (state.status !== "ACTIVE") {
       const ttl = state.status === "FINISHED" ? FINISHED_IDLE_TTL_MS : ACTIVE_IDLE_TTL_MS;
       const updatedAt = Number(state.updatedAt ?? state.createdAt ?? Date.now());
-      await this.ctx.storage.setAlarm(updatedAt + ttl);
+      const referralPending = state.status === "FINISHED" && referralsConfigured(this.env) &&
+        !await this.ctx.storage.get("referral-delivered");
+      await this.ctx.storage.setAlarm(referralPending ? Math.min(updatedAt + ttl, Date.now() + 60_000) : updatedAt + ttl);
       return false;
     }
     if (state.pendingRoll?.status === "RESOLVED") {

@@ -37,6 +37,9 @@ class HomeActivity : Activity() {
     ) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
+        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.host == "api.ludopaws.rekixo.com") {
+            android.widget.Toast.makeText(this, "Welcome! Only a new Play installation from an invitation can qualify. Your inviter receives the reward after verified play.", android.widget.Toast.LENGTH_LONG).show()
+        }
 
         val (root, host) =
             LudoProofTheme.arcadeRoot(this)
@@ -207,6 +210,9 @@ class HomeActivity : Activity() {
     override fun onResume() {
         super.onResume()
         homeResumed = true
+        window.decorView.postDelayed({
+            if (homeResumed && !isFinishing && !isDestroyed) com.rekixo.ludopaws.feature.referrals.ReferralRepository(this).refreshAttribution()
+        }, 1200L)
         promotionCarousel?.setActive(true)
         window.decorView.postOnAnimation {
             window.decorView.post {

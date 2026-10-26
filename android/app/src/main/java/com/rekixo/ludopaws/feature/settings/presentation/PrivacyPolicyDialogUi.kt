@@ -199,7 +199,7 @@ internal fun showPrivacyPolicyDialog(
 }
 
 private const val PRIVACY_POLICY_TEXT =
-    """Last updated: October 20, 2026
+    """Last updated: October 26, 2026
 
 Ludo Paws is a mobile Ludo-style game published under the Rekixo brand. The data processed depends on the features you use and the services enabled in your version of the game.
 
@@ -214,6 +214,10 @@ INFORMATION THAT MAY BE PROCESSED
 • Social and leaderboard information: Friend IDs, display names, relationships, requests, invitations, recent players, legacy conversation records where retained, submitted results and scores. New free-text conversations are unavailable.
 • Store data: gem balance, selected/owned cosmetics, cosmetic/reward progress when enabled, Play product IDs and hashed purchase references used to verify entitlements and prevent duplicate grants.
 • Device data: local settings, profile statistics, offline game state and account-scoped cache. Hosting or network providers may process IP address and request/device-network information to deliver and protect the service. The API derives a one-way IP hash for rate limiting and does not intentionally save raw IP addresses in match or rate-limit state.
+
+OPTIONAL FRIENDSHIP REWARDS
+Where enabled after policy review, an inviter can earn Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems once when a genuinely new invited player installs through the invitation, links Google and completes an eligible Online or Friends match. Only the inviter receives rewards; sharing or downloading alone does not qualify. We process opaque invitation/referrer tokens, click/install timestamps, account and Google-subject hashes, linked game identities, server match completion and reward records. Google Play Install Referrer and Play Integrity verify installation/app/device signals. No contact list, advertising ID or device fingerprint is requested; Integrity tokens are verified transiently, not persisted by referral code. Existing Google identity eligibility remains unchanged, and referrals are not required to play.
+Click records are retained up to 21 days to cover a 7-day install window plus up to 14 days of delayed first-open/account linking. Challenges expire after 5 minutes and eligible match references after 14 days. Campaign attribution and minimal Google-subject anti-replay hashes are purged 14 days after the 90-day campaign ends. Reward/idempotency records remain with the account. Account deletion removes invitations, relationships, match references and awards; limited anti-replay hashes remain only until the campaign deadline, alongside existing minimal deletion tombstones. Provider retention is independent. Integrity cannot prove one unique human or prevent every kind of farming. The feature remains unavailable until service configuration, policy review and release validation are complete.
 
 WHY DATA IS USED AND WHO MAY PROCESS IT
 Data is used to run the game and accounts, authenticate sessions, provide online/social/leaderboard features, sync entitlements, verify purchases and rewarded ads, protect match integrity, prevent abuse, troubleshoot errors and respond to privacy requests. Depending on features enabled, providers include Cloudflare hosting/storage, Google sign-in services, Google Play Games Services for supported achievements/leaderboard integration, Google Play Billing, and Google Mobile Ads/AdMob with Google's consent tools. Providers apply their own privacy notices and terms. Ludo Paws does not sell personal information.

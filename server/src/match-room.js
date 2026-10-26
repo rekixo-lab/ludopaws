@@ -1,4 +1,5 @@
 import { familyResponse, isFamilyMode, familyPlayerName } from "./family-safety.js";
+import { referralRequest, referralsConfigured } from "./referral-config.js";
 import { rulesetHashForState, rollResponse, publicStateWithHistory } from "./match-room-state.js";
 import { optionalTargetPlayerCount, normalizeMatchMode, optionalLeaderboardProfileId } from "./match-room-validation.js";
 import { readJson, json, errorResponse } from "./match-room-http.js";
@@ -1025,9 +1026,29 @@ export class MatchRoom {
     return this.#recordFinishedMatchIfNeeded(state);
   }
 
+  async recordReferralResult(state) {
+    if (state?.status !== "FINISHED" || !referralsConfigured(this.env) || await this.ctx.storage.get("referral-delivered")) return;
+    try {
+      const response = await referralRequest(this.env, "/match", {
+        homePosition: rulesetForState(state).homePosition,
+        state: { matchId: state.matchId, status: state.status, createdAt: state.startedAt ?? state.createdAt, finishedAt: state.finishedAt,
+          winnerPlayerId: state.winnerPlayerId, players: state.players.map(player => ({
+            playerId: player.playerId, profileId: player.profileId, friendId: player.friendId, playerType: player.playerType,
+            forfeitedAt: player.forfeitedAt, tokens: player.tokens, moveCount: state.playerMoveCounts?.[player.playerId] ?? 0,
+          })) },
+      });
+      if (response.ok) await this.ctx.storage.put("referral-delivered", true);
+    } catch { }
+  }
+
   async #recordFinishedMatchIfNeeded(
     state,
   ) {
+    if (state.status === "FINISHED") {
+      const recording = this.recordReferralResult(state);
+      if (typeof this.ctx.waitUntil === "function") this.ctx.waitUntil(recording);
+      else await recording;
+    }
     if (
       state.status !== "FINISHED" ||
       state.leaderboardRecordedAt != null

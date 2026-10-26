@@ -6,6 +6,7 @@ import {
 } from "./account-security.js";
 import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
 import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS } from "./cosmetic-pricing.js";
+import { REFERRAL_CAMPAIGN, REFERRAL_REWARD } from "./referral-config.js";
 
 const MAX_BALANCE = 2_000_000_000;
 const NAME_LENGTH = 24;
@@ -83,6 +84,7 @@ export class PlayerAccount {
       sql.exec("CREATE TABLE IF NOT EXISTS selected_cosmetics (category TEXT PRIMARY KEY, cosmetic_id TEXT NOT NULL, updated_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_ad_progress (cosmetic_id TEXT PRIMARY KEY, progress INTEGER NOT NULL DEFAULT 0 CHECK(progress >= 0), updated_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_play_grants (ledger_id TEXT PRIMARY KEY, cosmetic_id TEXT NOT NULL)");
+      sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_referral_grants (cosmetic_id TEXT PRIMARY KEY, campaign TEXT NOT NULL)");
       sql.exec("CREATE INDEX IF NOT EXISTS idx_cosmetic_play_grants_item ON cosmetic_play_grants(cosmetic_id)");
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_pricing_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)");
       sql.exec("CREATE INDEX IF NOT EXISTS idx_wallet_tx_created ON wallet_transactions(created_at DESC)");
@@ -125,6 +127,7 @@ export class PlayerAccount {
       if (request.method === "POST" && url.pathname === "/profile/update") return await this.#updateProfile(request);
       if (request.method === "POST" && url.pathname === "/wallet/get") return await this.#getWallet(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-revoke") return await this.#revokePlayPurchase(request);
+      if (request.method === "POST" && url.pathname === "/wallet/referral-bundle") return await this.#grantReferralBundle(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-purchase") return await this.#grantPlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/reward-ad") return await this.#grantAdReward(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/purchase") return await this.#purchaseCosmetic(request);
@@ -213,6 +216,7 @@ export class PlayerAccount {
       this.ctx.storage.sql.exec("DELETE FROM wallet_transactions");
       this.ctx.storage.sql.exec("DELETE FROM cosmetic_ad_progress");
       this.ctx.storage.sql.exec("DELETE FROM cosmetic_play_grants");
+      this.ctx.storage.sql.exec("DELETE FROM cosmetic_referral_grants");
       this.ctx.storage.sql.exec("DELETE FROM cosmetic_pricing_migrations");
       this.ctx.storage.sql.exec("DELETE FROM selected_cosmetics");
       this.ctx.storage.sql.exec("DELETE FROM owned_cosmetics");
@@ -378,6 +382,31 @@ export class PlayerAccount {
     return json(200, { ok: true, ...result, productId, gemAmount: product.gemAmount, removeAds: product.removeAds, wallet: this.#walletSnapshot(accountId) });
   }
 
+  async #grantReferralBundle(request) {
+    const body = await readJson(request), accountId = requireAccountId(body?.accountId);
+    if (body.campaign !== REFERRAL_CAMPAIGN) throw httpError(400, "REFERRAL_CAMPAIGN_INVALID", "Unknown referral campaign.");
+    const sourceHash = await sha256Hex(REFERRAL_CAMPAIGN + ":" + accountId);
+    let replay = false;
+    this.ctx.storage.transactionSync(() => {
+      this.#requireAccountNotDeleting(accountId);
+      this.#profileSnapshot(accountId);
+      const sql = this.ctx.storage.sql;
+      const idempotencyKey = "referral:" + REFERRAL_CAMPAIGN;
+      if ([...sql.exec("SELECT transaction_id FROM wallet_transactions WHERE idempotency_key = ?", idempotencyKey)].length) { replay = true; return; }
+      const wallet = [...sql.exec("SELECT balance FROM wallet WHERE account_id = ?", accountId)][0];
+      const next = Number(wallet?.balance) + REFERRAL_REWARD.gems;
+      if (!wallet || !Number.isSafeInteger(next) || next > MAX_BALANCE) throw httpError(409, "WALLET_BALANCE_LIMIT", "Make space in your gem wallet, then retry.");
+      const now = Date.now();
+      for (const cosmeticId of REFERRAL_REWARD.cosmetics) {
+        sql.exec("INSERT OR IGNORE INTO cosmetic_referral_grants (cosmetic_id, campaign) VALUES (?, ?)", cosmeticId, REFERRAL_CAMPAIGN);
+        sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REFERRAL_BUNDLE', ?, ?)", cosmeticId, COSMETICS[cosmeticId].category, now, sourceHash);
+      }
+      sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", next, now, accountId);
+      sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, 'REFERRAL_BUNDLE', ?, ?, ?, ?)", crypto.randomUUID(), idempotencyKey, sourceHash, REFERRAL_REWARD.gems, next, sourceHash, now);
+    });
+    return json(200, { ok: true, replay, wallet: this.#walletSnapshot(accountId) });
+  }
+
   // Internal binding only: no HTTP account route exposes this operation.
   async #revokePlayPurchase(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId);
@@ -395,7 +424,7 @@ export class PlayerAccount {
       const items = [...this.ctx.storage.sql.exec("SELECT cosmetic_id FROM cosmetic_play_grants WHERE ledger_id = ?", ledgerId)];
       for (const item of items) {
         const remaining = [...this.ctx.storage.sql.exec("SELECT g.ledger_id FROM cosmetic_play_grants g LEFT JOIN revoked_play_purchases r ON r.ledger_id = g.ledger_id WHERE g.cosmetic_id = ? AND r.ledger_id IS NULL LIMIT 1", item.cosmetic_id)];
-        if (!remaining.length) {
+        if (!remaining.length && ![...this.ctx.storage.sql.exec("SELECT cosmetic_id FROM cosmetic_referral_grants WHERE cosmetic_id = ?", item.cosmetic_id)].length) {
           this.ctx.storage.sql.exec("DELETE FROM owned_cosmetics WHERE cosmetic_id = ? AND source = 'PLAY_PRODUCT'", item.cosmetic_id);
           for (const [category, fallback] of Object.entries(DEFAULT_SELECTIONS)) {
             this.ctx.storage.sql.exec("UPDATE selected_cosmetics SET cosmetic_id = ?, updated_at = ? WHERE category = ? AND cosmetic_id = ? AND NOT EXISTS (SELECT 1 FROM owned_cosmetics WHERE cosmetic_id = ?)",

@@ -214,6 +214,7 @@ export function startMatch(state, playerId, now) {
 
   const next = clone(state);
   next.status = "ACTIVE";
+  next.startedAt = now;
   next.turnSeat = 0;
   next.pendingRoll = null;
   touch(next, now);
@@ -605,6 +606,7 @@ export function applyMove(state, { playerId, tokenIndex, now }) {
     throw gameError("ILLEGAL_TOKEN_MOVE", "verified roll exceeds the home path");
   }
   player.tokens[tokenIndex] = destination;
+  next.playerMoveCounts = { ...(next.playerMoveCounts ?? {}), [player.playerId]: (next.playerMoveCounts?.[player.playerId] ?? 0) + 1 };
 
   const captures = captureOpponents(next, seat, destination);
   const ruleset = rulesetForState(next);
