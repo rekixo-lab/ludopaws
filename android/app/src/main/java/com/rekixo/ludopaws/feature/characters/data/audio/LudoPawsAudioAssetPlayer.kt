@@ -327,7 +327,7 @@ internal object LudoPawsAudioAssetPlayer {
             .replace(Regex("_\\d{2}\\.(wav|ogg)$"), "_variant.$1")
 
     private val SUPPORTED_VOCAL_CHARACTERS =
-        setOf("dog", "goat", "duck", "cat", "cock", "pig")
+        setOf("dog", "goat", "duck", "cat", "cock", "pig", "elephant")
 
     internal fun packagedFallbackResourceName(
         preset: LudoPawsProceduralVocal,
@@ -348,6 +348,8 @@ internal object LudoPawsAudioAssetPlayer {
             LudoPawsProceduralVocal.COCK_CLUCK -> "lp_vocal_cock_cluck"
             LudoPawsProceduralVocal.PIG_OINK -> "lp_vocal_pig_oink"
             LudoPawsProceduralVocal.PIG_SQUEAL -> "lp_vocal_pig_squeal"
+            LudoPawsProceduralVocal.ELEPHANT_TRUMPET -> "lp_vocal_elephant_trumpet"
+            LudoPawsProceduralVocal.ELEPHANT_RUMBLE -> "lp_vocal_elephant_rumble"
         }
 
     @Suppress("DEPRECATION")

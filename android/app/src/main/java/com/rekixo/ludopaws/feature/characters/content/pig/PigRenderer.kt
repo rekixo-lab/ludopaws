@@ -61,8 +61,6 @@ internal object PigRenderer : CharacterRenderer {
             Matrix.rotateM(neck, 0, pose.neckPitchDegrees, 1f, 0f, 0f)
             Matrix.translateM(neck, 0, 0f, -.30f, -.10f)
             drawGeometry(neck, PigGeometry.neck, 0f, 0f, 0f, 1f, 1f, 1f, PIG_PINK)
-            surface = CharacterSurface.MATTE
-            drawTeamBib(neck, .32f, .34f, .20f, .11f, teamColor.glColor)
             prepareHead(neck, .85f, pose.headTiltDegrees)
             face(head, pose)
         } finally {

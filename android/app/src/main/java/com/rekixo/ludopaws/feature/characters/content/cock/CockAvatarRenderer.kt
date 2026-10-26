@@ -19,7 +19,5 @@ internal object CockAvatarRenderer : CharacterAvatarRenderer {
         drawEye(canvas, 62f, 45f)
         fill.color = 0xFFF18A24.toInt()
         triangle(canvas, 39f, 56f, 61f, 56f, 50f, 72f)
-        fill.color = 0xFF08765E.toInt()
-        canvas.drawArc(RectF(31f, 77f, 69f, 98f), 180f, 180f, true, fill)
     }
 }

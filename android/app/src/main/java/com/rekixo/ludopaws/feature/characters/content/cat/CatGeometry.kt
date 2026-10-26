@@ -52,9 +52,6 @@ internal object CatGeometry {
         Ring(.045f,0.0896f,0.1026f,centerZ=.010f),Ring(.115f,0.0702f,0.0702f),
         Ring(.18f,0.04f,0.0432f),
     ),24,subdivisions=3)
-    val collar=MeshLoft.build(listOf(
-        Ring(.355f,.19f,.177f,centerZ=.11f),Ring(.405f,.19f,.165f,centerZ=.105f),
-    ),24)
     // Each segment ends at .80 of its root radius, matching the next segment.
     val tail=MeshLoft.build(listOf(
         Ring(-.5f,1f,1f),Ring(0f,.90f,.90f),Ring(.5f,.80f,.80f),
@@ -72,5 +69,5 @@ internal object CatGeometry {
         return MeshGeometry(mesh.vertices, mesh.indices, coatPositions)
     }
 
-    val all get()=listOf(body,neck,head,muzzle,jaw,ear,nose,limb,paw,collar,tail,tailTip)
+    val all get()=listOf(body,neck,head,muzzle,jaw,ear,nose,limb,paw,tail,tailTip)
 }

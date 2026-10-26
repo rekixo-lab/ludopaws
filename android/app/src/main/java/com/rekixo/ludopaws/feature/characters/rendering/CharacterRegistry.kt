@@ -11,6 +11,7 @@ import com.rekixo.ludopaws.feature.characters.content.cat.*
 import com.rekixo.ludopaws.feature.characters.content.donkey.*
 import com.rekixo.ludopaws.feature.characters.content.cock.*
 import com.rekixo.ludopaws.feature.characters.content.pig.*
+import com.rekixo.ludopaws.feature.characters.content.elephant.*
 
 internal data class RegisteredCharacter(val definition: CharacterDefinition, val renderer: CharacterRenderer, val avatar: CharacterAvatarRenderer) {
     val id: String get() = definition.character.id
@@ -27,6 +28,7 @@ internal object CharacterRegistry {
         RegisteredCharacter(LumiGoatDefinition.content, LumiGoatRenderer, LumiGoatAvatarRenderer),
         RegisteredCharacter(CockDefinition.content, CockRenderer, CockAvatarRenderer),
         RegisteredCharacter(PigDefinition.content, PigRenderer, PigAvatarRenderer),
+        RegisteredCharacter(ElephantDefinition.content, ElephantRenderer, ElephantAvatarRenderer),
     )
     private val byId = all.associateBy { it.id }
     init {

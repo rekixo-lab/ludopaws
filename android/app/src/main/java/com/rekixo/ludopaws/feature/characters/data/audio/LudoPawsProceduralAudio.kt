@@ -196,6 +196,32 @@ internal object LudoPawsProceduralAudio {
                     vibratoDepth = .05,
                 )
 
+            LudoPawsProceduralVocal.ELEPHANT_TRUMPET ->
+                synth(
+                    durationMs = 560,
+                    rate = rate,
+                    startHz = 340.0,
+                    endHz = 610.0,
+                    harmonic = .72,
+                    noise = .12,
+                    vibratoHz = 9.0,
+                    vibratoDepth = .09,
+                    tremoloHz = 5.0,
+                )
+
+            LudoPawsProceduralVocal.ELEPHANT_RUMBLE ->
+                synth(
+                    durationMs = 430,
+                    rate = rate,
+                    startHz = 105.0,
+                    endHz = 80.0,
+                    harmonic = .55,
+                    noise = .10,
+                    vibratoHz = 6.0,
+                    vibratoDepth = .05,
+                    tremoloHz = 7.0,
+                )
+
             LudoPawsProceduralVocal.PIG_OINK ->
                 synth(
                     durationMs = 270,

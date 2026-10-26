@@ -76,33 +76,4 @@ internal abstract class CharacterDrawContext {
         }
     }
 
-    fun drawTeamBib(
-        parent: FloatArray,
-        centerY: Float,
-        frontZ: Float,
-        width: Float,
-        height: Float,
-        teamColor: FloatArray,
-    ) {
-        drawPart(
-            parent,
-            0f,
-            centerY,
-            frontZ,
-            width + 0.045f,
-            height + 0.045f,
-            0.125f,
-            BIB_TRIM,
-        )
-        drawPart(
-            parent,
-            0f,
-            centerY,
-            frontZ + 0.025f,
-            width,
-            height,
-            0.13f,
-            teamColor,
-        )
-    }
 }

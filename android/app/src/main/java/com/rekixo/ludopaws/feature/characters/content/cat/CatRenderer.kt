@@ -50,10 +50,6 @@ internal object CatRenderer : CharacterRenderer {
             Matrix.translateM(neck, 0, 0f, -.38f, 0f)
             surface = CharacterSurface.CAT_COAT
             catMesh(neck, CatGeometry.neck, CAT_TABBY_FUR)
-            surface = CharacterSurface.MATTE
-            catMesh(neck, CatGeometry.collar, teamColor.glColor)
-            surface = CharacterSurface.HORN
-            drawPart(neck, 0f, .375f, .30f, .043f, .052f, .018f, TAG_GOLD)
             // Lower the entire facial rig together; eyes, ears and jaw keep their own pivots.
             Matrix.translateM(neck, 0, 0f, -.18f, 0f)
             prepareHead(neck, .94f, pose.headTiltDegrees)

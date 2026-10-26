@@ -6,7 +6,7 @@ offline setup, saved selections and shared 3D portraits.
 
 The code-drawn model has a rounded pink body, broad snout with two nostrils,
 folded ears with darker inner surfaces, blush cheeks, four short legs with
-split hooves, and a curled tail. Its bib follows the player's team color.
+split hooves, and a curled tail. It has no collar, bib or identification tag.
 Idle, hop and home motion share the standard travel and landing dynamics.
 All game reaction cues have Pig-specific ear, head, tail and mouth motion.
 The existing hoof footprint family and hoof movement sound are reused.

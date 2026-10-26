@@ -43,7 +43,6 @@ internal object DonkeyGeometry {
         Ring(-.085f,.115f,.15f,centerZ=.025f),Ring(-.06f,.132f,.17f,centerZ=.025f),
         Ring(.035f,.105f,.13f,centerZ=.02f),Ring(.085f,.07f,.09f),
     ),20,subdivisions=2)
-    val collar=MeshLoft.build(listOf(Ring(.405f,.243f,.238f),Ring(.475f,.224f,.222f)),24)
     val tail=MeshLoft.build(listOf(Ring(-.5f,1f,1f),Ring(0f,.9f,.9f),Ring(.5f,.8f,.8f)),12)
     val tailTuft=MeshLoft.build(listOf(
         Ring(-.5f,.60f,.60f),Ring(-.25f,1f,1f),Ring(.15f,1.10f,1f),Ring(.5f,.05f,.05f),
@@ -54,5 +53,5 @@ internal object DonkeyGeometry {
         Ring(1.14f,.06f,.16f,centerZ=-.11f),Ring(1.24f,.065f,.10f,centerZ=-.08f),
         Ring(1.31f,.01f,.035f,centerZ=-.06f),
     ),16,subdivisions=2)
-    val all get()=listOf(body,neck,head,muzzle,jaw,ear,leg,hoof,collar,tail,tailTuft,mane)
+    val all get()=listOf(body,neck,head,muzzle,jaw,ear,leg,hoof,tail,tailTuft,mane)
 }

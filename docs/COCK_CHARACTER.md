@@ -6,7 +6,7 @@ selection, offline setup and shared 3D portrait without a separate screen.
 
 The procedural model has a red comb and wattles, golden neck feathers, a
 chestnut body, green tail feathers, pointed beak and separate clawed toes.
-Its team bib uses the player's Ludo color. The renderer supplies idle, hop,
+The character has no collar, bib or identification tag. The renderer supplies idle, hop,
 home, wing, tail and beak motion; the reaction profile covers every game cue.
 Geometry is cached through the existing shared scene renderer.
 

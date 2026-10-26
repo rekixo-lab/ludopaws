@@ -73,8 +73,6 @@ internal object CockRenderer : CharacterRenderer {
                 drawPart(neck, featherIndex * .087f, .36f, .24f,
                     .055f, .17f, .035f, COCK_COAT, rotateZ = featherIndex * 9f)
             }
-            surface = CharacterSurface.MATTE
-            drawTeamBib(neck, .20f, .32f, .19f, .12f, teamColor.glColor)
             prepareHead(neck, .97f, pose.headTiltDegrees)
             face(head, pose)
         } finally {

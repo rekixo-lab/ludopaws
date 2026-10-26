@@ -145,6 +145,7 @@ object LudoPawsPawnLayout {
         "duck" -> 2.85f
         "cock" -> 2.22f
         "pig" -> 2.20f
+        "elephant" -> 2.10f
         else -> 3f
     }
 

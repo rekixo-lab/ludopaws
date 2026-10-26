@@ -79,10 +79,6 @@ internal object GoatGeometry {
         Ring(0f, .075f, .075f), Ring(.10f, .075f, .065f, centerZ = -.03f),
         Ring(.22f, .065f, .05f, centerZ = -.055f), Ring(.30f, .008f, .01f, centerZ = -.07f),
     ), 14)
-    val collar = MeshLoft.build(listOf(
-        Ring(.47f, .254f, .264f, centerZ = .055f),
-        Ring(.545f, .25f, .26f, centerZ = .055f),
-    ), 24)
 
-    val all get() = listOf(body, neck, head, muzzle, jaw, ear, horn, shin, thigh, hoof, beard, tuft, tail, collar)
+    val all get() = listOf(body, neck, head, muzzle, jaw, ear, horn, shin, thigh, hoof, beard, tuft, tail)
 }
