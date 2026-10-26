@@ -7,7 +7,6 @@ import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.Path
-import android.graphics.RadialGradient
 import android.graphics.RectF
 import android.graphics.Shader
 import java.util.Random
@@ -21,6 +20,7 @@ import com.rekixo.ludopaws.feature.boards.rendering.BoardRenderer
 internal class ClassicBoardRenderer : BoardRenderer {
     private var density = 1f
     private var theme = ClassicBoardDefinition.content
+    private val jungle = ClassicJungleHabitat()
     private val fillPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.FILL
@@ -29,11 +29,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
         Paint(Paint.ANTI_ALIAS_FLAG).apply {
             style = Paint.Style.STROKE
             strokeJoin = Paint.Join.ROUND
-        }
-    private val shadowPaint =
-        Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            color = 0x50000000
         }
     // One deterministic, low-contrast bitmap is reused for every surface and frame.
     // Transparent pixels preserve the team's exact base colors; tiny black/white
@@ -70,215 +65,17 @@ internal class ClassicBoardRenderer : BoardRenderer {
         this.density = density
         theme = definition
         val cell = size / 15f
-        drawYardDepth(canvas, cell)
+        jungle.draw(canvas, size, definition)
         drawCrossTileDepth(canvas, cell)
         drawCenterDepth(canvas, cell)
     }
 
-    private fun drawYardDepth(
-        canvas: Canvas,
-        cell: Float,
-    ) {
-        drawRaisedYard(canvas, cell, row = 0, col = 0, color = theme.teamColor(RED))
-        drawRaisedYard(canvas, cell, row = 0, col = 9, color = theme.teamColor(GREEN))
-        drawRaisedYard(canvas, cell, row = 9, col = 9, color = theme.teamColor(YELLOW))
-        drawRaisedYard(canvas, cell, row = 9, col = 0, color = theme.teamColor(BLUE))
-    }
-
-    private fun drawRaisedYard(
-        canvas: Canvas,
-        cell: Float,
-        row: Int,
-        col: Int,
-        color: Int,
-    ) {
-        val yard =
-            RectF(
-                axisBoundary(col, cell),
-                axisBoundary(row, cell),
-                axisBoundary(col + 6, cell),
-                axisBoundary(row + 6, cell),
-            )
-
-        // Matte quadrant treatment: keep the color vivid but lower the broad
-        // white reflection that made the corner feel like polished plastic.
-        fillPaint.shader =
-            LinearGradient(
-                yard.left,
-                yard.top,
-                yard.right,
-                yard.bottom,
-                intArrayOf(
-                    0x24FFFFFF,
-                    0x08FFFFFF,
-                    0x1C000000,
-                ),
-                floatArrayOf(0f, 0.46f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRect(yard, fillPaint)
-        fillPaint.shader = null
-        drawGrain(canvas, yard)
-
-        val platform =
-            RectF(
-                yard.left + cell * 0.50f,
-                yard.top + cell * 0.50f,
-                yard.right - cell * 0.50f,
-                yard.bottom - cell * 0.50f,
-            )
-        val radius = cell * 0.40f
-        val depth = cell * 0.13f
-
-        // The legacy board underneath draws a dark rounded stroke exactly on this
-        // platform boundary. Cover the tiny outward half of that stroke with a
-        // slightly larger molded shell so no black pencil-like outline can leak
-        // around the glossy home platform in normal Ludo Paws presentation.
-        val outlineCover = dp(1.4f)
-        val platformShell =
-            RectF(
-                platform.left - outlineCover,
-                platform.top - outlineCover,
-                platform.right + outlineCover,
-                platform.bottom + outlineCover,
-            )
-        val shellRadius = radius + outlineCover
-        fillPaint.shader =
-            LinearGradient(
-                platformShell.left,
-                platformShell.top,
-                platformShell.right,
-                platformShell.bottom,
-                intArrayOf(
-                    brighten(color, 1.24f),
-                    brighten(color, 1.10f),
-                    color,
-                    darken(color, 0.80f),
-                ),
-                floatArrayOf(0f, 0.25f, 0.68f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            platformShell,
-            shellRadius,
-            shellRadius,
-            fillPaint,
-        )
-        fillPaint.shader = null
-
-        // Soft lower body: this reads as thickness instead of a black border line.
-        val platformDepth =
-            RectF(
-                platform.left + cell * 0.025f,
-                platform.top + depth,
-                platform.right + cell * 0.025f,
-                platform.bottom + depth,
-            )
-        fillPaint.shader =
-            LinearGradient(
-                platformDepth.left,
-                platformDepth.top,
-                platformDepth.right,
-                platformDepth.bottom,
-                intArrayOf(
-                    darken(color, 0.76f),
-                    darken(color, 0.58f),
-                    darken(color, 0.42f),
-                ),
-                floatArrayOf(0f, 0.58f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            platformDepth,
-            radius,
-            radius,
-            fillPaint,
-        )
-        fillPaint.shader = null
-
-        // Broad outer bevel. Because this is a filled surface rather than a stroke,
-        // the rim fades naturally around the curved corners like molded plastic.
-        fillPaint.shader =
-            LinearGradient(
-                platform.left,
-                platform.top,
-                platform.right,
-                platform.bottom,
-                intArrayOf(
-                    brighten(color, 1.28f),
-                    brighten(color, 1.12f),
-                    color,
-                    darken(color, 0.80f),
-                ),
-                floatArrayOf(0f, 0.24f, 0.66f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            platform,
-            radius,
-            radius,
-            fillPaint,
-        )
-        fillPaint.shader = null
-
-        val face =
-            RectF(
-                platform.left + cell * 0.115f,
-                platform.top + cell * 0.105f,
-                platform.right - cell * 0.115f,
-                platform.bottom - cell * 0.145f,
-            )
-        val faceRadius = radius * 0.74f
-
-        // Ludo Paws requires clean white token bays. Keep the team-colored molded
-        // rim/depth around the bay, but never paint team color over the white face.
-        fillPaint.shader = null
-        fillPaint.color = Color.WHITE
-        canvas.drawRoundRect(
-            face,
-            faceRadius,
-            faceRadius,
-            fillPaint,
-        )
-
-        // Diffuse top sheen: a broad translucent fill, intentionally not a stroke.
-        val sheen =
-            RectF(
-                face.left + cell * 0.035f,
-                face.top + cell * 0.025f,
-                face.right - cell * 0.035f,
-                face.top + face.height() * 0.46f,
-            )
-        fillPaint.shader =
-            LinearGradient(
-                sheen.left,
-                sheen.top,
-                sheen.left,
-                sheen.bottom,
-                intArrayOf(
-                    0x20FFFFFF,
-                    0x08FFFFFF,
-                    Color.TRANSPARENT,
-                ),
-                floatArrayOf(0f, 0.52f, 1f),
-                Shader.TileMode.CLAMP,
-            )
-        canvas.drawRoundRect(
-            sheen,
-            faceRadius * 0.90f,
-            faceRadius * 0.90f,
-            fillPaint,
-        )
-        fillPaint.shader = null
-        // Apply grain last so the colored pawn platform reads as tactile matte material.
-        drawGrain(canvas, face, faceRadius)
-    }
 
     private fun drawCrossTileDepth(
         canvas: Canvas,
         cell: Float,
     ) {
-        fillPaint.color = mixStone(LudoPawsBoardPalette.joint, LudoPawsBoardPalette.stoneShade, .35f)
+        fillPaint.color = theme.surfaceColor
         canvas.drawRect(cell * 5f, 0f, cell * 10f, cell * 5f, fillPaint)
         canvas.drawRect(cell * 5f, cell * 10f, cell * 10f, cell * 15f, fillPaint)
         canvas.drawRect(0f, cell * 5f, cell * 5f, cell * 10f, fillPaint)
@@ -499,16 +296,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
         }
     }
 
-    private fun brighten(
-        color: Int,
-        factor: Float,
-    ): Int =
-        Color.rgb(
-            (Color.red(color) * factor).toInt().coerceIn(0, 255),
-            (Color.green(color) * factor).toInt().coerceIn(0, 255),
-            (Color.blue(color) * factor).toInt().coerceIn(0, 255),
-        )
-
     private fun darken(
         color: Int,
         factor: Float,
@@ -552,11 +339,6 @@ internal class ClassicBoardRenderer : BoardRenderer {
                 callbacks.forEach { it() }
             }
         }
-
-        val RED = LudoPawsBoardPalette.coral
-        val GREEN = LudoPawsBoardPalette.jade
-        val YELLOW = LudoPawsBoardPalette.honey
-        val BLUE = LudoPawsBoardPalette.sky
 
         // Logical coordinates mirror the released lanes. No white road cell is included.
         val COLORED_ENTRIES = setOf(6 to 1, 1 to 8, 8 to 13, 13 to 6)

@@ -13,10 +13,10 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 internal object ClassicRoadProfile {
-    const val GAP = .075f
-    const val DEPTH = .075f
-    const val CORNER = .36f
-    const val BEVEL = .045f
+    const val GAP = .026f
+    const val DEPTH = .045f
+    const val CORNER = .28f
+    const val BEVEL = .028f
 
     fun boundary(index: Int): Float = when {
         index <= 6 -> index * 50f / 6f
@@ -128,6 +128,9 @@ internal class ClassicRoadScene {
             val builders = linkedMapOf<Int, Builder>()
             val safeFaces = Builder()
             val symbols = Builder()
+            val darkFoliage = Builder()
+            val lightFoliage = Builder()
+            val trunks = Builder()
             for (row in 0..14) for (column in 0..14) {
                 if (!ClassicRoadProfile.isRoad(row, column)) continue
                 val raw = ClassicRoadProfile.raw(row, column)
@@ -135,7 +138,7 @@ internal class ClassicRoadScene {
                 val face = ClassicRoadProfile.face(raw)
                 val bevel = unit * ClassicRoadProfile.BEVEL
                 val depth = unit * ClassicRoadProfile.DEPTH
-                val color = ClassicRoadProfile.team(row, column) ?: LudoPawsBoardPalette.stone
+                val color = ClassicRoadProfile.team(row, column) ?: ClassicBoardDefinition.content.neutralCellColor
                 val builder = builders.getOrPut(color) { Builder() }
                 val bottom = RectF(face).apply { offset(0f, depth) }
                 val top = RectF(face).apply { inset(bevel, bevel) }
@@ -187,9 +190,41 @@ internal class ClassicRoadScene {
                     }
                 }
             }
+            for (originX in listOf(0f, 100f)) for (originY in listOf(0f, 100f)) {
+                repeat(2) { tree ->
+                    val centerX = originX + if (tree == 0) 5.8f else 44.5f
+                    val centerY = originY + if (tree == 0) 6f else 44f
+                    val span = if (tree == 0) 4.8f else 4.2f
+                    repeat(8) { frond ->
+                        val angle = frond * PI.toFloat() / 4f + tree * .25f
+                        val middleX = centerX + cos(angle) * span * .55f
+                        val middleY = centerY + sin(angle) * span * .55f
+                        val tip = Point(centerX + cos(angle) * span, centerY + sin(angle) * span, 1.3f)
+                        val ridge = Point(middleX, middleY, 3.4f)
+                        val root = Point(centerX, centerY, 2.8f)
+                        val edgeLeft = Point(middleX - sin(angle) * .85f, middleY + cos(angle) * .85f, 2.1f)
+                        val edgeRight = Point(middleX + sin(angle) * .85f, middleY - cos(angle) * .85f, 2.1f)
+                        lightFoliage.triangle(root, ridge, edgeLeft)
+                        lightFoliage.triangle(ridge, tip, edgeLeft)
+                        darkFoliage.triangle(root, edgeRight, ridge)
+                        darkFoliage.triangle(ridge, edgeRight, tip)
+                    }
+                    repeat(6) { side ->
+                        val angle = side * PI.toFloat() / 3f
+                        val next = (side + 1) * PI.toFloat() / 3f
+                        trunks.quad(Point(centerX + cos(angle) * .4f, centerY + 2.5f + sin(angle) * .4f, 0f),
+                            Point(centerX + cos(next) * .4f, centerY + 2.5f + sin(next) * .4f, 0f),
+                            Point(centerX + cos(next) * .25f, centerY + sin(next) * .25f, 2.8f),
+                            Point(centerX + cos(angle) * .25f, centerY + sin(angle) * .25f, 2.8f))
+                    }
+                }
+            }
             builders.map { (color, builder) -> Batch(builder.build(), rgb(color), CharacterSurface.GARDEN_STONE) } +
                 listOf(Batch(safeFaces.build(), rgb(LudoPawsBoardPalette.safe), CharacterSurface.MATTE),
-                    Batch(symbols.build(), rgb(LudoPawsBoardPalette.stoneLight), CharacterSurface.MATTE))
+                    Batch(symbols.build(), rgb(LudoPawsBoardPalette.stoneLight), CharacterSurface.MATTE),
+                    Batch(trunks.build(), rgb(0xFF766B43.toInt()), CharacterSurface.MATTE),
+                    Batch(darkFoliage.build(), rgb(0xFF315E35.toInt()), CharacterSurface.GARDEN_LEAF),
+                    Batch(lightFoliage.build(), rgb(0xFF588446.toInt()), CharacterSurface.GARDEN_LEAF))
         }
     }
 }
