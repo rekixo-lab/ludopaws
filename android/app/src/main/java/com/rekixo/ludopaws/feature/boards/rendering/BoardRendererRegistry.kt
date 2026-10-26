@@ -3,6 +3,7 @@ package com.rekixo.ludopaws.feature.boards.rendering
 import com.rekixo.ludopaws.feature.boards.content.classic.ClassicBoardRenderer
 import com.rekixo.ludopaws.feature.boards.content.astral.AstralBoardRenderer
 import com.rekixo.ludopaws.feature.boards.content.lagoon.CloudLagoonBoardRenderer
+import com.rekixo.ludopaws.feature.boards.content.autumn.AutumnBoardRenderer
 import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
 
 internal object BoardRendererRegistry {
@@ -10,6 +11,7 @@ internal object BoardRendererRegistry {
         "classic" to { ClassicBoardRenderer() },
         "astral" to { AstralBoardRenderer() },
         "cloud_lagoon" to { CloudLagoonBoardRenderer() },
+        "autumn_forest" to { AutumnBoardRenderer() },
     )
     fun supports(key: String): Boolean = key in factories
     fun create(definition: BoardDefinition): BoardRenderer =

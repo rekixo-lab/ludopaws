@@ -35,6 +35,7 @@ internal data class LudoPaws3DCaptureReturnState(
 
 internal data class LudoPaws3DSceneState(
     val snapshot: MatchSnapshot? = null,
+    val stoneRoadOverlayEnabled: Boolean = true,
     val localPlayerId: String? = null,
     val perspectiveColor: String? = null,
     val characterIdsBySeat: List<String> = emptyList(),
@@ -67,6 +68,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
 
     @Volatile
     private var sceneState = LudoPaws3DSceneState()
+    private var previewBoardThemeId: String? = null
 
     @Volatile
     private var renderLoop: RenderLoop? = null
@@ -427,6 +429,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         sceneState =
             LudoPaws3DSceneState(
                 snapshot = state,
+                stoneRoadOverlayEnabled = previousState.stoneRoadOverlayEnabled,
                 localPlayerId = playerId,
                 perspectiveColor =
                     perspectiveColor?.takeIf {
@@ -599,6 +602,24 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
         updateRenderVisibility()
+    }
+
+    internal fun reloadStyle() {
+        val themeId = previewBoardThemeId
+            ?: com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(context)
+                .selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
+        val definition = com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve(themeId)
+        sceneState = sceneState.copy(stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled)
+    }
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        previewBoardThemeId = themeId
+        reloadStyle()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        reloadStyle()
     }
 
     override fun onDetachedFromWindow() {

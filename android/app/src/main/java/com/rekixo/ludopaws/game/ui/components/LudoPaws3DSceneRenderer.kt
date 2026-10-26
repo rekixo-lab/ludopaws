@@ -279,7 +279,7 @@ internal class LudoPaws3DSceneRenderer {
                 ?: 0
         GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
-        centerHouses.drawStoneRoads(drawContext, size, turns)
+        if (state.stoneRoadOverlayEnabled) centerHouses.drawStoneRoads(drawContext, size, turns)
         // Pawn and house depth are independent of the static road relief.
         GLES30.glClear(GLES30.GL_DEPTH_BUFFER_BIT)
         // Clip decorative volume (including an outward-swinging door) to the

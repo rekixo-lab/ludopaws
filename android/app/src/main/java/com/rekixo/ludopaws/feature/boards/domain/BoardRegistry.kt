@@ -3,6 +3,7 @@ package com.rekixo.ludopaws.feature.boards.domain
 import com.rekixo.ludopaws.feature.boards.content.classic.ClassicBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.astral.AstralBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.lagoon.CloudLagoonBoardDefinition
+import com.rekixo.ludopaws.feature.boards.content.autumn.AutumnBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.checkers.CheckersBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.chess.ChessBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.diwali.DiwaliBoardDefinition
@@ -15,6 +16,7 @@ import com.rekixo.ludopaws.feature.boards.content.penguin.PenguinBoardDefinition
 object BoardRegistry {
     val all = listOf(
         ClassicBoardDefinition.content,
+        AutumnBoardDefinition.content,
         CloudLagoonBoardDefinition.content,
         AstralBoardDefinition.content,
         CheckersBoardDefinition.content,

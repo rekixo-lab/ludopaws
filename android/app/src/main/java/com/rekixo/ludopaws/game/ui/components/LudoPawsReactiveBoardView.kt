@@ -336,10 +336,12 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
 
     fun reloadStyle() {
         board.reloadStyle()
+        pawn3DScene.reloadStyle()
     }
 
     internal fun setBoardThemeOverride(themeId: String) {
         board.setBoardThemeOverride(themeId)
+        pawn3DScene.setBoardThemeOverride(themeId)
     }
 
     override fun onDetachedFromWindow() {
