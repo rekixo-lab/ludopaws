@@ -35,7 +35,7 @@ internal class MonsoonBoardScene {
     private val puddleY = floatArrayOf(37f, 11f, 37f, 11f, 137f, 111f, 137f, 111f)
     private val mudColor = floatArrayOf(.39f, .28f, .19f, 1f)
     private val waterColor = floatArrayOf(.32f, .49f, .51f, 1f)
-    private val rainColor = floatArrayOf(.72f, .84f, .81f, 1f)
+    private val rainColor = floatArrayOf(.83f, .91f, .89f, 1f)
     private val impactColor = floatArrayOf(.60f, .74f, .71f, 1f)
     private val mudSplashColor = floatArrayOf(.62f, .45f, .29f, 1f)
     private val rimColor = floatArrayOf(.39f, .43f, .36f, 1f)
@@ -135,27 +135,27 @@ internal class MonsoonBoardScene {
         context.limbBendY = 0f
         context.limbBendZ = 0f
         context.surface = CharacterSurface.EYE
-        repeat(36) { index ->
+        repeat(64) { index ->
             val clock = nowMillis + index * 137L
-            val cycle = clock / 1600L
-            val phase = (clock % 1600L) / 1600f
+            val cycle = clock / 1400L
+            val phase = (clock % 1400L) / 1400f
             val jitterX = ((cycle * 5L + index * 13L) % 17L) / 17f
             val jitterY = ((cycle * 11L + index * 7L) % 19L) / 19f
-            var targetX = (index % 6) * 25f + 4f + jitterX * 17f
-            var targetY = (index / 6) * 25f + 4f + jitterY * 17f
+            var targetX = (index % 8) * 18.75f + 3f + jitterX * 12.75f
+            var targetY = (index / 8) * 18.75f + 3f + jitterY * 12.75f
             if ((index + cycle) % 9L == 0L) {
                 val poolIndex = ((cycle + index) % puddleX.size).toInt()
                 targetX = puddleX[poolIndex]
                 targetY = puddleY[poolIndex]
             }
-            if (phase < .62f) {
-                val fall = 1f - phase / .62f
+            if (phase < .72f) {
+                val fall = 1f - phase / .72f
                 context.surface = CharacterSurface.EYE
                 context.drawGeometry(transform, drop, (targetX + fall * 3f).coerceIn(1f, 149f),
                     (targetY - fall * 9f).coerceIn(1f, 149f),
-                    1.3f + fall * 12f, 1f, 1.2f, 1f, rainColor, rotateZ = 18f)
+                    1.3f + fall * 12f, 1.15f, 1.7f, 1f, rainColor, rotateZ = 18f)
             } else {
-                val impact = (phase - .62f) / .38f
+                val impact = (phase - .72f) / .28f
                 drawImpact(context, targetX, targetY, impact, .85f)
             }
         }

@@ -10,7 +10,7 @@ tiles and readable team lanes. In gameplay the existing OpenGL scene adds actual
 lit mesh geometry: raised mud banks, glossy puddle surfaces and bevelled road
 rims. These are geometry with normals and depth, not a photo or animated bitmap.
 
-Thirty-six staggered rain emitters cover a six-by-six grid across the whole
+Sixty-four staggered rain emitters cover an eight-by-eight grid across the whole
 board, including lanes, yards and center. Impact positions change each cycle;
 some drops also target the eight original puddles. The original Monsoon base
 artwork, colors, tile finish and eight puddles are retained. No permanent road
@@ -24,11 +24,15 @@ Rain impacts are ambient visual events, not changes to pawn movement or rules.
 
 Only this theme enables the extra scene. Meshes are created once per renderer and
 reuse the existing GL program, context and buffers. Static terrain is batched into
-three draws. Fixed pools cap rain at 36 emitters, trails at 48 prints and movement
+three draws. Fixed pools cap rain at 64 emitters, trails at 48 prints and movement
 impacts at 12; oldest entries are recycled. Glyph and splash meshes are shared,
 with no per-frame mesh creation, preference reads or texture uploads. Visibility/pause/cleanup use
 the existing scene lifecycle. Disabling system animators retains static 3D relief
 but disables rain and impact motion when the style reloads.
+
+Rain uses brighter, slightly wider and longer streaks with a 1.4-second cycle
+and a longer airborne portion. This makes rainfall more noticeable without
+altering the base theme, adding a fog filter or covering characters with effects.
 
 Terrain and footprints render beneath architecture. Rain and splashes render
 above architecture but underneath characters so the center also receives rain.
