@@ -21,8 +21,9 @@ existing board host.
 
 This is a separate Canvas renderer rather than a recolored Astral renderer.
 The normal background artwork worker and bounded bitmap cache compose it once
-per size/style. Store previews use the full shared board view with a local
-theme override; previewing does not change saved equipment. The Classic yard
+per size/style. Store previews use the shared base board and cached artwork
+with a local theme override, without starting live 3D scenes. Previewing does
+not change saved equipment. The Classic yard
 habitat overlay is disabled only for this theme so the islands remain visible.
 
 Android and server source register the free board. Family/offline selection

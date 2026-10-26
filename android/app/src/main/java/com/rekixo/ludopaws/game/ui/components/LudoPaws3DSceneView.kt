@@ -888,6 +888,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         }
 
         override fun run() {
+            val startupAt = SystemClock.elapsedRealtime()
             var egl: EglWindow? = null
             var ownedRenderer: LudoPaws3DSceneRenderer? = null
             try {
@@ -929,6 +930,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     if (!egl.swapBuffers()) error("EGL swapBuffers failed")
                     if (frameState.snapshot != null && !firstBoardSubmitted) {
                         firstBoardSubmitted = true
+                        Log.d("LudoPawsLoad", "game first_frame_ms=${SystemClock.elapsedRealtime() - startupAt}")
                         // Release the cover only after a complete board buffer is available.
                         // Do not depend on TextureView updates while an opaque cover is above it.
                         post { if (renderLoop === this) setOperational(true) }

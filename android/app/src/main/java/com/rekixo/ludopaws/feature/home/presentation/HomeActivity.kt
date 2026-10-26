@@ -34,12 +34,6 @@ class HomeActivity : Activity() {
         savedInstanceState: Bundle?,
     ) {
         super.onCreate(savedInstanceState)
-        com.rekixo.ludopaws.feature.boards.rendering.BoardRendererRegistry
-            .create(com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve("board_classic"))
-            .prepare {}
-        LudoPawsYardHabitatRenderer.prepare {}
-        LudoPawsCenterHouses3D.prepare()
-        LudoPawsBoardChromeView.prewarm(this)
         LudoProofTheme.configureWindow(this)
 
         val (root, host) =
@@ -232,6 +226,20 @@ class HomeActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        homeResumed = true
+        window.decorView.postOnAnimation {
+            window.decorView.post {
+                if (homeResumed && !isFinishing && !isDestroyed) {
+                    LudoPawsCenterHouses3D.prepare()
+                    LudoPawsBoardChromeView.prewarm(this)
+                    val selected = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load()
+                    com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.prewarm(
+                        listOf(selected.characterId, "dog", "goat", "duck", "cat"),
+                    )
+                    com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback.preloadMovementEventSfx(this)
+                }
+            }
+        }
 
         recordAbandonedRemoteLossIfNeeded()
 
@@ -249,6 +257,13 @@ class HomeActivity : Activity() {
         // Never show an in-app DOB screen. Google Play may request age-range sharing.
         // First-run tutorial is dismissed before any Play-managed prompt may appear.
         // Family gameplay does not request or depend on age-range sharing.
+    }
+
+    private var homeResumed = false
+
+    override fun onPause() {
+        homeResumed = false
+        super.onPause()
     }
 
     private fun recordAbandonedRemoteLossIfNeeded() {

@@ -886,6 +886,7 @@ class StoreActivity :
 
     internal fun renderStore() {
         if (!canRenderStoreUi()) return
+        val renderStartedAt = android.os.SystemClock.elapsedRealtime()
 
         val (root, host) =
             LudoProofTheme.arcadeRoot(
@@ -1010,6 +1011,7 @@ class StoreActivity :
         )
 
         setContentView(root)
+        Log.d("LudoPawsLoad", "store tab=$selectedTab ui_build_ms=${android.os.SystemClock.elapsedRealtime() - renderStartedAt}")
     }
 
     internal fun showStoreMessage(

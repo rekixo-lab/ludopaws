@@ -25,6 +25,8 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
         // Render the full catalog. Draft content stays non-clickable until its
         // renderer/artwork gate is explicitly enabled in the catalog.
         val panels = StoreCosmeticCatalog.boards
+        val ownedIds = cosmetics.ownedCosmeticIds()
+        val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
 
         // Use the same two-card row rhythm as Paws so every board preview gets more room.
         panels.chunked(2).forEachIndexed { rowIndex, rowBoards ->
@@ -36,7 +38,7 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
 
             rowBoards.forEach { board ->
                 row.addView(
-                    boardPanel(board),
+                    boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id),
                     LinearLayout.LayoutParams(
                         0,
                         dp(188),
@@ -68,6 +70,8 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
 
 private fun StoreActivity.boardPanel(
     board: StoreCosmetic,
+    owned: Boolean,
+    selected: Boolean,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -75,11 +79,6 @@ private fun StoreActivity.boardPanel(
         setPadding(dp(6), dp(8), dp(6), dp(8))
 
         val locked = !board.contentAvailable
-        val owned = cosmetics.isOwned(board.id)
-        val selected =
-            owned &&
-                cosmetics.selectedId(board.category) == board.id
-
         // Only the timber panel is used. No blue/purple arcade face or coloured icon well.
         background =
             if (locked || !owned) {
@@ -243,21 +242,21 @@ private fun StoreActivity.boardStatusBadge(
     }
 
 
-/** The same board, relief, garden and joined houses used in gameplay; no duplicate flat artwork. */
 private class BoardIconView(
     context: android.content.Context,
     previewThemeId: String,
 ) : android.widget.FrameLayout(context) {
     init {
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        contentDescription = "3D gameplay board preview"
-        addView(com.rekixo.ludopaws.LudoPawsReactiveBoardView(context).apply {
+        contentDescription = "Gameplay board artwork preview"
+        addView(com.rekixo.ludopaws.LudoBoardView(context).apply {
             setBoardThemeOverride(previewThemeId)
-            bind(com.rekixo.ludopaws.MatchSnapshot(
-                matchId = "store-$previewThemeId-preview", status = "WAITING", hostPlayerId = "",
-                players = emptyList(), turnSeat = 0, randomEventIndex = 0, pendingRoll = null,
-                winnerPlayerId = null, rulesetId = "ludoproof-standard-v5", history = emptyList(),
-            ), playerId = null, perspectiveColor = "YELLOW")
+            setClassicTokenDrawingEnabled(false)
+            isClickable = false
+            isFocusable = false
+        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(com.rekixo.ludopaws.LudoPawsBoardChromeView(context).apply {
+            setBoardThemeOverride(previewThemeId)
         }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }
 

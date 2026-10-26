@@ -15,9 +15,9 @@ above the cached artwork. Classic's garden overlay is disabled only for this
 board so that it does not cover the new courtyards.
 
 Gameplay uses the existing background artwork worker and bounded bitmap cache.
-The Store uses the full shared gameplay view for each passive miniature, with
-an explicit view-local theme override so previews stay accurate independently
-of the equipped board. Previewing never changes saved equipment.
+The Store uses the shared base board and cached artwork for each passive
+miniature, with a view-local theme override. It does not start a live 3D game
+scene for a thumbnail. Previewing never changes saved equipment.
 
 Android and the server source both register the free board. Offline selection
 uses the existing free-cosmetic path. Connected accounts require deployment of

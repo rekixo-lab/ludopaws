@@ -79,6 +79,7 @@ private fun StoreActivity.pawsCharacterGrid(
         orientation = LinearLayout.VERTICAL
         val selectedCharacterId =
             CharacterSelectionStore(this@pawsCharacterGrid).load().characterId
+        val ownedIds = cosmetics.ownedCosmeticIds()
 
         characters.chunked(2).forEachIndexed { rowIndex, rowCharacters ->
             val row =
@@ -92,6 +93,7 @@ private fun StoreActivity.pawsCharacterGrid(
                     pawsCharacterCard(
                         character = character,
                         selected = character.id == selectedCharacterId,
+                        ownedIds = ownedIds,
                     ),
                     LinearLayout.LayoutParams(
                         0,
@@ -125,10 +127,11 @@ private fun StoreActivity.pawsCharacterGrid(
 private fun StoreActivity.pawsCharacterCard(
     character: AnimalCharacter,
     selected: Boolean,
+    ownedIds: Set<String>,
 ): LinearLayout =
     LinearLayout(this).apply {
         val unlock = StoreCosmeticCatalog.characterUnlock(character.id)
-        val owned = unlock == null || cosmetics.isOwned(unlock.id)
+        val owned = unlock == null || unlock.id in ownedIds
         val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
