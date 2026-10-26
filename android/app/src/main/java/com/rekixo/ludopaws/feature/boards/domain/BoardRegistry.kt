@@ -4,6 +4,7 @@ import com.rekixo.ludopaws.feature.boards.content.classic.ClassicBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.astral.AstralBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.lagoon.CloudLagoonBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.autumn.AutumnBoardDefinition
+import com.rekixo.ludopaws.feature.boards.content.spring.BlossomBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.checkers.CheckersBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.chess.ChessBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.diwali.DiwaliBoardDefinition
@@ -17,6 +18,7 @@ object BoardRegistry {
     val all = listOf(
         ClassicBoardDefinition.content,
         AutumnBoardDefinition.content,
+        BlossomBoardDefinition.content,
         CloudLagoonBoardDefinition.content,
         AstralBoardDefinition.content,
         CheckersBoardDefinition.content,
