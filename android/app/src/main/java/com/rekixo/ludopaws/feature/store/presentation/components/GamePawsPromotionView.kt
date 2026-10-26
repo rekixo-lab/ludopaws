@@ -25,6 +25,7 @@ import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
     private val avatar = LudoPawsCharacterAvatarView(context)
     private val name = TextView(context)
+    private val storeLabel = TextView(context)
     private var candidates = emptyList<CharacterDefinition>()
     private var index = 0
     private var motion: ValueAnimator? = null
@@ -36,7 +37,6 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
     private val location = IntArray(2)
     private val spaceObserver = ViewTreeObserver.OnPreDrawListener {
         updateSpace()
-        true
     }
     private val cycle = object : Runnable {
         override fun run() {
@@ -68,7 +68,7 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
             }, LayoutParams(-1, -2))
-            addView(TextView(context).apply {
+            addView(storeLabel.apply {
                 text = "IN STORE ›"
                 textSize = 9f
                 setTextColor(0xFFFFDC79.toInt())
@@ -100,14 +100,28 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
         protectedViews = views
     }
 
-    private fun updateSpace() {
-        if (!isShown || width <= 0 || height <= 0) return
+    private fun updateSpace(): Boolean {
+        if (!isShown || width <= 0 || height <= 0) return true
         getLocationOnScreen(location)
         ownBounds.set(location[0], location[1], location[0] + width, location[1] + height)
-        val available = width >= dp(120) && height >= dp(48) && protectedViews.none { view ->
-            view.isShown && view.getGlobalVisibleRect(protectedBounds) && Rect.intersects(ownBounds, protectedBounds)
+        var availableHeight = dp(132)
+        for (view in protectedViews) {
+            if (view.isShown && view.getGlobalVisibleRect(protectedBounds) &&
+                protectedBounds.left < ownBounds.right && protectedBounds.right > ownBounds.left &&
+                protectedBounds.bottom > ownBounds.top) {
+                availableHeight = minOf(availableHeight, protectedBounds.top - ownBounds.top - dp(8))
+            }
         }
-        if (available == spaceAvailable) return
+        val heightHost = (parent as? GamePawsPromotionSlot) ?: this
+        val targetHeight = availableHeight.coerceIn(dp(52), dp(132))
+        val params = heightHost.layoutParams
+        if (params != null && params.height != targetHeight) {
+            params.height = targetHeight
+            heightHost.layoutParams = params
+            return false
+        }
+        val available = width >= dp(120) && availableHeight >= dp(52) && height <= availableHeight
+        if (available == spaceAvailable) return true
         spaceAvailable = available
         alpha = if (available) 1f else 0f
         isClickable = available
@@ -115,6 +129,20 @@ internal class GamePawsPromotionView(context: Context) : LinearLayout(context) {
         importantForAccessibility = if (available) IMPORTANT_FOR_ACCESSIBILITY_AUTO else IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         avatar.visibility = if (available) VISIBLE else INVISIBLE
         updateMotion()
+        return true
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val availableWidth = MeasureSpec.getSize(widthMeasureSpec)
+        val availableHeight = MeasureSpec.getSize(heightMeasureSpec)
+        val portraitSize = minOf(availableHeight - dp(8), (availableWidth * .55f).toInt(),
+            availableWidth - dp(64)).coerceAtLeast(dp(44))
+        if (avatar.layoutParams.width != portraitSize || avatar.layoutParams.height != portraitSize) {
+            avatar.layoutParams = LayoutParams(portraitSize, portraitSize)
+        }
+        name.textSize = if (availableHeight >= dp(96)) 14f else 11f
+        storeLabel.textSize = if (availableHeight >= dp(96)) 11f else 9f
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
     private fun refreshCandidates() {
@@ -204,6 +232,9 @@ internal class GamePawsPromotionSlot(context: Context, private val fallback: Vie
     fun setMatchActive(active: Boolean) {
         fallback?.visibility = if (active) GONE else VISIBLE
         promotion.visibility = if (active) VISIBLE else GONE
+        if (!active && layoutParams != null && layoutParams.height != (52 * resources.displayMetrics.density + .5f).toInt()) {
+            layoutParams = layoutParams.apply { height = (52 * resources.displayMetrics.density + .5f).toInt() }
+        }
     }
 
     fun protect(views: List<View>) = promotion.protect(views)

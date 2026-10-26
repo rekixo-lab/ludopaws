@@ -5,7 +5,9 @@ are restored: 350/388 dp maximum width, 272/302 dp image allocation, FIT_CENTER,
 with the original mode and footer offsets. The source artwork is unchanged.
 
 Active offline and online matches place one compact Paws promotion between Back
-and Settings, entirely inside the existing 52 dp header row. It has 8 dp clearance
+and Settings, starting in the existing 52 dp header row. It grows downwards into
+available empty space up to 132 dp, with a proportionally larger portrait and text.
+It stops 8 dp above the nearest board/player-rail bounds. It has 8 dp clearance
 from each fixed side button. Setup and matchmaking retain their titles rather than
 showing the promotion. No board, player-rail, name, profile or dice geometry changes.
 The card clips its artwork to its own bounds. If there is insufficient space or
@@ -47,7 +49,8 @@ than accumulating every featured model in the live preview's GPU cache.
 
 Detail cards stack vertically below 320 dp or with larger system text. Names
 ellipsize instead of clipping and buttons remain 48 dp tall. The match header
-uses a 44 dp portrait and single-line ellipsized labels. Availability and
+uses a portrait that grows from 44 dp with the available header space and single-line
+ellipsized labels. Setup titles retain their original 52 dp row. Availability and
 ownership are refreshed on return rather than frozen at card construction. A
 completed verified ad requirement can still be claimed when new ads are disabled.
 
