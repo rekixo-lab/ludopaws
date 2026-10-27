@@ -24,6 +24,7 @@ function fixture(context, options = {}) {
       { name: "PRIVATE_KEY", value: "must-not-be-cached" },
     ] }]);
     if (args[0] === "devices") return options.devices ?? "List of devices attached\nphone-a\tdevice\n";
+    if (args.includes("dumpsys")) return options.installed ?? "Unable to find package\n";
     if (program === "bash" || program === "powershell.exe") {
       if (options.buildFails) throw new Error("Gradle failed");
       if (!options.missingApk) {
@@ -54,7 +55,7 @@ test("dev installs and opens on the exact selected device with full testing flag
   assert.ok(build.args.includes("-PLUDOPROOF_BILLING_ENABLED=true"));
   assert.ok(build.args.includes("-PLUDOPAWS_TEST_ADS=true"));
   assert.equal(build.args.some(value => /Release|installDebug/.test(value)), false);
-  const operations = setup.calls.filter(call => call.args[0] === "-s");
+  const operations = setup.calls.filter(call => call.args[0] === "-s" && !call.args.includes("dumpsys"));
   assert.deepEqual(operations[0].args.slice(0, 4), ["-s", "phone-b", "install", "-r"]);
   assert.equal(operations[1].args.at(-1), "com.rekixo.ludopaws/com.rekixo.ludopaws.HomeActivity");
   assert.ok(operations.every(call => call.args[1] === "phone-b"));
@@ -97,7 +98,7 @@ for (const options of [{ buildFails: true }, { installFails: true }, { missingAp
   test(`build/install failure never uninstalls, clears data or launches: ${JSON.stringify(options)}`, context => {
     const setup = fixture(context, options);
     assert.throws(() => main(["dev"], setup), /failed|stopped|expected debug APK/);
-    assert.equal(setup.calls.some(call => call.args.includes("shell") || call.args.includes("uninstall") || call.args.includes("-d")), false);
+    assert.equal(setup.calls.some(call => call.args.includes("start") || call.args.includes("uninstall") || call.args.includes("-d")), false);
   });
 }
 
@@ -130,4 +131,28 @@ test("invalid options and missing Google configuration cannot start a build", co
   fs.writeFileSync(setup.configPath, "{}");
   assert.throws(() => main(["dev", "--assemble"], setup), /Google configuration is missing/);
   assert.equal(setup.calls.length, 0);
+});
+
+test("installed Play version 10 produces local version 10, never the default 4", context => {
+  const setup = fixture(context, { installed: "versionCode=10 minSdk=28\ninstallerPackageName=com.android.vending" });
+  main(["dev"], setup);
+  const build = setup.calls.find(call => call.program === "bash");
+  assert.ok(build.args.includes("-PLUDOPAWS_VERSION_CODE=10"));
+  assert.ok(build.args.includes("-PLUDOPAWS_VERSION_NAME=1.0.0-local.10"));
+  const inspect = setup.calls.find(call => call.args.includes("dumpsys"));
+  assert.equal(inspect.args[1], "phone-a");
+  assert.equal(inspect.args.at(-1), "com.rekixo.ludopaws");
+});
+
+test("preview reads its own version rather than the original Play package", context => {
+  const setup = fixture(context, { installed: "versionCode=19" });
+  main(["preview"], setup);
+  assert.equal(setup.calls.find(call => call.args.includes("dumpsys")).args.at(-1), "com.rekixo.ludopaws.dev");
+  assert.ok(setup.calls.find(call => call.program === "bash").args.includes("-PLUDOPAWS_VERSION_CODE=19"));
+});
+
+test("an explicitly requested lower version fails before Gradle or installation", context => {
+  const setup = fixture(context, { installed: "versionCode=10", environment: { ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE: "4" } });
+  assert.throws(() => main(["dev"], setup), /older than installed 10/);
+  assert.equal(setup.calls.some(call => call.program === "bash" || call.args.includes("install")), false);
 });

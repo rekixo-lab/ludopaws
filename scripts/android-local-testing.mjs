@@ -10,6 +10,7 @@ const keys = [
   "LUDOPROOF_API_BASE_URL", "GOOGLE_SIGN_IN_WEB_CLIENT_ID", "PLAY_GAMES_PROJECT_ID",
   "ADMOB_APP_ID", "ADMOB_REWARDED_AD_UNIT_ID", "ADMOB_INTERSTITIAL_AD_UNIT_ID",
   "LUDOPAWS_AD_SAFETY_REVIEW_APPROVED", "GOOGLE_PLAY_BILLING_ENABLED",
+  "LUDOPAWS_VERSION_CODE", "LUDOPAWS_VERSION_NAME",
 ];
 
 function run(program, args, options = {}) {
@@ -106,6 +107,7 @@ preview: separate .dev package; Billing/Google/Store Ads OFF.
 --assemble: build only, without contacting a device.
 --verify: unit tests and debug lint before building; no release tasks or Play uploads.
 Set ANDROID_SERIAL when multiple phones/emulators are connected.
+Local versionCode automatically matches or exceeds the installed app; release versions are unchanged.
 Requires Node.js, a Gradle-compatible JDK and Android SDK; gh login for configure.
 Configuration: ${configPath}. configure refreshes public GitHub variables.
 Uses the checked-in Gradle wrapper on Windows, Linux and macOS.
@@ -122,6 +124,9 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
   const adb = path.join(sdk, "platform-tools", platform === "win32" ? "adb.exe" : "adb");
   const serial = assembleOnly ? null : selectDevice(execute(adb, ["devices"], { env }), environment.ANDROID_SERIAL);
   const fullTesting = mode === "dev";
+  const packageName = fullTesting ? "com.rekixo.ludopaws" : "com.rekixo.ludopaws.dev";
+  const installed = serial ? execute(adb, ["-s", serial, "shell", "dumpsys", "package", packageName], { env }) : "";
+  const installedCode = installed.match(/\bversionCode=(\d+)\b/)?.[1];
   const saved = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, "utf8"))
     : fullTesting ? configure(execute, configPath) : {};
   const properties = Object.fromEntries(keys.filter(key => typeof saved[key] === "string").map(key => [key, saved[key]]));
@@ -129,6 +134,15 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
     const override = environment[`ORG_GRADLE_PROJECT_${key}`];
     if (override !== undefined) properties[key] = override;
   }
+  const requestedCode = properties.LUDOPAWS_VERSION_CODE;
+  const validVersion = (value, minimum = 4) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) >= minimum && Number(value) <= 2_100_000_000;
+  if (requestedCode !== undefined && !validVersion(requestedCode)) throw new Error("LUDOPAWS_VERSION_CODE must be an integer between 4 and 2100000000.");
+  if (installedCode !== undefined && !validVersion(installedCode, 1)) throw new Error("Installed versionCode could not be handled safely; no build or install was attempted.");
+  if (requestedCode !== undefined && Number(requestedCode) < Number(installedCode ?? 0)) {
+    throw new Error(`Requested local versionCode ${requestedCode} is older than installed ${installedCode}. Remove or increase ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE; no downgrade is attempted.`);
+  }
+  properties.LUDOPAWS_VERSION_CODE = String(Math.max(4, Number(requestedCode ?? 4), Number(installedCode ?? 0)));
+  properties.LUDOPAWS_VERSION_NAME ||= `1.0.0-local.${properties.LUDOPAWS_VERSION_CODE}`;
   properties.LUDOPROOF_API_BASE_URL ||= "https://api.ludopaws.rekixo.com";
   properties.PLAY_GAMES_PROJECT_ID ||= "0";
   properties.LUDOPAWS_QA_BUILD = "false";
@@ -157,6 +171,10 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
     "--console=plain", "--build-cache",
   ];
   console.log(`${mode}: ${assembleOnly ? "building only" : `building for device ${serial}`} debug APK; no release tasks or Play upload.`);
+  console.log(`Local versionCode: ${properties.LUDOPAWS_VERSION_CODE}${installedCode ? ` (installed: ${installedCode})` : ""}.`);
+  if (/installerPackageName=com\.android\.vending\b/.test(installed)) {
+    console.log("Existing app was installed by Google Play. Matching versionCode does not make debug/Play signatures compatible; no uninstall or data clear will be attempted.");
+  }
   console.log(fullTesting ? "FULL TESTING: Billing/Google ON, Google TEST ADS ON; debug OAuth and Play license tester account required."
     : "PREVIEW ONLY: separate package; Billing, Google and Store Ads OFF.");
   if (platform === "win32") {
@@ -176,11 +194,16 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
   const apk = path.join(androidDir, "app", "build", "outputs", "apk", "debug", "app-debug.apk");
   if (!fs.existsSync(apk)) throw new Error("Build completed without the expected debug APK; refusing to install another artifact.");
   try {
-    execute(adb, ["-s", serial, "install", "-r", apk], { env: selectedEnv, stdio: "inherit" });
+    console.log("Installing debug APK on the selected device…");
+    console.log(execute(adb, ["-s", serial, "install", "-r", apk], { env: selectedEnv }));
   } catch (error) {
-    throw new Error(`${error.message}\nInstallation stopped. No app was uninstalled or downgraded. If Play/debug signatures or versionCodes conflict, use a compatible test device/build; preview uses a separate package.`);
+    const guidance = /INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match/i.test(error.message)
+      ? "The installed app and local debug APK use different signing keys. A higher versionCode cannot fix this. Use a matching Play-distributed build, another test device, or node scripts/android-local-testing.mjs preview for separate visual testing (Billing/Google OFF)."
+      : /INSTALL_FAILED_VERSION_DOWNGRADE/i.test(error.message)
+        ? "The installed app may have updated after preflight. Run the command again to read its current versionCode."
+        : "Check the Android install error above; a compatible device/build is required.";
+    throw new Error(`${error.message}\nInstallation stopped. No app was uninstalled or downgraded. ${guidance}`);
   }
-  const packageName = fullTesting ? "com.rekixo.ludopaws" : "com.rekixo.ludopaws.dev";
   const launched = execute(adb, ["-s", serial, "shell", "am", "start", "-W", "-n", `${packageName}/com.rekixo.ludopaws.HomeActivity`], { env: selectedEnv });
   console.log(launched);
   if (/Error:|Error type \d|Status:\s*(?!ok\b)\S+/i.test(launched)) throw new Error("APK installed, but Android could not open HomeActivity. Check the launch output above.");

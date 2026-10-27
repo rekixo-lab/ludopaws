@@ -43,6 +43,11 @@ SDK का रास्ता `ANDROID_HOME` से दे सकते है�
 Device selection build से पहले होती है; install और launch दोनों उसी serial पर होते हैं।
 Unit tests और debug lint भी चाहिए तो `dev --verify` चलाएँ। केवल build के लिए
 `dev --assemble` है; यह फोन से संपर्क नहीं करता। पुराने `integration` alias की जगह `dev` इस्तेमाल करें।
+Install से पहले runner उसी package का installed versionCode पढ़ता है और local debug APK का
+versionCode उससे कम नहीं रखता। इससे installed version 10 पर default version 4 वाला downgrade
+नहीं बनेगा। Local versionName `1.0.0-local.<code>` है; production/release version settings नहीं बदलतीं।
+अगर `ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE` से जानबूझकर कम code दिया है तो build से पहले error मिलेगा।
+Version मिलाने से signing keys नहीं मिलतीं: Play-signed app पर debug APK फिर भी reject हो सकती है।
 
 `dev` **LudoPaws Test** बनाता है: original package
 `com.rekixo.ludopaws`, Billing ON, Google linking/Play Games IDs configured और rewarded/
