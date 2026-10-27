@@ -54,7 +54,9 @@ requireText(inventory, "CharacterSelectionStore", "Equipping a character pack mu
 requireText(inventory, "KEY_SELECTED_CHARACTER_PACK", "Selected character pack must persist independently.");
 requireText(preferences, "KEY_EVENT_ENTITLEMENTS", "Verified event entitlements must persist.");
 requireText(contentUi, "StoreTab.PAWS", "PAWS tab must route to animal-pack content.");
-requireText(pawsUi, "Only complete content-ready packs", "Store must explain fail-closed content readiness.");
+requireText(pawsUi, "LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)", "Store must list shipped starter characters rather than coming-soon packs.");
+const featuredUi = read("android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/FeaturedPawsCard.kt");
+requireText(featuredUi, "offer?.contentAvailable == true", "Featured characters must require available content.");
 requireText(actions, "CONTENT_UNAVAILABLE", "Unavailable pack taps must be handled without spending value.");
 requireText(actions, "NEED_EVENT", "Event pack UX is missing.");
 

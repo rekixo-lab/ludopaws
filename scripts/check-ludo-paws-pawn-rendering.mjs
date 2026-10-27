@@ -170,13 +170,14 @@ for (const token of [
 for (const token of [
   "footprintSource?.drawYardPawPrintsOverlay(canvas, cell)",
   "fun setFootprintSource(source: LudoBoardView)",
-  "Ludo Paws requires clean white token bays",
-  "fillPaint.color = Color.WHITE",
+  "BoardRendererRegistry",
+  "BoardRegistry.resolve",
+  "if (definition.yardHabitatEnabled) yardHabitatRenderer.draw(target, cell)",
 ]) {
   requireText(
     boardChrome,
     token,
-    `Topmost board chrome must expose white token bays and visible footprints: ${token}`,
+    `Topmost board chrome must preserve selected habitats and visible footprints: ${token}`,
   );
 }
 requireText(
