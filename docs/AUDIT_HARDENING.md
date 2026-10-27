@@ -78,6 +78,10 @@ rows, an example run changed the nonce-expiry count query's p95 from ~0.887ms
 to ~0.100ms and EXPLAIN changed from a full scan to a covering-index search.
 These numbers are not app FPS, store-open speed, or deployed Worker capacity.
 
+CI also checks GitHub workflow semantics with checksum-pinned actionlint. The
+emulator AVD uses disk-backed runner temporary storage, not a potentially small
+RAM-backed `/tmp`; unrelated hosted tools are cleaned only if space is low.
+
 ## Dependency updates
 
 Normal builds verify existing checksums and strict version locks. Do not solve

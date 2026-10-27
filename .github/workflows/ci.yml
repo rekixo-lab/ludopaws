@@ -42,6 +42,18 @@ jobs:
       - name: Repository security gate
         working-directory: .
         run: node scripts/security-check.mjs
+      - name: Validate GitHub workflow semantics
+        working-directory: .
+        shell: bash
+        run: |
+          actionlint_archive="$RUNNER_TEMP/actionlint-1.7.12.tar.gz"
+          curl --fail --location --silent --show-error --connect-timeout 15 --max-time 120 --retry 2 \
+            --proto '=https' --proto-redir '=https' \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$actionlint_archive"
+          printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$actionlint_archive" | sha256sum --check --strict
+          tar -xzf "$actionlint_archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -shellcheck= -pyflakes=
       - name: Cloudflare production runtime config tests
         working-directory: .
         run: node --test scripts/cloudflare-runtime-config.test.mjs
@@ -236,7 +248,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ANDROID_AVD_HOME: ${{ runner.temp }}/ludopaws-avd
       # UI/device tests must never mutate real production accounts or matches.
       ORG_GRADLE_PROJECT_LUDOPROOF_API_BASE_URL: https://127.0.0.1
     steps:
@@ -255,6 +266,8 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/ludopaws-avd"
+          printf 'ANDROID_AVD_HOME=%s\n' "$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
           mkdir -p "$ANDROID_AVD_HOME"
           echo "Disk usage for the actual Android emulator storage:"
           df -h "$ANDROID_AVD_HOME"
