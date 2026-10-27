@@ -1,5 +1,7 @@
 # Referral next-update production review
 
+Follow-up: see [REFERRAL_ACTIVATION_STATUS.md](REFERRAL_ACTIVATION_STATUS.md) for the subsequently authorized build/test results, confirmed Play project link, credential-policy blocker and remaining activation gates. Earlier statements below about unexecuted checks describe the original source-only change.
+
 ## Release boundary
 
 The publisher reports the first production submission is **currently in review** and is intended for approximately **177 Google Play countries/regions**. This change prepares a subsequent update. Do not halt, replace, edit or promote the current production submission; do not change track availability or upload an artifact as part of this source change. Internal-track validation can be arranged separately by the publisher. No build/test/lint/install/deploy/upload is performed here.

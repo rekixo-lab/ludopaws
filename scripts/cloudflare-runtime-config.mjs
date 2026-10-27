@@ -1,3 +1,5 @@
+import { applyReferralRuntimeVars } from "./referral-runtime-config.mjs";
+
 const GOOGLE_WEB_CLIENT_ID = /^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 const GOOGLE_PLAY_SERVICE_ACCOUNT = /^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/;
 const ADMOB_REWARDED_UNIT = /^ca-app-pub-[0-9]{16}\/[0-9]{10}$/;
@@ -103,5 +105,5 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   if (rewardedAdUnitId) vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID = rewardedAdUnitId;
   else delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID;
 
-  return vars;
+  return applyReferralRuntimeVars(vars, environment);
 }
