@@ -6,7 +6,7 @@ export function evaluateOperationalHealth(body, now = Date.now()) {
   const checks = body?.checks ?? {};
   if (body?.ready !== true || body?.ok !== true) failures.push("API_NOT_READY");
   const referral = checks.referralDelivery;
-  if (checks.referralChecks?.enabled === true || referral?.ok === true) {
+  if (checks.referralChecks?.enabled === true || checks.referralChecks?.bindings === true || referral?.ok === true) {
     if (referral?.ok !== true) failures.push("REFERRAL_HEALTH_UNAVAILABLE");
     else {
       if (!Number.isSafeInteger(referral.pending) || referral.pending < 0 ||

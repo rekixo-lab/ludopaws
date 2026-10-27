@@ -6,12 +6,13 @@ const purchase = { accountId: "a".repeat(64), productId: "gems_300", gemAmount: 
   ownerAccountId: "00000000-0000-4000-8000-000000000081", purchaseTokenHash: "b".repeat(64), purchaseLedgerId: "c".repeat(64) };
 function setup() {
   const values = new Map();
+  let failCleanup = false;
   const ctx = { storage: {
     get: async key => structuredClone(values.get(key)),
     put: async (key, value) => values.set(key, structuredClone(value)),
     delete: async key => values.delete(key),
     setAlarm: async time => values.set("alarm", time),
-    deleteAlarm: async () => values.delete("alarm"),
+    deleteAlarm: async () => { if (failCleanup) throw Error("alarm cleanup unavailable"); values.delete("alarm"); },
   } };
   let status = 503, grants = 0;
   const transactions = new Set();
@@ -27,7 +28,7 @@ function setup() {
   let ledger = new StorePurchaseLedger(ctx, env);
   const call = async (path, body = purchase) => ledger.fetch(new Request("https://ledger" + path, { method: "POST", body: JSON.stringify(body) }));
   return { values, get ledger() { return ledger; }, restart: () => { ledger = new StorePurchaseLedger(ctx, env); },
-    call, setStatus: value => { status = value; }, grants: () => grants };
+    call, failCleanup: () => { failCleanup = true; }, setStatus: value => { status = value; }, grants: () => grants };
 }
 
 test("verified delivery survives lost consume completion, wallet outage and object recreation", async () => {
@@ -68,4 +69,18 @@ test("refund and deletion stop queued deliveries; owner mismatches cannot author
   deleted.setStatus(404);
   await deleted.ledger.alarm();
   assert.equal(deleted.values.has("purchase:v1"), false);
+});
+
+test("alarm cleanup failure cannot undo delivered state or resurrect a deleted owner's record", async () => {
+  for (const status of [200, 404]) {
+    const x = setup();
+    await x.call("/reserve"); await x.call("/verified");
+    x.setStatus(status); x.failCleanup();
+    await assert.rejects(x.ledger.alarm(), /alarm cleanup unavailable/);
+    if (status === 200) assert.ok(x.values.get("purchase:v1").deliveredAt);
+    else assert.equal(x.values.has("purchase:v1"), false);
+    x.restart();
+    await x.ledger.alarm();
+    assert.equal(x.grants(), status === 200 ? 1 : 0);
+  }
 });

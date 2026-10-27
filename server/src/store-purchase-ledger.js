@@ -88,6 +88,7 @@ export class StorePurchaseLedger {
     const attempts = Math.min((purchase.deliveryAttempts ?? 0) + 1, 1000);
     // Schedule before remote I/O so an eviction/failure cannot lose delivery.
     await this.ctx.storage.setAlarm(Date.now() + Math.min(6 * 60 * 60_000, 30_000 * 2 ** Math.min(attempts, 10)));
+    let deliveryCommitted = false;
     try {
       const accounts = this.env.LUDOPROOF_PLAYER_ACCOUNTS;
       const owner = accounts.get(accounts.idFromName(purchase.ownerAccountId));
@@ -100,14 +101,19 @@ export class StorePurchaseLedger {
         const error = await response.json();
         if (["ACCOUNT_DELETED", "ACCOUNT_DELETION_IN_PROGRESS", "ACCOUNT_NOT_FOUND"].includes(error?.error)) {
           await this.ctx.storage.delete("purchase:v1");
+          deliveryCommitted = true;
           await this.ctx.storage.deleteAlarm();
           return;
         }
         throw new Error("WALLET_DELIVERY_FAILED");
       }
       await this.ctx.storage.put("purchase:v1", { ...purchase, deliveryAttempts: attempts, deliveredAt: Date.now(), lastDeliveryError: null });
+      deliveryCommitted = true;
       await this.ctx.storage.deleteAlarm();
-    } catch {
+    } catch (error) {
+      // A failed timer cleanup must not resurrect deleted owner data or undo
+      // a durable success marker. Alarm retry can safely observe that state.
+      if (deliveryCommitted) throw error;
       await this.ctx.storage.put("purchase:v1", { ...purchase, deliveryAttempts: attempts, lastDeliveryError: "WALLET_DELIVERY_FAILED" });
       console.warn(JSON.stringify({ event: "billing-delivery-retry", attempts }));
     }

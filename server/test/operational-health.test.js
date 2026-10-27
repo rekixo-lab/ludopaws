@@ -31,3 +31,10 @@ test("invalid metrics fail and paused delivery failures stay visible", () => {
   data.checks.referralDelivery = null;
   assert.equal(evaluateOperationalHealth(data, now).ok, true);
 });
+
+test("paused participation cannot hide an unavailable configured reward queue", () => {
+  const data = healthy();
+  Object.assign(data.checks.referralChecks, { enabled: false, bindings: true });
+  data.checks.referralDelivery = { ok: false };
+  assert.deepEqual(evaluateOperationalHealth(data, now).failures, ["REFERRAL_HEALTH_UNAVAILABLE"]);
+});
