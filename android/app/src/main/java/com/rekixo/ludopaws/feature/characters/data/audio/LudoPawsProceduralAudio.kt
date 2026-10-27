@@ -196,6 +196,122 @@ internal object LudoPawsProceduralAudio {
                     vibratoDepth = .05,
                 )
 
+            LudoPawsProceduralVocal.RABBIT_SNUFFLE ->
+                synth(
+                    durationMs = 180,
+                    rate = rate,
+                    startHz = 220.0,
+                    endHz = 160.0,
+                    harmonic = .10,
+                    noise = .30,
+                    tremoloHz = 16.0,
+                    doublePulse = true,
+                )
+
+            LudoPawsProceduralVocal.HORSE_NEIGH ->
+                synth(
+                    durationMs = 550,
+                    rate = rate,
+                    startHz = 680.0,
+                    endHz = 310.0,
+                    harmonic = .58,
+                    noise = .06,
+                    vibratoHz = 13.0,
+                    vibratoDepth = .12,
+                    tremoloHz = 9.0,
+                )
+
+            LudoPawsProceduralVocal.HORSE_SNORT ->
+                synth(
+                    durationMs = 240,
+                    rate = rate,
+                    startHz = 165.0,
+                    endHz = 105.0,
+                    harmonic = .24,
+                    noise = .38,
+                    tremoloHz = 24.0,
+                    doublePulse = true,
+                )
+
+            LudoPawsProceduralVocal.ELEPHANT_TRUMPET ->
+                synth(
+                    durationMs = 560,
+                    rate = rate,
+                    startHz = 340.0,
+                    endHz = 610.0,
+                    harmonic = .72,
+                    noise = .12,
+                    vibratoHz = 9.0,
+                    vibratoDepth = .09,
+                    tremoloHz = 5.0,
+                )
+
+            LudoPawsProceduralVocal.ELEPHANT_RUMBLE ->
+                synth(
+                    durationMs = 430,
+                    rate = rate,
+                    startHz = 105.0,
+                    endHz = 80.0,
+                    harmonic = .55,
+                    noise = .10,
+                    vibratoHz = 6.0,
+                    vibratoDepth = .05,
+                    tremoloHz = 7.0,
+                )
+
+            LudoPawsProceduralVocal.PIG_OINK ->
+                synth(
+                    durationMs = 270,
+                    rate = rate,
+                    startHz = 185.0,
+                    endHz = 125.0,
+                    harmonic = .65,
+                    noise = .15,
+                    vibratoHz = 17.0,
+                    vibratoDepth = .08,
+                    tremoloHz = 11.0,
+                    doublePulse = true,
+                )
+
+            LudoPawsProceduralVocal.PIG_SQUEAL ->
+                synth(
+                    durationMs = 330,
+                    rate = rate,
+                    startHz = 760.0,
+                    endHz = 1100.0,
+                    harmonic = .40,
+                    noise = .06,
+                    vibratoHz = 15.0,
+                    vibratoDepth = .065,
+                    tremoloHz = 8.0,
+                )
+
+            LudoPawsProceduralVocal.COCK_CROW ->
+                synth(
+                    durationMs = 560,
+                    rate = rate,
+                    startHz = 620.0,
+                    endHz = 980.0,
+                    harmonic = .55,
+                    noise = .07,
+                    vibratoHz = 7.0,
+                    vibratoDepth = .10,
+                    tremoloHz = 6.0,
+                    doublePulse = true,
+                )
+
+            LudoPawsProceduralVocal.COCK_CLUCK ->
+                synth(
+                    durationMs = 180,
+                    rate = rate,
+                    startHz = 580.0,
+                    endHz = 270.0,
+                    harmonic = .50,
+                    noise = .09,
+                    tremoloHz = 13.0,
+                    doublePulse = true,
+                )
+
             LudoPawsProceduralVocal.DUCK_QUACK ->
                 synth(
                     durationMs = 185,

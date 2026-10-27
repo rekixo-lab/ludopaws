@@ -99,12 +99,13 @@ object LudoProofTheme {
     fun arcadeRoot(
         context: Context,
         gameplayBackground: Boolean = false,
+        gameplayBoardEnvironment: Boolean = false,
     ): Pair<FrameLayout, FrameLayout> {
         val root = FrameLayout(context)
         val backdrop =
             ArcadeBackdropView(context).apply {
                 if (gameplayBackground) {
-                    useGameplayBackground()
+                    useGameplayBackground(boardEnvironment = gameplayBoardEnvironment)
                 }
             }
         root.addView(
@@ -132,7 +133,7 @@ object LudoProofTheme {
     ) {
         val backdrop = root.getChildAt(0) as? ArcadeBackdropView ?: return
         if (enabled) {
-            backdrop.useGameplayBackground()
+            backdrop.useGameplayBackground(boardEnvironment = true)
         } else {
             backdrop.useUiBackground()
         }

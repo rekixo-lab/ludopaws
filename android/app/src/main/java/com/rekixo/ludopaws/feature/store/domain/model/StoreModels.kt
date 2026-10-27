@@ -12,6 +12,7 @@ enum class StoreTab(
 enum class StoreProductKind {
     CONSUMABLE_GEMS,
     NON_CONSUMABLE_REMOVE_ADS,
+    NON_CONSUMABLE_COSMETIC,
 }
 
 data class StoreProduct(
@@ -21,6 +22,7 @@ data class StoreProduct(
     val kind: StoreProductKind,
     val fallbackPrice: String,
     val featured: Boolean = false,
+    val cosmeticId: String? = null,
 )
 
 data class StoreBillingProduct(

@@ -47,10 +47,6 @@ internal object DogRenderer : CharacterRenderer {
             Matrix.translateM(neck, 0, 0f, -.38f, 0f)
             surface = CharacterSurface.COAT
             dogMesh(neck, DogGeometry.neck, DOG_TAN)
-            surface = CharacterSurface.MATTE
-            dogMesh(neck, DogGeometry.collar, teamColor.glColor)
-            surface = CharacterSurface.HORN
-            drawPart(neck, 0f, .40f, .318f, .060f, .076f, .026f, TAG_GOLD)
             prepareHead(neck, .94f, pose.headTiltDegrees)
             DogFaceRenderer.draw(this, head, pose)
             tail(torso, pose.secondaryAppendageDegrees)

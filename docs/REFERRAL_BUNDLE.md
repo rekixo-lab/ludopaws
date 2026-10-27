@@ -1,0 +1,56 @@
+# Verified friendship bundle
+
+Production hardening and the next-update rollout checklist are in [REFERRAL_PRODUCTION_REVIEW.md](REFERRAL_PRODUCTION_REVIEW.md). This source change does not modify the current in-review Play release or its selected countries. No builds, tests, uploads or deployments have been run.
+
+## Reward and rules
+
+Campaign `friendship-bundle-v1` grants **Pearl Paw Dice + Blossom Garden Board + Rabbit + 100 Gems** to the inviter, once. The invited player receives no campaign reward. Sharing, clicking, downloading or opening the game alone never grants anything.
+
+The new player must install from the personal invitation's Google Play download button within seven days of the download click, link a Google account, explicitly accept the disclosure and verify the invitation on Home → Share before playing, and finish a natural Online or Friends match within fourteen days of installation and before the campaign ends. The match must last at least three minutes from server-recorded start, contain no bots or forfeited players, finish with all four winner tokens home, and include at least one legal move by the referred player. No win is required for the referred player. Offline and Team Up matches are not eligible in this campaign. The campaign lasts ninety days from the configured start time. Explain these requirements before sharing; do not promise a reward to the friend.
+
+Already-owned items are preserved, with no replacement Gems or duplicates. **The additional 100 Gems are still granted once even if some or all three cosmetics are already owned.** New gifts do not auto-equip or change a player's selections. An independent referral entitlement protects gifted items from a later Play cosmetic refund. Gems remain fungible under the existing wallet/refund rules.
+
+## Presentation
+
+- Home retains its original hero geometry and swipe/automatic-slide timing. The second page alternates the existing locked-item Store spotlight and the friendship bundle on successive visits; only an enabled, unfinished campaign is promoted to users eligible for optional Google features under the existing neutral privacy choice. Already owning all three cosmetics does not hide the 100-Gem opportunity.
+- Home's Share action opens the scrollable friendship page, with native board and dice renderers and a single playful live Rabbit preview. Sharing remains explicit through Android's chooser; no contacts permission, automatic message or mandatory sharing is used.
+- The page shows Google-link eligibility, invitation, friend joined, reward delivery and received states. Owned item labels and the extra Gems are explicit. Explicit Verify starts SDK checks only after consent; verification status, retry/backoff and Stop controls are visible. Refresh never grants locally. Disabled/unconfigured campaigns show an honest unavailable state, with no working reward CTA.
+- Previews pause on background/focus loss. Attribution and network calls run off the main thread. A terminal-match event is dispatched with `waitUntil`, not awaited by the normal move response. No extra gameplay header or board layout changes are introduced.
+
+## Server trust and delivery
+
+The Worker authenticates every account operation and overwrites any supplied `accountId` with the active session account. A shared opaque invitation resolves to a minimal landing page. Only its explicit POST download button creates a one-use click token and redirects to Google Play with an Install Referrer parameter. Social crawlers fetching the page do not consume attribution.
+
+The native app reads Play's **server-side** click/install timestamps, persists a pending reference until account linking is available, then requests a short-lived server challenge only after explicit consent and server enrollment. No referral SDK is started before opt-in. A Standard Play Integrity request binds the nonce, account, click and install time. The backend checks request hash, package, recent token timestamp, production Play signing certificate, recognized app, Play license and device-integrity verdict before binding a claim. No debug bypass exists.
+
+AccountDirectory resolves trusted match Friend IDs or leaderboard profile IDs to account identities internally. Neither local XP/stats nor a client-supplied match result can qualify. MatchRoom persists authoritative terminal state, persists a minimal delivery outbox and retries on its lifecycle alarm until the campaign ends plus fourteen days; normal full-room retention remains 24 hours after completion, and keeps leaderboard submission independent, including Friends matches. The campaign stores eligible server match records for fourteen days only for already-enrolled participants or bound claims. The invited friend must verify before playing; unrelated players' matches are not retained for referral attribution.
+
+ReferralCampaign stores unique invited-account and Google-subject claims, rejects self-invites and pre-install accounts, and keeps one pending/received award per inviter. PlayerAccount adds all missing cosmetics, an independent gift entitlement and exactly 100 Gems in one synchronous SQL transaction, using a campaign-scoped unique wallet idempotency key. A timeout after grant is safe to retry. DO alarms retry pending awards, including after the campaign ends; a full wallet pauses delivery instead of partially granting or losing the reward. Account deletion blocks wallet changes before referral cleanup.
+
+This prevents straightforward same-account reinstall/replay farming, not every form of fraud. Play Integrity and Install Referrer **do not prove one unique human**; referrer timestamps are reported by the attested app, not an independent server-to-server install receipt. A genuine device with multiple new Google identities can still be abused. Same IP/shared Wi-Fi is not a permanent disqualifier. **Device Recall is a Google beta and is not integrated or asserted as active here.** If stricter one-device campaign enforcement is required, obtain beta approval and implement a separately reviewed, privacy-preserving recall reservation/write workflow before a broad launch. Do not fingerprint devices or collect advertising IDs as a workaround.
+
+## Release configuration — disabled by default
+
+This commit does **not** deploy the Worker, provision secrets, claim Play policy approval, or run build/test/install commands. The reward must remain unavailable until an operator completes the following:
+
+1. Review the optional referral incentive against the app's audience, Google Play policies, distribution regions, disclosures and Data safety form. Existing neutral Google-linking eligibility is unchanged; guest gameplay remains available without referrals. Do not frame this as paid installs, ratings/reviews or Store-ranking manipulation.
+2. Publish the updated privacy policy and campaign rules. Do not set the policy flag merely because code exists.
+3. Configure Play Integrity for the production `com.rekixo.ludopaws` app and its linked Cloud project; enable the API and grant a dedicated service account the required token-decode access.
+4. Supply Worker secrets `LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL` and `LUDOPAWS_INTEGRITY_PRIVATE_KEY` (PKCS#8 PEM). Never commit credentials or put the private key in Android.
+5. Supply `LUDOPAWS_INTEGRITY_PROJECT_NUMBER` as a numeric Cloud project number, `LUDOPAWS_PLAY_SIGNING_SHA256` as comma-separated **Play app-signing**, not debug/upload, SHA-256 fingerprints, `LUDOPAWS_REFERRAL_MIN_VERSION_CODE` as the minimum eligible next-update version code, and `LUDOPAWS_REFERRAL_START_MS` as the immutable UTC Unix launch time in milliseconds. The campaign ID and start time must not be recycled to rerun a campaign.
+6. Deploy the Worker with the additive `v15-referral-campaign` SQLite Durable Object migration and `LUDOPAWS_REFERRALS` binding on the existing `api.ludopaws.rekixo.com` HTTPS route. The Worker serves `/.well-known/assetlinks.json` from the configured production fingerprints. Confirm domain ownership and Android App Links verification.
+7. Keep existing FAMILY_V2 / reviewed Google-linking configuration. Only after review and operator validation set `LUDOPAWS_REFERRALS_ENABLED=true`, `LUDOPAWS_REFERRAL_POLICY_APPROVED=true`, `LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED=true` and `LUDOPAWS_REFERRAL_RELEASE_VALIDATED=true`. All four are explicitly `false` in committed Wrangler configuration. Missing credentials/certificates/project/start time fail closed; ordinary play remains unaffected.
+8. Perform operator-controlled verification through an eligible **Google Play testing track** and real devices. A sideloaded `.dev`/`.qa` APK, debug certificate, fake Integrity response or unlicensed install cannot establish a production referral. No tests or release uploads are performed by this change.
+
+Operator acceptance should cover one inviter/new friend, Online and Friends natural finishes (including the friend losing), all-owned and partly-owned bundles, duplicate bind/event delivery, repeated status refresh, dropped grant acknowledgements, delayed attribution, session switching, campaign end, full wallet, account deletion, Play cosmetic refund after a gift, bots, forfeits and unavailable verification services. A single campaign DO is intentionally a bounded initial rollout; review quotas/throughput and shard coordination before mass promotion. Minimal match event retries are bounded by campaign end plus fourteen days. Monitor queue age, retry failures, date consistency and expiry diagnostics; permanent delivery cannot be guaranteed. Configure alerts and capacity before a broad promotion.
+
+## Retention and limitations
+
+Click records are retained for up to twenty-one days to permit a seven-day install window followed by up to fourteen days of delayed first-open/account linking; an installation after day seven is still ineligible. Challenges expire after five minutes; eligible match records after fourteen days. Consent records and minimal Google-subject anti-replay/history hashes expire fourteen days after the ninety-day campaign ends. Campaign attribution/links are purged then; wallet grant and award idempotency records remain with the account. Account deletion removes coordinator referral invitations, claim relationships, accepted match references and awards immediately. Already-queued minimal room outbox evidence can remain until its bounded campaign deadline; deletion markers prevent it recreating attribution or rewards. Limited anti-replay hashes until the stated deadline and minimal deletion tombstones remain. Integrity tokens are verified transiently and are not persisted or logged by referral code. Provider operational retention is independent.
+
+Configuration and official API references:
+- [Install Referrer library](https://developer.android.com/google/play/installreferrer/library)
+- [Standard Play Integrity verification](https://developer.android.com/google/play/integrity/standard)
+- [Integrity setup](https://developer.android.com/google/play/integrity/setup)
+- [Device Recall beta constraints](https://developer.android.com/google/play/integrity/device-recall)
+- [Android App Links](https://developer.android.com/training/app-links/verify-android-applinks)

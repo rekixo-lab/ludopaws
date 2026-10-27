@@ -109,7 +109,16 @@ object StoreCatalog {
                 fallbackPrice =
                     PRICE_UNAVAILABLE,
             ),
-        )
+        ) + CosmeticPricing.productIds.map { id ->
+            StoreProduct(
+                productId = id,
+                title = id.removePrefix("character_").removePrefix("board_").replace('_', ' '),
+                gemAmount = 0,
+                kind = StoreProductKind.NON_CONSUMABLE_COSMETIC,
+                fallbackPrice = PRICE_UNAVAILABLE,
+                cosmeticId = id,
+            )
+        }
 
     val playProductIds:
         List<String> =
@@ -123,4 +132,7 @@ object StoreCatalog {
         products.firstOrNull {
             it.productId == productId
         }
+
+    fun cosmeticProductId(cosmeticId: String): String? =
+        products.firstOrNull { it.cosmeticId == cosmeticId }?.productId
 }

@@ -47,10 +47,6 @@ internal object DuckRenderer : CharacterRenderer {
             Matrix.rotateM(neck,0,pose.neckPitchDegrees,1f,0f,0f)
             Matrix.translateM(neck,0,0f,-.43f,0f)
             duckMesh(neck,DuckGeometry.neck,DUCK_YELLOW)
-            surface=CharacterSurface.MATTE
-            duckMesh(neck,DuckGeometry.band,teamColor.glColor)
-            surface=CharacterSurface.HORN
-            drawPart(neck,0f,.367f,.285f,.060f,.073f,.024f,TAG_GOLD)
             prepareHead(neck,.97f,pose.headTiltDegrees)
             // A small downward glance reveals the bill's top in the frontal game camera.
             Matrix.translateM(head,0,0f,.84f,.05f)

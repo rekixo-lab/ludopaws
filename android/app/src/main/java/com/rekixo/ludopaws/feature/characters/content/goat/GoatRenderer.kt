@@ -57,10 +57,6 @@ internal object GoatRenderer : CharacterRenderer {
             Matrix.rotateM(neck, 0, pose.neckPitchDegrees, 1f, 0f, 0f)
             Matrix.translateM(neck, 0, 0f, -.43f, -.025f)
             goatMesh(neck, GoatGeometry.neck, GOAT_CREAM)
-            surface = CharacterSurface.MATTE
-            goatMesh(neck, GoatGeometry.collar, teamColor.glColor)
-            surface = CharacterSurface.HORN
-            drawPart(neck, 0f, .445f, .32f, .055f, .075f, .025f, TAG_GOLD)
             surface = CharacterSurface.COAT
             prepareHead(neck, 1.03f, pose.headTiltDegrees)
             GoatFaceRenderer.draw(this, head, pose)

@@ -9,6 +9,7 @@ class DiceDefinition(
     val offer: StoreCosmetic,
     private val paletteFactory: () -> DicePalette,
     val rendererKey: String = "classic",
+    val previewFace: Int = 6,
 ) {
     val id: String get() = offer.id
     fun palette(teamColor: Int? = null): DicePalette {

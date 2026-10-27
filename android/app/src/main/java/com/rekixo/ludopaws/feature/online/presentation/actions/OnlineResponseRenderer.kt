@@ -99,7 +99,7 @@ internal fun MainActivity.applyResponse(
     applyOnlineGameplayPacing(previousState, state)
     LudoProofTheme.setGameplayBackground(
         root = arcadeRootView,
-        enabled = state.status == "ACTIVE",
+        enabled = state.status == "ACTIVE" || state.status == "FINISHED",
     )
     uiStateHolder.update {
         it.copy(

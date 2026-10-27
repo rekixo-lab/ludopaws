@@ -14,6 +14,11 @@ import kotlin.math.max
 object GameMusicController {
     private var appForeground = false
     private var player: MediaPlayer? = null
+    private var preparingPlayer = false
+    private var playerGeneration = 0L
+    private val playerWorker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsMusicPrepare").apply { isDaemon = true }
+    }
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
@@ -123,6 +128,8 @@ object GameMusicController {
 
     @Synchronized
     fun release() {
+        playerGeneration += 1
+        preparingPlayer = false
         mainHandler.removeCallbacks(
             restoreVolumeRunnable,
         )
@@ -179,24 +186,42 @@ object GameMusicController {
     private fun ensurePlayer(
         context: Context,
     ) {
-        if (player != null) {
+        if (player != null || preparingPlayer) {
             return
         }
-
-        val authoredPlayer =
-            authoredBackgroundMusicPaths(context)
-                .firstNotNullOfOrNull { assetPath ->
-                    createAssetPlayer(context, assetPath)
+        preparingPlayer = true
+        val generation = playerGeneration
+        val appContext = context.applicationContext
+        playerWorker.execute {
+            val startedAt = SystemClock.elapsedRealtime()
+            val result = runCatching {
+                authoredBackgroundMusicPaths(appContext)
+                    .firstNotNullOfOrNull { assetPath -> createAssetPlayer(appContext, assetPath) }
+                    ?: MediaPlayer.create(appContext, R.raw.ludoproof_theme)
+            }
+            val preparedPlayer = result.getOrNull()
+            mainHandler.post {
+                synchronized(this) {
+                    if (generation != playerGeneration) {
+                        runCatching { preparedPlayer?.release() }
+                        return@synchronized
+                    }
+                    preparingPlayer = false
+                    player = runCatching {
+                        preparedPlayer?.apply {
+                            isLooping = true
+                            setVolume(currentTargetVolume(), currentTargetVolume())
+                        }
+                    }.getOrElse {
+                        runCatching { preparedPlayer?.release() }
+                        null
+                    }
+                    result.onFailure { android.util.Log.w("LudoPawsLoad", "Music preparation failed", it) }
+                    android.util.Log.d("LudoPawsLoad", "music prepare_ms=${SystemClock.elapsedRealtime() - startedAt} success=${player != null}")
+                    if (player != null) sync(appContext)
                 }
-        player =
-            (authoredPlayer ?: MediaPlayer.create(context, R.raw.ludoproof_theme))
-                ?.apply {
-                    isLooping = true
-                    setVolume(
-                        currentTargetVolume(),
-                        currentTargetVolume(),
-                    )
-                }
+            }
+        }
     }
 
     /**

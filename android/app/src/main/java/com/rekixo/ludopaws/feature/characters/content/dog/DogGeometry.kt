@@ -42,12 +42,8 @@ internal object DogGeometry {
         Ring(-.05f, .13f, .18f, centerZ = .04f),
         Ring(.025f, .12f, .16f, centerZ = .025f), Ring(.07f, .055f, .075f),
     ), 18, subdivisions = 2)
-    val collar = MeshLoft.build(listOf(
-        Ring(.405f, .305f, .305f, centerZ = .015f),
-        Ring(.485f, .294f, .285f, centerZ = .018f),
-    ), 24)
     val tail = MeshLoft.build(listOf(
         Ring(-.5f, .85f, .85f), Ring(0f, 1f, 1f), Ring(.5f, .72f, .72f),
     ), 12)
-    val all get() = listOf(body, neck, head, muzzle, jaw, ear, limb, paw, collar, tail)
+    val all get() = listOf(body, neck, head, muzzle, jaw, ear, limb, paw, tail)
 }

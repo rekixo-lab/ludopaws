@@ -238,13 +238,21 @@ class LudoBoardView @JvmOverloads constructor(
 
     fun reloadStyle() {
         boardThemeId =
-            CosmeticInventoryStore(
+            previewBoardThemeId ?: CosmeticInventoryStore(
                 context,
             )
                 .selectedId(
                     CosmeticCategory.BOARD,
                 )
         invalidate()
+    }
+
+    private var previewBoardThemeId: String? = null
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        require(BoardRegistry.find(themeId)?.offer?.contentAvailable == true)
+        previewBoardThemeId = themeId
+        reloadStyle()
     }
 
     override fun onDetachedFromWindow() {
@@ -1138,6 +1146,42 @@ class LudoBoardView @JvmOverloads constructor(
             }
 
         return mapOf(
+            LudoPaws3DSpecies.RABBIT to
+                PawPrintArtwork(
+                    pads = listOf(
+                        path { addOval(RectF(-.55f, -.87f, -.08f, .68f), Path.Direction.CW) },
+                        path { addOval(RectF(.08f, -.87f, .55f, .68f), Path.Direction.CW) },
+                        path { addOval(RectF(-.25f, .76f, -.03f, 1.10f), Path.Direction.CW) },
+                        path { addOval(RectF(.03f, .76f, .25f, 1.10f), Path.Direction.CW) },
+                    ),
+                    details = listOf(path {
+                        moveTo(-.32f, -.62f)
+                        lineTo(-.32f, -.30f)
+                        moveTo(.32f, -.62f)
+                        lineTo(.32f, -.30f)
+                    }),
+                ),
+            LudoPaws3DSpecies.HORSE to
+                PawPrintArtwork(
+                    pads = listOf(path {
+                        moveTo(-.48f, .62f)
+                        cubicTo(-.92f, -.15f, -.63f, -.82f, 0f, -.84f)
+                        cubicTo(.63f, -.82f, .92f, -.15f, .48f, .62f)
+                        close()
+                    }),
+                    details = listOf(path {
+                        moveTo(-.29f, .39f)
+                        lineTo(0f, -.24f)
+                        lineTo(.29f, .39f)
+                    }),
+                ),
+            LudoPaws3DSpecies.ELEPHANT to
+                PawPrintArtwork(
+                    pads = listOf(path { addOval(RectF(-.70f, -.76f, .70f, .76f), Path.Direction.CW) }),
+                    details = (-1..1).map { nail ->
+                        path { addArc(RectF(nail * .36f - .13f, -.65f, nail * .36f + .13f, -.34f), 180f, 180f) }
+                    },
+                ),
             LudoPaws3DSpecies.CAT to
                 PawPrintArtwork(
                     pads = listOf(

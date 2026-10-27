@@ -5,7 +5,8 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.ImageView
+import android.content.Intent
+import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
@@ -29,18 +30,16 @@ class HomeActivity : Activity() {
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
     internal var homeGuideVisible: Boolean = false
+    private var promotionCarousel: HomePromotionCarousel? = null
 
     override fun onCreate(
         savedInstanceState: Bundle?,
     ) {
         super.onCreate(savedInstanceState)
-        com.rekixo.ludopaws.feature.boards.rendering.BoardRendererRegistry
-            .create(com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve("board_classic"))
-            .prepare {}
-        LudoPawsYardHabitatRenderer.prepare {}
-        LudoPawsCenterHouses3D.prepare()
-        LudoPawsBoardChromeView.prewarm(this)
         LudoProofTheme.configureWindow(this)
+        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.host == "api.ludopaws.rekixo.com") {
+            android.widget.Toast.makeText(this, "Welcome! Only a new Play installation from an invitation can qualify. Your inviter receives the reward after verified play.", android.widget.Toast.LENGTH_LONG).show()
+        }
 
         val (root, host) =
             LudoProofTheme.arcadeRoot(this)
@@ -112,42 +111,27 @@ class HomeActivity : Activity() {
             ),
         )
 
-        // The supplied artwork already contains the complete Home hero:
-        // Ludo Paws logo, wood, pets, pedestals and paw die. Render it as one
-        // transparent image so the old generated logo/pet layers cannot stack
-        // or leak into the center area. Mode/footer positions stay unchanged.
         val heroWidth =
             minOf(
                 topHudWidth,
                 dp(if (isCompact()) 350 else 388),
             )
         contentHost.addView(
-            ImageView(this).apply {
-                setImageResource(
-                    R.drawable.ludo_paws_home_hero,
-                )
-                scaleType =
-                    ImageView.ScaleType.FIT_CENTER
-                adjustViewBounds = false
-                contentDescription =
-                    "Ludo Paws characters"
-                importantForAccessibility =
-                    View.IMPORTANT_FOR_ACCESSIBILITY_YES
-            },
+            HomePromotionCarousel(this) { tab, characterId ->
+                startActivity(Intent(this, StoreActivity::class.java).apply {
+                    putExtra(StoreActivity.EXTRA_INITIAL_TAB, tab)
+                    characterId?.let { putExtra(StoreActivity.EXTRA_FEATURED_CHARACTER_ID, it) }
+                })
+            }.also { promotionCarousel = it },
             FrameLayout.LayoutParams(
                 heroWidth,
                 dp(if (isCompact()) 272 else 302),
                 Gravity.TOP or Gravity.CENTER_HORIZONTAL,
             ).apply {
-                topMargin =
-                    dp(if (isCompact()) 158 else 168)
+                topMargin = dp(if (isCompact()) 158 else 168)
             },
         )
 
-        // Home is a fixed game menu, not a document-style scrolling screen.
-        // Keeping the HUD/mode controls directly in the host prevents swipe
-        // gestures from sliding the profile/shortcut controls into the status
-        // bar/camera cutout while preserving their existing positions.
         host.addView(
             contentHost,
             FrameLayout.LayoutParams(
@@ -173,9 +157,7 @@ class HomeActivity : Activity() {
             },
         )
 
-        content.addView(
-            profileHud(),
-        )
+        content.addView(profileHud())
 
         content.addView(
             modeSection(),
@@ -185,12 +167,7 @@ class HomeActivity : Activity() {
             ).apply {
                 gravity =
                     Gravity.CENTER_HORIZONTAL
-                topMargin =
-                    // Lift only the five main game-mode cards. The hero artwork
-                    // and the top HUD keep their own existing positions.
-                    dp(
-                        if (isCompact()) 322 else 335,
-                    )
+                topMargin = dp(if (isCompact()) 322 else 335)
             },
         )
 
@@ -232,6 +209,24 @@ class HomeActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        homeResumed = true
+        window.decorView.postDelayed({
+            if (homeResumed && !isFinishing && !isDestroyed) com.rekixo.ludopaws.feature.referrals.ReferralRepository(this).refreshAttribution()
+        }, 1200L)
+        promotionCarousel?.setActive(true)
+        window.decorView.postOnAnimation {
+            window.decorView.post {
+                if (homeResumed && !isFinishing && !isDestroyed) {
+                    LudoPawsCenterHouses3D.prepare()
+                    LudoPawsBoardChromeView.prewarm(this)
+                    val selected = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load()
+                    com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.prewarm(
+                        listOf(selected.characterId, "dog", "goat", "duck", "cat"),
+                    )
+                    com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback.preloadMovementEventSfx(this)
+                }
+            }
+        }
 
         recordAbandonedRemoteLossIfNeeded()
 
@@ -249,6 +244,14 @@ class HomeActivity : Activity() {
         // Never show an in-app DOB screen. Google Play may request age-range sharing.
         // First-run tutorial is dismissed before any Play-managed prompt may appear.
         // Family gameplay does not request or depend on age-range sharing.
+    }
+
+    private var homeResumed = false
+
+    override fun onPause() {
+        homeResumed = false
+        promotionCarousel?.setActive(false)
+        super.onPause()
     }
 
     private fun recordAbandonedRemoteLossIfNeeded() {

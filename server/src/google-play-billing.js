@@ -1,4 +1,5 @@
 import { httpError, sha256Hex } from "./crypto.js";
+import { COSMETIC_PRICING } from "./cosmetic-pricing.js";
 
 const PACKAGE_NAME = "com.rekixo.ludopaws";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -9,6 +10,9 @@ const ACCOUNT_ID_REGEX = /^[a-f0-9]{64}$/;
 const OWNER_ACCOUNT_ID_REGEX = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
 export const GOOGLE_PLAY_PRODUCTS = Object.freeze({
+  ...Object.fromEntries(Object.keys(COSMETIC_PRICING).map((id) => [id, Object.freeze({
+    gemAmount: 0, removeAds: false, consumable: false, cosmeticId: id,
+  })])),
   remove_ads: Object.freeze({
     gemAmount: 5,
     removeAds: true,

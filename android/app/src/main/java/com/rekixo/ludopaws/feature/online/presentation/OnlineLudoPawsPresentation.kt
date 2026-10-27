@@ -66,6 +66,10 @@ internal object OnlineLudoPawsPresentation {
                 ?: createHost(activity).also {
                     activity.boardFrame.tag = it
                 }
+        activity.gameplayPawsPromotion?.apply {
+            protect(listOf(host.topRail, host.board, host.bottomRail))
+            setMatchActive(current.status == "ACTIVE")
+        }
 
         ensureRailAlignmentObserver(activity, host)
         val characterIdsBySeat =
@@ -117,6 +121,7 @@ internal object OnlineLudoPawsPresentation {
     }
 
     fun clear(activity: MainActivity) {
+        activity.gameplayPawsPromotion?.setMatchActive(false)
         val host = host(activity) ?: return
         com.rekixo.ludopaws.ui.quickchat.clearQuickChatReactions(host.board)
         host.quickChatReactionView = null

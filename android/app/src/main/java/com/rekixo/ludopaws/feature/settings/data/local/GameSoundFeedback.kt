@@ -18,6 +18,30 @@ import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsReaction
  * contained identical audio.
  */
 object GameSoundFeedback {
+    private val movementPrewarmScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val dicePrewarmScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val prewarmExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsAudioPrewarm").apply { isDaemon = true }
+    }
+
+    private fun prewarmOnce(context: Context, scheduled: java.util.concurrent.atomic.AtomicBoolean,
+        label: String, action: (Context) -> Unit) {
+        if (!scheduled.compareAndSet(false, true)) return
+        val appContext = context.applicationContext
+        prewarmExecutor.execute {
+            if (!GameSettingsStore(appContext).snapshot().soundEnabled) {
+                scheduled.set(false)
+                return@execute
+            }
+            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val result = runCatching { action(appContext) }
+            result.onFailure {
+                scheduled.set(false)
+                Log.w("LudoPawsLoad", "Audio prewarm failed for $label", it)
+            }
+            Log.d("LudoPawsLoad", "audio=$label prepare_ms=${android.os.SystemClock.elapsedRealtime() - startedAt} success=${result.isSuccess}")
+        }
+    }
     fun click(context: Context) =
         play(
             context = context,
@@ -52,6 +76,10 @@ object GameSoundFeedback {
      * an authored clip to finish loading.
      */
     fun preloadMovementEventSfx(context: Context) {
+        prewarmOnce(context, movementPrewarmScheduled, "movement", ::preloadMovementEventSfxNow)
+    }
+
+    private fun preloadMovementEventSfxNow(context: Context) {
         val sounds =
             listOf(
                 listOf("lp_sfx_move_paw") to LudoPawsAudioCatalog.Sfx.MOVE_STEP_DOG,
@@ -91,6 +119,10 @@ object GameSoundFeedback {
      */
     /** Preloads roll/settle audio to avoid first-tap load latency in online matches. */
     fun preloadDiceFeedback(context: Context) {
+        prewarmOnce(context, dicePrewarmScheduled, "dice", ::preloadDiceFeedbackNow)
+    }
+
+    private fun preloadDiceFeedbackNow(context: Context) {
         preload(
             context = context,
             rawResourceNames = listOf("lp_sfx_dice_roll"),
@@ -111,7 +143,7 @@ object GameSoundFeedback {
 
         val movement =
             when (characterId) {
-                "goat", "goat_lumi" ->
+                "goat", "goat_lumi", "pig", "horse" ->
                     Triple(
                         listOf("lp_sfx_move_hoof"),
                         LudoPawsProceduralAudio.Sfx.MOVE_HOOF,
@@ -123,7 +155,7 @@ object GameSoundFeedback {
                         LudoPawsProceduralAudio.Sfx.MOVE_WEB,
                         LudoPawsAudioCatalog.Sfx.MOVE_STEP_DUCK,
                     )
-                "cat" ->
+                "cat", "elephant", "rabbit" ->
                     Triple(
                         listOf("lp_sfx_move_paw"),
                         LudoPawsProceduralAudio.Sfx.MOVE_PAW,
@@ -138,7 +170,7 @@ object GameSoundFeedback {
             }
         val volume =
             when (characterId) {
-                "goat", "goat_lumi" -> .30f
+                "goat", "goat_lumi", "pig", "horse" -> .30f
                 "duck" -> .28f
                 else -> .30f
             }

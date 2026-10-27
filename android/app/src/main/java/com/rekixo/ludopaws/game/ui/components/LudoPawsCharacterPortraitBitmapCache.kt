@@ -20,7 +20,7 @@ import java.util.concurrent.Executors
 /**
  * Produces reusable transparent portraits from the same OpenGL ES geometry used
  * by live board pawns. One serialized pbuffer context renders each character /
- * team-colour pair once; UI avatars then draw the cached bitmap without running
+ * natural-material portrait once; UI avatars draw the cached bitmap without running
  * their own render loops.
  */
 internal object LudoPawsCharacterPortraitBitmapCache {
@@ -55,7 +55,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         characterId: String?,
         teamColor: String?,
     ): String =
-        "${resolveCharacterId(characterId)}:${resolveTeamColor(teamColor)}"
+        "${resolveCharacterId(characterId)}:natural"
 
     fun request(
         characterId: String?,
@@ -63,7 +63,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         callback: (Bitmap?) -> Unit,
     ) {
         val resolvedCharacterId = resolveCharacterId(characterId)
-        val resolvedTeamColor = resolveTeamColor(teamColor)
+        val resolvedTeamColor = LudoPawsTeamColor.BLUE.wireName
         val key = keyFor(resolvedCharacterId, resolvedTeamColor)
 
         var cached: Bitmap? = null
@@ -103,7 +103,9 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         }
         if (!shouldRender) return
 
+        val requestedAt = android.os.SystemClock.elapsedRealtime()
         executor.execute {
+            val startedAt = android.os.SystemClock.elapsedRealtime()
             val bitmap =
                 if (rendererUnavailable) {
                     null
@@ -124,6 +126,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
                     }
                     pendingCallbacks.remove(key).orEmpty()
                 }
+            Log.d("LudoPawsLoad", "portrait=$resolvedCharacterId queue_ms=${startedAt - requestedAt} render_ms=${android.os.SystemClock.elapsedRealtime() - startedAt} success=${bitmap != null}")
             mainHandler.post {
                 callbacks.forEach { listener ->
                     runCatching { listener(bitmap) }
@@ -137,12 +140,6 @@ internal object LudoPawsCharacterPortraitBitmapCache {
             .canonicalCharacterId(characterId)
             ?.takeIf { LudoPawsCharacterCatalog.character(it) != null }
             ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-
-    private fun resolveTeamColor(teamColor: String?): String =
-        LudoPawsTeamIdentityPolicy
-            .resolve(teamColor)
-            ?.wireName
-            ?: LudoPawsTeamColor.BLUE.wireName
 
     private fun render(
         characterId: String,

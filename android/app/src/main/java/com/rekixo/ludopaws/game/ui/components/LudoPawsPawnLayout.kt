@@ -143,6 +143,11 @@ object LudoPawsPawnLayout {
         "cat" -> 2.10f * CatDefinition.MODEL_SIZE_MULTIPLIER
         "goat_lumi" -> 2.35f * LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
         "duck" -> 2.85f
+        "cock" -> 2.22f
+        "pig" -> 2.20f
+        "elephant" -> 2.10f
+        "horse" -> 2.50f
+        "rabbit" -> 2.60f
         else -> 3f
     }
 

@@ -22,6 +22,11 @@ internal fun StoreActivity.handleCosmeticTap(cosmetic: StoreCosmetic) {
         return
     }
 
+    if (cosmetic.unlockChannels.size > 1) {
+        purchaseOrSelectCosmetic(cosmetic)
+        return
+    }
+
     val level = ProfileProgression
         .levelProgress(ProfileStore(this).snapshot().totalXp)
         .level

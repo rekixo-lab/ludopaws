@@ -18,6 +18,7 @@ internal fun addGameTopActions(
     context: android.content.Context,
     onBack: () -> Unit,
     onSettings: () -> Unit,
+    centerContent: View? = null,
 ): FrameLayout {
     val buttonSize = LudoProofTheme.dp(context, 52)
     val sideMargin = LudoProofTheme.dp(context, 16)
@@ -76,6 +77,18 @@ internal fun addGameTopActions(
             topMargin = actionTopMargin
         },
     )
+
+    centerContent?.let { center ->
+        bar.addView(center, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            buttonSize,
+            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
+        ).apply {
+            leftMargin = sideMargin + buttonSize + LudoProofTheme.dp(context, 8)
+            rightMargin = leftMargin
+            topMargin = actionTopMargin
+        })
+    }
 
     host.addView(
         bar,

@@ -221,6 +221,9 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                 host = host,
                 context = this,
                 onBack = { requestRemoteExitAfterWinInterstitial() },
+                centerContent = com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionSlot(
+                    this, if (gameMode == GameMode.ONLINE || gameMode == GameMode.TEAM_UP) onlineFixedTitle() else null,
+                ).also { gameplayPawsPromotion = it },
                 onSettings = {
                     ArcadeDialogs.showSettings(this) {
                         currentState?.let { state ->
@@ -234,7 +237,7 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                 },
             ).apply {
                 // Use the shared plywood skin only for the Online screen's Back and Settings.
-                for (index in 0 until childCount) {
+                for (index in 0 until minOf(2, childCount)) {
                     getChildAt(index).background =
                         plywoodBackground(
                             context = this@buildOnlineMatchScreen,
@@ -243,23 +246,6 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                         )
                 }
 
-                if (gameMode == GameMode.ONLINE || gameMode == GameMode.TEAM_UP) {
-                    // Robot-style fixed 52dp row for Online and Team Up.
-                    // Neither setup nor matchmaking search can scroll the title away.
-                    val availableTitleWidth = (
-                        resources.displayMetrics.widthPixels - dp(2 * (16 + 52 + 8))
-                    ).coerceAtLeast(dp(108))
-                    addView(
-                        onlineFixedTitle(),
-                        FrameLayout.LayoutParams(
-                            minOf(availableTitleWidth, dp(if (isCompactOnline()) 194 else 224)),
-                            dp(52),
-                            Gravity.TOP or Gravity.CENTER_HORIZONTAL,
-                        ).apply {
-                            topMargin = dp(14)
-                        },
-                    )
-                }
             }
 
         setContentView(root)

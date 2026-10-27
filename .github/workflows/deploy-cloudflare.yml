@@ -26,6 +26,14 @@ jobs:
       LUDOPROOF_SESSION_HMAC_KEY: ${{ secrets.LUDOPROOF_SESSION_HMAC_KEY }}
       LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: ${{ vars.LUDOPAWS_AD_SAFETY_REVIEW_APPROVED }}
       LUDOPAWS_GOOGLE_LINKING_ENABLED: ${{ vars.LUDOPAWS_GOOGLE_LINKING_ENABLED }}
+      LUDOPAWS_REFERRALS_ENABLED: ${{ vars.LUDOPAWS_REFERRALS_ENABLED }}
+      LUDOPAWS_REFERRAL_POLICY_APPROVED: ${{ vars.LUDOPAWS_REFERRAL_POLICY_APPROVED }}
+      LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED: ${{ vars.LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED }}
+      LUDOPAWS_REFERRAL_RELEASE_VALIDATED: ${{ vars.LUDOPAWS_REFERRAL_RELEASE_VALIDATED }}
+      LUDOPAWS_INTEGRITY_PROJECT_NUMBER: ${{ vars.LUDOPAWS_INTEGRITY_PROJECT_NUMBER }}
+      LUDOPAWS_PLAY_SIGNING_SHA256: ${{ vars.LUDOPAWS_PLAY_SIGNING_SHA256 }}
+      LUDOPAWS_REFERRAL_START_MS: ${{ vars.LUDOPAWS_REFERRAL_START_MS }}
+      LUDOPAWS_REFERRAL_MIN_VERSION_CODE: ${{ vars.LUDOPAWS_REFERRAL_MIN_VERSION_CODE }}
       GOOGLE_SIGN_IN_WEB_CLIENT_ID: ${{ vars.GOOGLE_SIGN_IN_WEB_CLIENT_ID }}
       GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS: ${{ vars.GOOGLE_SIGN_IN_ANDROID_CLIENT_IDS }}
       LUDOPROOF_ACCOUNT_WEB_ORIGIN: ${{ vars.LUDOPROOF_ACCOUNT_WEB_ORIGIN }}
@@ -55,7 +63,27 @@ jobs:
         run: node scripts/prepare-cloudflare-runtime-config.mjs
 
       - name: Test Cloudflare runtime configuration
-        run: node --test scripts/cloudflare-runtime-config.test.mjs
+        run: node --test scripts/cloudflare-runtime-config.test.mjs scripts/referral-runtime-config.test.mjs scripts/referral-health-check.test.mjs
+
+      - name: Verify referral secret bindings before optional activation
+        if: ${{ env.LUDOPAWS_REFERRALS_ENABLED == 'true' }}
+        working-directory: server
+        shell: bash
+        run: |
+          set -euo pipefail
+          secret_file="$(mktemp)"
+          trap 'rm -f "$secret_file"' EXIT
+          npx --yes wrangler@4.135.0 secret list --format json > "$secret_file"
+          node -e '
+            const fs = require("node:fs");
+            const parsed = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+            const names = new Set((Array.isArray(parsed) ? parsed : parsed.secrets ?? []).map(entry => entry.name));
+            const missing = ["LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL", "LUDOPAWS_INTEGRITY_PRIVATE_KEY"].filter(name => !names.has(name));
+            if (missing.length) {
+              console.error("Referral activation blocked: missing Cloudflare secret bindings: " + missing.join(", "));
+              process.exit(2);
+            }
+          ' "$secret_file"
 
       - name: Validate production configuration
         run: node scripts/cloudflare-deploy-preflight.mjs
@@ -214,6 +242,9 @@ jobs:
                 (expectedRewardedAds ? "enabled by explicit validated configuration." : "disabled.")
             );
           ' "$status_file"
+
+      - name: Verify referral delivery operational status
+        run: node scripts/referral-health-check.mjs
 
       - name: Verify live production game flow
         run: node scripts/production-game-smoke.mjs
