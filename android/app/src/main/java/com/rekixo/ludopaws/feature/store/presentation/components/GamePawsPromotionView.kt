@@ -7,6 +7,7 @@ import android.app.ActivityManager
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.MotionEvent
@@ -102,13 +103,21 @@ internal class GamePawsPromotionView(
         clipChildren = true
         clipToPadding = true
         setPadding(dp(4), dp(4), dp(4), dp(4))
-        background = plywoodBackground(context, cornerRadiusDp = 12f)
+        background = if (gameplay) null else plywoodBackground(context, cornerRadiusDp = 12f)
         artwork.clipChildren = true
         artwork.addView(avatar, FrameLayout.LayoutParams(-1, -1))
         listOf(leftCopy, rightCopy).forEach { copy ->
             copy.orientation = VERTICAL
             copy.gravity = Gravity.CENTER
             copy.setPadding(dp(2), 0, dp(2), 0)
+            if (gameplay) {
+                copy.setPadding(dp(5), dp(6), dp(5), dp(6))
+                copy.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(0xD92B4D36.toInt(), 0xB51C382D.toInt())).apply {
+                    cornerRadius = dp(12).toFloat()
+                    setStroke(dp(1), 0x507DA46A)
+                }
+            }
         }
         listOf(name, storeLabel, categoryLabel, priceLabel).forEach { label ->
             label.gravity = Gravity.CENTER
@@ -120,12 +129,22 @@ internal class GamePawsPromotionView(
                 textSize = 8f
                 setTextColor(0xFFFFDC79.toInt())
                 maxLines = 1
+                if (gameplay) {
+                    letterSpacing = .09f
+                    setTypeface(Typeface.DEFAULT_BOLD)
+                    setTextColor(0xFFBFE3A1.toInt())
+                }
             }, LayoutParams(-1, -2))
             addView(name.apply {
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
                 maxLines = 2
+                if (gameplay) {
+                    setTextColor(0xFFFFF2D3.toInt())
+                    setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0xA610251C.toInt())
+                    setPadding(0, dp(3), 0, 0)
+                }
             }, LayoutParams(-1, -2))
         }
         rightCopy.apply {
@@ -133,15 +152,30 @@ internal class GamePawsPromotionView(
                 textSize = 9f
                 setTextColor(0xFFFFEDCA.toInt())
                 maxLines = 2
+                if (gameplay) {
+                    setTypeface(Typeface.DEFAULT_BOLD)
+                    setTextColor(0xFFFFE9AA.toInt())
+                }
             }, LayoutParams(-1, -2))
             addView(storeLabel.apply {
-                text = if (gameplay) "IN STORE ›" else "EXPLORE ›"
+                text = if (gameplay) "STORE ›" else "EXPLORE ›"
                 textSize = 9f
                 setTextColor(0xFFFFDC79.toInt())
                 setTypeface(Typeface.DEFAULT_BOLD)
                 maxLines = 2
                 setPadding(0, dp(4), 0, 0)
-            }, LayoutParams(-1, -2))
+                if (gameplay) {
+                    maxLines = 1
+                    letterSpacing = .03f
+                    setTextColor(0xFFD7F1BD.toInt())
+                    setPadding(dp(2), dp(4), dp(2), dp(4))
+                    background = GradientDrawable().apply {
+                        setColor(0x485B904D)
+                        cornerRadius = dp(8).toFloat()
+                        setStroke(dp(1), 0x708FCB79)
+                    }
+                }
+            }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(5) })
         }
         addView(leftCopy, LayoutParams(0, -2, 1f))
         addView(artwork, LayoutParams(dp(64), -1))
@@ -173,7 +207,13 @@ internal class GamePawsPromotionView(
     private fun bindCharacter() {
         val offer = candidates.getOrNull(index) ?: return
         name.text = offer.title
-        categoryLabel.text = if (offer.characterId != null) "MEET" else "DISCOVER"
+        categoryLabel.text = if (!gameplay) {
+            if (offer.characterId != null) "MEET" else "DISCOVER"
+        } else when (offer.cosmetic.category) {
+            CosmeticCategory.BOARD -> "BOARD PICK"
+            CosmeticCategory.DICE -> "DICE PICK"
+            else -> "PAWS PICK"
+        }
         priceLabel.text = when {
             offer.cosmetic.gemPrice > 0 && offer.cosmetic.requiredAdViews > 0 ->
                 CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice, "\nor ${offer.cosmetic.requiredAdViews} ADS")
@@ -259,10 +299,21 @@ internal class GamePawsPromotionView(
         if (artwork.layoutParams.width != portraitSize || artwork.layoutParams.height != portraitSize) {
             artwork.layoutParams = LayoutParams(portraitSize, portraitSize)
         }
-        name.textSize = if (availableWidth >= dp(300)) 16f else if (availableHeight >= dp(96)) 11f else 9f
-        storeLabel.textSize = if (availableWidth >= dp(300)) 12f else 9f
-        categoryLabel.textSize = if (availableWidth >= dp(300)) 10f else 8f
-        priceLabel.textSize = if (availableWidth >= dp(300)) 13f else 9f
+        if (gameplay) {
+            val roomy = availableWidth >= dp(300) && availableHeight >= dp(96)
+            name.textSize = if (roomy) 15f else if (availableHeight >= dp(96)) 11f else 9f
+            name.maxLines = if (availableHeight >= dp(96)) 3 else 2
+            storeLabel.textSize = if (roomy) 11f else 9f
+            categoryLabel.textSize = if (roomy) 9f else 7f
+            priceLabel.textSize = if (roomy) 13f else 9f
+            categoryLabel.visibility = if (availableHeight >= dp(76)) VISIBLE else GONE
+            storeLabel.visibility = if (availableHeight >= dp(76)) VISIBLE else GONE
+        } else {
+            name.textSize = if (availableWidth >= dp(300)) 16f else if (availableHeight >= dp(96)) 11f else 9f
+            storeLabel.textSize = if (availableWidth >= dp(300)) 12f else 9f
+            categoryLabel.textSize = if (availableWidth >= dp(300)) 10f else 8f
+            priceLabel.textSize = if (availableWidth >= dp(300)) 13f else 9f
+        }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
