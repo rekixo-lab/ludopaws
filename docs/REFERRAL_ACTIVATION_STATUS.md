@@ -1,5 +1,15 @@
 # Referral activation status — October 27, 2026
 
+## Public activation — October 27, 2026, 16:32:55 IST
+
+This activation record supersedes the earlier OFF/pending-validation status below.
+
+- The publisher explicitly approved the policy and requested public activation. In response to the specific real Play version 10 invite-link → new install → natural match → inviter-only three-assets plus 100-Gem test question, the publisher reported the entire test successful. **This is publisher-reported acceptance, not an agent-observed device test.** Device models, detailed timestamps and match/reward evidence have not yet been supplied; do not invent them or describe this as independent verification.
+- Technical SDK review checked the existing consent/age/account/withdrawal guards in `ReferralRepository` and disclosure in `ReferralActivity` against Google's [Integrity data disclosures](https://developer.android.com/google/play/integrity/terms) and [Install Referrer documentation](https://developer.android.com/google/play/installreferrer). Publisher flags record the operational review decision, not Google approval or worldwide legal certification.
+- Production policy, SDK review, release validation and participation flags are now true. Minimum eligible referred-install versionCode remains **10**, with the existing Play signing certificate and linked project. Immutable campaign start: **2026-10-27T11:01:57.090Z** (`1793098917090`); the existing 90-day campaign ends **2027-01-25T11:01:57.090Z**. Do not change the start after activation.
+- [Deployment 40493070435](https://github.com/rekixo-lab/ludopaws/actions/runs/40493070435) succeeded on main revision `36b7d9dd434884ff748f5f8d239d36a447588769`. Worker deployment completed at **16:32:55 IST**. Operational health and gameplay smoke checks passed. Independent read-only `referral-health-check.mjs --require-active` reported `healthy`, `enabled: true`, no missing activation checks, zero pending rewards and zero failed deliveries. Its `deviceAcceptanceVerified: false` correctly means this health tool does not attest devices.
+- No Play artifact, track, review submission, app data or branch protection was changed. Activation is a backend configuration deployment; it does not publish version 10 to the production track. No reward or test player was manufactured during activation. The scoped HTTP 5xx monitor remains enabled.
+
 ## Latest verified operational state — October 27, 2026
 
 This section supersedes earlier chronological statements about pending deployment, notices and monitoring below.
