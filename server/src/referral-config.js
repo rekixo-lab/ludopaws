@@ -64,6 +64,10 @@ export async function referralHealth(env) {
       pending: body.pending,
       oldestPendingAt: body.oldestPendingAt,
       failedDeliveries: body.failedDeliveries,
+      ...(body.integrity ? { integrity: {
+        verified: body.integrity.verified, rejected: body.integrity.rejected,
+        providerFailures: body.integrity.providerFailures, quotaFailures: body.integrity.quotaFailures,
+      } } : {}),
     };
   } catch {
     return { ok: false, error: "REFERRAL_HEALTH_UNAVAILABLE" };

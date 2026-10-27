@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertCatalogCanPublish, validateCatalog, validateCatalogItem } from "./store-catalog.js";
+import { assertCatalogCanPublish, validateCatalog, validateCatalogItem } from "../src/store-catalog.js";
 
 const ownDir = path.dirname(fileURLToPath(import.meta.url));
 const schema = JSON.parse(await readFile(path.resolve(ownDir, "../../docs/STORE_CATALOG_SCHEMA.json"), "utf8"));

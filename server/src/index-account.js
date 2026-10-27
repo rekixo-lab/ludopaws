@@ -23,6 +23,7 @@ import {
 import { GOOGLE_PLAY_PRODUCTS, googlePlayBillingChecks, googlePlayBillingEnabled, verifyAndRedeemGooglePlayPurchase } from "./google-play-billing.js";
 import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
+import { evaluateOperationalHealth } from "./operational-health.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
 import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralHealth, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
 
@@ -91,8 +92,17 @@ export default {
         env,
       );
     }
-    const response = await handleAccountRequest(request, env);
-    return withAccountWebCors(request, await familyResponse(response, env), env);
+    const startedAt = Date.now();
+    try {
+      const response = await handleAccountRequest(request, env);
+      return withAccountWebCors(request, await familyResponse(response, env), env);
+    } finally {
+      const elapsedMs = Date.now() - startedAt;
+      if (elapsedMs >= 1500) {
+        const family = ["account", "store", "referrals", "friends", "matches", "leaderboard"].find(name => url.pathname.startsWith("/api/" + name)) ?? "other";
+        console.warn(JSON.stringify({ event: "api-slow", family, elapsedMs }));
+      }
+    }
   },
 };
 
@@ -106,6 +116,13 @@ export default {
 export async function handleAccountRequest(request, env) {
     const url = new URL(request.url);
     try {
+      if (url.pathname === "/health/operations" && request.method === "GET") {
+        const response = await handleAccountRequest(new Request(new URL("/ready", url)), env);
+        const health = evaluateOperationalHealth(await response.json());
+        // Failing health probes are HTTP 503 so the scoped Worker 5xx monitor
+        // can observe delivery/provider trouble as well as request crashes.
+        return json(health.ok ? 200 : 503, health);
+      }
       if (url.pathname === "/.well-known/assetlinks.json" && request.method === "GET") {
         return json(200, signingCertificates(env).length ? [{ relation: ["delegate_permission/common.handle_all_urls"],
           target: { namespace: "android_app", package_name: REFERRAL_PACKAGE,
@@ -188,6 +205,7 @@ export async function handleAccountRequest(request, env) {
             billingReconciliationConfigured,
             billingReconciliationStatus,
             referralChecks,
+            referralMinimumVersionCode: referralChecks.minimumVersion ? Number(env.LUDOPAWS_REFERRAL_MIN_VERSION_CODE) : null,
             referralDelivery,
             playBillingEnabled: googlePlayBillingEnabled(env),
             playBillingConfiguration: googlePlayBillingChecks(env),
@@ -693,6 +711,13 @@ export async function handleAccountRequest(request, env) {
           }
           throw error;
         }
+        const deliveredLedger = env.LUDOPROOF_STORE_PURCHASES.get(
+          env.LUDOPROOF_STORE_PURCHASES.idFromName(verified.purchaseLedgerId),
+        );
+        await parseInternalResponse(await deliveredLedger.fetch(new Request("https://store-purchase-ledger/delivered", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ productId, accountId: obfuscatedAccountId }),
+        })), "STORE_DELIVERY_CONFIRMATION_FAILED");
         return json(200, {
           ok: true,
           verified: true,

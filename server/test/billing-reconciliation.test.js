@@ -7,7 +7,8 @@ function context() {
   const values = new Map();
   return { storage: { get: async key => structuredClone(values.get(key)),
     put: async (key,value) => values.set(key, structuredClone(value)),
-    delete: async key => values.delete(key), setAlarm: async time => values.set("alarm",time) }, values };
+    delete: async key => values.delete(key), setAlarm: async time => values.set("alarm",time),
+    deleteAlarm: async () => values.delete("alarm") }, values };
 }
 async function ledgerCall(ledger,path,body={}) {
   const response = await ledger.fetch(new Request("https://ledger"+path,{method:"POST",body:JSON.stringify(body)}));

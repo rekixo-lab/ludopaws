@@ -299,10 +299,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
     lint {
         abortOnError = true
         checkReleaseBuilds = true
@@ -330,8 +326,8 @@ tasks.named("preBuild").configure {
 
 dependencies {
     constraints {
-        implementation("com.google.guava:guava:33.4.8-android") {
-            because("Avoid vulnerable temporary-file implementations in transitive Ads dependencies")
+        implementation("com.google.guava:guava:33.7.2-android") {
+            because("Fix GHSA-xxph-c9ww-hj94 deserialization allocation and retain temporary-file hardening in transitive Ads dependencies")
         }
     }
     implementation("androidx.activity:activity:1.13.0")
@@ -343,7 +339,6 @@ dependencies {
     implementation("com.google.android.ump:user-messaging-platform:4.0.0")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.google.android.gms:play-services-games-v2:22.1.0")
-    implementation("com.google.android.play:age-signals:0.0.4")
     implementation("com.android.installreferrer:installreferrer:2.2")
     implementation("com.google.android.play:integrity:1.6.0")
 
@@ -355,6 +350,30 @@ dependencies {
     androidTestImplementation("androidx.test:core-ktx:1.6.1")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
     androidTestImplementation("androidx.test:runner:1.6.2")
+}
+
+kotlin {
+    compilerOptions { jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17) }
+}
+
+dependencyLocking {
+    lockAllConfigurations()
+    lockMode.set(LockMode.STRICT)
+}
+
+tasks.register("resolveAndLockDependencies") {
+    group = "verification"
+    description = "Resolve every declared resolvable configuration for reviewed dependency locks."
+    doLast {
+        configurations.filter { it.isCanBeResolved }.forEach { configuration ->
+            // Instrumentation classpaths include this app's own variant. Only
+            // external artifacts need checksums; resolving the self-project as
+            // an untyped file would make AGP's many artifact variants ambiguous.
+            configuration.incoming.artifactView {
+                componentFilter { it is org.gradle.api.artifacts.component.ModuleComponentIdentifier }
+            }.files.files
+        }
+    }
 }
 
 // Resolve the exact shipped variant for release evidence; a source-only list is not an SBOM.

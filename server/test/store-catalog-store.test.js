@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { StoreCatalogStore } from "./store-catalog-store.js";
+import { StoreCatalogStore } from "../src/store-catalog-store.js";
 
 const ADMIN_ID = "5b4f7a84-21e7-4f84-8fb3-c5986dddc11a";
 

@@ -18,12 +18,14 @@ import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
+import com.rekixo.ludopaws.R
 
 internal fun showReferralBundlePopup(
     activity: Activity, state: String, linked: Boolean, owned: Set<String>,
     onDismiss: (deferred: Boolean) -> Unit,
 ): Dialog {
     fun dp(value: Int) = (value * activity.resources.displayMetrics.density + .5f).toInt()
+    fun string(id: Int) = activity.getString(id)
     fun copy(value: String, size: Float, bold: Boolean = false) = TextView(activity).apply {
         text = value; textSize = size; gravity = Gravity.CENTER
         includeFontPadding = false; setTextColor(if (bold) 0xFFFFE8B7.toInt() else 0xFFCADFD6.toInt())
@@ -42,40 +44,40 @@ internal fun showReferralBundlePopup(
     }
     val heading = FrameLayout(activity)
     val title = when (state) {
-        "FRIEND_JOINED" -> "Your friend joined!"
-        "VERIFYING" -> "Reward on the way"
-        else -> if (owned.containsAll(ReferralPopupPolicy.rewardItems)) "100 Gems for friendship" else "Better with a friend"
+        "FRIEND_JOINED" -> string(R.string.friendship_joined_title)
+        "VERIFYING" -> string(R.string.friendship_pending_title)
+        else -> string(if (owned.containsAll(ReferralPopupPolicy.rewardItems)) R.string.friendship_gems_title else R.string.friendship_invite_title)
     }
-    heading.addView(copy(title, 19f, true), FrameLayout.LayoutParams(-1, -2, Gravity.CENTER).apply {
-        marginStart = dp(42); marginEnd = dp(42)
+    heading.addView(copy(title, 19f, true).apply { isAccessibilityHeading = true }, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER).apply {
+        marginStart = dp(48); marginEnd = dp(48)
     })
-    heading.addView(appIconActionButton(activity, "Close friendship offer", AppIconName.CLOSE, sizeDp = 44) { dialog.dismiss() },
-        FrameLayout.LayoutParams(dp(44), dp(44), Gravity.END or Gravity.TOP))
+    heading.addView(appIconActionButton(activity, string(R.string.friendship_close), AppIconName.CLOSE, sizeDp = 48) { dialog.dismiss() },
+        FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.TOP))
     panel.addView(heading, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
     val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
     val art = FriendshipBundleView(activity, ownedItems = owned)
     body.addView(art, LinearLayout.LayoutParams(-1, -2))
     body.addView(copy(when (state) {
-        "FRIEND_JOINED" -> "Your friend is connected. Their qualifying match is the next step; they don't have to win."
-        "VERIFYING" -> "Your match was verified. Your reward is being delivered; open progress for the latest status."
+        "FRIEND_JOINED" -> string(R.string.friendship_joined_body)
+        "VERIFYING" -> string(R.string.friendship_pending_body)
         else -> if (owned.containsAll(ReferralPopupPolicy.rewardItems))
-            "You already own all three items. A new friend’s verified play can still earn you 100 Gems, once this campaign."
-        else "A new friend installs through your invitation and finishes a qualifying match. Only you earn the bundle + 100 Gems."
+            string(R.string.friendship_owned_body)
+        else string(R.string.friendship_invite_body)
     }, 13f))
-    body.addView(copy("Sharing or installing alone earns no reward.", 11f))
+    body.addView(copy(string(R.string.friendship_no_install_reward), 12f))
+    panel.addView(body, LinearLayout.LayoutParams(-1, -2))
     val scroll = object : ScrollView(activity) {
         override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            val available = (resources.displayMetrics.heightPixels * .82f).toInt() - dp(190)
+            val available = (resources.displayMetrics.heightPixels * .82f).toInt()
             val limit = available.coerceAtLeast(dp(100))
             val height = if (View.MeasureSpec.getMode(heightMeasureSpec) == View.MeasureSpec.UNSPECIFIED) limit
                 else minOf(View.MeasureSpec.getSize(heightMeasureSpec), limit)
             super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(
                 height, View.MeasureSpec.AT_MOST))
         }
-    }.apply { addView(body); isVerticalScrollBarEnabled = false }
-    panel.addView(scroll, LinearLayout.LayoutParams(-1, -2))
+    }.apply { addView(panel); isVerticalScrollBarEnabled = false }
     val invite = Button(activity).apply {
-        text = when { state != "INVITE" -> "View progress"; linked -> "Invite a friend"; else -> "Connect Google & invite" }
+        text = string(when { state != "INVITE" -> R.string.friendship_progress; linked -> R.string.friendship_invite_action; else -> R.string.friendship_connect_action })
         textSize = 15f; isAllCaps = false; typeface = Typeface.DEFAULT_BOLD
         minHeight = dp(52); setTextColor(0xFF183F36.toInt())
         background = RippleDrawable(ColorStateList.valueOf(0x44FFFFFF), GradientDrawable(
@@ -88,19 +90,19 @@ internal fun showReferralBundlePopup(
     }
     panel.addView(invite, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
     val footer = LinearLayout(activity)
-    for (label in listOf("Later", "Rules & privacy")) footer.addView(Button(activity).apply {
-        text = label; textSize = 12f; isAllCaps = false; minHeight = dp(48); minimumWidth = 0
+    for (label in listOf(R.string.friendship_later, R.string.friendship_rules)) footer.addView(Button(activity).apply {
+        text = string(label); textSize = 12f; isAllCaps = false; minHeight = dp(48); minimumWidth = 0
         setTextColor(0xFFCADFD6.toInt())
         background = RippleDrawable(ColorStateList.valueOf(0x22FFFFFF), null, null)
         setOnClickListener {
-            if (label == "Later") dialog.dismiss() else {
+            if (label == R.string.friendship_later) dialog.dismiss() else {
                 deferred = false; dialog.dismiss()
                 activity.startActivity(Intent(activity, ReferralActivity::class.java).putExtra(ReferralActivity.EXTRA_SHOW_RULES, true))
             }
         }
     }, LinearLayout.LayoutParams(0, -2, 1f))
     panel.addView(footer)
-    dialog.setContentView(panel)
+    dialog.setContentView(scroll)
     dialog.setOnShowListener {
         dialog.window?.apply {
             setGravity(Gravity.CENTER)

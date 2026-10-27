@@ -16,7 +16,14 @@ class LudoProofApplication :
     private lateinit var friendPresence:
         FriendPresenceController
     val accountRepository: AccountRepository by lazy { AccountRepository(this) }
-    private var resumedActivities = 0
+    private val visibility = ActivityVisibilityPolicy()
+    private val lifecycleHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val enterBackground = Runnable {
+        if (visibility.backgroundTimeout()) {
+            if (!friendPresencePausedForAccountSwitch) friendPresence.stop()
+            GameMusicController.onAppBackground()
+        }
+    }
     @Volatile
     private var friendPresencePausedForAccountSwitch = false
 
@@ -44,8 +51,9 @@ class LudoProofApplication :
         // Apply the shared click SFX to this screen's interactive UI controls.
         UiClickSoundInstaller.install(activity)
 
-        resumedActivities += 1
-        if (resumedActivities == 1) {
+    }
+
+    private fun enterForeground() {
             if (
                 BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
                 !friendPresencePausedForAccountSwitch &&
@@ -55,20 +63,12 @@ class LudoProofApplication :
             }
             GameMusicController
                 .onAppForeground(this)
-        }
     }
 
     override fun onActivityPaused(
         activity: Activity,
     ) {
-        resumedActivities =
-            (resumedActivities - 1)
-                .coerceAtLeast(0)
-        if (resumedActivities == 0) {
-            if (!friendPresencePausedForAccountSwitch) friendPresence.stop()
-            GameMusicController
-                .onAppBackground()
-        }
+        // A paused Activity may simply be opening another screen or a dialog.
     }
 
     fun pauseFriendPresenceForAccountSwitch() {
@@ -79,7 +79,7 @@ class LudoProofApplication :
     fun resumeFriendPresenceAfterAccountSwitch() {
         friendPresencePausedForAccountSwitch = false
         if (BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
-            resumedActivities > 0 && !accountRepository.requiresIdentityRecovery()) {
+            visibility.isForeground && accountRepository.canStartFriendPresence()) {
             friendPresence.start()
         }
     }
@@ -95,11 +95,20 @@ class LudoProofApplication :
 
     override fun onActivityStarted(
         activity: Activity,
-    ) = Unit
+    ) {
+        lifecycleHandler.removeCallbacks(enterBackground)
+        if (visibility.started()) enterForeground()
+    }
 
     override fun onActivityStopped(
         activity: Activity,
-    ) = Unit
+    ) {
+        if (visibility.stopped()) {
+            // Covers configuration recreation and Activity transitions without
+            // repeatedly abandoning audio focus or restarting presence heartbeats.
+            lifecycleHandler.postDelayed(enterBackground, 500L)
+        }
+    }
 
     override fun onActivitySaveInstanceState(
         activity: Activity,

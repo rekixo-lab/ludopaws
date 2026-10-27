@@ -21,6 +21,7 @@ export class AccountDirectory {
       sql.exec(`CREATE TABLE IF NOT EXISTS account_deletion_claims (account_id TEXT PRIMARY KEY, source TEXT NOT NULL, credential_hash TEXT, claimed_at INTEGER NOT NULL)`);
       sql.exec(`CREATE TABLE IF NOT EXISTS google_identities (subject_hash TEXT PRIMARY KEY, account_id TEXT NOT NULL UNIQUE, linked_at INTEGER NOT NULL)`);
       sql.exec(`CREATE TABLE IF NOT EXISTS google_nonces (nonce_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, consumed_at INTEGER)`);
+      sql.exec("CREATE INDEX IF NOT EXISTS idx_google_nonces_expiry ON google_nonces(expires_at)");
       sql.exec(`CREATE TABLE IF NOT EXISTS account_identity_links (identity_type TEXT NOT NULL, external_id TEXT NOT NULL, account_id TEXT NOT NULL, linked_at INTEGER NOT NULL, PRIMARY KEY(identity_type, external_id), UNIQUE(identity_type, account_id))`);
       sql.exec("CREATE INDEX IF NOT EXISTS idx_account_links_account ON account_identity_links(account_id, identity_type)");
     });

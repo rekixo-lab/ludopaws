@@ -59,6 +59,9 @@ jobs:
         run: node scripts/check-age-entry-policy.mjs
       - name: Server tests
         run: npm test
+      - name: Operational and supply-chain gate tests
+        working-directory: .
+        run: node --test scripts/referral-health-check.test.mjs scripts/check-dependency-advisories.test.mjs scripts/check-referral-release-version.test.mjs scripts/check-release-ci.test.mjs
       - name: Production smoke syntax check
         working-directory: .
         run: node --check scripts/production-game-smoke.mjs
@@ -183,6 +186,8 @@ jobs:
         run: gradle -p android :app:writeReleaseDependencyInventory --console=plain
       - name: Generate CycloneDX SBOM
         run: node scripts/generate-sbom.mjs
+      - name: Check resolved runtime dependency advisories
+        run: node scripts/check-dependency-advisories.mjs
       - name: Upload SBOM evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         # Keep build/test CI status independent of GitHub's shared artifact quota.
@@ -193,6 +198,7 @@ jobs:
           path: |
             ludoproof-sbom.cdx.json
             ludoproof-sbom.sha256
+            dependency-advisories.json
           if-no-files-found: error
           retention-days: 7
 

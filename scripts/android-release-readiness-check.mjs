@@ -351,11 +351,11 @@ requireText(
 );
 
 if (failures.length > 0) {
-  console.error("Android RC2 release-readiness gate failed:");
+  console.error("Android release-readiness gate failed:");
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
 console.log(
-  "Android RC2 release-readiness gate passed: version monotonicity, fail-closed secure signing, V1/V2 dual-read coverage, and explicit Ruleset V2 contract are intact.",
+  "Android release-readiness gate passed: version monotonicity, fail-closed secure signing, V1/V2 dual-read coverage, and explicit Ruleset V2 contract are intact.",
 );

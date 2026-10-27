@@ -200,7 +200,7 @@ internal fun MainActivity.applyResponse(
 
     updateTurnBanner(state)
     updateVerification(state)
-    proofDetailsText.text = proofDetails(state)
+    if (proofDetailsText.isShown) proofDetailsText.text = proofDetails(state)
     updateControls(state)
     updateRollButton()
 

@@ -51,6 +51,7 @@ export const GOOGLE_PLAY_PRODUCTS = Object.freeze({
 });
 
 let cachedAccessToken = null;
+const pendingAccessTokens = new Map();
 
 export function googlePlayBillingChecks(env) {
   const serviceAccountEmailConfigured =
@@ -130,6 +131,8 @@ export async function verifyAndRedeemGooglePlayPurchase(
         purchaseTokenHash: await sha256Hex("ludoproof:google-play-wallet-token:v1:" + purchaseToken) });
     }
     if (priorPurchase.state === "FULFILLED") {
+      // Lazily migrate previously verified ledgers when an older client retries.
+      await ledgerRequest(ledger, "/verified", "POST", { productId, accountId, purchaseLedgerId: tokenDigest });
       return fulfillment(productId, product, true, tokenDigest);
     }
   }
@@ -182,6 +185,12 @@ export async function verifyAndRedeemGooglePlayPurchase(
   const reservedPurchase = reservation.purchase;
   assertSamePurchase(reservedPurchase, productId, accountId, product);
   if (reservedPurchase.state === "REVOKED") throw httpError(409, "PLAY_PURCHASE_REVOKED", "this purchase has been revoked");
+  // Persist delivery authorization before the irreversible Publisher action.
+  // The ledger alarm can finish crediting a verified purchase even if this
+  // request dies after consume or the client loses its pending purchase token.
+  await ledgerRequest(ledger, "/verified", "POST", {
+    productId, accountId, purchaseLedgerId: tokenDigest,
+  });
   if (reservedPurchase.state === "FULFILLED") {
     return fulfillment(productId, product, true, tokenDigest);
   }
@@ -217,7 +226,6 @@ export async function verifyAndRedeemGooglePlayPurchase(
 }
 
 async function getPlayPurchase(env, productId, purchaseToken, fetchImpl) {
-  const accessToken = await googleAccessToken(env, fetchImpl);
   const applicationPath =
     PUBLISHER_URL +
     "/applications/" +
@@ -228,11 +236,9 @@ async function getPlayPurchase(env, productId, purchaseToken, fetchImpl) {
   let response;
   let legacyResponse = false;
   try {
-    response = await fetchImpl(modernUrl, {
+    response = await googlePlayFetch(env, modernUrl, {
       method: "GET",
-      headers: { authorization: "Bearer " + accessToken },
-      signal: AbortSignal.timeout(10_000),
-    });
+    }, fetchImpl);
     // The current One-time products model is verified through purchases.productsv2.
     // Keep a 404-only fallback for legacy in-app products already created under the
     // old catalog model. Never fall back for permission/authentication/API failures.
@@ -242,11 +248,9 @@ async function getPlayPurchase(env, productId, purchaseToken, fetchImpl) {
         "/purchases/products/" +
         encodeURIComponent(productId) +
         tokenPath;
-      response = await fetchImpl(legacyUrl, {
+      response = await googlePlayFetch(env, legacyUrl, {
         method: "GET",
-        headers: { authorization: "Bearer " + accessToken },
-        signal: AbortSignal.timeout(10_000),
-      });
+      }, fetchImpl);
       legacyResponse = true;
     }
   } catch {
@@ -323,7 +327,6 @@ async function runPublisherAction(
   action,
   fetchImpl,
 ) {
-  const accessToken = await googleAccessToken(env, fetchImpl);
   // Google documents consume/acknowledge under purchases.products. The productsv2
   // resource is used to read purchase state, then the action is performed with the
   // product ID through the documented products action resource.
@@ -339,7 +342,7 @@ async function runPublisherAction(
     action;
   let response;
   try {
-    const headers = { authorization: "Bearer " + accessToken };
+    const headers = {};
     const request = {
       method: "POST",
       headers,
@@ -349,9 +352,9 @@ async function runPublisherAction(
       headers["content-type"] = "application/json";
       request.body = "{}";
     }
-    response = await fetchImpl(url, {
+    response = await googlePlayFetch(env, url, {
       ...request,
-    });
+    }, fetchImpl);
   } catch {
     throw httpError(
       503,
@@ -368,7 +371,22 @@ async function runPublisherAction(
   }
 }
 
-export async function googleAccessToken(env, fetchImpl) {
+/** One bounded refresh on 401; permission failures never trigger a retry storm. */
+export async function googlePlayFetch(env, url, init = {}, fetchImpl = fetch) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const accessToken = await googleAccessToken(env, fetchImpl);
+    const headers = new Headers(init.headers);
+    headers.set("authorization", "Bearer " + accessToken);
+    const response = await fetchImpl(url, { ...init, headers, signal: AbortSignal.timeout(10_000) });
+    if (response.status !== 401) return response;
+    if (cachedAccessToken?.value === accessToken &&
+        cachedAccessToken.email === env.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL) cachedAccessToken = null;
+    if (attempt === 1) return response;
+    await response.body?.cancel();
+  }
+}
+
+export async function googleAccessToken(env, fetchImpl = fetch) {
   const keyId =
     await sha256Hex(env.GOOGLE_PLAY_SERVICE_ACCOUNT_PRIVATE_KEY);
   if (
@@ -379,7 +397,15 @@ export async function googleAccessToken(env, fetchImpl) {
   ) {
     return cachedAccessToken.value;
   }
+  const credential = env.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL + ":" + keyId;
+  if (pendingAccessTokens.has(credential)) return pendingAccessTokens.get(credential);
+  const pending = mintAccessToken(env, fetchImpl, keyId);
+  pendingAccessTokens.set(credential, pending);
+  try { return await pending; }
+  finally { if (pendingAccessTokens.get(credential) === pending) pendingAccessTokens.delete(credential); }
+}
 
+async function mintAccessToken(env, fetchImpl, keyId) {
   let assertion;
   try {
     assertion = await createServiceAccountAssertion(
@@ -430,8 +456,8 @@ export async function googleAccessToken(env, fetchImpl) {
     );
   }
   if (
-    typeof token.access_token !== "string" ||
-    !Number.isFinite(Number(token.expires_in))
+    typeof token.access_token !== "string" || !token.access_token.trim() ||
+    !Number.isSafeInteger(Number(token.expires_in)) || Number(token.expires_in) <= 0
   ) {
     throw httpError(
       502,
@@ -443,7 +469,7 @@ export async function googleAccessToken(env, fetchImpl) {
     email: env.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL,
     keyId,
     value: token.access_token,
-    expiresAt: Date.now() + Number(token.expires_in) * 1000,
+    expiresAt: Date.now() + Math.min(Number(token.expires_in), 3600) * 1000,
   };
   return cachedAccessToken.value;
 }

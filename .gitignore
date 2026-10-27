@@ -40,3 +40,4 @@ Thumbs.db
 /ludoproof-android-release.json
 /ludoproof-android-release.sha256
 /server/.wrangler-family-dry-run/
+dependency-advisories.json

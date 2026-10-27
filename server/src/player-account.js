@@ -129,6 +129,9 @@ export class PlayerAccount {
       if (request.method === "POST" && url.pathname === "/wallet/play-revoke") return await this.#revokePlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/referral-bundle") return await this.#grantReferralBundle(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-purchase") return await this.#grantPlayPurchase(request);
+      // Binding-only delivery from the verified purchase ledger. Never routed
+      // through a public account endpoint; no expired device session is needed.
+      if (request.method === "POST" && url.pathname === "/wallet/play-delivery") return await this.#grantPlayPurchase(request, true);
       if (request.method === "POST" && url.pathname === "/wallet/reward-ad") return await this.#grantAdReward(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/purchase") return await this.#purchaseCosmetic(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/select") return await this.#selectCosmetic(request);
@@ -365,9 +368,12 @@ export class PlayerAccount {
       throw httpError(503, "PURCHASE_MIGRATION_PENDING", "purchase history is being synchronized; retry shortly");
   }
 
-  async #grantPlayPurchase(request) {
-    const body = await readJson(request), accountId = requireAccountId(body?.accountId), sessionId = requireSessionId(body?.sessionId);
-    this.#requireActiveSession(accountId, sessionId);
+  async #grantPlayPurchase(request, durableDelivery = false) {
+    const body = await readJson(request), accountId = requireAccountId(body?.accountId);
+    if (durableDelivery) {
+      this.#requireAccountNotDeleting(accountId);
+      this.#profileSnapshot(accountId);
+    } else this.#requireActiveSession(accountId, requireSessionId(body?.sessionId));
     const productId = String(body?.productId ?? ""), tokenHash = requireHash(body?.purchaseTokenHash, "purchaseTokenHash");
     const purchaseLedgerId = requireHash(body?.purchaseLedgerId, "purchaseLedgerId");
     const product = GOOGLE_PLAY_PRODUCTS[productId];

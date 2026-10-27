@@ -38,6 +38,14 @@ export class ReferralCampaign {
       sql.exec("CREATE INDEX IF NOT EXISTS referral_click_inviter ON clicks(inviter, clicked_at)");
       sql.exec("CREATE INDEX IF NOT EXISTS referral_match_expiry ON qualifying_matches(finished_at)");
       sql.exec("CREATE INDEX IF NOT EXISTS referral_subject_expiry ON used_subjects(expires_at)");
+      sql.exec("CREATE INDEX IF NOT EXISTS referral_challenge_expiry ON challenges(expires_at)");
+      sql.exec("CREATE INDEX IF NOT EXISTS referral_challenge_account ON challenges(account_id)");
+      sql.exec("CREATE INDEX IF NOT EXISTS referral_history_expiry ON subject_history(expires_at)");
+      sql.exec("CREATE INDEX IF NOT EXISTS referral_match_account_time ON qualifying_matches(account_id, started_at, finished_at)");
+      sql.exec("CREATE INDEX IF NOT EXISTS referral_award_pending ON awards(status, created_at)");
+      sql.exec("CREATE INDEX IF NOT EXISTS referral_delivery_due ON delivery_attempts(next_at)");
+      // Aggregate operational counters only; no account, device or token fields.
+      sql.exec("CREATE TABLE IF NOT EXISTS integrity_health (bucket INTEGER PRIMARY KEY, verified INTEGER NOT NULL DEFAULT 0, rejected INTEGER NOT NULL DEFAULT 0, provider_failures INTEGER NOT NULL DEFAULT 0, quota_failures INTEGER NOT NULL DEFAULT 0)");
     });
   }
 
@@ -53,6 +61,7 @@ export class ReferralCampaign {
         pending: Number(this.rows("SELECT COUNT(*) AS total FROM awards WHERE status = 'PENDING'")[0].total),
         oldestPendingAt: this.rows("SELECT MIN(created_at) AS oldest FROM awards WHERE status = 'PENDING'")[0].oldest,
         failedDeliveries: Number(this.rows("SELECT COUNT(*) AS total FROM delivery_attempts WHERE last_error IS NOT NULL")[0].total),
+        integrity: this.rows("SELECT COALESCE(SUM(verified), 0) AS verified, COALESCE(SUM(rejected), 0) AS rejected, COALESCE(SUM(provider_failures), 0) AS providerFailures, COALESCE(SUM(quota_failures), 0) AS quotaFailures FROM integrity_health WHERE bucket >= ?", Math.floor((Date.now() - 15 * 60_000) / 60_000))[0],
       });
       if (path === "/withdraw") {
         await this.identity(body.accountId);
@@ -118,6 +127,14 @@ export class ReferralCampaign {
 
   participating(accountId) { return this.rows("SELECT account_id FROM participation WHERE account_id = ? AND terms_version = ?", accountId, REFERRAL_TERMS_VERSION).length === 1; }
 
+  recordIntegrity(kind, quota = false) {
+    if (!["verified", "rejected", "provider_failures"].includes(kind)) return;
+    const bucket = Math.floor(Date.now() / 60_000);
+    this.ctx.storage.sql.exec("INSERT OR IGNORE INTO integrity_health (bucket) VALUES (?)", bucket);
+    this.ctx.storage.sql.exec(`UPDATE integrity_health SET ${kind} = ${kind} + 1, quota_failures = quota_failures + ? WHERE bucket = ?`, quota ? 1 : 0, bucket);
+    this.ctx.storage.sql.exec("DELETE FROM integrity_health WHERE bucket < ?", bucket - 60);
+  }
+
   limit(action, maximum, window = 60_000) {
     this.ctx.storage.transactionSync(() => {
       const now = Date.now();
@@ -181,7 +198,13 @@ export class ReferralCampaign {
     const challenge = this.rows("SELECT * FROM challenges WHERE token = ? AND account_id = ? AND expires_at > ?", String(body.challenge ?? ""), body.accountId, Date.now())[0];
     if (!challenge) fail("CHALLENGE_EXPIRED", "Retry installation verification.");
     this.ctx.storage.sql.exec("DELETE FROM challenges WHERE token = ?", challenge.token);
-    await verifyReferralIntegrity(this.env, body.integrityToken, challenge.request_hash);
+    try {
+      await verifyReferralIntegrity(this.env, body.integrityToken, challenge.request_hash);
+      this.recordIntegrity("verified");
+    } catch (error) {
+      this.recordIntegrity(error?.code === "INTEGRITY_UNAVAILABLE" ? "provider_failures" : "rejected", error?.providerStatus === 429);
+      throw error;
+    }
     const freshIdentity = await this.identity(body.accountId);
     if (freshIdentity.subjectHash !== identity.subjectHash) fail("ACCOUNT_CHANGED", "Reconnect your account.");
     const inviterId = this.rows("SELECT inviter FROM clicks WHERE token = ?", challenge.click)[0]?.inviter;
@@ -270,6 +293,7 @@ export class ReferralCampaign {
 
   async alarm() {
     const now = Date.now();
+    this.ctx.storage.sql.exec("DELETE FROM integrity_health WHERE bucket < ?", Math.floor(now / 60_000) - 60);
     this.ctx.storage.sql.exec("DELETE FROM challenges WHERE expires_at < ?", now);
     this.ctx.storage.sql.exec("DELETE FROM clicks WHERE clicked_at < ?", now - 21 * DAY);
     this.ctx.storage.sql.exec("DELETE FROM used_subjects WHERE expires_at < ?", now);

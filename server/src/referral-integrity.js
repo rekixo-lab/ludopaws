@@ -6,7 +6,10 @@ const jsonPart = value => encode(new TextEncoder().encode(JSON.stringify(value))
 let cachedToken = null;
 let pendingToken = null;
 
-const unavailable = () => httpError(503, "INTEGRITY_UNAVAILABLE", "Installation verification is temporarily unavailable.");
+const unavailable = (providerStatus = null) => Object.assign(
+  httpError(503, "INTEGRITY_UNAVAILABLE", "Installation verification is temporarily unavailable."),
+  { providerStatus: Number.isInteger(providerStatus) ? providerStatus : null },
+);
 
 async function providerRequest(url, options) {
   try { return await fetch(url, { ...options, signal: AbortSignal.timeout(10_000) }); }
@@ -45,13 +48,13 @@ async function mintToken(env, credentialKey) {
       method: "POST",
       body: new URLSearchParams({ grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer", assertion: assertion + "." + encode(new Uint8Array(signature)) }),
     });
-    if (!response.ok) throw unavailable();
+    if (!response.ok) throw unavailable(response.status);
     const token = await providerJson(response);
     const lifetime = Number(token?.expires_in);
     if (typeof token?.access_token !== "string" || !token.access_token.trim() || !Number.isFinite(lifetime) || lifetime <= 0) throw unavailable();
     cachedToken = { key: credentialKey, token: token.access_token, expires: Date.now() + Math.min(lifetime, 3600) * 1000 };
     return cachedToken.token;
-  } catch { throw unavailable(); }
+  } catch (error) { throw unavailable(error?.providerStatus); }
 }
 
 export async function verifyReferralIntegrity(env, integrityToken, requestHash) {
@@ -69,8 +72,9 @@ export async function verifyReferralIntegrity(env, integrityToken, requestHash) 
   });
   if (!response.ok) {
     if (response.status === 401 && cachedToken?.token === token) cachedToken = null;
-    const transient = response.status === 429 || response.status >= 500 || response.status === 401;
-    throw httpError(transient ? 503 : 403, transient ? "INTEGRITY_UNAVAILABLE" : "INSTALL_NOT_VERIFIED", "Google Play could not verify this installation. Please retry later.");
+    const transient = response.status === 429 || response.status >= 500 || response.status === 401 || response.status === 403;
+    if (transient) throw unavailable(response.status);
+    throw httpError(403, "INSTALL_NOT_VERIFIED", "Google Play could not verify this installation. Please retry later.");
   }
   const payload = (await providerJson(response))?.tokenPayloadExternal;
   const details = payload?.requestDetails;

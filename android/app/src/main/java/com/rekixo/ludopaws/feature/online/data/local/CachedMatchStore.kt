@@ -30,7 +30,7 @@ class CachedMatchStore(
         synchronized(cacheLock) {
             pendingCache = safe
             cacheLoaded = true
-            cacheWriter.execute {
+            writes.submit(PREFS_NAME) {
                 runCatching {
                     check(prefs.edit().putString(KEY_JSON, safe.toString()).commit())
                 }.onFailure { android.util.Log.w("MatchCache", "Could not persist cached match", it) }
@@ -49,7 +49,7 @@ class CachedMatchStore(
         synchronized(cacheLock) {
             pendingCache = null
             cacheLoaded = true
-            cacheWriter.execute {
+            writes.submit(PREFS_NAME) {
                 runCatching { check(prefs.edit().clear().commit()) }
                     .onFailure { android.util.Log.w("MatchCache", "Could not clear cached match", it) }
             }
@@ -62,6 +62,9 @@ class CachedMatchStore(
         private var pendingCache: JSONObject? = null
         private val cacheWriter = java.util.concurrent.Executors.newSingleThreadExecutor { work ->
             Thread(work, "LudoPawsMatchCache").apply { isDaemon = true }
+        }
+        private val writes = LatestWriteQueue<String>(cacheWriter) {
+            android.util.Log.w("MatchCache", "Could not write cached match", it)
         }
 
         internal const val CACHE_SOURCE_MARKER =

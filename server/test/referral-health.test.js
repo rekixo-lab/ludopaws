@@ -16,8 +16,10 @@ test("delivery health remains available while new referrals are disabled", async
 });
 
 test("health exports aggregate fields only", async () => {
-  const result = await referralHealth(environment(async () => Response.json({ ok: true, configurationMatches: true, pending: 0, oldestPendingAt: null, failedDeliveries: 0, accountId: "private-account", providerToken: "private-token" })));
+  const result = await referralHealth(environment(async () => Response.json({ ok: true, configurationMatches: true, pending: 0, oldestPendingAt: null, failedDeliveries: 0, accountId: "private-account", providerToken: "private-token",
+    integrity: { verified: 1, rejected: 2, providerFailures: 0, quotaFailures: 0, accountId: "private-account", providerToken: "private-token" } })));
   assert.doesNotMatch(JSON.stringify(result), /private/);
+  assert.deepEqual(result.integrity, { verified: 1, rejected: 2, providerFailures: 0, quotaFailures: 0 });
 });
 
 for (const failure of ["network", "http", "json", "negative"]) {

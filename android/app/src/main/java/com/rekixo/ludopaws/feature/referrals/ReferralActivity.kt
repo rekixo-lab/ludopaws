@@ -57,9 +57,9 @@ class ReferralActivity : Activity() {
                 intArrayOf(0xFF123B38.toInt(), 0xFF102B31.toInt())).apply { cornerRadius = dp(24).toFloat() }
         }
         val header = FrameLayout(this).apply { setPadding(dp(12), dp(8), dp(12), dp(8)) }
-        header.addView(navigationButton("Back", AppIconName.CHEVRON_LEFT) { finish() },
+        header.addView(navigationButton(getString(com.rekixo.ludopaws.R.string.action_back), AppIconName.CHEVRON_LEFT) { finish() },
             FrameLayout.LayoutParams(dp(52), dp(52), Gravity.START or Gravity.CENTER_VERTICAL))
-        refresh = navigationButton("Refresh invitation progress", AppIconName.REFRESH) { load() }
+        refresh = navigationButton(getString(com.rekixo.ludopaws.R.string.friendship_refresh), AppIconName.REFRESH) { load() }
         header.addView(refresh, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.END or Gravity.CENTER_VERTICAL))
         page.addView(header, LinearLayout.LayoutParams(-1, dp(68)))
         val content = object : LinearLayout(this) {
@@ -74,16 +74,16 @@ class ReferralActivity : Activity() {
             gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(18), dp(16), dp(18), dp(16))
         }
-        content.addView(copy("Invite friends", 19f, true))
-        content.addView(copy("Better with a friend.", 25f, true).apply { setPadding(0, dp(12), 0, dp(4)) })
-        content.addView(copy("Invite a new player. Get this bundle\nafter their first qualifying match.", 13f))
+        content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_page_title), 19f, true))
+        content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_page_intro), 25f, true).apply { setPadding(0, dp(12), 0, dp(4)) })
+        content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_page_summary), 13f))
         showcase = FriendshipBundleView(this)
         if (FamilyAgeScreen.hasChoice(this) && !FamilyAgeScreen.optionalGoogleAllowed(this)) showcase.visibility = android.view.View.GONE
         content.addView(showcase, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16); bottomMargin = dp(10) })
         ownership = copy("", 12f)
         ownership.visibility = android.view.View.GONE
         content.addView(ownership)
-        progress = copy("Checking your bundle…", 13f)
+        progress = copy(getString(com.rekixo.ludopaws.R.string.friendship_checking), 13f)
         progress.accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
         content.addView(progress, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         action = Button(this).apply {
@@ -95,7 +95,7 @@ class ReferralActivity : Activity() {
             setOnClickListener { act() }
         }
         content.addView(action, LinearLayout.LayoutParams(-1, -2))
-        content.addView(copy("Only you earn the reward. Sharing or installing alone doesn't count.", 11f).apply {
+        content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_reward_condition), 12f).apply {
             setPadding(dp(8), dp(10), dp(8), dp(8))
         })
         verification = copy("Verify before playing to help your friend earn their bundle. This reward goes to them.", 12f)

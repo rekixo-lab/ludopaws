@@ -1,6 +1,8 @@
 # Ludo Paws
 
-> **Latest verified internal candidate: Family V2 / 1.0.0-rc10-referral (27 October 2026).** Multiplayer and fixed quick-chat reactions are supported; free-text chat and voice are disabled. Version 10 is available to internal testers. Production rc9 was in review at the last Console verification; do not infer current public availability. Referral rewards remain OFF pending genuine device acceptance and final publisher review. Google identity, purchases and child-directed ads retain their separate provider/release gates. Follow [the dated rollout evidence](docs/REFERRAL_ACTIVATION_STATUS.md) and [the device acceptance checklist](docs/REFERRAL_DEVICE_ACCEPTANCE.md). No public-launch approval is implied.
+> **Current status and release boundaries:** see [CURRENT_STATUS.md](docs/CURRENT_STATUS.md). The dated record confirms publisher-approved referral activation on 27 October 2026; older OFF/pending sections are historical. The last verified Play candidate was rc10 internal, while rc9 was in production review. Do not infer current public availability or change that in-review submission. Multiplayer and fixed quick-chat are supported; free-text chat and voice are disabled. Provider configuration, exact-version validation and publisher/legal responsibility remain separate.
+
+Audit fixes and their validation requirements are tracked in [AUDIT_HARDENING.md](docs/AUDIT_HARDENING.md). Local development uses the single [Android runner](scripts/android-local-testing.mjs); backend tests use Node 22, selected by `.node-version`.
 
 **Publisher / parent brand:** Rekixo (`https://rekixo.com`)
 

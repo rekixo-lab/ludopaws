@@ -77,14 +77,14 @@ for (const [label, mutate] of [
   });
 }
 
-for (const status of [401, 429, 500, 503]) {
+for (const status of [401, 403, 429, 500, 503]) {
   test(`provider HTTP ${status} is retryable without granting verification`, async context => {
     mockProvider(context, { decode: () => new Response(null, { status }) });
     await assert.rejects(verifyReferralIntegrity(environment(), integrityToken, requestHash), rejectsWith(503, "INTEGRITY_UNAVAILABLE"));
   });
 }
 
-for (const status of [400, 403]) {
+for (const status of [400]) {
   test(`provider HTTP ${status} rejects the installation`, async context => {
     mockProvider(context, { decode: () => new Response(null, { status }) });
     await assert.rejects(verifyReferralIntegrity(environment(), integrityToken, requestHash), rejectsWith(403, "INSTALL_NOT_VERIFIED"));

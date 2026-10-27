@@ -73,6 +73,11 @@ class StoreActivity :
     private var rewardedAdsStatusError: Exception? = null
     private var billingWasCreated = false
     private var rewardedAdsWasCreated = false
+    private var storeRootHost: FrameLayout? = null
+    private var catalogScroll: ScrollView? = null
+    private var renderedTab: StoreTab? = null
+    private var renderedSignature: List<Any?>? = null
+    private var renderQueued = false
     private val accountRepository by lazy {
         (application as LudoProofApplication).accountRepository
     }
@@ -973,16 +978,45 @@ class StoreActivity :
 
     internal fun renderStore() {
         if (!canRenderStoreUi()) return
+        if (storeRootHost == null) {
+            renderStoreNow()
+        } else if (!renderQueued) {
+            renderQueued = true
+            window.decorView.postOnAnimation {
+                renderQueued = false
+                if (canRenderStoreUi()) renderStoreNow()
+            }
+        }
+    }
+
+    private fun renderStoreNow() {
+        val signature = listOf(
+            selectedTab, featuredCharacterId, liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
+            cosmetics.ownedCosmeticIds(),
+            com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.entries.map { cosmetics.selectedId(it) },
+            com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.all.let { items ->
+                items.map { it to cosmetics.rewardedAdProgress(it.id) }
+            },
+            ProfileStore(this).snapshot(), accountRepository.currentSession()?.accountId,
+            billingAvailable, billingProductCatalogLoaded, purchaseEligibilityInProgress, cosmeticUpdateInProgress,
+            pendingAutoPurchaseProductId, rewardedAdsEnabledByServer, rewardedAdsStatusLoaded,
+            rewardedAdsStatusError?.javaClass?.name,
+        )
+        if (renderedSignature == signature) return
+        val previousScroll = if (renderedTab == selectedTab) catalogScroll?.scrollY ?: 0 else 0
+        renderedSignature = signature
+        renderedTab = selectedTab
         featuredPawsCard?.setActive(false)
         featuredPawsCard = null
         refreshBoardSelection = null
         val renderStartedAt = android.os.SystemClock.elapsedRealtime()
 
-        val (root, host) =
-            LudoProofTheme.arcadeRoot(
-                this,
-                gameplayBackground = true,
-            )
+        val host = storeRootHost ?: LudoProofTheme.arcadeRoot(this, gameplayBackground = true).let { (root, newHost) ->
+            setContentView(root)
+            storeRootHost = newHost
+            newHost
+        }
+        host.removeAllViews()
 
         val horizontalPadding =
             dp(
@@ -1068,6 +1102,7 @@ class StoreActivity :
                 clipToPadding = true
                 elevation = 0f
             }
+        catalogScroll = scroll
         page.addView(
             scroll,
             LinearLayout.LayoutParams(
@@ -1100,7 +1135,7 @@ class StoreActivity :
             ),
         )
 
-        setContentView(root)
+        if (previousScroll > 0) scroll.post { scroll.scrollTo(0, previousScroll) }
         Log.d("LudoPawsLoad", "store tab=$selectedTab ui_build_ms=${android.os.SystemClock.elapsedRealtime() - renderStartedAt}")
     }
 

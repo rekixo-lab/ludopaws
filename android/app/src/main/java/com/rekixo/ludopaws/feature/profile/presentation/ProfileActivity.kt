@@ -44,6 +44,9 @@ import com.rekixo.ludopaws.feature.profile.presentation.components.profilePurcha
 import com.rekixo.ludopaws.feature.profile.presentation.components.profileTopBar
 
 class ProfileActivity : Activity() {
+    private var profileContent: LinearLayout? = null
+    private var renderedProfile: com.rekixo.ludopaws.feature.profile.domain.model.ProfileSnapshot? = null
+    private var renderedSignature: List<Any?>? = null
     internal var playGamesAuthenticated = false
         private set
     internal var playGamesSignInInProgress = false
@@ -144,6 +147,23 @@ class ProfileActivity : Activity() {
         val profile =
             profileStore
                 .snapshot()
+        val signature = listOf(profile, playGamesAuthenticated, playGamesSignInInProgress, playGamesDisplayName,
+            playGamesStatus, accountAuthInProgress, accountGoogleLinked, accountStatus,
+            accountIdentityRecoveryPending, accountRepository.currentSession()?.accountId)
+        if (signature == renderedSignature) return
+        profileContent?.let { content ->
+            content.removeViewAt(1)
+            content.addView(profileIdentityPanel(profile), 1, sectionParams(10))
+            if (renderedProfile != profile) {
+                repeat(3) { content.removeViewAt(2) }
+                content.addView(profileModeStatsPanel(profile), sectionParams(12))
+                content.addView(profileBadgesPanel(profile), sectionParams(12))
+                content.addView(profilePurchasesPanel(profile), sectionParams(12))
+            }
+            renderedProfile = profile
+            renderedSignature = signature
+            return
+        }
 
         val (root, host) =
             LudoProofTheme
@@ -209,6 +229,9 @@ class ProfileActivity : Activity() {
                     dp(24),
                 )
             }
+        profileContent = content
+        renderedProfile = profile
+        renderedSignature = signature
         contentHost.addView(
             content,
             FrameLayout.LayoutParams(

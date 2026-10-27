@@ -44,6 +44,8 @@ function context() {
       async delete(k) {
         return values.delete(k);
       },
+      async setAlarm(time) { values.set("alarm", time); },
+      async deleteAlarm() { values.delete("alarm"); },
     },
     blockConcurrencyWhile(f) {
       return f();
@@ -54,6 +56,22 @@ const uuid = (n) => "00000000-0000-4000-8000-" + String(n).padStart(12, "0");
 const secret = {
   LUDOPROOF_SESSION_HMAC_KEY: "test-only-production-regression-key-32-bytes",
 };
+
+test("durable paid delivery survives logout, remains idempotent and respects refunds/deletion", async () => {
+  const ctx = context(), room = new PlayerAccount(ctx, secret), accountId = uuid(94);
+  const session = (await call(room, "/session/create", { accountId })).body;
+  const purchase = { accountId, productId: "gems_300", purchaseTokenHash: "1".repeat(64), purchaseLedgerId: "2".repeat(64) };
+  await call(room, "/session/logout", { accountId, sessionId: session.sessionId });
+  assert.equal((await call(room, "/wallet/play-purchase", { ...purchase, sessionId: session.sessionId })).status, 401);
+  const first = await call(room, "/wallet/play-delivery", purchase);
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  assert.equal(first.body.wallet.balance, 300);
+  assert.equal((await call(room, "/wallet/play-delivery", purchase)).body.replay, true);
+  await call(room, "/wallet/play-revoke", { accountId, purchaseLedgerId: purchase.purchaseLedgerId });
+  assert.equal((await call(room, "/wallet/play-delivery", purchase)).body.error, "PLAY_PURCHASE_REVOKED");
+  ctx.storage.sql.exec("INSERT INTO account_deletion_claims (account_id, claimed_at) VALUES (?, ?)", accountId, Date.now());
+  assert.equal((await call(room, "/wallet/play-delivery", { ...purchase, purchaseTokenHash: "3".repeat(64), purchaseLedgerId: "4".repeat(64) })).body.error, "ACCOUNT_DELETION_IN_PROGRESS");
+});
 async function call(obj, path, body, token) {
   const r = await obj.fetch(
     new Request("https://test.local" + path, {

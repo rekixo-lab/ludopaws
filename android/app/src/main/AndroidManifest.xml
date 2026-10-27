@@ -47,10 +47,6 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".feature.mode.presentation.RemoteModeEntryActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-        <activity
             android:name=".feature.team.presentation.TeamUpActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

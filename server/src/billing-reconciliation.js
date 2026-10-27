@@ -1,4 +1,4 @@
-import { googleAccessToken, googlePlayBillingEnabled } from "./google-play-billing.js";
+import { googlePlayFetch, googlePlayBillingEnabled } from "./google-play-billing.js";
 import { sha256Hex } from "./crypto.js";
 
 /** One serialized coordinator, with a durable continuation across cron/alarm runs.
@@ -31,11 +31,10 @@ export class BillingReconciliation {
     const window = prior?.pageToken && prior.start >= now - 30 * 24 * 60 * 60 * 1000 + 60000 ? prior : {
       start: Math.max(oldest, (prior?.completedThrough ?? oldest) - 24 * 60 * 60 * 1000), end: now,
     };
-    const accessToken = await googleAccessToken(this.env, fetchImpl);
     const url = new URL("https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.rekixo.ludopaws/purchases/voidedpurchases");
     url.search = new URLSearchParams({ startTime: String(window.start), endTime: String(window.end), maxResults: "10", type: "0",
       ...(window.pageToken ? { token: window.pageToken } : {}) }).toString();
-    const response = await fetchImpl(url, { headers: { authorization: "Bearer " + accessToken }, signal: AbortSignal.timeout(10000) });
+    const response = await googlePlayFetch(this.env, url, {}, fetchImpl);
     if (!response.ok) throw new Error("Play voided-purchase reconciliation failed: HTTP " + response.status);
     const body = await response.json();
     if (body.voidedPurchases != null && !Array.isArray(body.voidedPurchases)) throw new Error("Invalid Play voided-purchase page");
