@@ -1,5 +1,16 @@
 # Referral activation status — October 27, 2026
 
+## Latest verified operational state — October 27, 2026
+
+This section supersedes earlier chronological statements about pending deployment, notices and monitoring below.
+
+- Backend revision `ffea19a90532d1079a5711509dfe2ad4fc30831e` deployed through [run 40464256246](https://github.com/rekixo-lab/ludopaws/actions/runs/40464256246); the Worker deploy completed at **12:28:51 IST**. Operational referral health and live gameplay smoke checks passed. Readiness reported healthy gameplay, matching referral configuration, zero pending rewards and zero failed deliveries. No runtime source changes were introduced by the subsequent visual-gate/documentation cleanup.
+- Website PR #4 merged as `82b2ab193a8fe93680eb02d79c61d07704a50122`. [Website deployment 40490990063](https://github.com/rekixo-lab/ludopaws/actions/runs/40490990063) passed; the public release-status page now describes rc10 internal testing and referral OFF. Previously published privacy/referral notices remain available.
+- Following explicit publisher authorization, Cloudflare monitor `9151265be7534c72924504d234df2bc0` is **Enabled**, named `ludoproof-game-api HTTP 5xx`, email `AI@rekixo.com`. It filters HTTP Requests to `clientRequestHttpHost = api.ludopaws.rekixo.com` and `edgeResponseStatus >= 500`, triggers on five-minute average count above zero, evaluates every minute and repeats at most hourly. No plan upgrade was purchased. This sampled HTTP signal does not guarantee detection of every individual error, queue delay or Google quota problem. Actual email delivery during a real incident has not been demonstrated.
+- Public participation and policy/SDK/release-validation approvals remain OFF. The publisher deferred genuine two-player, licensed-Play-install acceptance to physical testing. This is an explicit release boundary, not evidence of an unfinished implementation or a passing attestation. No staging environment was created and no in-review Play submission was changed.
+
+Historical PR dispositions are recorded in [BRANCH_PR_CLOSEOUT.md](BRANCH_PR_CLOSEOUT.md). Engineering validation and published notices do not constitute Google policy approval or legal approval in every rollout country.
+
 ## Completed
 
 - Play Console dashboard confirmed 177 production countries/regions and the current submission in review. No release, track, listing or review submission was changed.
