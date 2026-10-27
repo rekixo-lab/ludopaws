@@ -6,7 +6,9 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -15,6 +17,8 @@ import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
 import com.rekixo.ludopaws.LudoProofTheme
+import com.rekixo.ludopaws.core.ui.components.appIconActionButton
+import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
 import com.rekixo.ludopaws.ui.dialogs.showSettingsDialog
 import com.rekixo.ludopaws.feature.safety.FamilyAgeScreen
@@ -26,7 +30,7 @@ class ReferralActivity : Activity() {
     private lateinit var progress: TextView
     private lateinit var ownership: TextView
     private lateinit var action: Button
-    private lateinit var refresh: Button
+    private lateinit var refresh: View
     private var verify: Button? = null
     private lateinit var stop: Button
     private lateinit var verification: TextView
@@ -46,19 +50,31 @@ class ReferralActivity : Activity() {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
         val (root, host) = LudoProofTheme.arcadeRoot(this)
-        val content = LinearLayout(this).apply {
+        val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(18), dp(12), dp(18), dp(16))
+            setPadding(dp(6), dp(6), dp(6), dp(6))
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(0xFF123B38.toInt(), 0xFF102B31.toInt())).apply { cornerRadius = dp(24).toFloat() }
         }
-        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        header.addView(quietButton("‹") { finish() }.apply { contentDescription = "Back" }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        header.addView(copy("Invite friends", 19f, true), LinearLayout.LayoutParams(0, -2, 1f))
-        refresh = quietButton("↻") { load() }.apply { contentDescription = "Refresh invitation progress"; textSize = 23f }
-        header.addView(refresh, LinearLayout.LayoutParams(dp(48), dp(48)))
-        content.addView(header, LinearLayout.LayoutParams(-1, -2))
+        val header = FrameLayout(this).apply { setPadding(dp(12), dp(8), dp(12), dp(8)) }
+        header.addView(navigationButton("Back", AppIconName.CHEVRON_LEFT) { finish() },
+            FrameLayout.LayoutParams(dp(52), dp(52), Gravity.START or Gravity.CENTER_VERTICAL))
+        refresh = navigationButton("Refresh invitation progress", AppIconName.REFRESH) { load() }
+        header.addView(refresh, FrameLayout.LayoutParams(dp(52), dp(52), Gravity.END or Gravity.CENTER_VERTICAL))
+        page.addView(header, LinearLayout.LayoutParams(-1, dp(68)))
+        val content = object : LinearLayout(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val cappedWidth = MeasureSpec.makeMeasureSpec(
+                    minOf(MeasureSpec.getSize(widthMeasureSpec), dp(520)), MeasureSpec.getMode(widthMeasureSpec),
+                )
+                super.onMeasure(cappedWidth, heightMeasureSpec)
+            }
+        }.apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(18), dp(16), dp(18), dp(16))
+        }
+        content.addView(copy("Invite friends", 19f, true))
         content.addView(copy("Better with a friend.", 25f, true).apply { setPadding(0, dp(12), 0, dp(4)) })
         content.addView(copy("Invite a new player. Get this bundle\nafter their first qualifying match.", 13f))
         showcase = FriendshipBundleView(this)
@@ -101,12 +117,32 @@ class ReferralActivity : Activity() {
                 putExtra(Intent.EXTRA_TEXT, "Play Ludo Paws with me!\nhttps://play.google.com/store/apps/details?id=com.rekixo.ludopaws")
             }, "Share Ludo Paws"))
         }, LinearLayout.LayoutParams(-1, -2))
-        host.addView(ScrollView(this).apply {
+        val centeredContent = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            // Balance the fixed header so the whole group centers on the screen.
+            setPadding(0, 0, 0, dp(68))
+            addView(content, LinearLayout.LayoutParams(-1, -2))
+        }
+        page.addView(ScrollView(this).apply {
             isFillViewport = true; isVerticalScrollBarEnabled = false
-            setPadding(dp(6), dp(6), dp(6), dp(6)); addView(content)
-        })
+            addView(centeredContent)
+        }, LinearLayout.LayoutParams(-1, 0, 1f))
+        host.addView(page)
         setContentView(root)
     }
+
+    private fun navigationButton(label: String, icon: AppIconName, onClick: () -> Unit) =
+        appIconActionButton(this, label, icon, sizeDp = 52, onClick = onClick).apply {
+            val surface = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF47766A.toInt(), 0xFF285449.toInt())).apply {
+                cornerRadius = dp(26).toFloat()
+                setStroke(dp(1), 0xFFBAD6A6.toInt())
+            }
+            background = android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x44FFFFFF), surface, null,
+            )
+        }
 
     private fun showIncomingInvitation() {
         if (invitationDialog?.isShowing == true) return
