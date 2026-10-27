@@ -9,6 +9,7 @@ on:
       - "docs/privacy-policy.html"
       - "docs/pricing.html"
       - "docs/terms-of-service.html"
+      - "docs/referral-terms.html"
       - ".github/workflows/account-deletion-pages.yml"
   workflow_dispatch:
 
@@ -50,6 +51,7 @@ jobs:
           test -f docs/privacy-policy.html
           test -f docs/pricing.html
           test -f docs/terms-of-service.html
+          test -f docs/referral-terms.html
           if grep -Eq "POLICY_RELEASE_REVIEW_REQUIRED|PRICING_RELEASE_REVIEW_REQUIRED|TERMS_RELEASE_REVIEW_REQUIRED" docs/privacy-policy.html docs/pricing.html docs/terms-of-service.html; then
             echo "A privacy, pricing, or Terms of Service release-review marker remains. Complete publisher/legal review before publishing." >&2
             exit 2
@@ -88,6 +90,7 @@ jobs:
           cp docs/privacy-policy.html site/privacy-policy.html
           cp docs/pricing.html site/pricing.html
           cp docs/terms-of-service.html site/terms-of-service.html
+          cp docs/referral-terms.html site/referral-terms.html
           printf '%s\n' 'ludopaws.rekixo.com' > site/CNAME
           node <<'NODE'
           const fs = require("node:fs");
@@ -131,6 +134,7 @@ jobs:
           privacy="$(fetch_public_page /privacy-policy.html)"
           pricing="$(fetch_public_page /pricing.html)"
           terms="$(fetch_public_page /terms-of-service.html)"
+          referral_terms="$(fetch_public_page /referral-terms.html)"
           deletion="$(fetch_public_page /account-deletion.html)"
           config="$(fetch_public_page /config.js)"
 
@@ -138,6 +142,7 @@ jobs:
           printf '%s' "$privacy" | grep -qi "Privacy Policy"
           printf '%s' "$pricing" | grep -qi "Pricing"
           printf '%s' "$terms" | grep -qi "Terms of Service"
+          printf '%s' "$referral_terms" | grep -qi "Friendship invitation terms"
           printf '%s' "$deletion" | grep -qi "Account and data deletion"
           printf '%s' "$config" | grep -Fq "$GOOGLE_SIGN_IN_WEB_CLIENT_ID"
           printf '%s' "$config" | grep -Fq "$LUDOPROOF_SUPPORT_EMAIL"

@@ -70,6 +70,10 @@ has(pagesWorkflow, "cp docs/landing-page.html site/index.html", "landing page pu
 has(pagesWorkflow, "actions/deploy-pages", "explicit Pages publishing step");
 has(pagesWorkflow, "Verify published public policy routes", "post-deployment HTTPS smoke test for the legal and sign-in pages");
 has(pagesWorkflow, "fetch_public_page /terms-of-service.html", "post-deployment Terms of Service route smoke test");
+has(pagesWorkflow, "test -f docs/referral-terms.html", "referral terms publication file gate");
+has(pagesWorkflow, "cp docs/referral-terms.html site/referral-terms.html", "referral terms publication mapping");
+has(pagesWorkflow, "fetch_public_page /referral-terms.html", "post-deployment referral terms route smoke test");
+has(read("../docs/referral-terms.html"), "Friendship invitation terms", "referral terms page");
 
 
 const pricing = read("../docs/pricing.html");
