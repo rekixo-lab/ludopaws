@@ -374,6 +374,7 @@ class OfflineGameEngine(
                     current.finishedPlayerIds.firstOrNull()
                 current.revision += 1
                 persist()
+                com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(current.matchId)
                 runCatching {
                     profileStore.recordCompletedMatch(
                         matchId = current.matchId,

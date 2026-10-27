@@ -17,7 +17,7 @@ import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
 import com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsPreview
 
-internal class FriendshipBundleView(context: Context, private val compact: Boolean = false) : LinearLayout(context) {
+internal class FriendshipBundleView(context: Context, private val compact: Boolean = false, private val ownedItems: Set<String> = emptySet()) : LinearLayout(context) {
     private var live: FeaturedPawsPreview? = null
     private var active = false
     private val avatar = LudoPawsCharacterAvatarView(context).apply {
@@ -82,6 +82,13 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         addView(label(if (compact) "100 Gems + missing bundle items · Invite & play" else "Board  ·  Rabbit  ·  Dice", if (compact) 11f else 12f).apply {
             if (!compact) setPadding(0, dp(5), 0, 0)
         }, LayoutParams(-1, -2))
+        if (!compact && ownedItems.any { it in ReferralPopupPolicy.rewardItems }) {
+            val ownership = LinearLayout(context)
+            for ((id, title) in listOf("board_blossom_garden" to "Board", "character_rabbit" to "Rabbit", "dice_pearl_paw" to "Dice")) {
+                ownership.addView(label(if (id in ownedItems) "$title · Owned ✓" else "$title · Included", 10f), LayoutParams(0, -2, 1f))
+            }
+            addView(ownership, LayoutParams(-1, -2).apply { topMargin = dp(5) })
+        }
         if (compact) addView(label("SEE BUNDLE  ›", 13f, true), LayoutParams(-1, -2).apply { topMargin = dp(4) })
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "Friendship bundle: Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Invite a new friend. Reward only after verified play."
@@ -98,7 +105,8 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
     }
 
     fun setActive(value: Boolean) { active = value; updateMotion() }
-    private fun canShowMotion() = active && isAttachedToWindow && isShown && hasWindowFocus() && windowVisibility == VISIBLE
+    private fun canShowMotion() = active && isAttachedToWindow && isShown && hasWindowFocus() && windowVisibility == VISIBLE &&
+        android.animation.ValueAnimator.areAnimatorsEnabled()
     private fun updateMotion() {
         removeCallbacks(startPreview)
         live?.setActive(false)

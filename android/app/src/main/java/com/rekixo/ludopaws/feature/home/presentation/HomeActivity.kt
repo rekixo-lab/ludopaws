@@ -31,6 +31,11 @@ class HomeActivity : Activity() {
         ConnectivityMonitor
     internal var homeGuideVisible: Boolean = false
     private var promotionCarousel: HomePromotionCarousel? = null
+    private val referralPromotions by lazy {
+        com.rekixo.ludopaws.feature.referrals.ReferralPromotionController(this,
+            uiAvailable = { homeResumed && !homeGuideVisible },
+            popupVisibility = { visible -> promotionCarousel?.setActive(homeResumed && !visible) })
+    }
 
     override fun onCreate(
         savedInstanceState: Bundle?,
@@ -241,6 +246,7 @@ class HomeActivity : Activity() {
         refreshHomeProfileSummary()
         refreshHomeGemBalance()
         showFirstRunGuideIfNeeded()
+        referralPromotions.resume(home = true)
         // Never show an in-app DOB screen. Google Play may request age-range sharing.
         // First-run tutorial is dismissed before any Play-managed prompt may appear.
         // Family gameplay does not request or depend on age-range sharing.
@@ -250,6 +256,7 @@ class HomeActivity : Activity() {
 
     override fun onPause() {
         homeResumed = false
+        referralPromotions.pause()
         promotionCarousel?.setActive(false)
         super.onPause()
     }
@@ -305,6 +312,7 @@ class HomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        referralPromotions.pause()
         if (
             ::connectivityMonitor
                 .isInitialized

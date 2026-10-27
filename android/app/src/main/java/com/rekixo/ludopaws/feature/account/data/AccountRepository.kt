@@ -321,6 +321,10 @@ class AccountRepository(context: Context) {
         if (referralPrefs.getString("consented_account", null) == session.accountId || referralPrefs.getString("verification_account", null) == session.accountId) {
             referralPrefs.edit().clear().putBoolean("bound", true).putBoolean("referrer_read", true).commit()
         }
+        val promotionPrefs = appContext.getSharedPreferences("referral_popup_v1", Context.MODE_PRIVATE)
+        promotionPrefs.edit().also { editor ->
+            promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
+        }.commit()
         sessions.clear()
         return response
     }

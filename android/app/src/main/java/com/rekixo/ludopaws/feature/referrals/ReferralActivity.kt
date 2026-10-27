@@ -130,6 +130,9 @@ class ReferralActivity : Activity() {
         }, LinearLayout.LayoutParams(-1, 0, 1f))
         host.addView(page)
         setContentView(root)
+        if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_SHOW_RULES, false)) {
+            root.post { if (!isFinishing && !isDestroyed) showInvitationDetails() }
+        }
     }
 
     private fun navigationButton(label: String, icon: AppIconName, onClick: () -> Unit) =
@@ -445,4 +448,6 @@ class ReferralActivity : Activity() {
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()
+
+    companion object { internal const val EXTRA_SHOW_RULES = "show_referral_rules" }
 }

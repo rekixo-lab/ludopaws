@@ -184,6 +184,7 @@ class GooglePlayBillingGateway(
         listedOffer?.offerToken?.takeIf(String::isNotBlank)?.let(productParamsBuilder::setOfferToken)
         val productParams = productParamsBuilder.build()
 
+        com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
         val result =
             billingClient
                 .launchBillingFlow(
@@ -234,6 +235,7 @@ class GooglePlayBillingGateway(
         billingResult: BillingResult,
         purchases: MutableList<Purchase>?,
     ) {
+        com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
         if (
             closed
         ) {

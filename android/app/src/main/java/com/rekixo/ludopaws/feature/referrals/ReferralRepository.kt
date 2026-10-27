@@ -51,6 +51,9 @@ internal class ReferralRepository(context: Context) {
 
     fun withdraw(accountId: String) {
         check(accounts.currentSession()?.accountId == accountId) { "Your account changed. Please retry." }
+        // Respect an explicit stop for the rest of this campaign; manual Share remains available.
+        app.getSharedPreferences("referral_popup_v1", Context.MODE_PRIVATE).edit()
+            .putInt("${ReferralPopupPolicy.CAMPAIGN}:$accountId:count", 3).apply()
         prefs.edit().remove("consented_account").remove("consent_terms")
             .putString("consent_revision", java.util.UUID.randomUUID().toString())
             .remove("click").remove("install_at").remove("clicked_at").remove("referrer_read")

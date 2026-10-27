@@ -118,6 +118,14 @@ internal fun MainActivity.applyResponse(
         lastRealtimeRevision = serverRevision.toInt()
     }
 
+    if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED") {
+        val winners = state.players.filter { player ->
+            if (state.winnerTeamId != null) player.teamId == state.winnerTeamId else player.playerId == state.winnerPlayerId
+        }
+        if (winners.isNotEmpty() && winners.all { it.tokens.size == 4 && it.tokens.all { position -> position == LudoPathEncoding.HOME_POSITION } }) {
+            com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(state.matchId)
+        }
+    }
     if (state.status == "FINISHED") {
         stopFriendsVoice("Voice ended with the match.")
         realtimeClient.disconnect()

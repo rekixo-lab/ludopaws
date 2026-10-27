@@ -112,6 +112,7 @@ internal class RewardedAdsController(
         ad.fullScreenContentCallback =
             object : FullScreenContentCallback() {
                 override fun onAdDismissedFullScreenContent() {
+                    com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
                     if (rewardEarned && !rewardDelivered && !closed) {
                         rewardDelivered = true
                         onRewardEarned()
@@ -125,6 +126,7 @@ internal class RewardedAdsController(
                     prepare()
                 }
             }
+        com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
         ad.show(activity) {
             rewardEarned = true
         }

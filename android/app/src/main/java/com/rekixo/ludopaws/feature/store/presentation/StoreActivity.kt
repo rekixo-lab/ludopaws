@@ -51,6 +51,11 @@ class StoreActivity :
     internal var featuredCharacterId: String? = null
     internal var featuredPawsCard: com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsCard? = null
     internal var showcaseResumed = false
+    internal val referralPromotions by lazy {
+        com.rekixo.ludopaws.feature.referrals.ReferralPromotionController(this,
+            uiAvailable = { showcaseResumed && !cosmeticUpdateInProgress && !purchaseEligibilityInProgress && pendingAutoPurchaseProductId == null },
+            popupVisibility = { visible -> featuredPawsCard?.setActive(showcaseResumed && !visible) })
+    }
     private var cosmeticUpdateInProgress = false
     private var cosmeticFeedback: Toast? = null
     internal var liveProducts:
@@ -152,11 +157,13 @@ class StoreActivity :
     override fun onResume() {
         super.onResume()
         showcaseResumed = true
+        referralPromotions.resume()
         featuredPawsCard?.setActive(true)
     }
 
     override fun onPause() {
         showcaseResumed = false
+        referralPromotions.pause()
         featuredPawsCard?.setActive(false)
         super.onPause()
     }
@@ -315,6 +322,7 @@ class StoreActivity :
         }
     }
     override fun onDestroy() {
+        referralPromotions.pause()
         if (billingWasCreated) billing.close()
         if (rewardedAdsWasCreated) rewardedAds.close()
         billingExecutor.shutdownNow()
