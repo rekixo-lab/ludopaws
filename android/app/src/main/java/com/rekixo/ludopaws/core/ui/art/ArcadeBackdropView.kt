@@ -5,18 +5,19 @@ import android.util.AttributeSet
 import android.view.View
 import com.rekixo.ludopaws.core.ui.art.PlywoodTextureDrawable
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.feature.boards.content.classic.ClassicGameplayBackdropDrawable
+import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 
 /**
- * Shared full-screen plywood backdrop across all app screens, including gameplay.
- *
- * Both legacy background entry points intentionally use the same code-drawn
- * plain plywood skin; neither loads a WebP or another image resource.
+ * Shared plywood UI backdrop with an explicitly scoped Classic gameplay habitat.
  */
 class ArcadeBackdropView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
 ) : View(context, attrs) {
     private var gameplayFinish = false
+    private var jungleEnvironment = false
 
     init {
         isClickable = false
@@ -27,10 +28,14 @@ class ArcadeBackdropView @JvmOverloads constructor(
     }
 
     /** Compatibility entry point used by gameplay callers. */
-    fun useGameplayBackground() {
-        if (!gameplayFinish) {
+    fun useGameplayBackground(boardEnvironment: Boolean = false) {
+        val jungle = boardEnvironment && CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD) == "board_classic"
+        if (!gameplayFinish || jungleEnvironment != jungle) {
             gameplayFinish = true
-            background = plywoodBackground(context, cornerRadiusDp = 27f, gameplayFinish = true)
+            jungleEnvironment = jungle
+            background = if (jungle) {
+                ClassicGameplayBackdropDrawable(27f * resources.displayMetrics.density)
+            } else plywoodBackground(context, cornerRadiusDp = 27f, gameplayFinish = true)
         }
     }
 
@@ -38,6 +43,7 @@ class ArcadeBackdropView @JvmOverloads constructor(
     fun useUiBackground() {
         if (gameplayFinish) {
             gameplayFinish = false
+            jungleEnvironment = false
             background = plywoodBackground(context, cornerRadiusDp = 27f)
         }
         applySharedBackdrop()

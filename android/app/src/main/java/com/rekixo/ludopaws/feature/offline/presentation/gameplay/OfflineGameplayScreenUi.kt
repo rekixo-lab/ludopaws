@@ -40,6 +40,7 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
         LudoProofTheme.arcadeRoot(
             context = this,
             gameplayBackground = true,
+            gameplayBoardEnvironment = true,
         )
 
     val horizontalPaddingDp =

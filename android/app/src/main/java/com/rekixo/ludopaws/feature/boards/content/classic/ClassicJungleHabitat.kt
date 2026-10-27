@@ -22,6 +22,51 @@ internal class ClassicJungleHabitat {
     private val leaf = 0xFF3E713E.toInt()
     private val deepLeaf = 0xFF284F35.toInt()
 
+    fun drawEnvironment(canvas: Canvas, width: Float, height: Float) {
+        if (width <= 0f || height <= 0f) return
+        val saved = canvas.save()
+        val scale = width / 150f
+        val extent = height / scale
+        canvas.scale(scale, scale)
+        fill.shader = LinearGradient(0f, 0f, 150f, extent,
+            intArrayOf(0xFF506B3D.toInt(), 0xFF3D5D38.toInt(), 0xFF314F35.toInt()),
+            floatArrayOf(0f, .52f, 1f), Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, 150f, extent, fill)
+        fill.shader = RadialGradient(73f, extent * .47f, extent.coerceAtLeast(150f) * .58f,
+            intArrayOf(0x38698349, 0x00314F35), null, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, 150f, extent, fill)
+        fill.shader = null
+        val random = Random(742)
+        repeat((extent * 4f).toInt().coerceAtMost(2400)) { index ->
+            val positionX = random.nextFloat() * 150f
+            val positionY = random.nextFloat() * extent
+            fill.color = if (index % 3 == 0) 0x305D8B43 else 0x2031412A
+            canvas.drawOval(positionX - .8f, positionY - .35f,
+                positionX + .8f, positionY + .35f, fill)
+        }
+        val clusters = (extent / 18f).toInt().coerceIn(4, 40)
+        repeat(clusters) { index ->
+            val along = 8f + index * (extent - 16f) / clusters
+            fern(canvas, 2.5f + random.nextFloat() * 5f, along, 40f + index * 23f, .9f)
+            fern(canvas, 143f + random.nextFloat() * 4f, along + 4f, -35f - index * 19f, 1f)
+            if (index % 3 == 0) {
+                bamboo(canvas, 3.8f, along + 5f)
+                bamboo(canvas, 146.2f, along + 12f)
+            }
+            if (index % 4 == 0) {
+                palm(canvas, 6f, along, 1.15f)
+                palm(canvas, 144f, along + 14f, 1.05f)
+                rock(canvas, 9f, along + 9f, 1.8f)
+            }
+        }
+        repeat(18) { index ->
+            val across = 5f + index * 8.2f
+            fern(canvas, across, 4f, index * 31f, .9f)
+            fern(canvas, 150f - across, extent - 3f, 150f + index * 27f, 1f)
+        }
+        canvas.restoreToCount(saved)
+    }
+
     fun draw(canvas: Canvas, size: Float, definition: BoardDefinition) {
         val saved = canvas.save()
         canvas.scale(size / 150f, size / 150f)
