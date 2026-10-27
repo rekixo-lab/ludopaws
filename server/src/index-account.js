@@ -24,7 +24,7 @@ import { GOOGLE_PLAY_PRODUCTS, googlePlayBillingChecks, googlePlayBillingEnabled
 import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
-import { REFERRAL_PACKAGE, REFERRAL_REWARD, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
+import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
 
 export { BillingReconciliation } from "./billing-reconciliation.js";
 export { ReferralCampaign } from "./referral-campaign.js";
@@ -52,6 +52,9 @@ const ACCOUNT_WEB_CORS_PATHS = new Set([
 
 export default {
   async scheduled(_event, env, ctx) {
+    if (env?.LUDOPAWS_REFERRALS) ctx.waitUntil(referralRequest(env, "/maintenance").then(response => {
+      if (!response.ok) throw new Error("Referral maintenance unavailable");
+    }));
     if (!googlePlayBillingEnabled(env)) return;
     const task = env.LUDOPROOF_BILLING_RECONCILIATION.get(
       env.LUDOPROOF_BILLING_RECONCILIATION.idFromName("GOOGLE_PLAY:V1"),
@@ -110,31 +113,38 @@ export async function handleAccountRequest(request, env) {
       }
       const invitePath = /^\/r\/([a-f0-9]{64})(\/download)?$/.exec(url.pathname);
       if (invitePath) {
-        await rateLimit(env, request, "referral:landing", 20);
+        await rateLimit(env, request, "referral:landing", 120);
         if (!referralsEnabled(env)) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
         if (invitePath[2] && request.method === "POST") {
+          if (request.headers.get("origin") !== REFERRAL_ORIGIN ||
+              ["cross-site", "same-site"].includes(request.headers.get("sec-fetch-site"))) return json(403, { error: "INVITE_ORIGIN_INVALID", message: "Open the invitation page and use its download button." });
           const response = await referralRequest(env, "/click", { token: invitePath[1] });
           if (!response.ok) return response;
           const click = await response.json();
           const destination = new URL("https://play.google.com/store/apps/details");
           destination.searchParams.set("id", REFERRAL_PACKAGE);
-          destination.searchParams.set("referrer", click.referrer);
+          if (typeof click.referrer === "string") destination.searchParams.set("referrer", click.referrer);
           return new Response(null, { status: 303, headers: { location: destination.href, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
         }
         if (!invitePath[2] && request.method === "GET") {
-          return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta property="og:title" content="A friend invited you to Ludo Paws"><meta name="description" content="Play a real match together. Your inviter can earn a friendship bundle."><title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button, link your Google account and finish a real Online or Friends match within 14 days. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems, once. New players only; install within 7 days of this download click. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing is optional. Existing items are not duplicated or exchanged. Verification can take time. Campaign ends ${new Date(Number(env.LUDOPAWS_REFERRAL_START_MS) + 90 * 86400000).toUTCString()}; your match must finish before then. No reward for the invited player. <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></html>`, {
+          return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta property="og:title" content="A friend invited you to Ludo Paws"><meta name="description" content="Play a real match together. Your inviter can earn a friendship bundle."><title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button and link your Google account. Open Home → Share, read the optional verification disclosure, accept the invitation terms and tap Verify my invitation before playing. Then finish a real Online or Friends match within 14 days of installation. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems, once. New players only; install within 7 days of this download click. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing and verification are optional; declining does not restrict gameplay. No purchase, ad view, rating or review is required. Stop verification in the Share page to cancel pending incoming attribution. Existing items are not duplicated or exchanged. Verification can take time. Campaign ends ${new Date(Number(env.LUDOPAWS_REFERRAL_START_MS) + 90 * 86400000).toUTCString()}; your match must finish before then. No reward for the invited player. <a href="https://ludopaws.rekixo.com/referral-terms.html">Full invitation terms &amp; support</a> · <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></html>`, {
             headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer",
               "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" },
           });
         }
         return json(405, { error: "METHOD_NOT_ALLOWED" });
       }
-      if (/^\/api\/referrals\/(status|invite|challenge|bind)$/.test(url.pathname)) {
+      if (/^\/api\/referrals\/(status|invite|challenge|bind|enroll|withdraw)$/.test(url.pathname)) {
         const operation = url.pathname.split("/").pop();
         if (request.method !== (operation === "status" ? "GET" : "POST")) return json(405, { error: "METHOD_NOT_ALLOWED" });
-        await rateLimit(env, request, "referral:" + operation, operation === "status" ? 30 : 6);
+        await rateLimit(env, request, "referral:" + operation, operation === "status" ? 300 : 60);
+        if (operation === "withdraw" && env?.LUDOPAWS_REFERRALS) {
+          const session = await authenticate(request, env);
+          await readJsonObject(request, 1024);
+          return await referralRequest(env, "/withdraw", { accountId: session.accountId });
+        }
         if (!(operation === "status" ? referralsConfigured(env) : referralsEnabled(env))) return operation === "status"
-          ? json(200, { ok: true, enabled: false, reward: REFERRAL_REWARD })
+          ? json(200, { ok: true, enabled: false, reward: REFERRAL_REWARD, termsVersion: REFERRAL_TERMS_VERSION })
           : json(503, { error: "REFERRALS_UNAVAILABLE", message: "Friendship rewards are not available yet." });
         const session = await authenticate(request, env);
         const body = request.method === "POST" ? await readJsonObject(request, 24 * 1024) : {};
@@ -152,13 +162,23 @@ export async function handleAccountRequest(request, env) {
         const sessionHmacConfigured = typeof env?.LUDOPROOF_SESSION_HMAC_KEY === "string" &&
           new TextEncoder().encode(env.LUDOPROOF_SESSION_HMAC_KEY).byteLength >= 32;
         const billingReconciliationConfigured = Boolean(env?.LUDOPROOF_BILLING_RECONCILIATION);
+        const referralChecks = referralConfiguration(env);
+        let referralReady = !referralChecks.enabled || referralsConfigured(env);
+        let referralDelivery = null;
+        if (referralChecks.enabled && env?.LUDOPAWS_REFERRALS) {
+          const health = await referralRequest(env, "/health");
+          if (health.ok) {
+            referralDelivery = await health.json();
+            if (referralDelivery.configurationMatches !== true) referralReady = false;
+          } else referralReady = false;
+        }
         let billingReconciliationStatus = null;
         if (billingReconciliationConfigured && googlePlayBillingEnabled(env)) {
           const coordinator = env.LUDOPROOF_BILLING_RECONCILIATION.get(env.LUDOPROOF_BILLING_RECONCILIATION.idFromName("GOOGLE_PLAY:V1"));
           const response = await coordinator.fetch(new Request("https://billing-reconciliation/status"));
           if (response.ok) billingReconciliationStatus = await response.json();
         }
-        const ready = (!googlePlayBillingEnabled(env) || billingReconciliationConfigured) && base.ok && body?.ready === true && accountDirectoryConfigured &&
+        const ready = referralReady && (!googlePlayBillingEnabled(env) || billingReconciliationConfigured) && base.ok && body?.ready === true && accountDirectoryConfigured &&
           playerAccountsConfigured && googleSignInClientIdConfigured && sessionHmacConfigured;
         return json(ready ? 200 : 503, {
           ...body,
@@ -173,6 +193,8 @@ export async function handleAccountRequest(request, env) {
             sessionHmacConfigured,
             billingReconciliationConfigured,
             billingReconciliationStatus,
+            referralChecks,
+            referralDelivery,
             playBillingEnabled: googlePlayBillingEnabled(env),
             playBillingConfiguration: googlePlayBillingChecks(env),
                 admobSsvEnabled: env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&

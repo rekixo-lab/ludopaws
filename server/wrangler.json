@@ -164,7 +164,9 @@
   "vars": {
     "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V2",
     "LUDOPAWS_REFERRALS_ENABLED": "false",
-    "LUDOPAWS_REFERRAL_POLICY_APPROVED": "false"
+    "LUDOPAWS_REFERRAL_POLICY_APPROVED": "false",
+    "LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED": "false",
+    "LUDOPAWS_REFERRAL_RELEASE_VALIDATED": "false"
   },
   "observability": {
     "enabled": true,

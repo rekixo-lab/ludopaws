@@ -62,7 +62,7 @@ class AccountRepository(context: Context) {
     fun currentSession(): AccountSession? = sessions.load()
 
     fun referralRequest(operation: String, body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
-        require(operation in setOf("status", "invite", "challenge", "bind"))
+        require(operation in setOf("status", "invite", "challenge", "bind", "enroll", "withdraw"))
         val session = requireSession()
         if (expectedAccountId != null && session.accountId != expectedAccountId) {
             throw AccountApiException(409, "ACCOUNT_SESSION_CHANGED", "Your account changed. Please retry.")
@@ -316,6 +316,10 @@ class AccountRepository(context: Context) {
         )
         if (!response.optBoolean("deleted", false)) {
             throw AccountApiException(502, "ACCOUNT_DELETE_INCOMPLETE", "The account service did not confirm deletion.")
+        }
+        val referralPrefs = appContext.getSharedPreferences("friendship_attribution", Context.MODE_PRIVATE)
+        if (referralPrefs.getString("consented_account", null) == session.accountId || referralPrefs.getString("verification_account", null) == session.accountId) {
+            referralPrefs.edit().clear().putBoolean("bound", true).putBoolean("referrer_read", true).commit()
         }
         sessions.clear()
         return response

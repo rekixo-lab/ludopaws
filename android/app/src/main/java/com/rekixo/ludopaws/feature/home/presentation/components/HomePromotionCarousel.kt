@@ -122,7 +122,8 @@ internal class HomePromotionCarousel(
             post {
                 if (!active || bundleGeneration != generation || !isAttachedToWindow) return@post
                 val account = (context.applicationContext as LudoProofApplication).accountRepository.currentSession()
-                bundleAvailable = snapshot?.optBoolean("enabled") == true && snapshot.optString("state") != "REWARDED" &&
+                bundleAvailable = com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(context) &&
+                    snapshot?.optBoolean("enabled") == true && snapshot.optString("state") != "REWARDED" &&
                     snapshot.optString("localAccountId") == account?.accountId
                 if (page == 0) bundleShown = bundleAvailable && bundleNext
                 (context as? com.rekixo.ludopaws.HomeActivity)?.refreshHomeGemBalance()

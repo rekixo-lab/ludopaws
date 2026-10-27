@@ -8,6 +8,24 @@ export const REFERRAL_REWARD = Object.freeze({
 export const REFERRAL_ORIGIN = "https://api.ludopaws.rekixo.com";
 export const REFERRAL_PACKAGE = "com.rekixo.ludopaws";
 export const DAY = 86_400_000;
+export const REFERRAL_TERMS_VERSION = "friendship-2026-10-27";
+
+export function referralConfiguration(env) {
+  const start = Number(env?.LUDOPAWS_REFERRAL_START_MS);
+  return {
+    enabled: env?.LUDOPAWS_REFERRALS_ENABLED === "true",
+    policyReviewed: env?.LUDOPAWS_REFERRAL_POLICY_APPROVED === "true",
+    sdkReviewed: env?.LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED === "true",
+    releaseValidated: env?.LUDOPAWS_REFERRAL_RELEASE_VALIDATED === "true",
+    googleLinking: familyCapabilities(env).newGoogleLinking,
+    bindings: Boolean(env?.LUDOPAWS_REFERRALS && env?.LUDOPROOF_ACCOUNT_DIRECTORY && env?.LUDOPROOF_PLAYER_ACCOUNTS),
+    startTime: Number.isSafeInteger(start) && start > 0,
+    cloudProject: /^\d{6,20}$/.test(String(env?.LUDOPAWS_INTEGRITY_PROJECT_NUMBER ?? "")),
+    credentials: Boolean(env?.LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL && env?.LUDOPAWS_INTEGRITY_PRIVATE_KEY),
+    certificates: signingCertificates(env).length > 0,
+    minimumVersion: /^\d{1,12}$/.test(String(env?.LUDOPAWS_REFERRAL_MIN_VERSION_CODE ?? "")) && Number(env.LUDOPAWS_REFERRAL_MIN_VERSION_CODE) > 0,
+  };
+}
 
 export function referralsEnabled(env) {
   const start = Number(env?.LUDOPAWS_REFERRAL_START_MS);
@@ -15,15 +33,7 @@ export function referralsEnabled(env) {
 }
 
 export function referralsConfigured(env) {
-  const start = Number(env?.LUDOPAWS_REFERRAL_START_MS);
-  return env?.LUDOPAWS_REFERRALS_ENABLED === "true" &&
-    env?.LUDOPAWS_REFERRAL_POLICY_APPROVED === "true" &&
-    familyCapabilities(env).newGoogleLinking &&
-    Boolean(env?.LUDOPAWS_REFERRALS && env?.LUDOPROOF_ACCOUNT_DIRECTORY && env?.LUDOPROOF_PLAYER_ACCOUNTS) &&
-    Number.isSafeInteger(start) && start > 0 &&
-    /^\d{6,20}$/.test(String(env?.LUDOPAWS_INTEGRITY_PROJECT_NUMBER ?? "")) &&
-    Boolean(env?.LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL && env?.LUDOPAWS_INTEGRITY_PRIVATE_KEY) &&
-    signingCertificates(env).length > 0;
+  return Object.values(referralConfiguration(env)).every(Boolean);
 }
 
 export function signingCertificates(env) {
@@ -35,7 +45,7 @@ export function signingCertificates(env) {
 export async function referralRequest(env, path, body = {}) {
   const stub = env.LUDOPAWS_REFERRALS.get(env.LUDOPAWS_REFERRALS.idFromName(REFERRAL_CAMPAIGN));
   const response = await stub.fetch(new Request("https://referrals" + path, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000),
   }));
   return response;
 }

@@ -29,14 +29,18 @@ export async function verifyReferralIntegrity(env, integrityToken, requestHash) 
     if (!response.ok) throw httpError(503, "INTEGRITY_UNAVAILABLE", "Installation verification is temporarily unavailable.");
     const token = await response.json();
     if (typeof token.access_token !== "string") throw httpError(503, "INTEGRITY_UNAVAILABLE", "Installation verification is temporarily unavailable.");
-    cachedToken = { key: credentialKey, token: token.access_token, expires: Date.now() + Math.min(Number(token.expires_in) || 0, 3600) * 1000 };
+    cachedToken = { key: credentialKey, token: token.access_token, expires: Date.now() + Math.max(0, Math.min(Number(token.expires_in) || 0, 3600)) * 1000 };
   }
   const response = await fetch(`https://playintegrity.googleapis.com/v1/${REFERRAL_PACKAGE}:decodeIntegrityToken`, {
     method: "POST", signal: AbortSignal.timeout(10_000),
     headers: { authorization: "Bearer " + cachedToken.token, "content-type": "application/json" },
-    body: JSON.stringify({ integrity_token: integrityToken }),
+    body: JSON.stringify({ integrityToken }),
   });
-  if (!response.ok) throw httpError(response.status >= 500 ? 503 : 403, "INSTALL_NOT_VERIFIED", "Google Play could not verify this installation.");
+  if (!response.ok) {
+    if (response.status === 401) cachedToken = null;
+    const transient = response.status === 429 || response.status >= 500 || response.status === 401;
+    throw httpError(transient ? 503 : 403, transient ? "INTEGRITY_UNAVAILABLE" : "INSTALL_NOT_VERIFIED", "Google Play could not verify this installation. Please retry later.");
+  }
   const payload = (await response.json()).tokenPayloadExternal;
   const details = payload?.requestDetails;
   const app = payload?.appIntegrity;
@@ -45,7 +49,8 @@ export async function verifyReferralIntegrity(env, integrityToken, requestHash) 
   if (details?.requestPackageName !== REFERRAL_PACKAGE || details?.requestHash !== requestHash ||
       !Number.isSafeInteger(timestamp) || timestamp < Date.now() - 5 * 60_000 || timestamp > Date.now() + 30_000 ||
       app?.appRecognitionVerdict !== "PLAY_RECOGNIZED" || app?.packageName !== REFERRAL_PACKAGE ||
-      !app?.certificateSha256Digest?.some(value => certificates.includes(value)) ||
+      !Array.isArray(app?.certificateSha256Digest) || !app.certificateSha256Digest.some(value => certificates.includes(value)) ||
+      !/^\d+$/.test(String(app?.versionCode ?? "")) || Number(app.versionCode) < Number(env.LUDOPAWS_REFERRAL_MIN_VERSION_CODE) ||
       payload?.accountDetails?.appLicensingVerdict !== "LICENSED" ||
       !payload?.deviceIntegrity?.deviceRecognitionVerdict?.includes("MEETS_DEVICE_INTEGRITY")) {
     throw httpError(403, "INSTALL_NOT_VERIFIED", "A genuine, licensed Play installation is required for this reward.");

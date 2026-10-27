@@ -75,6 +75,7 @@ export class MatchRoom {
     this.ctx = ctx;
     this.env = env;
     this.mutationTail = Promise.resolve();
+    this.referralDeliveryPromise = null;
   }
 
   async fetch(request) {
@@ -172,6 +173,15 @@ export class MatchRoom {
       }
 
       if (typeof this.ctx.storage.deleteAll === "function") {
+        if (await this.ctx.storage.get("referral-outbox")) {
+          while (true) {
+            const keys = [...(await this.ctx.storage.list({ limit: 1000 })).keys()].filter(key => key !== "referral-outbox");
+            if (!keys.length) break;
+            await this.ctx.storage.delete(keys);
+          }
+          await this.scheduleReferralRetry();
+          return;
+        }
         await this.ctx.storage.deleteAll();
       }
     });
@@ -1026,25 +1036,64 @@ export class MatchRoom {
     return this.#recordFinishedMatchIfNeeded(state);
   }
 
-  async recordReferralResult(state) {
-    if (state?.status !== "FINISHED" || !referralsConfigured(this.env) || await this.ctx.storage.get("referral-delivered")) return;
-    try {
-      const response = await referralRequest(this.env, "/match", {
+  async prepareReferralResult(state) {
+    if (state?.status !== "FINISHED" || !referralsConfigured(this.env) ||
+        await this.ctx.storage.get("referral-delivered") || await this.ctx.storage.get("referral-outbox")) return;
+    await this.ctx.storage.put("referral-outbox", {
+      attempts: 0, nextAt: Date.now(), expiresAt: Number(this.env.LUDOPAWS_REFERRAL_START_MS) + 104 * 86_400_000,
+      payload: {
         homePosition: rulesetForState(state).homePosition,
         state: { matchId: state.matchId, status: state.status, createdAt: state.startedAt ?? state.createdAt, finishedAt: state.finishedAt,
           winnerPlayerId: state.winnerPlayerId, players: state.players.map(player => ({
             playerId: player.playerId, profileId: player.profileId, friendId: player.friendId, playerType: player.playerType,
             forfeitedAt: player.forfeitedAt, tokens: player.tokens, moveCount: state.playerMoveCounts?.[player.playerId] ?? 0,
           })) },
-      });
-      if (response.ok) await this.ctx.storage.put("referral-delivered", true);
-    } catch { }
+      },
+    });
+  }
+
+  async recordReferralResult(state) {
+    if (this.referralDeliveryPromise) return this.referralDeliveryPromise;
+    const task = this.deliverReferralResult(state);
+    this.referralDeliveryPromise = task;
+    try { return await task; } finally { this.referralDeliveryPromise = null; }
+  }
+
+  async deliverReferralResult(state) {
+    await this.prepareReferralResult(state);
+    const pending = await this.ctx.storage.get("referral-outbox");
+    if (!pending) return;
+    if (pending.expiresAt <= Date.now()) {
+      await this.ctx.storage.delete("referral-outbox");
+      console.error("Referral terminal-event retention expired", { code: "REFERRAL_OUTBOX_EXPIRED" });
+      return;
+    }
+    if (!referralsConfigured(this.env) || pending.nextAt > Date.now()) return;
+    try {
+      const response = await referralRequest(this.env, "/match", pending.payload);
+      if (!response.ok) throw new Error("REFERRAL_EVENT_UNAVAILABLE");
+      await this.ctx.storage.put("referral-delivered", true);
+      await this.ctx.storage.delete("referral-outbox");
+    } catch {
+      const attempts = pending.attempts + 1;
+      await this.ctx.storage.put("referral-outbox", { ...pending, attempts,
+        nextAt: Date.now() + Math.min(60 * 60_000, 60_000 * 2 ** Math.min(attempts, 6)) });
+    }
+  }
+
+  async scheduleReferralRetry() {
+    const pending = await this.ctx.storage.get("referral-outbox");
+    if (!pending) return null;
+    const nextAt = Math.min(pending.expiresAt, referralsConfigured(this.env) ? Math.max(Date.now() + 1000, pending.nextAt) : Date.now() + 60 * 60_000);
+    await this.ctx.storage.setAlarm(nextAt);
+    return nextAt;
   }
 
   async #recordFinishedMatchIfNeeded(
     state,
   ) {
     if (state.status === "FINISHED") {
+      await this.prepareReferralResult(state);
       const recording = this.recordReferralResult(state);
       if (typeof this.ctx.waitUntil === "function") this.ctx.waitUntil(recording);
       else await recording;

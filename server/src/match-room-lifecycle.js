@@ -1,5 +1,4 @@
 import { familyProjection } from "./family-safety.js";
-import { referralsConfigured } from "./referral-config.js";
 import {
   MatchRoom as SocialMatchRoom,
 } from "./match-room-social.js";
@@ -42,7 +41,7 @@ export class MatchRoom extends SocialMatchRoom {
 
   async alarm() {
     const referralState = await this.ctx.storage.get(STATE_KEY);
-    if (referralState?.status === "FINISHED") await this.recordReferralResult(referralState);
+    await this.recordReferralResult(referralState);
     const turnExpired = await this.#enqueue(
       () => this.#expireTurnRollIfNeeded(),
     );
@@ -130,13 +129,12 @@ export class MatchRoom extends SocialMatchRoom {
   async #scheduleNextDeadline() {
     if (typeof this.ctx.storage.setAlarm !== "function") return false;
     const state = await this.ctx.storage.get(STATE_KEY);
-    if (!state) return false;
+    if (!state) { await this.scheduleReferralRetry(); return false; }
     if (state.status !== "ACTIVE") {
       const ttl = state.status === "FINISHED" ? FINISHED_IDLE_TTL_MS : ACTIVE_IDLE_TTL_MS;
       const updatedAt = Number(state.updatedAt ?? state.createdAt ?? Date.now());
-      const referralPending = state.status === "FINISHED" && referralsConfigured(this.env) &&
-        !await this.ctx.storage.get("referral-delivered");
-      await this.ctx.storage.setAlarm(referralPending ? Math.min(updatedAt + ttl, Date.now() + 60_000) : updatedAt + ttl);
+      const retryAt = state.status === "FINISHED" ? await this.scheduleReferralRetry() : null;
+      await this.ctx.storage.setAlarm(retryAt != null ? Math.min(updatedAt + ttl, retryAt) : updatedAt + ttl);
       return false;
     }
     if (state.pendingRoll?.status === "RESOLVED") {
