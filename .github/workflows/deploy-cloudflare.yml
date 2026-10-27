@@ -63,7 +63,7 @@ jobs:
         run: node scripts/prepare-cloudflare-runtime-config.mjs
 
       - name: Test Cloudflare runtime configuration
-        run: node --test scripts/cloudflare-runtime-config.test.mjs scripts/referral-runtime-config.test.mjs
+        run: node --test scripts/cloudflare-runtime-config.test.mjs scripts/referral-runtime-config.test.mjs scripts/referral-health-check.test.mjs
 
       - name: Verify referral secret bindings before optional activation
         if: ${{ env.LUDOPAWS_REFERRALS_ENABLED == 'true' }}
@@ -242,6 +242,9 @@ jobs:
                 (expectedRewardedAds ? "enabled by explicit validated configuration." : "disabled.")
             );
           ' "$status_file"
+
+      - name: Verify referral delivery operational status
+        run: node scripts/referral-health-check.mjs
 
       - name: Verify live production game flow
         run: node scripts/production-game-smoke.mjs

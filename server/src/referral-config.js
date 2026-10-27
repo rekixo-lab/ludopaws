@@ -37,9 +37,10 @@ export function referralsConfigured(env) {
 }
 
 export function signingCertificates(env) {
-  return String(env?.LUDOPAWS_PLAY_SIGNING_SHA256 ?? "").split(",")
-    .map(value => value.trim().replaceAll(":", "").toLowerCase())
-    .filter(value => /^[a-f0-9]{64}$/.test(value));
+  const certificates = String(env?.LUDOPAWS_PLAY_SIGNING_SHA256 ?? "").split(",")
+    .map(value => value.trim().replaceAll(":", "").toLowerCase());
+  if (certificates.length > 10 || certificates.some(value => !/^[a-f0-9]{64}$/.test(value))) return [];
+  return [...new Set(certificates)];
 }
 
 export async function referralRequest(env, path, body = {}) {
@@ -48,4 +49,23 @@ export async function referralRequest(env, path, body = {}) {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: AbortSignal.timeout(15_000),
   }));
   return response;
+}
+
+export async function referralHealth(env) {
+  if (!env?.LUDOPAWS_REFERRALS) return null;
+  try {
+    const response = await referralRequest(env, "/health");
+    if (!response.ok) throw new Error("Unavailable");
+    const body = await response.json();
+    if (body?.ok !== true) throw new Error("Unavailable");
+    return {
+      ok: true,
+      configurationMatches: body.configurationMatches,
+      pending: body.pending,
+      oldestPendingAt: body.oldestPendingAt,
+      failedDeliveries: body.failedDeliveries,
+    };
+  } catch {
+    return { ok: false, error: "REFERRAL_HEALTH_UNAVAILABLE" };
+  }
 }

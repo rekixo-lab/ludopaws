@@ -24,7 +24,7 @@ import { GOOGLE_PLAY_PRODUCTS, googlePlayBillingChecks, googlePlayBillingEnabled
 import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
-import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
+import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralHealth, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
 
 export { BillingReconciliation } from "./billing-reconciliation.js";
 export { ReferralCampaign } from "./referral-campaign.js";
@@ -164,14 +164,8 @@ export async function handleAccountRequest(request, env) {
         const billingReconciliationConfigured = Boolean(env?.LUDOPROOF_BILLING_RECONCILIATION);
         const referralChecks = referralConfiguration(env);
         let referralReady = !referralChecks.enabled || referralsConfigured(env);
-        let referralDelivery = null;
-        if (referralChecks.enabled && env?.LUDOPAWS_REFERRALS) {
-          const health = await referralRequest(env, "/health");
-          if (health.ok) {
-            referralDelivery = await health.json();
-            if (referralDelivery.configurationMatches !== true) referralReady = false;
-          } else referralReady = false;
-        }
+        const referralDelivery = await referralHealth(env);
+        if (referralChecks.enabled && (referralDelivery?.ok !== true || referralDelivery.configurationMatches !== true)) referralReady = false;
         let billingReconciliationStatus = null;
         if (billingReconciliationConfigured && googlePlayBillingEnabled(env)) {
           const coordinator = env.LUDOPROOF_BILLING_RECONCILIATION.get(env.LUDOPROOF_BILLING_RECONCILIATION.idFromName("GOOGLE_PLAY:V1"));

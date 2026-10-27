@@ -13,6 +13,14 @@
 
 ## Validation and rollout evidence
 
+### Code-level completion follow-up
+
+The publisher requested finishing code-level work and deferred further physical testing; staging and new legacy implementations were explicitly declined. Subsequent hardening rejects partially invalid/excessive signing-certificate lists and invalid minimum versions before provider access. Google OAuth refreshes are coalesced for concurrent checks; failed refreshes can retry, HTTP 401 expires the affected cached token, malformed credentials/provider JSON and network timeouts produce safe retryable errors without diagnostic/token disclosure. Each verification still independently checks the real verdict, binding, license, certificate, version, timestamp and device integrity.
+
+Paused campaigns now retain aggregate delivery visibility in readiness. Unavailable optional delivery health does not disable ordinary gameplay when participation is OFF. `scripts/referral-health-check.mjs` adds read-only stale-queue/failure/configuration checks and is included in the explicit deployment workflow; it creates no monitor, schedule, notification destination or activation. The manual checklist is in [REFERRAL_DEVICE_ACCEPTANCE.md](REFERRAL_DEVICE_ACCEPTANCE.md). These source changes do not turn a mocked/provider-negative result into positive physical acceptance or submit next-update declarations.
+
+Final code-level validation used Node 22: **337 backend tests and 34 runtime/configuration/operational-check tests passed**, with zero failures. Security, policy-source/product-contract checks, whitespace validation and the final Cloudflare Worker packaging dry run also passed. Logs: `/tmp/ludopaws-code-completion-server-337.log`, `/tmp/ludopaws-code-completion-config.log` and `/tmp/ludopaws-code-ready-worker-final.log`. No new Android source or binary was required by these server/tooling changes. No additional device test, signed-build upload, backend deployment, campaign activation, scheduled monitor or legal declaration submission was performed in this code-only follow-up. Deploy the matching backend revision through the normal protected workflow before expecting its new aggregate diagnostics from the live API.
+
 ## Subsequent rollout progress — October 27, 2026
 
 - The publisher requested merging all completed work; game `main` reached `3aeb1cc26153961f27fe089cf627b8f978246c46`. Protected signing and deployment were dispatched explicitly, not bypassed.
