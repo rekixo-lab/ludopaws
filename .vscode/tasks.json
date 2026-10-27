@@ -2,15 +2,12 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "⚡ Fast Run LudoProof",
-      "type": "shell",
-      "command": "powershell",
+      "label": "Ludo Paws: Build, install and open",
+      "type": "process",
+      "command": "node",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}\\scripts\\run-ludoproof.ps1"
+        "${workspaceFolder}/scripts/android-local-testing.mjs",
+        "dev"
       ],
       "options": {
         "cwd": "${workspaceFolder}"
@@ -20,28 +17,6 @@
         "kind": "build",
         "isDefault": true
       },
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared",
-        "clear": true
-      }
-    },
-    {
-      "label": "✓ Verify + Run LudoProof",
-      "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}\\scripts\\run-ludoproof.ps1",
-        "-Verify"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
       "presentation": {
         "reveal": "always",
         "panel": "shared",

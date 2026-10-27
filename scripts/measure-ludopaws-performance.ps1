@@ -171,7 +171,7 @@ $adbArgs = @("-s", $serial)
 
 $installedPath = Invoke-AdbText $adb $adbArgs @("shell", "pm", "path", $packageName) -AllowFailure
 if ($LASTEXITCODE -ne 0 -or $installedPath -notmatch "package:") {
-    throw "Ludo Paws is not installed on device '$serial'. Run scripts\run-ludoproof.ps1 first."
+    throw "Ludo Paws is not installed on device '$serial'. Run node scripts/android-local-testing.mjs dev first."
 }
 
 $safeLabel = ($Label -replace "[^A-Za-z0-9._-]", "-").Trim("-")

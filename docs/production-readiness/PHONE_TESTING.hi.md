@@ -36,7 +36,15 @@ node scripts/android-local-testing.mjs dev
 (या `XDG_CONFIG_HOME` के अंदर) में रखता है। Repo में config, keystore या APK copy नहीं होता।
 अगली बार सिर्फ `dev` चलाएँ; public configuration बदलने पर `configure` refresh करें।
 
-`dev` और `integration` दोनों अब **LudoPaws Test** बनाते हैं: original package
+**एक ही runner:** VS Code में `Ctrl+Shift+B` भी यही `dev` command चलाता है। पुराना
+`run-ludoproof.ps1` और उसका अलग Gradle downloader हटा दिया गया है। Windows, Linux और
+macOS पर checked-in Gradle wrapper इस्तेमाल होता है। JDK और Android SDK पहले उपलब्ध हों।
+SDK का रास्ता `ANDROID_HOME` से दे सकते हैं; `local.properties` की दूसरी settings सुरक्षित रहती हैं।
+Device selection build से पहले होती है; install और launch दोनों उसी serial पर होते हैं।
+Unit tests और debug lint भी चाहिए तो `dev --verify` चलाएँ। केवल build के लिए
+`dev --assemble` है; यह फोन से संपर्क नहीं करता। पुराने `integration` alias की जगह `dev` इस्तेमाल करें।
+
+`dev` **LudoPaws Test** बनाता है: original package
 `com.rekixo.ludopaws`, Billing ON, Google linking/Play Games IDs configured और rewarded/
 interstitial **Google TEST ADS ON**। Build सफल होने पर सही ऐप अपने-आप खुलता है।
 Google IDs अधूरी हों तो helper disabled build लगाने के बजाय साफ error देता है।

@@ -6,7 +6,7 @@ This is the final device-side performance evidence pass for the shared Ludo Paws
 
 - Windows PowerShell.
 - One authorized Android phone connected over USB debugging.
-- Ludo Paws debug build installed with `scripts\run-ludoproof.ps1`.
+- Ludo Paws debug build installed with `node scripts/android-local-testing.mjs dev` (also VS Code `Ctrl+Shift+B`).
 - If more than one Android device is connected, set `ANDROID_SERIAL` first.
 
 The capture script resolves `adb.exe` from `PATH`, `LUDOPROOF_ANDROID_SDK`, `ANDROID_SDK_ROOT`, `ANDROID_HOME`, the shared FinWorkar SDK location, or the normal `%LOCALAPPDATA%\Android\Sdk` location.
