@@ -60,6 +60,7 @@ assert.equal(existsSync(new URL("../android/app/src/main/java/com/rekixo/ludopaw
 assert.doesNotMatch(appBuild, /implementation\("io\.github\.webrtc-sdk:/, "family package must not include WebRTC");
 
 has(pagesWorkflow, "LUDOPROOF_POLICY_RELEASE_APPROVED", "publisher approval gate");
+has(pagesWorkflow, "vars.LUDOPROOF_WEBSITE_HOSTING == 'github-pages'", "legacy Pages publication requires an explicit hosting selection");
 has(pagesWorkflow, "GOOGLE_SIGN_IN_WEB_CLIENT_ID", "Google OAuth Web Client ID release gate");
 has(pagesWorkflow, "LUDOPROOF_SUPPORT_EMAIL", "monitored support contact release gate");
 has(pagesWorkflow, "LUDOPROOF_ACCOUNT_WEB_ORIGIN", "account-site CORS origin release gate");

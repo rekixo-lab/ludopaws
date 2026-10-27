@@ -84,6 +84,31 @@ test("verified invitation binds once, ignores bots and grants the losing friend'
 });
 
 const accountId = "00000000-0000-4000-8000-000000000001";
+test("concurrent participant bursts keep invitations unique and duplicate retries stable", async testContext => {
+  const context = storageContext(testContext);
+  const environment = configuredEnvironment();
+  environment.LUDOPROOF_ACCOUNT_DIRECTORY = { idFromName: value => value, get: () => ({ fetch: async request => {
+    const body = await request.json();
+    return Response.json({ accountId: body.accountId, subjectHash: body.accountId.replaceAll("-", "").padEnd(64, "0"), createdAt: Date.now() - DAY });
+  } }) };
+  const campaign = new ReferralCampaign(context, environment);
+  const participants = Array.from({ length: 250 }, () => crypto.randomUUID());
+  const startedAt = performance.now();
+  for (let offset = 0; offset < participants.length; offset += 25) {
+    await Promise.all(participants.slice(offset, offset + 25).map(async participant => {
+      assert.equal((await call(campaign, "/enroll", { accountId: participant, termsVersion: REFERRAL_TERMS_VERSION, consent: true })).status, 200);
+      const invitations = await Promise.all(Array.from({ length: 3 }, () => call(campaign, "/invite", { accountId: participant })));
+      assert.ok(invitations.every(result => result.status === 200));
+      assert.equal(new Set(invitations.map(result => result.body.shareUrl)).size, 1);
+    }));
+  }
+  assert.equal([...context.storage.sql.exec("SELECT COUNT(*) AS total FROM invites")][0].total, participants.length);
+  assert.equal([...context.storage.sql.exec("SELECT COUNT(DISTINCT token) AS total FROM invites")][0].total, participants.length);
+  assert.equal([...context.storage.sql.exec("SELECT COUNT(*) AS total FROM subject_history")][0].total, participants.length);
+  assert.equal([...context.storage.sql.exec("SELECT COUNT(*) AS total FROM awards")][0].total, 0);
+  testContext.diagnostic(`Local SQLite burst: 1,000 requests in ${Math.round(performance.now() - startedAt)}ms; not a Cloudflare/provider throughput guarantee.`);
+});
+
 const sessionEnvironment = { LUDOPROOF_SESSION_HMAC_KEY: "referral-regression-test-key-at-least-32-bytes" };
 
 function storageContext(testContext) {
