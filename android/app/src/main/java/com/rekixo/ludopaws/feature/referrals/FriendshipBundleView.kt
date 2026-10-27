@@ -42,13 +42,16 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
     init {
         orientation = VERTICAL
         gravity = Gravity.CENTER
-        setPadding(dp(12), dp(10), dp(12), dp(10))
+        setPadding(dp(12), dp(if (compact) 10 else 16), dp(12), dp(if (compact) 10 else 14))
         background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0xFF183F44.toInt(), 0xFF325B55.toInt(), 0xFF26384E.toInt())).apply {
+            if (compact) intArrayOf(0xFF183F44.toInt(), 0xFF325B55.toInt(), 0xFF26384E.toInt())
+            else intArrayOf(0xFF28584B.toInt(), 0xFF1D403E.toInt(), 0xFF1B3542.toInt())).apply {
             cornerRadius = dp(24).toFloat()
-            setStroke(dp(1), 0xFFE7CE99.toInt())
+            setStroke(dp(1), if (compact) 0xFFE7CE99.toInt() else 0x557DAD8C)
         }
-        addView(label("FRIENDSHIP BUNDLE", if (compact) 16f else 22f, true), LayoutParams(-1, -2))
+        addView(label(if (compact) "FRIENDSHIP BUNDLE" else "YOUR FRIENDSHIP BUNDLE", if (compact) 16f else 11f, true).apply {
+            if (!compact) letterSpacing = 0.12f
+        }, LayoutParams(-1, -2))
         val art = object : LinearLayout(context) {
             override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
         }.apply { gravity = Gravity.CENTER_VERTICAL }
@@ -68,15 +71,17 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
             setPlayerTeamColor(null)
             contentDescription = "Pearl Paw Dice"
         }
-        art.addView(board, LayoutParams(0, dp(if (compact) 76 else 96), 1f))
+        art.addView(board, LayoutParams(0, dp(if (compact) 76 else 84), 1f))
         art.addView(rabbit, LayoutParams(0, -1, 1.3f))
-        art.addView(dice, LayoutParams(0, dp(if (compact) 76 else 96), 1f))
-        addView(art, if (compact) LayoutParams(-1, 0, 1f) else LayoutParams(-1, dp(140)))
+        art.addView(dice, LayoutParams(0, dp(if (compact) 76 else 84), 1f))
+        addView(art, if (compact) LayoutParams(-1, 0, 1f) else LayoutParams(-1, dp(132)))
         addView(label("+ ", 18f, true).apply {
             text = android.text.SpannableStringBuilder("+ ").append(CosmeticPriceLabels.gems(context, 100, " Gems"))
             contentDescription = "Plus 100 Gems"
         }, LayoutParams(-1, -2))
-        addView(label(if (compact) "100 Gems + missing bundle items · Invite & play" else "Pearl Paw · Blossom Garden · Rabbit", if (compact) 11f else 13f), LayoutParams(-1, -2))
+        addView(label(if (compact) "100 Gems + missing bundle items · Invite & play" else "Board  ·  Rabbit  ·  Dice", if (compact) 11f else 12f).apply {
+            if (!compact) setPadding(0, dp(5), 0, 0)
+        }, LayoutParams(-1, -2))
         if (compact) addView(label("SEE BUNDLE  ›", 13f, true), LayoutParams(-1, -2).apply { topMargin = dp(4) })
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "Friendship bundle: Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Invite a new friend. Reward only after verified play."
