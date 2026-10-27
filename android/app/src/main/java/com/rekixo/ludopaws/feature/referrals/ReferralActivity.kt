@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.Button
@@ -47,45 +48,66 @@ class ReferralActivity : Activity() {
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(18), dp(12), dp(18), dp(28))
+            setPadding(dp(18), dp(12), dp(18), dp(24))
         }
-        content.addView(Button(this).apply { text = "‹  BACK"; setOnClickListener { finish() } }, LinearLayout.LayoutParams(-1, dp(48)))
-        content.addView(copy("A little friendship.\nA big adventure.", 24f, true))
+        val header = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        header.addView(secondaryButton("‹ Back") { finish() }, LinearLayout.LayoutParams(-2, -2))
+        header.addView(copy("INVITE & EARN", 17f, true), LinearLayout.LayoutParams(0, -2, 1f))
+        content.addView(header, LinearLayout.LayoutParams(-1, -2))
+        content.addView(copy("One new friend. One lovely bundle.", 15f))
         showcase = FriendshipBundleView(this)
         if (FamilyAgeScreen.hasChoice(this) && !FamilyAgeScreen.optionalGoogleAllowed(this)) showcase.visibility = android.view.View.GONE
-        content.addView(showcase, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
+        content.addView(showcase, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6); bottomMargin = dp(10) })
         ownership = copy("", 12f)
+        ownership.visibility = android.view.View.GONE
         content.addView(ownership)
-        progress = copy("Checking your friendship bundle…", 16f, true)
+        progress = copy("Checking your bundle…", 15f, true)
         progress.accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
-        content.addView(progress)
-        content.addView(copy("Optional verification uses your linked game account, existing Google-identity anti-replay hash, Play click/install timestamps and app/device integrity signals. Google verifies temporary integrity tokens; referral code does not store them. Our backend stores consent and eligible match/reward records. No contacts or advertising ID are requested. You can decline and keep playing, or use Stop verification later. Minimal security hashes remain until 14 days after the campaign ends.", 13f))
+        refresh = secondaryButton("Refresh") { load() }
+        val progressRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        progressRow.addView(progress, LinearLayout.LayoutParams(0, -2, 1f))
+        progressRow.addView(refresh, LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(8) })
+        content.addView(progressRow, LinearLayout.LayoutParams(-1, -2))
+        content.addView(copy("Invite → New friend installs → They finish a real match", 13f, true))
+        content.addView(copy("You get the bundle + 100 Gems. Your friend does not need to win. Sharing or downloading alone earns no reward.", 13f))
+        content.addView(copy("Optional Google Play checks use your linked game account, anti-replay hash, install/click times and app/device integrity. We store consent and match/reward records; temporary integrity tokens are not stored. No contacts or advertising ID. Decline and keep playing, or stop verification later. Security hashes expire 14 days after the campaign ends.", 12f))
+        content.addView(secondaryButton("How it works · Rules & privacy  ›") { showInvitationDetails() }, LinearLayout.LayoutParams(-1, -2))
         terms = CheckBox(this).apply {
-            text = "I have read the invitation terms and privacy disclosure below. I choose optional invitation verification using Google Play installation and integrity checks. Only the inviter earns the reward."
-            textSize = 13f; setTextColor(Color.WHITE)
+            text = "I accept the invitation terms and privacy disclosure and choose optional Google Play verification. Only the inviter earns rewards."
+            textSize = 13f; setTextColor(Color.WHITE); minHeight = dp(48)
+            buttonTintList = android.content.res.ColorStateList.valueOf(0xFFB8EFD5.toInt())
         }
         content.addView(terms, LinearLayout.LayoutParams(-1, -2))
         action = Button(this).apply {
             text = "CHECKING…"; isEnabled = false
             setTextColor(0xFF163E37.toInt()); typeface = Typeface.DEFAULT_BOLD
-            minHeight = dp(52)
-            background = android.graphics.drawable.GradientDrawable().apply {
-                setColor(0xFFB8EFD5.toInt()); cornerRadius = dp(24).toFloat()
-            }
+            minHeight = dp(52); isAllCaps = false
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+            background = buttonSurface(primary = true)
             setOnClickListener { act() }
         }
         content.addView(action, LinearLayout.LayoutParams(-1, -2))
-        refresh = Button(this).apply { text = "Refresh progress"; setOnClickListener { load() } }
-        content.addView(refresh, LinearLayout.LayoutParams(-1, -2))
-        verification = copy("Were you invited? Verify your invitation before playing so your friend can qualify. You do not receive this reward.", 13f)
-        content.addView(verification)
+        val invitedCard = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(10), dp(14), dp(10))
+            background = GradientDrawable().apply {
+                setColor(0xD91C4143.toInt()); cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), 0x667BBAAB)
+            }
+        }
+        invitedCard.addView(copy("GOT AN INVITATION?", 13f, true))
+        verification = copy("Verify before playing to help your friend earn their bundle. This reward goes to them.", 12f)
+        invitedCard.addView(verification)
         verify = Button(this).apply {
-            text = "VERIFY MY INVITATION"; isEnabled = false
+            text = "Verify my invitation"; isEnabled = false
+            styleSecondaryButton(this)
             setOnClickListener { verifyInvitation() }
         }
-        content.addView(verify, LinearLayout.LayoutParams(-1, -2))
+        invitedCard.addView(verify, LinearLayout.LayoutParams(-1, -2))
+        content.addView(invitedCard, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(8) })
         stop = Button(this).apply {
             text = "Stop optional invitation verification"
+            styleSecondaryButton(this)
             visibility = android.view.View.GONE
             setOnClickListener {
                 PlywoodAlertDialogBuilder(this@ReferralActivity).setTitle("Stop verification?")
@@ -94,33 +116,72 @@ class ReferralActivity : Activity() {
             }
         }
         content.addView(stop, LinearLayout.LayoutParams(-1, -2))
-        content.addView(Button(this).apply {
-            text = "Share game without a reward"
-            setOnClickListener {
-                openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, "Play Ludo Paws with me!\nhttps://play.google.com/store/apps/details?id=com.rekixo.ludopaws")
-                }, "Share Ludo Paws"))
-            }
+        content.addView(secondaryButton("Just share the game") {
+            openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, "Play Ludo Paws with me!\nhttps://play.google.com/store/apps/details?id=com.rekixo.ludopaws")
+            }, "Share Ludo Paws"))
         }, LinearLayout.LayoutParams(-1, -2))
-        content.addView(copy("1  Share your personal invitation\n2  A new friend installs and links Google\n3  They finish a real Online or Friends match\n4  You receive the bundle + 100 Gems", 15f))
-        content.addView(copy("For an invited friend: after installing, open Home → Share, accept the disclosure and tap Verify my invitation before playing. Your friend receives the reward, not you. No purchase, ad view, rating or review is required. A qualifying match must include at least one legal move by the invited player.", 13f))
-        content.addView(Button(this).apply {
-            text = "Privacy policy"
-            setOnClickListener {
-                openExternal(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://ludopaws.rekixo.com/privacy-policy.html")))
-            }
-        }, LinearLayout.LayoutParams(-1, -2))
-        content.addView(Button(this).apply {
-            text = "Full invitation terms & support"
-            setOnClickListener {
-                runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://ludopaws.rekixo.com/referral-terms.html"))) }
-                    .onFailure { Toast.makeText(this@ReferralActivity, "Open ludopaws.rekixo.com/referral-terms.html or contact AI@rekixo.com.", Toast.LENGTH_LONG).show() }
-            }
-        }, LinearLayout.LayoutParams(-1, -2))
-        content.addView(copy("Only the inviter gets rewards, once per campaign. Sharing or downloading alone does not earn anything. Your friend does not have to win. Bots, forfeits, offline matches and self-invites do not count. A qualifying match takes at least 3 minutes.\n\nInstall within 7 days of the download-button click; finish within 14 days of installation and before the campaign ends. The campaign lasts 90 days. Already-owned items stay yours; there is no duplicate item or gem compensation. The extra 100 Gems are awarded once, including when you already own some or all items. Verification may take a few minutes.\n\nSharing is optional. We use account links, installation timestamps and Google Play integrity checks to prevent duplicate or fraudulent claims. No contact list or advertising ID is requested. Account deletion removes referral links; minimal abuse-prevention hashes are retained until 14 days after the campaign ends. Integrity cannot guarantee a unique human or prevent every form of farming.", 12f))
-        host.addView(ScrollView(this).apply { isFillViewport = true; addView(content) })
+        host.addView(ScrollView(this).apply { isFillViewport = true; isVerticalScrollBarEnabled = false; addView(content) })
         setContentView(root)
+    }
+
+    private fun showInvitationDetails() {
+        val details = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(8), dp(16), dp(12))
+        }
+        details.addView(copy("1  Share your personal invitation\n2  A new friend installs and links Google\n3  They verify in Home → Share before playing\n4  They finish a real Online or Friends match\n5  You receive the bundle + 100 Gems", 14f))
+        details.addView(copy("Only the inviter gets rewards, once per campaign. Sharing or downloading alone does not earn anything. Your friend does not have to win. No purchase, ad view, rating or review is required. Bots, forfeits, offline matches and self-invites do not count. A qualifying match takes at least 3 minutes and includes at least one legal move by the invited player.\n\nInstall within 7 days of the download-button click; finish within 14 days of installation and before the campaign ends. The campaign lasts 90 days. Already-owned items stay yours; there is no duplicate item or gem compensation. The extra 100 Gems are awarded once, including when you already own some or all items. Verification may take a few minutes.\n\nOptional verification uses your linked game account, existing Google-identity anti-replay hash, Play click/install timestamps and app/device integrity signals. Google verifies temporary integrity tokens; referral code does not store them. Our backend stores consent and eligible match/reward records. No contacts or advertising ID are requested. You can decline and keep playing, or use Stop verification later. Account deletion removes referral links; minimal abuse-prevention hashes are retained until 14 days after the campaign ends. Integrity cannot guarantee a unique human or prevent every form of farming.", 13f))
+        details.addView(secondaryButton("Privacy policy  ↗") {
+            openExternal(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://ludopaws.rekixo.com/privacy-policy.html")))
+        })
+        details.addView(secondaryButton("Full invitation terms & support  ↗") {
+            openExternal(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://ludopaws.rekixo.com/referral-terms.html")))
+        })
+        for (index in 0 until details.childCount) {
+            (details.getChildAt(index) as? TextView)?.takeUnless { it is Button }?.apply {
+                setTextColor(0xFF583717.toInt())
+                gravity = Gravity.START
+                setTextIsSelectable(true)
+            }
+        }
+        PlywoodAlertDialogBuilder(this).setTitle("Invitation guide & privacy")
+            .setView(ScrollView(this).apply { addView(details) })
+            .setPositiveButton("Done", null).show()
+    }
+
+    private fun buttonSurface(primary: Boolean = false): android.graphics.drawable.Drawable {
+        val enabled = GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            if (primary) intArrayOf(0xFFD8FFE9.toInt(), 0xFF91DDBA.toInt())
+            else intArrayOf(0xFF315A56.toInt(), 0xFF214340.toInt()),
+        ).apply {
+            cornerRadius = dp(16).toFloat()
+            setStroke(dp(1), if (primary) 0xFFE0FFE9.toInt() else 0xFF719D88.toInt())
+        }
+        val disabled = GradientDrawable().apply {
+            setColor(if (primary) 0xFFA5B9AF.toInt() else 0xFF405552.toInt())
+            cornerRadius = dp(16).toFloat()
+        }
+        val states = android.graphics.drawable.StateListDrawable().apply {
+            addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+            addState(intArrayOf(), enabled)
+        }
+        return android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(0x33FFFFFF), states, null,
+        )
+    }
+
+    private fun styleSecondaryButton(button: Button) = button.apply {
+        isAllCaps = false; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
+        setTextColor(0xFFE4F6EA.toInt()); minHeight = dp(48)
+        setPadding(dp(12), dp(10), dp(12), dp(10))
+        background = buttonSurface()
+    }
+
+    private fun secondaryButton(label: String, onClick: () -> Unit) = Button(this).apply {
+        text = label; styleSecondaryButton(this); setOnClickListener { onClick() }
     }
 
     private fun openExternal(intent: Intent) {
@@ -133,7 +194,9 @@ class ReferralActivity : Activity() {
         text = value; textSize = size; gravity = Gravity.CENTER
         setTextColor(if (bold) 0xFFFFE1A0.toInt() else Color.WHITE)
         if (bold) typeface = Typeface.DEFAULT_BOLD
-        setPadding(0, dp(10), 0, dp(10))
+        includeFontPadding = false
+        setLineSpacing(dp(2).toFloat(), 1f)
+        setPadding(0, dp(5), 0, dp(5))
     }
 
     override fun onResume() {
@@ -180,6 +243,7 @@ class ReferralActivity : Activity() {
         val owned = CosmeticInventoryStore(this).ownedCosmeticIds()
         ownership.text = listOf("dice_pearl_paw" to "Pearl Paw", "board_blossom_garden" to "Blossom Garden", "character_rabbit" to "Rabbit")
             .filter { it.first in owned }.joinToString(" · ") { "${it.second}: already owned" }
+        ownership.visibility = if (ownership.text.isNullOrBlank()) android.view.View.GONE else android.view.View.VISIBLE
         val enabled = snapshot.optBoolean("enabled")
         val linked = snapshot.optBoolean("googleLinked")
         val state = snapshot.optString("state")
