@@ -85,8 +85,8 @@ class ContentRegistryTest {
             assertEquals(CosmeticCategory.DICE, dice.offer.category)
             assertTrue(DiceRendererRegistry.supports(dice.rendererKey))
         }
-        // Draft boards must stay unavailable after the renderer extraction.
-        assertEquals(listOf("board_classic"), BoardRegistry.all.filter { it.offer.contentAvailable }.map { it.id })
+        assertEquals(setOf("board_classic", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire", "board_cloud_lagoon", "board_astral"), BoardRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet())
+        assertEquals(setOf("dice_classic", "dice_pearl_paw"), DiceRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet())
     }
 
     @Test

@@ -1,231 +1,39 @@
-import test from "node:test";
+import test, { afterEach } from "node:test";
+import { DatabaseSync } from "node:sqlite";
 import assert from "node:assert/strict";
 import { PlayerAccount } from "../src/player-account.js";
 
-class FakeAccountSql {
+const databases = new Set();
+afterEach(() => { for (const database of databases) database.close(); databases.clear(); });
+
+class AccountSqlFixture {
   constructor() {
-    this.accountMeta = new Map();
-    this.deletedAccounts = new Map();
-    this.deletionClaims = new Map();
-    this.wallet = new Map();
-    this.sessions = new Map();
-    this.ownedCosmetics = new Map();
-    this.selectedCosmetics = new Map();
-    this.adProgress = new Map();
-    this.walletTransactions = new Map();
-    this.revokedPurchases = new Map();
+    this.database = new DatabaseSync(":memory:");
+    databases.add(this.database);
   }
 
-  exec(statement, ...params) {
-    const sql = String(statement).replace(/\s+/g, " ").trim();
-    if (sql.startsWith("INSERT OR IGNORE INTO wallet_revision")) return { rowsWritten: 0 };
-    if (sql.startsWith("SELECT revision FROM wallet_revision")) return [{ revision: 0 }];
-    if (/^(CREATE TABLE|CREATE INDEX|CREATE TRIGGER)/i.test(sql)) return { rowsWritten: 0 };
-    if (/^DROP TABLE IF EXISTS paws_plus_subscriptions$/i.test(sql)) return { rowsWritten: 0 };
-
-    if (sql.startsWith("SELECT account_id FROM account_deletions WHERE account_id = ?")) {
-      return this.deletedAccounts.has(params[0]) ? [{ account_id: params[0] }] : [];
-    }
-    if (sql.startsWith("SELECT account_id FROM account_deletion_claims WHERE account_id = ?")) {
-      return this.deletionClaims.has(params[0]) ? [{ account_id: params[0] }] : [];
-    }
-    if (sql.startsWith("INSERT OR IGNORE INTO account_deletion_claims")) {
-      if (!this.deletionClaims.has(params[0])) this.deletionClaims.set(params[0], { claimed_at: params[1] });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("DELETE FROM account_deletion_claims WHERE account_id = ?")) {
-      this.deletionClaims.delete(params[0]);
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT source_ref_hash FROM wallet_transactions WHERE kind IN")) {
-      return [...this.walletTransactions.values()].filter(row => ["PLAY_GEM_PURCHASE", "PLAY_REMOVE_ADS"].includes(row.kind) && row.source_ref_hash).map(row => ({ source_ref_hash: row.source_ref_hash }));
-    }
-    if (/^DELETE FROM account_sessions$/.test(sql)) { this.sessions.clear(); return { rowsWritten: 1 }; }
-    if (sql.startsWith("SELECT ledger_id FROM revoked_play_purchases")) return this.revokedPurchases.has(params[0]) ? [{ledger_id:params[0]}] : [];
-    if (/^DELETE FROM purchase_ledger_ownership$/.test(sql)) return { rowsWritten: 0 };
-    if (/^DELETE FROM revoked_play_purchases$/.test(sql)) { this.revokedPurchases.clear(); return { rowsWritten: 1 }; }
-    if (/^DELETE FROM wallet_transactions$/.test(sql)) { this.walletTransactions.clear(); return { rowsWritten: 1 }; }
-    if (/^DELETE FROM cosmetic_ad_progress$/.test(sql)) { this.adProgress.clear(); return { rowsWritten: 1 }; }
-    if (/^DELETE FROM selected_cosmetics$/.test(sql)) { this.selectedCosmetics.clear(); return { rowsWritten: 1 }; }
-    if (/^DELETE FROM owned_cosmetics$/.test(sql)) { this.ownedCosmetics.clear(); return { rowsWritten: 1 }; }
-    if (/^DELETE FROM wallet$/.test(sql)) { this.wallet.clear(); return { rowsWritten: 1 }; }
-    if (sql.startsWith("DELETE FROM account_meta WHERE account_id = ?")) { this.accountMeta.delete(params[0]); return { rowsWritten: 1 }; }
-    if (sql.startsWith("INSERT INTO account_deletions")) { this.deletedAccounts.set(params[0], { deleted_at: params[1] }); return { rowsWritten: 1 }; }
-    if (sql.startsWith("SELECT account_id FROM account_meta WHERE account_id = ?")) {
-      return this.accountMeta.has(params[0]) ? [{ account_id: params[0] }] : [];
-    }
-    if (sql.startsWith("INSERT INTO account_meta")) {
-      this.accountMeta.set(params[0], {
-        account_id: params[0], display_name: params[1], created_at: params[2], updated_at: params[3],
-      });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT account_id, display_name, created_at, updated_at FROM account_meta")) {
-      const row = this.accountMeta.get(params[0]);
-      return row ? [structuredClone(row)] : [];
-    }
-    if (sql.startsWith("UPDATE account_meta SET display_name = ?")) {
-      const row = this.accountMeta.get(params[2]);
-      if (!row) return { rowsWritten: 0 };
-      row.display_name = params[0];
-      row.updated_at = params[1];
-      return { rowsWritten: 1 };
-    }
-
-    if (sql.startsWith("INSERT OR IGNORE INTO wallet")) {
-      const accountId = params[0];
-      if (this.wallet.has(accountId)) return { rowsWritten: 0 };
-      this.wallet.set(accountId, {
-        account_id: accountId, balance: 0, ads_removed: 0, updated_at: Number(params[1]),
-      });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT balance, ads_removed, updated_at FROM wallet WHERE account_id = ?")) {
-      const row = this.wallet.get(params[0]);
-      return row ? [structuredClone(row)] : [];
-    }
-    if (sql.startsWith("SELECT balance FROM wallet WHERE account_id = ?")) {
-      const row = this.wallet.get(params[0]);
-      return row ? [{ balance: row.balance }] : [];
-    }
-    if (sql.startsWith("UPDATE wallet SET balance = ?, ads_removed = CASE")) {
-      const row = this.wallet.get(params[3]);
-      if (!row) return { rowsWritten: 0 };
-      row.balance = params[0];
-      if (params[1] === 1) row.ads_removed = 1;
-      row.updated_at = params[2];
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?")) {
-      const row = this.wallet.get(params[2]);
-      if (!row) return { rowsWritten: 0 };
-      row.balance = params[0];
-      row.updated_at = params[1];
-      return { rowsWritten: 1 };
-    }
-
-    if (sql.startsWith("INSERT INTO account_sessions")) {
-      this.sessions.set(params[0], {
-        session_id: params[0],
-        refresh_token_hash: params[1],
-        previous_refresh_hash: null,
-        last_refresh_request_id: null,
-        created_at: params[2],
-        expires_at: params[3],
-        revoked_at: null,
-        last_seen_at: params[4],
-      });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT refresh_token_hash, previous_refresh_hash, last_refresh_request_id, expires_at, revoked_at FROM account_sessions WHERE session_id = ?")) {
-      const session = this.sessions.get(params[0]);
-      return session ? [{
-        refresh_token_hash: session.refresh_token_hash,
-        previous_refresh_hash: session.previous_refresh_hash,
-        last_refresh_request_id: session.last_refresh_request_id,
-        expires_at: session.expires_at,
-        revoked_at: session.revoked_at,
-      }] : [];
-    }
-    if (sql.startsWith("UPDATE account_sessions SET refresh_token_hash = ?, previous_refresh_hash = ?, last_refresh_request_id = ?, expires_at = ?, last_seen_at = ? WHERE session_id = ? AND refresh_token_hash = ?")) {
-      const session = this.sessions.get(params[5]);
-      if (
-        !session ||
-        session.refresh_token_hash !== params[6] ||
-        session.revoked_at != null ||
-        session.expires_at <= params[7]
-      ) return { rowsWritten: 0 };
-      session.refresh_token_hash = params[0];
-      session.previous_refresh_hash = params[1];
-      session.last_refresh_request_id = params[2];
-      session.expires_at = params[3];
-      session.last_seen_at = params[4];
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT session_id FROM account_sessions WHERE session_id = ? AND revoked_at IS NULL")) {
-      const session = this.sessions.get(params[0]);
-      return session && session.revoked_at == null && session.expires_at > params[1] && this.accountMeta.has(params[2])
-        ? [{ session_id: session.session_id }]
-        : [];
-    }
-
-    if (sql.startsWith("INSERT OR IGNORE INTO owned_cosmetics")) {
-      const cosmeticId = params[0];
-      if (this.ownedCosmetics.has(cosmeticId)) return { rowsWritten: 0 };
-      this.ownedCosmetics.set(cosmeticId, {
-        cosmetic_id: cosmeticId,
-        category: params[1],
-        source: "DEFAULT",
-        acquired_at: params[2],
-        source_ref_hash: null,
-      });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("INSERT INTO owned_cosmetics")) {
-      const source = sql.includes("'GEMS'") ? "GEMS" : "REWARDED_ADS";
-      this.ownedCosmetics.set(params[0], {
-        cosmetic_id: params[0], category: params[1], source, acquired_at: params[2], source_ref_hash: params[3] ?? null,
-      });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT cosmetic_id FROM owned_cosmetics WHERE cosmetic_id = ?")) {
-      return this.ownedCosmetics.has(params[0]) ? [{ cosmetic_id: params[0] }] : [];
-    }
-    if (sql.startsWith("SELECT cosmetic_id FROM owned_cosmetics ORDER BY cosmetic_id")) {
-      return [...this.ownedCosmetics.keys()].sort().map((cosmetic_id) => ({ cosmetic_id }));
-    }
-
-    if (sql.startsWith("INSERT OR IGNORE INTO selected_cosmetics")) {
-      const category = params[0];
-      if (this.selectedCosmetics.has(category)) return { rowsWritten: 0 };
-      this.selectedCosmetics.set(category, { category, cosmetic_id: params[1], updated_at: params[2] });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("INSERT INTO selected_cosmetics")) {
-      const category = params[0];
-      this.selectedCosmetics.set(category, { category, cosmetic_id: params[1], updated_at: params[2] });
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT category, cosmetic_id FROM selected_cosmetics ORDER BY category")) {
-      return [...this.selectedCosmetics.values()].sort((a, b) => a.category.localeCompare(b.category)).map((row) => ({
-        category: row.category, cosmetic_id: row.cosmetic_id,
-      }));
-    }
-
-    if (sql.startsWith("SELECT payload_hash FROM wallet_transactions WHERE idempotency_key = ?")) {
-      const row = this.walletTransactions.get(params[0]);
-      return row ? [{ payload_hash: row.payload_hash }] : [];
-    }
-    if (sql.startsWith("SELECT payload_hash, balance_after FROM wallet_transactions WHERE idempotency_key = ?")) {
-      const row = this.walletTransactions.get(params[0]);
-      return row ? [{ payload_hash: row.payload_hash, balance_after: row.balance_after }] : [];
-    }
-    if (sql.startsWith("INSERT INTO wallet_transactions")) {
-      const isCosmeticInsert = sql.includes("'COSMETIC_PURCHASE'");
-      const idempotencyKey = params[1];
-      const payloadHash = params[2];
-      const kind = isCosmeticInsert ? "COSMETIC_PURCHASE" : params[3];
-      const delta = isCosmeticInsert ? params[3] : params[4];
-      const balanceAfter = isCosmeticInsert ? params[4] : params[5];
-      this.walletTransactions.set(idempotencyKey, {
-        payload_hash: payloadHash, kind, delta, balance_after: balanceAfter,
-        source_ref_hash: isCosmeticInsert ? params[5] ?? null : params[6] ?? null,
-      });
-      return { rowsWritten: 1 };
-    }
-
-    if (sql.startsWith("SELECT cosmetic_id, progress FROM cosmetic_ad_progress ORDER BY cosmetic_id")) {
-      return [...this.adProgress.entries()].map(([cosmetic_id, progress]) => ({ cosmetic_id, progress }));
-    }
-    if (sql.startsWith("INSERT INTO cosmetic_ad_progress")) {
-      this.adProgress.set(params[0], Number(params[1]));
-      return { rowsWritten: 1 };
-    }
-    if (sql.startsWith("SELECT progress FROM cosmetic_ad_progress WHERE cosmetic_id = ?")) {
-      return this.adProgress.has(params[0]) ? [{ progress: this.adProgress.get(params[0]) }] : [];
-    }
-    throw new Error("Unexpected PlayerAccount SQL in test: " + sql);
+  exec(statement, ...parameters) {
+    const prepared = this.database.prepare(statement);
+    if (prepared.columns().length) return prepared.all(...parameters);
+    const rows = [];
+    rows.rowsWritten = Number(prepared.run(...parameters).changes);
+    return rows;
   }
+
+  transactionSync(callback) {
+    this.database.exec("BEGIN");
+    try { const result = callback(); this.database.exec("COMMIT"); return result; }
+    catch (error) { this.database.exec("ROLLBACK"); throw error; }
+  }
+
+  get accountMeta() { return new Map(this.exec("SELECT * FROM account_meta").map(row => [row.account_id, row])); }
+  get deletedAccounts() { return new Map(this.exec("SELECT * FROM account_deletions").map(row => [row.account_id, row])); }
+  get deletionClaims() { return new Map(this.exec("SELECT * FROM account_deletion_claims").map(row => [row.account_id, row])); }
+  get wallet() { return new Map(this.exec("SELECT * FROM wallet").map(row => [row.account_id, row])); }
+  get sessions() { return new Map(this.exec("SELECT * FROM account_sessions").map(row => [row.session_id, row])); }
+  get ownedCosmetics() { return new Map(this.exec("SELECT * FROM owned_cosmetics").map(row => [row.cosmetic_id, row])); }
+  get adProgress() { return new Map(this.exec("SELECT * FROM cosmetic_ad_progress").map(row => [row.cosmetic_id, row.progress])); }
+  get walletTransactions() { return new Map(this.exec("SELECT * FROM wallet_transactions").map(row => [row.idempotency_key, row])); }
 }
 
 function makeCatalogNamespace(items, { fail = false } = {}) {
@@ -272,9 +80,9 @@ function catalogItem(overrides = {}) {
 }
 
 function makeAccount(envOverrides = {}) {
-  const sql = new FakeAccountSql();
+  const sql = new AccountSqlFixture();
   const ctx = {
-    storage: { sql, transactionSync: (callback) => callback() },
+    storage: { sql, transactionSync: callback => sql.transactionSync(callback) },
     blockConcurrencyWhile: (callback) => callback(),
   };
   const env = {
@@ -353,7 +161,7 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
   const { account, sql } = makeAccount();
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Test Player" })).json();
-  sql.wallet.get(accountId).balance = 750;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 750, accountId);
 
   const purchase = {
     accountId,
@@ -382,7 +190,7 @@ test("content-ready cosmetic purchases do not require client-only level progress
   const { account, sql } = makeAccount();
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Cosmetic Tester" })).json();
-  sql.wallet.get(accountId).balance = 800;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 800, accountId);
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
     accountId,
@@ -465,7 +273,7 @@ test("catalog-managed purchases use the current server price and grant the catal
   });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Catalog Player" })).json();
-  sql.wallet.get(accountId).balance = 200;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 200, accountId);
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
     accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
@@ -494,7 +302,7 @@ test("archived catalog entry cannot bypass its status by falling back to the leg
   });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Catalog Player" })).json();
-  sql.wallet.get(accountId).balance = 500;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 500, accountId);
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
     accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
@@ -526,7 +334,7 @@ test("catalog-managed multi-channel purchase requires an explicit enabled channe
   });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Catalog Player" })).json();
-  sql.wallet.get(accountId).balance = 150;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 150, accountId);
 
   const wrongCountry = await post(account, "/wallet/cosmetic/purchase", {
     accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
@@ -596,7 +404,7 @@ test("new catalog IDs stay unpurchasable until server renderer and entitlement s
   });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Locked Catalog Player" })).json();
-  sql.wallet.get(accountId).balance = 500;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 500, accountId);
 
   const purchase = await post(account, "/wallet/cosmetic/purchase", {
     accountId, sessionId: created.sessionId, cosmeticId: "paw_safari_01",
@@ -615,7 +423,7 @@ test("archived dynamic cosmetic cannot be equipped but prior ownership is retain
   const { account, sql } = makeAccount({ LUDOPROOF_STORE_CATALOG: catalog });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Catalog Player" })).json();
-  sql.wallet.get(accountId).balance = 200;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 200, accountId);
 
   const bought = await post(account, "/wallet/cosmetic/purchase", {
     accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
@@ -643,7 +451,7 @@ test("catalog service outage fails closed for purchase and does not use the lega
   });
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
   const created = await (await post(account, "/session/create", { accountId, displayName: "Outage Player" })).json();
-  sql.wallet.get(accountId).balance = 500;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 500, accountId);
 
   const response = await post(account, "/wallet/cosmetic/purchase", {
     accountId, sessionId: created.sessionId, cosmeticId: "avatar_2",
@@ -735,7 +543,7 @@ test("only Classic dice are granted; Coming Soon dice cannot consume gems or ads
   const session = await (await post(account, "/session/create", { accountId, displayName: "Dice Tester" })).json();
   assert.ok(session.wallet.ownedCosmetics.includes("dice_classic"));
   assert.equal(session.wallet.ownedCosmetics.includes("dice_pumpkin"), false);
-  sql.wallet.get(accountId).balance = 1000;
+  sql.exec("UPDATE wallet SET balance = ? WHERE account_id = ?", 1000, accountId);
   for (const cosmeticId of ["dice_pumpkin", "dice_diwali", "dice_football", "dice_cricket", "dice_summers", "dice_colors", "dice_heart"]) {
     const purchase = await post(account, "/wallet/cosmetic/purchase", {
       accountId, sessionId: session.sessionId, cosmeticId, clientRequestId: crypto.randomUUID(),

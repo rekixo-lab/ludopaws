@@ -8,7 +8,7 @@ The publisher reports the first production submission is **currently in review**
 
 There is no hard-coded referral country allowlist in the API. Store item availability is separately configurable through the catalog's worldwide/allowlist/blocklist fields. Neither code proves the actual Play Console country selections nor guarantees regional legal eligibility, Play billing/identity support, translations or equivalent consumer requirements in every region. Keep application distribution and referral campaign activation separate. Never invent a list of 177 countries from an approximate count.
 
-Project legal documents identify the publisher **brand** as Rekixo and support as AI@rekixo.com. The exact registered legal entity/name in the Play listing cannot be proven from these strings. Existing game terms are draft-marked and require publisher confirmation before being treated as final legal advice or blanket global approval.
+Play Console Developer account was inspected on October 27, 2026: organization details show **FINWORKAR**, developer name **Rekixo**, and the verified website `https://rekixo.com/`. Next-update notices use that identity without inventing a corporate suffix. Existing game terms are draft-marked; console identity verification is not legal approval for every distribution region. See the activation status for completed tests and remaining release gates.
 
 ## Hardening included
 

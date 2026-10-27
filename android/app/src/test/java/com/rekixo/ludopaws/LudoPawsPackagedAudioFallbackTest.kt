@@ -21,6 +21,15 @@ class LudoPawsPackagedAudioFallbackTest {
                 LudoPawsProceduralVocal.CAT_MEW to "lp_vocal_cat_mew",
                 LudoPawsProceduralVocal.CAT_PURR to "lp_vocal_cat_purr",
                 LudoPawsProceduralVocal.CAT_HUFF to "lp_vocal_cat_huff",
+                LudoPawsProceduralVocal.COCK_CROW to "lp_vocal_cock_crow",
+                LudoPawsProceduralVocal.COCK_CLUCK to "lp_vocal_cock_cluck",
+                LudoPawsProceduralVocal.PIG_OINK to "lp_vocal_pig_oink",
+                LudoPawsProceduralVocal.PIG_SQUEAL to "lp_vocal_pig_squeal",
+                LudoPawsProceduralVocal.ELEPHANT_TRUMPET to "lp_vocal_elephant_trumpet",
+                LudoPawsProceduralVocal.ELEPHANT_RUMBLE to "lp_vocal_elephant_rumble",
+                LudoPawsProceduralVocal.HORSE_NEIGH to "lp_vocal_horse_neigh",
+                LudoPawsProceduralVocal.HORSE_SNORT to "lp_vocal_horse_snort",
+                LudoPawsProceduralVocal.RABBIT_SNUFFLE to "lp_vocal_rabbit_snuffle",
             )
 
         assertEquals(LudoPawsProceduralVocal.entries.toSet(), expected.keys)

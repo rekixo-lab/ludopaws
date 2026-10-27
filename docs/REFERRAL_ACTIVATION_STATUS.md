@@ -17,29 +17,34 @@ The publisher explicitly authorized builds and automated tests during this follo
 
 | Check | Result |
 | --- | --- |
-| Referral regression suite | 9 passed, 0 failed |
+| Referral regression suite, included in backend total | 10 passed, 0 failed |
 | Runtime configuration suites, including new activation gates | 18 passed, 0 failed |
 | Android debug Kotlin compilation, offline dependencies | Passed, existing warnings remain |
-| Android JVM regression suite | 494 total, 11 failed; not a release pass |
-| Existing PlayerAccount and Billing suites | 26 total, 18 failed; not a release pass |
-| Physical Android devices accessible through ADB | None connected |
+| Android JVM regression suite | 494 passed, 0 failed |
+| Complete backend suite on Node 22.23.4 | 295 passed, 0 failed |
+| Physical Samsung SM-A715F, Android 13, isolated QA app | 40 passed, 0 failed; includes 3 referral privacy tests |
+| Cloudflare Worker packaging dry run | Passed; no deployment |
+| Local unsigned release APK/AAB, R8 and release lint | Passed; code 10 candidate, billing/ads disabled; no upload |
+| Dedicated Google credential / decode negative probe | OAuth succeeded; invalid input rejected with HTTP 400 INVALID_ARGUMENT |
 | Real Play installation → Integrity → qualifying match → bundle | Not performed |
 
-Local JavaScript validation used Node 24.22.0. The repository production workflow specifies Node 22; equivalent Node 22/Cloudflare integration remains required. The suites were run with `--test-isolation=none` to obtain individual assertion results rather than relying on a file-level runner result.
+Final backend and configuration validation used Node 22.23.4, matching the production workflow major version. The full backend run used normal Node test isolation. Earlier Node 24 results are superseded.
 
-Observed broader failures include old content/catalog expectations (only Classic dice/Coming Soon content), character/audio assertions, product-contract expectations and PlayerAccount fake-SQL fixtures rejecting `SELECT account_id FROM account_meta LIMIT 1`. These results must be triaged before release; unrelated production logic was not altered to force a green run. Detailed local logs are outside Git, in `/tmp/ludopaws-referral-related-tests.log` and `/tmp/ludopaws-referral-android-unit-tests.log`.
+The previously reported failures were stale shipped-content/product expectations and an incomplete fake SQL interpreter. Tests now assert the actual 11 characters, seven shipped boards, two dice and intended purchase channels. Account tests use real in-memory SQLite and transactions rather than weakening production account queries. Elephant's intentionally lower hop is explicitly asserted. Logs: `/tmp/ludopaws-referral-node22-complete.log`, `/tmp/ludopaws-referral-config-node22.log`, `/tmp/ludopaws-referral-android-final.log`, `/tmp/ludopaws-referral-device-full.log` and `/tmp/ludopaws-referral-worker-dryrun-output.log`.
+
+The isolated `com.rekixo.ludopaws.qa` app was installed only after explicit publisher permission. Its API is loopback and billing/ads are disabled; original app/data were not modified. The restricted-age showcase is now hidden before any network response, including offline failure. Device checks cover consent, withdrawal and restricted UI, not positive Play attestation. An additional local integration case uses real SQLite/wallet and mocked Google responses to cover minimum-version rejection, binding, bot rejection, a naturally finished losing friend and exactly-once three-cosmetic plus 100-gem reward. Mock responses are not provider acceptance evidence.
 
 ## Policy assessment and remaining blockers
 
 - Technical review found no reward for a rating/review, no contacts/advertising-ID request in referral code, explicit optional consent and adult privacy-screen gating before referral SDK calls, server-only fulfillment, withdrawal and bounded retention disclosures. These are engineering findings, not Google or worldwide legal approval.
 - Google's [ratings, reviews and installs policy](https://support.google.com/googleplay/android-developer/answer/9898684) prohibits placement manipulation. A genuine invite-and-play design must not be described as a blanket exemption. Keep the campaign approval flag OFF pending publisher review of its actual presentation and use.
-- Google's [Families policy](https://support.google.com/googleplay/android-developer/answer/9893335) and [User Data policy](https://support.google.com/googleplay/android-developer/answer/10144311) require audience-appropriate handling and accurate disclosures. Actual SDK behavior, deployed Data safety answers, legal publisher identity and regional requirements remain to be confirmed for the next update. Existing in-review declarations were not edited.
+- Google's [Families policy](https://support.google.com/googleplay/android-developer/answer/9893335) and [User Data policy](https://support.google.com/googleplay/android-developer/answer/10144311) require audience-appropriate handling and accurate disclosures. Play Console organization details confirmed FINWORKAR, developer name Rekixo and verified website rekixo.com. Prepared next-update notices reflect this; public pages and in-review declarations were not published/edited. Regional legal eligibility and final Data safety answers still require publisher review; technical checks cannot grant Google or worldwide legal approval.
 - The original unavailable generated key was revoked. The rejected local public-certificate alternative and its temporary private files were removed with publisher confirmation. The publisher then supplied a different, successfully downloaded Google-generated credential for the dedicated account. This resolved credential provisioning without changing the organization's public-key-upload restriction or Billing credentials. Maintain secure credential storage and rotation; Google OAuth authentication alone does not validate real-device token decoding.
 - Cloudflare secret-name metadata confirmed `LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL` and `LUDOPAWS_INTEGRITY_PRIVATE_KEY` after provisioning. Existing public readiness remained healthy. Secret provisioning changes the Worker's secret configuration, not its application code. No application deployment, campaign activation, Play upload or reward grant occurred.
 - A physical Play-certified device/new eligible install and a second player are still required. No emulator, debug sideload or mock Integrity response can substitute for this acceptance.
 - Set the immutable campaign start and minimum versionCode only for the actual next validated Play build. Do not recycle the current in-review artifact or infer acceptance from compilation.
 
-**Activation remains OFF.** Credentials are configured. Still triage the failing regressions, complete real-device/provider/load checks and finalize publisher disclosures. Then explicitly approve the next-update rollout; do not change the current in-review submission.
+**Activation remains OFF.** Credentials and automated/device-QA regressions are complete. Real licensed Play-install acceptance, deployed provider/load checks and final next-update publisher disclosures remain release gates. The protected signing workflow only signs merged `main`; no signing guard was bypassed. No signed internal-track artifact was uploaded. The publisher subsequently requested merging the completed work into `main`; that source merge does not authorize a Play upload or campaign activation. Use the normal protected release process for the next candidate, independently of the current in-review submission. Do not mark release validation true based on QA or mocked responses.
 
 ## Safe credential command for an approved local file
 

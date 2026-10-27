@@ -52,6 +52,7 @@ class ReferralActivity : Activity() {
         content.addView(Button(this).apply { text = "‹  BACK"; setOnClickListener { finish() } }, LinearLayout.LayoutParams(-1, dp(48)))
         content.addView(copy("A little friendship.\nA big adventure.", 24f, true))
         showcase = FriendshipBundleView(this)
+        if (FamilyAgeScreen.hasChoice(this) && !FamilyAgeScreen.optionalGoogleAllowed(this)) showcase.visibility = android.view.View.GONE
         content.addView(showcase, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
         ownership = copy("", 12f)
         content.addView(ownership)

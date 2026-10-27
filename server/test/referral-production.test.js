@@ -6,6 +6,83 @@ import { ReferralCampaign } from "../src/referral-campaign.js";
 import { MatchRoom } from "../src/match-room.js";
 import { DAY, REFERRAL_CAMPAIGN, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralsConfigured } from "../src/referral-config.js";
 
+test("verified invitation binds once, ignores bots and grants the losing friend's inviter atomically", async testContext => {
+  const initialTime = Date.now();
+  let now = initialTime;
+  testContext.mock.method(Date, "now", () => now);
+  const invitedId = "00000000-0000-4000-8000-000000000002";
+  const environment = configuredEnvironment();
+  const identities = new Map([
+    [accountId, { accountId, subjectHash: "cd".repeat(32), createdAt: initialTime - 2 * DAY }],
+    [invitedId, { accountId: invitedId, subjectHash: "ef".repeat(32), createdAt: initialTime + 2000 }],
+  ]);
+  environment.LUDOPROOF_ACCOUNT_DIRECTORY = { idFromName: value => value, get: () => ({ fetch: async request => {
+    const body = await request.json();
+    return Response.json(identities.get(body.accountId ?? (body.profileId === "invited-profile" ? invitedId : accountId)));
+  } }) };
+  const walletContext = storageContext(testContext);
+  const wallet = new PlayerAccount(walletContext, sessionEnvironment);
+  await call(wallet, "/session/create", { accountId, displayName: "Inviter" });
+  environment.LUDOPROOF_PLAYER_ACCOUNTS = { idFromName: value => value, get: identity => {
+    assert.equal(identity, accountId);
+    return wallet;
+  } };
+  const pair = await crypto.subtle.generateKey({ name: "RSASSA-PKCS1-v1_5", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" }, true, ["sign", "verify"]);
+  environment.LUDOPAWS_INTEGRITY_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n" + Buffer.from(await crypto.subtle.exportKey("pkcs8", pair.privateKey)).toString("base64") + "\n-----END PRIVATE KEY-----";
+  let requestHash;
+  let reportedVersion = "41";
+  testContext.mock.method(globalThis, "fetch", async (url, options) => {
+    if (url === "https://oauth2.googleapis.com/token") return Response.json({ access_token: "local-test-only", expires_in: 3600 });
+    assert.equal(url, "https://playintegrity.googleapis.com/v1/com.rekixo.ludopaws:decodeIntegrityToken");
+    assert.deepEqual(JSON.parse(options.body), { integrityToken: "i".repeat(64) });
+    return Response.json({ tokenPayloadExternal: {
+      requestDetails: { requestPackageName: "com.rekixo.ludopaws", requestHash, timestampMillis: String(now) },
+      appIntegrity: { appRecognitionVerdict: "PLAY_RECOGNIZED", packageName: "com.rekixo.ludopaws", versionCode: reportedVersion, certificateSha256Digest: [Buffer.from("ab".repeat(32), "hex").toString("base64url")] },
+      accountDetails: { appLicensingVerdict: "LICENSED" }, deviceIntegrity: { deviceRecognitionVerdict: ["MEETS_DEVICE_INTEGRITY"] },
+    } });
+  });
+  const context = storageContext(testContext);
+  const campaign = new ReferralCampaign(context, environment);
+  assert.equal((await call(campaign, "/enroll", { accountId, termsVersion: REFERRAL_TERMS_VERSION, consent: true })).status, 200);
+  const invite = await call(campaign, "/invite", { accountId });
+  const click = await call(campaign, "/click", { token: invite.body.shareUrl.split("/").pop() });
+  const clickToken = click.body.referrer.slice("lp_ref=".length);
+  now = initialTime + 5000;
+  assert.equal((await call(campaign, "/enroll", { accountId: invitedId, termsVersion: REFERRAL_TERMS_VERSION, consent: true })).status, 200);
+  const challenge = await call(campaign, "/challenge", { accountId: invitedId, click: clickToken, clickedAt: initialTime, installAt: initialTime + 1000 });
+  assert.equal(challenge.status, 200);
+  requestHash = challenge.body.requestHash;
+  const rejected = await call(campaign, "/bind", { accountId: invitedId, challenge: challenge.body.challenge, integrityToken: "i".repeat(64) });
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.body.error, "INSTALL_NOT_VERIFIED");
+  assert.equal([...context.storage.sql.exec("SELECT account_id FROM claims")].length, 0);
+  reportedVersion = "42";
+  const retry = await call(campaign, "/challenge", { accountId: invitedId, click: clickToken, clickedAt: initialTime, installAt: initialTime + 1000 });
+  assert.equal(retry.status, 200);
+  requestHash = retry.body.requestHash;
+  const binding = { accountId: invitedId, challenge: retry.body.challenge, integrityToken: "i".repeat(64) };
+  assert.equal((await call(campaign, "/bind", binding)).status, 200);
+  assert.equal((await call(campaign, "/bind", binding)).body.bound, true);
+  now = initialTime + 205000;
+  const state = { matchId: "LPABCDEFGH", status: "FINISHED", createdAt: initialTime + 10000, finishedAt: initialTime + 200000, winnerPlayerId: "winner",
+    players: [
+      { playerId: "winner", playerType: "HUMAN", tokens: [57, 57, 57, 57], moveCount: 4 },
+      { playerId: "friend", profileId: "invited-profile", playerType: "HUMAN", tokens: [0, 0, -1, -1], moveCount: 1 },
+    ] };
+  const botMatch = structuredClone(state);
+  botMatch.players[0].playerType = "BOT";
+  assert.equal((await call(campaign, "/match", { state: botMatch, homePosition: 57 })).body.qualified, false);
+  assert.equal([...context.storage.sql.exec("SELECT inviter FROM awards")].length, 0);
+  assert.equal((await call(campaign, "/match", { state, homePosition: 57 })).status, 200);
+  assert.equal((await call(campaign, "/status", { accountId })).body.state, "REWARDED");
+  assert.equal((await call(campaign, "/match", { state, homePosition: 57 })).status, 200);
+  await campaign.alarm();
+  assert.equal([...walletContext.storage.sql.exec("SELECT balance FROM wallet")][0].balance, 100);
+  assert.equal([...walletContext.storage.sql.exec("SELECT transaction_id FROM wallet_transactions WHERE kind = 'REFERRAL_BUNDLE'")].length, 1);
+  for (const cosmeticId of REFERRAL_REWARD.cosmetics) assert.equal([...walletContext.storage.sql.exec("SELECT cosmetic_id FROM owned_cosmetics WHERE cosmetic_id = ?", cosmeticId)].length, 1);
+  assert.equal((await call(campaign, "/status", { accountId: invitedId })).body.attribution.state, "QUALIFIED");
+});
+
 const accountId = "00000000-0000-4000-8000-000000000001";
 const sessionEnvironment = { LUDOPROOF_SESSION_HMAC_KEY: "referral-regression-test-key-at-least-32-bytes" };
 
