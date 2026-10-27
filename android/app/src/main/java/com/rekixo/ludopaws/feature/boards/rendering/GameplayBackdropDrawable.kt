@@ -1,4 +1,4 @@
-package com.rekixo.ludopaws.feature.boards.content.classic
+package com.rekixo.ludopaws.feature.boards.rendering
 
 import android.graphics.Canvas
 import android.graphics.ColorFilter
@@ -10,13 +10,13 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 
-internal class ClassicGameplayBackdropDrawable(private val cornerRadius: Float) : Drawable() {
-    private val habitat = ClassicJungleHabitat()
+internal class GameplayBackdropDrawable(environment: GameplayBoardEnvironment, private val cornerRadius: Float) : Drawable() {
+    private val habitat = GameplayEnvironmentPainter(environment)
     private val outline = Path()
     private val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = 2f
-        color = 0xFF789561.toInt()
+        color = (environment.accent and 0x00FFFFFF) or 0xA0000000.toInt()
     }
     private val compositing = Paint(Paint.ANTI_ALIAS_FLAG)
     private var scene: Picture? = null
@@ -32,7 +32,7 @@ internal class ClassicGameplayBackdropDrawable(private val cornerRadius: Float) 
         outline.addRoundRect(area, cornerRadius, cornerRadius, Path.Direction.CW)
         scene = Picture().also { picture ->
             val recorded = picture.beginRecording(bounds.width(), bounds.height())
-            habitat.drawEnvironment(recorded, bounds.width().toFloat(), bounds.height().toFloat())
+            habitat.draw(recorded, bounds.width().toFloat(), bounds.height().toFloat())
             picture.endRecording()
         }
     }

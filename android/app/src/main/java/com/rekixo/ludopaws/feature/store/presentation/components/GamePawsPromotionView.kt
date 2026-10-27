@@ -20,6 +20,7 @@ import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
+import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
@@ -44,13 +45,15 @@ internal class GamePawsPromotionView(
     private val priceLabel = TextView(context)
     private val leftCopy = LinearLayout(context)
     private val rightCopy = LinearLayout(context)
+    private var environmentBoardId: String? = null
     private var candidates = emptyList<Offer>()
     val hasLockedOffers: Boolean get() = candidates.isNotEmpty()
     var onAvailabilityChanged: ((Boolean) -> Unit)? = null
     private val inventoryPreferences = context.applicationContext.getSharedPreferences(StorePreferences.PREFS_NAME, Context.MODE_PRIVATE)
     private val refreshOwnedOffers = Runnable { refreshCandidates() }
     private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID) {
+        if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID ||
+            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD") {
             removeCallbacks(refreshOwnedOffers)
             post(refreshOwnedOffers)
         }
@@ -183,6 +186,7 @@ internal class GamePawsPromotionView(
         isClickable = true
         isFocusable = true
         AppFocusRing.apply(this, cornerRadiusDp = 12f)
+        applyEnvironmentStyle()
         setOnClickListener {
             val offer = candidates.getOrNull(index) ?: return@setOnClickListener
             if (CosmeticInventoryStore(context).isOwned(offer.cosmetic.id)) {
@@ -201,6 +205,29 @@ internal class GamePawsPromotionView(
             notice = Toast.makeText(context,
                 "Explore ${offer.title} in Store after your match.",
                 Toast.LENGTH_SHORT).also { it.show() }
+        }
+    }
+
+    private fun applyEnvironmentStyle() {
+        if (!gameplay) return
+        val environment = GameplayBoardEnvironment.resolve(CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
+        if (environmentBoardId == environment.boardId) return
+        environmentBoardId = environment.boardId
+        fun tint(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha shl 24)
+        listOf(leftCopy, rightCopy).forEach { copy ->
+            (copy.background as? GradientDrawable)?.apply {
+                colors = intArrayOf(tint(environment.panelTop, 217), tint(environment.panelBottom, 181))
+                setStroke(dp(1), tint(environment.accent, 80))
+            }
+        }
+        name.setTextColor(environment.title)
+        name.setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), tint(environment.panelBottom, 180))
+        categoryLabel.setTextColor(environment.accent)
+        priceLabel.setTextColor(environment.price)
+        storeLabel.setTextColor(environment.accent)
+        (storeLabel.background as? GradientDrawable)?.apply {
+            setColor(tint(environment.accent, 36))
+            setStroke(dp(1), tint(environment.accent, 112))
         }
     }
 
@@ -328,6 +355,7 @@ internal class GamePawsPromotionView(
     }
 
     private fun refreshCandidates(advance: Boolean = false) {
+        applyEnvironmentStyle()
         val previouslyAvailable = hasLockedOffers
         val previousId = candidates.getOrNull(index)?.cosmetic?.id
         val ownedIds = CosmeticInventoryStore(context).ownedCosmeticIds()
