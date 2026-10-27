@@ -27,7 +27,7 @@ for (const legacyImage of [
 const read = label => fs.readFileSync(required[label], 'utf8');
 const backdrop = read('backdrop');
 for (const marker of [
-  'fun useGameplayBackground()',
+  'fun useGameplayBackground(boardEnvironment: Boolean = false)',
   'fun useUiBackground()',
   'applySharedBackdrop()',
   'plywoodBackground(context, cornerRadiusDp = 27f)',
@@ -41,10 +41,13 @@ if (!/\)\s*:\s*View\(context, attrs\)/.test(backdrop)) {
 if (/ImageView|setImageResource|getIdentifier|\.webp/.test(backdrop)) {
   throw new Error('Shared plywood backdrop must not load image resources.');
 }
-const gameplayEntry = backdrop.slice(backdrop.indexOf('fun useGameplayBackground()'), backdrop.indexOf('fun useUiBackground()'));
+const gameplayEntry = backdrop.slice(backdrop.indexOf('fun useGameplayBackground('), backdrop.indexOf('fun useUiBackground()'));
 const uiEntry = backdrop.slice(backdrop.indexOf('fun useUiBackground()'), backdrop.indexOf('private fun applySharedBackdrop()'));
 if (!gameplayEntry.includes('plywoodBackground(context, cornerRadiusDp = 27f, gameplayFinish = true)') || !uiEntry.includes('applySharedBackdrop()')) {
-  throw new Error('Gameplay and regular UI must use the same plywood implementation.');
+  throw new Error('Gameplay must keep a plywood fallback and regular UI must reset its backdrop.');
+}
+for (const marker of ['if (boardEnvironmentEnabled) GameplayBoardEnvironment.resolve(', 'CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD)', 'GameplayBackdropDrawable(environment', 'preferences.unregisterOnSharedPreferenceChangeListener(inventoryListener)', 'boardEnvironmentEnabled = false']) {
+  if (!backdrop.includes(marker)) throw new Error('Board environment gate: missing ' + marker);
 }
 if (!read('surface').includes('internal fun plywoodBackground(') ||
     !read('plywood').includes('class PlywoodTextureDrawable')) {
@@ -63,4 +66,4 @@ if (!read('offlineGameplay').includes('LudoProofTheme.arcadeRoot(') ||
     !read('onlineScreen').includes('arcadeRootView = root')) {
   throw new Error('Offline and online screens must use the shared background root.');
 }
-console.log('Unified background gate passed: all UI/gameplay screens use code-drawn plain plywood; obsolete WebP background removed.');
+console.log('Background gate passed: gameplay uses the selected board environment, regular UI retains plywood, and obsolete WebP backgrounds stay removed.');

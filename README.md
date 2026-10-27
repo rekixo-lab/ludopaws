@@ -1,6 +1,6 @@
 # Ludo Paws
 
-> **Current candidate: Family edition (20 October 2026).** Multiplayer and fixed reactions are enabled in source; free-text chat, voice, configured ads, purchases and optional Google linking are supported. Follow [the current release status](docs/production-readiness/RELEASE_STATUS.hi.md) and its manual gates. Monetization instructions below describe reserved/future integrations and cannot enable them in this family build. No public-launch approval is implied.
+> **Latest verified internal candidate: Family V2 / 1.0.0-rc10-referral (27 October 2026).** Multiplayer and fixed quick-chat reactions are supported; free-text chat and voice are disabled. Version 10 is available to internal testers. Production rc9 was in review at the last Console verification; do not infer current public availability. Referral rewards remain OFF pending genuine device acceptance and final publisher review. Google identity, purchases and child-directed ads retain their separate provider/release gates. Follow [the dated rollout evidence](docs/REFERRAL_ACTIVATION_STATUS.md) and [the device acceptance checklist](docs/REFERRAL_DEVICE_ACCEPTANCE.md). No public-launch approval is implied.
 
 **Publisher / parent brand:** Rekixo (`https://rekixo.com`)
 
