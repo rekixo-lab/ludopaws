@@ -93,7 +93,7 @@ class LudoPawsVoicePlayer(
             schedule(
                 delayMillis = captureDelay + plan.delayMillis,
             ) {
-                if (closed) return@schedule
+                if (closed || !GameSettingsStore(appContext).snapshot().animalVoicesEnabled) return@schedule
                 GameMusicController.duckForVoice(VOCAL_DUCK_MILLIS)
                 LudoPawsAudioAssetPlayer.playVocal(
                     context = appContext,

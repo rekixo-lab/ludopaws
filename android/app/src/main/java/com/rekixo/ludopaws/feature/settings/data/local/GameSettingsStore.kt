@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.settings.data.local
 
 import android.content.Context
+import com.rekixo.ludopaws.core.audio.LudoPawsSoundPool
 
 enum class GameSpeed(
     val label: String,
@@ -111,6 +112,7 @@ class GameSettingsStore(
     fun setSoundEnabled(
         enabled: Boolean,
     ) {
+        if (!enabled) LudoPawsSoundPool.cancelPending()
         prefs.edit()
             .putBoolean(
                 KEY_SOUND,
@@ -122,6 +124,7 @@ class GameSettingsStore(
     fun setAnimalVoicesEnabled(
         enabled: Boolean,
     ) {
+        if (!enabled) LudoPawsSoundPool.cancelPending()
         prefs.edit()
             .putBoolean(
                 KEY_ANIMAL_VOICES,

@@ -3,6 +3,7 @@ package com.rekixo.ludopaws.core.audio
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.SoundPool
+import android.os.SystemClock
 import android.util.Log
 import androidx.annotation.RawRes
 
@@ -21,18 +22,22 @@ object LudoPawsSoundPool {
     private data class Sample(
         val soundId: Int,
         var ready: Boolean = false,
+        var lastUsedAtMillis: Long = SystemClock.elapsedRealtime(),
     )
 
     private data class PendingPlay(
         val volume: Float,
         val rate: Float,
         val priority: Int,
+        val queuedAtMillis: Long,
     )
 
     private var pool: SoundPool? = null
     private val samplesByKey = mutableMapOf<String, Sample>()
     private val sourceKeyBySoundId = mutableMapOf<Int, String>()
     private val readySoundIds = mutableSetOf<Int>()
+    // A completion can race the return from SoundPool.load(), before the source key exists.
+    private val failedSoundIds = mutableSetOf<Int>()
     private val pendingByKey = mutableMapOf<String, MutableList<PendingPlay>>()
 
     @Synchronized
@@ -131,6 +136,12 @@ object LudoPawsSoundPool {
             },
         )
 
+    /** Drop requests that have not started yet (mute, screen exit or owner switch). */
+    @Synchronized
+    fun cancelPending() {
+        pendingByKey.clear()
+    }
+
     @Synchronized
     fun release() {
         runCatching {
@@ -140,6 +151,7 @@ object LudoPawsSoundPool {
         samplesByKey.clear()
         sourceKeyBySoundId.clear()
         readySoundIds.clear()
+        failedSoundIds.clear()
         pendingByKey.clear()
     }
 
@@ -181,6 +193,7 @@ object LudoPawsSoundPool {
                     sourceKey = key,
                     loader = loader,
                 ) ?: return false
+        sample.lastUsedAtMillis = SystemClock.elapsedRealtime()
 
         val safeVolume =
             volume.coerceIn(
@@ -222,6 +235,7 @@ object LudoPawsSoundPool {
                 volume = safeVolume,
                 rate = safeRate,
                 priority = safePriority,
+                queuedAtMillis = SystemClock.elapsedRealtime(),
             )
 
         // Don't replay a backlog of tiny footsteps after an asynchronous
@@ -277,10 +291,22 @@ object LudoPawsSoundPool {
                 val sourceKey = sourceKeyBySoundId[soundId]
                 if (status != 0) {
                     val queuedCount = sourceKey?.let { pendingByKey[it]?.size } ?: 0
+                    if (sourceKey == null) {
+                        // Completion raced load(); load() will see the failed ID.
+                        failedSoundIds += soundId
+                    } else {
+                        if (samplesByKey[sourceKey]?.soundId == soundId) {
+                            samplesByKey.remove(sourceKey)
+                        }
+                        sourceKeyBySoundId.remove(soundId)
+                        pendingByKey.remove(sourceKey)
+                    }
+                    readySoundIds.remove(soundId)
+                    runCatching { soundPool.unload(soundId) }
                     Log.e(
                         TAG,
                         "LOAD_FAILED soundId=" + soundId + " key=" + (sourceKey ?: "unknown") +
-                            " status=" + status + " pending=" + queuedCount,
+                            " status=" + status + " pending_discarded=" + queuedCount,
                     )
                     return@synchronized
                 }
@@ -314,6 +340,10 @@ object LudoPawsSoundPool {
         sourceKey: String,
         loader: (SoundPool) -> Int,
     ): Sample? {
+        if (!makeRoomForSample(soundPool)) {
+            Log.w(TAG, "CACHE_FULL key=$sourceKey count=${samplesByKey.size}")
+            return null
+        }
         val loadResult = runCatching { loader(soundPool) }
         val soundId =
             loadResult.getOrNull()
@@ -328,6 +358,13 @@ object LudoPawsSoundPool {
                     }
                     return null
                 }
+
+        if (failedSoundIds.remove(soundId)) {
+            // SoundPool reported failure before load() returned.
+            pendingByKey.remove(sourceKey)
+            runCatching { soundPool.unload(soundId) }
+            return null
+        }
 
         val sample =
             Sample(
@@ -348,6 +385,22 @@ object LudoPawsSoundPool {
         return sample
     }
 
+    private fun makeRoomForSample(soundPool: SoundPool): Boolean {
+        if (samplesByKey.size < MAX_CACHED_SAMPLES) return true
+        val oldestReady =
+            samplesByKey.entries
+                .asSequence()
+                .filter { (_, sample) -> sample.ready }
+                .filter { (key, _) -> pendingByKey[key].isNullOrEmpty() }
+                .minByOrNull { (_, sample) -> sample.lastUsedAtMillis }
+                ?: return false
+        samplesByKey.remove(oldestReady.key)
+        sourceKeyBySoundId.remove(oldestReady.value.soundId)
+        readySoundIds.remove(oldestReady.value.soundId)
+        runCatching { soundPool.unload(oldestReady.value.soundId) }
+        return true
+    }
+
     private fun flushPending(
         soundPool: SoundPool,
         sourceKey: String,
@@ -357,7 +410,15 @@ object LudoPawsSoundPool {
             pendingByKey
                 .remove(sourceKey)
                 .orEmpty()
+        val now = SystemClock.elapsedRealtime()
         pending
+            .filter {
+                LudoPawsAudioQueuePolicy.isFresh(
+                    queuedAtMillis = it.queuedAtMillis,
+                    nowMillis = now,
+                    priority = it.priority,
+                )
+            }
             .sortedByDescending { it.priority }
             .forEach { play ->
                 playNow(
@@ -397,6 +458,8 @@ object LudoPawsSoundPool {
 
     private const val TAG = "LudoPawsAudio"
     private const val MAX_STREAMS = 8
+    // Bounds native SoundPool sample allocations as more cosmetics are installed.
+    private const val MAX_CACHED_SAMPLES = 96
     private const val MAX_PENDING_PER_SAMPLE = 3
     private const val LOW_PRIORITY_COALESCE_THRESHOLD = 2
     private const val DEFAULT_PRIORITY = 1

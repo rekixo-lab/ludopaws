@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.core.audio.LudoPawsSoundPool
 import kotlin.math.max
 
 object GameMusicController {
@@ -88,6 +89,8 @@ object GameMusicController {
     @Synchronized
     fun onAppBackground() {
         appForeground = false
+        // Stop active and queued SFX; callbacks from the old pool must not fire later.
+        LudoPawsSoundPool.release()
         voiceDuckUntilMillis = 0L
         mainHandler.removeCallbacks(
             restoreVolumeRunnable,
