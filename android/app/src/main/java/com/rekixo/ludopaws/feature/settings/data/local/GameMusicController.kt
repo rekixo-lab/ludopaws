@@ -9,6 +9,10 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.core.audio.LudoPawsSoundPool
+import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
+import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import kotlin.math.max
 
 object GameMusicController {
@@ -16,6 +20,7 @@ object GameMusicController {
     private var player: MediaPlayer? = null
     private var preparingPlayer = false
     private var playerGeneration = 0L
+    private var activeBoardMusicId: String? = null
     private val playerWorker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
         Thread(task, "LudoPawsMusicPrepare").apply { isDaemon = true }
     }
@@ -88,6 +93,8 @@ object GameMusicController {
     @Synchronized
     fun onAppBackground() {
         appForeground = false
+        // Stop active and queued SFX; callbacks from the old pool must not fire later.
+        LudoPawsSoundPool.release()
         voiceDuckUntilMillis = 0L
         mainHandler.removeCallbacks(
             restoreVolumeRunnable,
@@ -139,6 +146,7 @@ object GameMusicController {
             player?.release()
         }
         player = null
+        activeBoardMusicId = null
         audioManager = null
     }
 
@@ -166,6 +174,16 @@ object GameMusicController {
             return
         }
 
+        val selectedBoardId =
+            CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD)
+        if (activeBoardMusicId != selectedBoardId) {
+            // A rapid cosmetic change invalidates an outstanding background prepare.
+            activeBoardMusicId = selectedBoardId
+            playerGeneration += 1
+            preparingPlayer = false
+            runCatching { player?.release() }
+            player = null
+        }
         ensurePlayer(context)
         if (player == null) {
             return
@@ -192,10 +210,12 @@ object GameMusicController {
         preparingPlayer = true
         val generation = playerGeneration
         val appContext = context.applicationContext
+        val boardMusicPaths = BoardRegistry.resolve(activeBoardMusicId ?: "board_classic").backgroundMusicPaths
         playerWorker.execute {
             val startedAt = SystemClock.elapsedRealtime()
             val result = runCatching {
-                authoredBackgroundMusicPaths(appContext)
+                (boardMusicPaths + authoredBackgroundMusicPaths(appContext))
+                    .distinct()
                     .firstNotNullOfOrNull { assetPath -> createAssetPlayer(appContext, assetPath) }
                     ?: MediaPlayer.create(appContext, R.raw.ludoproof_theme)
             }

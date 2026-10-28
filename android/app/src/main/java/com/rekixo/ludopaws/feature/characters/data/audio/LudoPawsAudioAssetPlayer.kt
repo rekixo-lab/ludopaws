@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import com.rekixo.ludopaws.core.audio.LudoPawsAudioCatalog
 import com.rekixo.ludopaws.core.audio.LudoPawsSoundPool
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsProceduralVocal
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
 
 /**
  * Resolves authored assets before raw-resource and procedural fallbacks.
@@ -43,10 +44,10 @@ internal object LudoPawsAudioAssetPlayer {
         val vocalAssetPaths =
             orderedNames.flatMap { resourceName ->
                 val characterId =
-                    resourceName
-                        .removePrefix("lp_vocal_")
-                        .substringBefore('_')
-                if (characterId !in SUPPORTED_VOCAL_CHARACTERS) {
+                    LudoPawsCharacterAudioProfiles.supportedVoiceAssetIds
+                        .filter { resourceName.startsWith("lp_vocal_${it}_") }
+                        .maxByOrNull(String::length)
+                if (characterId == null) {
                     emptyList()
                 } else {
                     listOf(
@@ -325,9 +326,6 @@ internal object LudoPawsAudioAssetPlayer {
         assetPaths.firstOrNull()
             .orEmpty()
             .replace(Regex("_\\d{2}\\.(wav|ogg)$"), "_variant.$1")
-
-    private val SUPPORTED_VOCAL_CHARACTERS =
-        setOf("dog", "goat", "duck", "cat", "cock", "pig", "elephant", "horse", "rabbit")
 
     internal fun packagedFallbackResourceName(
         preset: LudoPawsProceduralVocal,

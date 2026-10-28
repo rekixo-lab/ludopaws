@@ -10,7 +10,16 @@ class DiceDefinition(
     private val paletteFactory: () -> DicePalette,
     val rendererKey: String = "classic",
     val previewFace: Int = 6,
+    // Optional authored sounds. Missing files preserve the classic roll/settle pair.
+    val rollSoundPaths: List<String> = emptyList(),
+    val settleSoundPaths: List<String> = emptyList(),
 ) {
+    init {
+        require((rollSoundPaths + settleSoundPaths).all { path ->
+            path.startsWith("audio/sfx/") &&
+                (path.endsWith(".wav", ignoreCase = true) || path.endsWith(".ogg", ignoreCase = true))
+        }) { "Dice audio override must be an authored WAV/OGG SFX asset path" }
+    }
     val id: String get() = offer.id
     fun palette(teamColor: Int? = null): DicePalette {
         val style = paletteFactory()
