@@ -43,6 +43,7 @@ import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.art.playGamesSignInBackground
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
+import com.rekixo.ludopaws.LudoProofApplication
 import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.PlayerSession
 import com.rekixo.ludopaws.SecureSessionStore

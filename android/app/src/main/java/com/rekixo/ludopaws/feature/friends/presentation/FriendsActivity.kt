@@ -34,6 +34,7 @@ import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.components.LaserStatusDotView
+import com.rekixo.ludopaws.LudoProofApplication
 import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.PendingOperationStore
 import com.rekixo.ludopaws.PlayerSession
