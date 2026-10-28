@@ -1,5 +1,6 @@
 import { familyResponse, isFamilyMode, familyPlayerName } from "./family-safety.js";
 import { referralRequest, referralsConfigured } from "./referral-config.js";
+import { plannedMatchGemRewards } from "./match-gem-rewards.js";
 import { rulesetHashForState, rollResponse, publicStateWithHistory } from "./match-room-state.js";
 import { optionalTargetPlayerCount, normalizeMatchMode, optionalLeaderboardProfileId } from "./match-room-validation.js";
 import { readJson, json, errorResponse } from "./match-room-http.js";
@@ -77,6 +78,7 @@ export class MatchRoom {
     this.env = env;
     this.mutationTail = Promise.resolve();
     this.referralDeliveryPromise = null;
+    this.matchGemDeliveryPromise = null;
   }
 
   async fetch(request) {
@@ -174,13 +176,15 @@ export class MatchRoom {
       }
 
       if (typeof this.ctx.storage.deleteAll === "function") {
-        if (await this.ctx.storage.get("referral-outbox")) {
+        if (await this.ctx.storage.get("referral-outbox") || await this.ctx.storage.get("gem-reward-outbox")) {
+          const retained = new Set(["referral-outbox", "gem-reward-outbox"]);
           while (true) {
-            const keys = [...(await this.ctx.storage.list({ limit: 1000 })).keys()].filter(key => key !== "referral-outbox");
+            const keys = [...(await this.ctx.storage.list({ limit: 1000 })).keys()].filter(key => !retained.has(key));
             if (!keys.length) break;
-            await this.ctx.storage.delete(keys);
+            await Promise.all(keys.map(key => this.ctx.storage.delete(key)));
           }
           await this.scheduleReferralRetry();
+          await this.scheduleGemRetry();
           return;
         }
         await this.ctx.storage.deleteAll();
@@ -1090,10 +1094,98 @@ export class MatchRoom {
     return nextAt;
   }
 
+
+  // Only this server-owned room can determine payout; never a client balance edit.
+  async prepareMatchGemResult(state) {
+    if (state?.status !== "FINISHED" ||
+        await this.ctx.storage.get("gem-reward-done") ||
+        await this.ctx.storage.get("gem-reward-outbox")) return;
+    const awards = plannedMatchGemRewards(state);
+    if (!awards.length) {
+      await this.ctx.storage.put("gem-reward-done", true);
+      return;
+    }
+    await this.ctx.storage.put("gem-reward-outbox", {
+      matchId: state.matchId,
+      entries: awards.map(award => ({ ...award, delivered: false })),
+      attempts: 0, nextAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60_000,
+    });
+  }
+
+  async recordMatchGemResult() {
+    if (this.matchGemDeliveryPromise) return this.matchGemDeliveryPromise;
+    const pending = this.deliverMatchGemResult();
+    this.matchGemDeliveryPromise = pending;
+    try { await pending; } finally { this.matchGemDeliveryPromise = null; }
+  }
+
+  async deliverMatchGemResult() {
+    const pending = await this.ctx.storage.get("gem-reward-outbox");
+    if (!pending) return;
+    if (pending.expiresAt <= Date.now()) {
+      await this.ctx.storage.delete("gem-reward-outbox");
+      console.error("Match gem credit expired", { code: "MATCH_REWARD_OUTBOX_EXPIRED" });
+      return;
+    }
+    if (pending.nextAt > Date.now()) return;
+    try {
+      const directory = this.env.LUDOPROOF_ACCOUNT_DIRECTORY;
+      const accounts = this.env.LUDOPROOF_PLAYER_ACCOUNTS;
+      if (!directory || !accounts) throw new Error("MATCH_REWARD_ACCOUNTS_UNAVAILABLE");
+      const identityTarget = directory.get(directory.idFromName("GLOBAL:V1"));
+      for (const entry of pending.entries) {
+        if (entry.delivered) continue;
+        if (!entry.profileId && !entry.friendId) throw new Error("MATCH_REWARD_IDENTITY_NOT_LINKED");
+        const found = await identityTarget.fetch(new Request("https://account-directory/referral/identity", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ profileId: entry.profileId, friendId: entry.friendId }),
+        }));
+        if (!found.ok) throw new Error("MATCH_REWARD_IDENTITY_LOOKUP_FAILED");
+        const identity = await found.json();
+        if (!identity.accountId) throw new Error("MATCH_REWARD_ACCOUNT_NOT_LINKED");
+        const accountTarget = accounts.get(accounts.idFromName(identity.accountId));
+        const result = await accountTarget.fetch(new Request("https://player-account/wallet/match-reward", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            accountId: identity.accountId, matchId: pending.matchId,
+            mode: entry.mode, playerCount: entry.playerCount,
+            rank: entry.rank, amount: entry.amount,
+          }),
+        }));
+        if (!result.ok) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
+        const body = await result.json();
+        if (body.ok !== true) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
+        entry.delivered = true;
+        await this.ctx.storage.put("gem-reward-outbox", pending);
+      }
+      await this.ctx.storage.put("gem-reward-done", true);
+      await this.ctx.storage.delete("gem-reward-outbox");
+    } catch {
+      const attempts = pending.attempts + 1;
+      await this.ctx.storage.put("gem-reward-outbox", {
+        ...pending, attempts,
+        nextAt: Date.now() + Math.min(60 * 60_000, 30_000 * 2 ** Math.min(attempts, 8)),
+      });
+    }
+  }
+
+  async scheduleGemRetry() {
+    const pending = await this.ctx.storage.get("gem-reward-outbox");
+    if (!pending) return null;
+    const next = Math.min(pending.expiresAt, Math.max(Date.now() + 1000, pending.nextAt));
+    if (typeof this.ctx.storage.setAlarm === "function") await this.ctx.storage.setAlarm(next);
+    return next;
+  }
+
   async #recordFinishedMatchIfNeeded(
     state,
   ) {
     if (state.status === "FINISHED") {
+      await this.prepareMatchGemResult(state);
+      const gems = this.recordMatchGemResult();
+      if (typeof this.ctx.waitUntil === "function") this.ctx.waitUntil(gems);
+      else await gems;
       await this.prepareReferralResult(state);
       const recording = this.recordReferralResult(state);
       if (typeof this.ctx.waitUntil === "function") this.ctx.waitUntil(recording);
