@@ -378,6 +378,7 @@ internal fun showSettingsDialog(
                         StoreCosmeticCatalog.find(cosmetics.selectedId(CosmeticCategory.BOARD))
                             ?.title?.uppercase() ?: "CLASSIC",
                     )
+                    GameMusicController.onPreferenceChanged(context)
                     GameSoundFeedback.click(context)
                     notifyChanged(refreshCosmetics = true)
                 }, onFailure = {

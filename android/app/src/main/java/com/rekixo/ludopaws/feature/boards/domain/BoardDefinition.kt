@@ -15,7 +15,15 @@ data class BoardDefinition(
     val stoneRoadOverlayEnabled: Boolean = true,
     val monsoonEffectsEnabled: Boolean = false,
     val classicRoadReliefEnabled: Boolean = false,
+    // Optional looping theme soundtrack. Missing files fall back to existing BGM.
+    val backgroundMusicPaths: List<String> = emptyList(),
 ) {
+    init {
+        require(backgroundMusicPaths.all { path ->
+            path.startsWith("audio/music/") &&
+                listOf(".wav", ".ogg", ".mp3").any { path.endsWith(it, ignoreCase = true) }
+        }) { "Board BGM must reference an authored audio/music asset path" }
+    }
     val id: String get() = offer.id
     fun teamColor(classic: Int): Int {
         fun component(shift: Int): Int {
