@@ -106,7 +106,10 @@ boot_emulator() {
 }
 
 run_instrumentation() {
-  gradle -p android :app:connectedDebugAndroidTest --stacktrace "$@"
+  # Fail a stuck test with its JUnit evidence rather than spending the entire
+  # job budget on a UI-idle wait. Full production-engine simulations get 5 min.
+  gradle -p android :app:connectedDebugAndroidTest --stacktrace \
+    -Pandroid.testInstrumentationRunnerArguments.timeout_msec=300000 "$@"
 }
 
 run_with_transport_retry() {

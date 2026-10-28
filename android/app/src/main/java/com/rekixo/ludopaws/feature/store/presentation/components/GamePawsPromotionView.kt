@@ -329,7 +329,10 @@ internal class GamePawsPromotionView(
         if (gameplay) {
             val roomy = availableWidth >= dp(300) && availableHeight >= dp(96)
             name.textSize = if (roomy) 15f else if (availableHeight >= dp(96)) 11f else 9f
-            name.maxLines = if (availableHeight >= dp(96)) 3 else 2
+            // TextView.setMaxLines requests another layout even for the same
+            // value. Doing that on every measure prevents the UI becoming idle.
+            val titleLines = if (availableHeight >= dp(96)) 3 else 2
+            if (name.maxLines != titleLines) name.maxLines = titleLines
             storeLabel.textSize = if (roomy) 11f else 9f
             categoryLabel.textSize = if (roomy) 9f else 7f
             priceLabel.textSize = if (roomy) 13f else 9f
