@@ -52,6 +52,7 @@ class ReferralPopupLayoutInstrumentedTest {
                         assertEquals(1, space.size)
                         assertTrue(space.single().parent === scroll.parent)
                         assertTrue((scroll.parent as View).clipToOutline)
+                        assertNull((scroll.parent as View).background)
                         assertNull(scroll.background)
                         assertNull(scroll.getChildAt(0).background)
                         assertNull(views.filterIsInstance<FriendshipBundleView>().single().background)
