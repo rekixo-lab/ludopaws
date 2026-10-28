@@ -3,6 +3,8 @@ package com.rekixo.ludopaws.feature.settings.data.local
 import android.content.Context
 import android.util.Log
 import com.rekixo.ludopaws.core.audio.LudoPawsAudioCatalog
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsFootstepStyle
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsAudioAssetPlayer
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsProceduralAudio
 import com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType
@@ -141,66 +143,40 @@ object GameSoundFeedback {
     ) {
         if (!GameSettingsStore(context).snapshot().soundEnabled) return
 
-        val movement =
-            when (characterId) {
-                "goat", "goat_lumi", "pig", "horse" ->
-                    Triple(
-                        listOf("lp_sfx_move_hoof"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_HOOF,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_GOAT,
-                    )
-                "duck" ->
-                    Triple(
-                        listOf("lp_sfx_move_web"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_WEB,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_DUCK,
-                    )
-                "cat", "elephant", "rabbit" ->
-                    Triple(
-                        listOf("lp_sfx_move_paw"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_PAW,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_CAT,
-                    )
-                else ->
-                    Triple(
-                        listOf("lp_sfx_move_paw"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_PAW,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_DOG,
-                    )
+        val profile = LudoPawsCharacterAudioProfiles.forCharacter(characterId)
+        val (rawNames, generatedFallback) =
+            when (profile.footstepStyle) {
+                LudoPawsFootstepStyle.HOOF ->
+                    listOf("lp_sfx_move_hoof") to LudoPawsProceduralAudio.Sfx.MOVE_HOOF
+                LudoPawsFootstepStyle.WEB ->
+                    listOf("lp_sfx_move_web") to LudoPawsProceduralAudio.Sfx.MOVE_WEB
+                LudoPawsFootstepStyle.PAW ->
+                    listOf("lp_sfx_move_paw") to LudoPawsProceduralAudio.Sfx.MOVE_PAW
             }
-        val volume =
-            when (characterId) {
-                "goat", "goat_lumi", "pig", "horse" -> .30f
-                "duck" -> .28f
-                else -> .30f
-            }
-        val priority = PRIORITY_MOVEMENT
-        if (
-            LudoPawsAudioAssetPlayer.playAuthoredSfx(
-                context = context,
-                assetPaths = movement.third,
-                volume = volume,
-                priority = priority,
-            )
-        ) {
-            return
+        for (paths in profile.stepAssetFamilies()) {
+            if (
+                LudoPawsAudioAssetPlayer.playAuthoredSfx(
+                    context = context,
+                    assetPaths = paths,
+                    volume = profile.stepVolume,
+                    priority = PRIORITY_MOVEMENT,
+                )
+            ) return
         }
         if (
             LudoPawsAudioAssetPlayer.playAuthoredSfx(
                 context = context,
                 assetPaths = LudoPawsAudioCatalog.Sfx.MOVE_STEP,
-                volume = volume,
-                priority = priority,
+                volume = profile.stepVolume,
+                priority = PRIORITY_MOVEMENT,
             )
-        ) {
-            return
-        }
+        ) return
         LudoPawsAudioAssetPlayer.playSfx(
             context = context,
-            rawResourceNames = movement.first,
-            fallback = movement.second,
-            volume = volume,
-            priority = priority,
+            rawResourceNames = rawNames,
+            fallback = generatedFallback,
+            volume = profile.stepVolume,
+            priority = PRIORITY_MOVEMENT,
         )
     }
 
