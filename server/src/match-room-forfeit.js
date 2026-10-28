@@ -693,10 +693,11 @@ function finishWithRemainingPlayer(
     (winnerSeat == null ? null : state.players[winnerSeat].playerId);
   // Keep a valid seated turn index even when the final active player forfeits.
   // A null turnSeat makes a FINISHED snapshot fail Android schema validation.
-  state.turnSeat = winnerSeat ??
-    state.players.findIndex(player => player.playerId === state.winnerPlayerId) >= 0
-      ? (winnerSeat ?? state.players.findIndex(player => player.playerId === state.winnerPlayerId))
-      : (Number.isInteger(state.turnSeat) ? state.turnSeat : 0);
+  const finishedWinnerSeat = state.players.findIndex(player => player.playerId === state.winnerPlayerId);
+  state.turnSeat = winnerSeat ?? (finishedWinnerSeat >= 0
+    ? finishedWinnerSeat
+    : (Number.isInteger(state.turnSeat) && state.turnSeat >= 0 && state.turnSeat < state.players.length
+      ? state.turnSeat : 0));
   state.pendingRoll =
     null;
   state.finishedAt =
