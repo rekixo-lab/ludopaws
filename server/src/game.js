@@ -1,4 +1,5 @@
 import * as legacy from "./game-v1-core.js";
+import { plannedMatchGemRewards } from "./match-gem-rewards.js";
 import {
   LEGACY_RULESET,
   LEGACY_RULESET_KEY,
@@ -13,6 +14,8 @@ import {
   RULESET_V4_KEY,
   RULESET_V5,
   RULESET_V5_KEY,
+  RULESET_V6,
+  RULESET_V6_KEY,
   TEAM_ASSIGNMENTS,
   TEAM_RULESET,
   TEAM_RULESET_KEY,
@@ -46,6 +49,8 @@ export {
   RULESET_V4_KEY,
   RULESET_V5,
   RULESET_V5_KEY,
+  RULESET_V6,
+  RULESET_V6_KEY,
   TEAM_ASSIGNMENTS,
   TEAM_RULESET,
   TEAM_RULESET_KEY,
@@ -78,6 +83,7 @@ export function rulesetForState(state) {
         RULESET_V3_KEY,
         RULESET_V4_KEY,
         RULESET_V5_KEY,
+        RULESET_V6_KEY,
       ]);
 
   if (!allowed.has(key)) {
@@ -110,6 +116,9 @@ export function newMatch(options) {
   };
   rulesetForState(versionedState);
 
+  if (explicitRulesetKey === RULESET_V6_KEY && !isTeamUp(versionedState)) {
+    versionedState.finishOrderPlayerIds = [];
+  }
   if (isV3State(versionedState)) {
     versionedState.openingRollConsumed =
       versionedState.players.map(() => false);
@@ -259,6 +268,7 @@ export function publicState(state) {
     ...base,
     pendingRoll,
     rulesetId: rulesetForState(state).id,
+    matchGemRewards: plannedMatchGemRewards(state).map(({ playerId, rank, amount }) => ({ playerId, rank, amount })),
     turnDeadlineAt: Number.isSafeInteger(state.turnDeadlineAt)
       ? state.turnDeadlineAt
       : null,
@@ -279,7 +289,7 @@ function isV3State(state) {
   return key === RULESET_V3_KEY ||
     key === TEAM_RULESET_V3_KEY ||
     key === RULESET_V4_KEY ||
-    key === TEAM_RULESET_V4_KEY || key === RULESET_V5_KEY || key === TEAM_RULESET_V5_KEY;
+    key === TEAM_RULESET_V4_KEY || key === RULESET_V5_KEY || key === TEAM_RULESET_V5_KEY || key === RULESET_V6_KEY;
 }
 
 function openingRollState(state) {

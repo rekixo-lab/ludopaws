@@ -133,6 +133,8 @@ export class PlayerAccount {
       // through a public account endpoint; no expired device session is needed.
       if (request.method === "POST" && url.pathname === "/wallet/play-delivery") return await this.#grantPlayPurchase(request, true);
       if (request.method === "POST" && url.pathname === "/wallet/reward-ad") return await this.#grantAdReward(request);
+      // Internal Durable Object binding only: match server, never a client API.
+      if (request.method === "POST" && url.pathname === "/wallet/match-reward") return await this.#grantMatchReward(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/purchase") return await this.#purchaseCosmetic(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/select") return await this.#selectCosmetic(request);
       return json(404, { error: "NOT_FOUND", message: "route not found" });
@@ -689,6 +691,57 @@ export class PlayerAccount {
     return json(200, { ok: true, cosmeticId, wallet: this.#walletSnapshot(accountId) });
   }
 
+
+  async #grantMatchReward(request) {
+    const body = await readJson(request);
+    const accountId = requireAccountId(body?.accountId);
+    const matchId = String(body?.matchId ?? "");
+    const mode = String(body?.mode ?? "");
+    const rank = Number(body?.rank);
+    const amount = Number(body?.amount);
+    if (!/^LP[A-Z2-9]{8}$/.test(matchId)) throw httpError(400, "MATCH_REWARD_ID_INVALID", "match ID is invalid");
+    const byMode = {
+      ONLINE: { 2: [3, 0], 4: [3, 2, 1, 0] },
+      FRIENDS: { 2: [3, 0], 3: [3, 2, 0], 4: [3, 2, 1, 0] },
+      TEAM_UP: { 4: [3, 0] },
+    };
+    const count = Number(body?.playerCount);
+    const payouts = byMode[mode]?.[count];
+    if (!payouts || !Number.isInteger(rank) || rank < 1 ||
+        rank > payouts.length || !Number.isInteger(amount) || amount <= 0 ||
+        amount !== payouts[rank - 1]) {
+      throw httpError(400, "MATCH_REWARD_POLICY_INVALID", "match reward is outside the published policy");
+    }
+    const idempotencyKey = "match-reward:" + matchId;
+    const payloadHash = await sha256Hex(JSON.stringify({ matchId, mode, count, rank, amount }));
+    this.#requireAccountNotDeleting(accountId);
+    this.#profileSnapshot(accountId);
+    // Friends matches are invite-based; cap their earning rate to avoid gem farming.
+    // Record a zero-value ledger row when capped to make retries deterministic.
+    let capped = false;
+    if (mode === "FRIENDS") {
+      const sql = this.ctx.storage.sql;
+      const prior = [...sql.exec("SELECT idempotency_key FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
+      if (!prior.length) {
+        const recent = [...sql.exec(
+          "SELECT COUNT(*) AS total FROM wallet_transactions WHERE kind = 'MATCH_REWARD_FRIENDS' AND delta > 0 AND created_at > ?",
+          Date.now() - 24 * 60 * 60 * 1000,
+        )][0];
+        capped = Number(recent?.total ?? 0) >= 3;
+      }
+    }
+    const result = this.#applyWalletTransaction({
+      accountId, idempotencyKey, payloadHash,
+      kind: capped ? "MATCH_REWARD_FRIENDS_LIMIT" : "MATCH_REWARD_" + mode,
+      delta: capped ? 0 : amount,
+      sourceRefHash: await sha256Hex("ludopaws:match-reward:v1:" + matchId),
+      removeAds: false,
+    });
+    const awarded = result.credited > 0;
+    return json(200, { ok: true, ...result, awarded, amount: result.credited,
+      wallet: this.#walletSnapshot(accountId) });
+  }
+
   #applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind, delta, sourceRefHash, removeAds, cosmeticGrant = null }) {
     let result;
     this.ctx.storage.transactionSync(() => {
@@ -701,11 +754,11 @@ export class PlayerAccount {
         this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'PLAY_PRODUCT', ?, ?)",
           cosmeticGrant.id, cosmeticGrant.category, Date.now(), sourceRefHash);
       };
-      const prior = [...this.ctx.storage.sql.exec("SELECT payload_hash, balance_after FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
+      const prior = [...this.ctx.storage.sql.exec("SELECT payload_hash, balance_after, delta FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
       if (prior.length) {
         if (String(prior[0].payload_hash) !== payloadHash) throw httpError(409, "WALLET_IDEMPOTENCY_CONFLICT", "wallet transaction key was reused with different details");
         grantCosmetic();
-        result = { replay: true, balance: Number(prior[0].balance_after) }; return;
+        result = { replay: true, balance: Number(prior[0].balance_after), credited: Number(prior[0].delta) }; return;
       }
       const rows = [...this.ctx.storage.sql.exec("SELECT balance FROM wallet WHERE account_id = ? LIMIT 1", accountId)];
       if (!rows.length) throw httpError(404, "WALLET_NOT_FOUND", "wallet was not found");
@@ -715,7 +768,7 @@ export class PlayerAccount {
       this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, ads_removed = CASE WHEN ? = 1 THEN 1 ELSE ads_removed END, updated_at = ? WHERE account_id = ?", next, removeAds ? 1 : 0, now, accountId);
       this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, kind, delta, next, sourceRefHash, now);
       grantCosmetic();
-      result = { replay: false, balance: next };
+      result = { replay: false, balance: next, credited: delta };
     });
     return result;
   }

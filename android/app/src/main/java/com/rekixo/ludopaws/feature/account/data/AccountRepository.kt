@@ -13,6 +13,30 @@ class AccountRepository(context: Context) {
     private val appContext = context.applicationContext
     private val sessions = AccountSessionStore(appContext)
     private val baseUrl = BuildConfig.LUDOPROOF_API_BASE_URL.trimEnd('/')
+    private var linkedLeaderboardCredential: String? = null
+    private var linkedFriendCredential: String? = null
+
+    /** Bind verified game credentials to the current wallet account once per process.
+     * On failure the caller can retry at the next authenticated game action.
+     */
+    @Synchronized
+    fun ensureLinkedLeaderboardWallet(profileToken: String) {
+        val session = ensureGuestSession()
+        val key = session.accountId + ":" + profileToken
+        if (linkedLeaderboardCredential == key) return
+        linkLeaderboardIdentity(profileToken)
+        linkedLeaderboardCredential = key
+    }
+
+    @Synchronized
+    fun ensureLinkedFriendWallet(friendToken: String) {
+        val session = ensureGuestSession()
+        val key = session.accountId + ":" + friendToken
+        if (linkedFriendCredential == key) return
+        linkFriendIdentity(friendToken)
+        linkedFriendCredential = key
+    }
+
 
     @Synchronized
     fun ensureGuestSession(): AccountSession {

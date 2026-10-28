@@ -42,6 +42,7 @@ export class MatchRoom extends SocialMatchRoom {
   async alarm() {
     const referralState = await this.ctx.storage.get(STATE_KEY);
     await this.recordReferralResult(referralState);
+    await this.recordMatchGemResult();
     const turnExpired = await this.#enqueue(
       () => this.#expireTurnRollIfNeeded(),
     );
@@ -129,12 +130,20 @@ export class MatchRoom extends SocialMatchRoom {
   async #scheduleNextDeadline() {
     if (typeof this.ctx.storage.setAlarm !== "function") return false;
     const state = await this.ctx.storage.get(STATE_KEY);
-    if (!state) { await this.scheduleReferralRetry(); return false; }
+    if (!state) {
+      const referralAt = await this.scheduleReferralRetry();
+      const gemAt = await this.scheduleGemRetry();
+      const pendingAt = [referralAt, gemAt].filter(Number.isFinite);
+      if (pendingAt.length) await this.ctx.storage.setAlarm(Math.min(...pendingAt));
+      return false;
+    }
     if (state.status !== "ACTIVE") {
       const ttl = state.status === "FINISHED" ? FINISHED_IDLE_TTL_MS : ACTIVE_IDLE_TTL_MS;
       const updatedAt = Number(state.updatedAt ?? state.createdAt ?? Date.now());
-      const retryAt = state.status === "FINISHED" ? await this.scheduleReferralRetry() : null;
-      await this.ctx.storage.setAlarm(retryAt != null ? Math.min(updatedAt + ttl, retryAt) : updatedAt + ttl);
+      const referralAt = state.status === "FINISHED" ? await this.scheduleReferralRetry() : null;
+      const gemAt = state.status === "FINISHED" ? await this.scheduleGemRetry() : null;
+      await this.ctx.storage.setAlarm(Math.min(updatedAt + ttl,
+        ...[referralAt, gemAt].filter(Number.isFinite)));
       return false;
     }
     if (state.pendingRoll?.status === "RESOLVED") {
@@ -300,7 +309,8 @@ function nextActiveSeat(state, currentSeat) {
   for (let offset = 1; offset <= count; offset += 1) {
     const candidate = ((start + offset) % count + count) % count;
     const player = state.players[candidate];
-    if (!Number.isSafeInteger(player?.forfeitedAt)) {
+    if (!Number.isSafeInteger(player?.forfeitedAt) &&
+      !(state.finishOrderPlayerIds ?? []).includes(player?.playerId)) {
       return candidate;
     }
   }

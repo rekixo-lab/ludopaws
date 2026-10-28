@@ -34,6 +34,7 @@ import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.components.LaserStatusDotView
+import com.rekixo.ludopaws.LudoProofApplication
 import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.PendingOperationStore
 import com.rekixo.ludopaws.PlayerSession
@@ -1155,7 +1156,12 @@ class FriendsActivity : Activity() {
                 api.registerFriend(
                     displayName = displayName,
                     clientRequestId = requestId,
-                )
+                ).also { registered ->
+                    runCatching {
+                        (application as LudoProofApplication).accountRepository
+                            .ensureLinkedFriendWallet(registered.getString("friendToken"))
+                    }
+                }
             },
             onSuccess = success@ { response ->
                 val next = FriendCredential(
@@ -1185,6 +1191,10 @@ class FriendsActivity : Activity() {
         runRequest(
             working = if (announce) "Refreshing friends…" else null,
             action = {
+                runCatching {
+                    (application as LudoProofApplication).accountRepository
+                        .ensureLinkedFriendWallet(auth.friendToken)
+                }
                 val result = api.friendSnapshot(auth.friendToken)
                 runCatching { api.friendRecent(auth.friendToken) }
                     .onSuccess { recent -> result.put("_recent", recent) }

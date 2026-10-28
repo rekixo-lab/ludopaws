@@ -70,6 +70,7 @@ data class MatchSnapshot(
     val winnerTeamId: String? = null,
     // Ordered player IDs from a trusted finish-order source, when available.
     val finishOrderPlayerIds: List<String> = emptyList(),
+    val matchGemRewards: Map<String, Int> = emptyMap(),
     val revision: Long = 0L,
     val turnDeadlineAt: Long? = null,
     val turnRollTimeoutMillis: Long? = null,
@@ -86,6 +87,18 @@ class GameSchemaException(
 ) : IllegalArgumentException(message)
 
 object GameJson {
+    private fun parseMatchGemRewards(raw: JSONArray?): Map<String, Int> {
+        if (raw == null) return emptyMap()
+        val awards = linkedMapOf<String, Int>()
+        for (index in 0 until raw.length()) {
+            val entry = raw.optJSONObject(index) ?: continue
+            val id = entry.optString("playerId")
+            val amount = entry.optInt("amount", 0)
+            if (id.isNotBlank() && amount in 1..3) awards[id] = amount
+        }
+        return awards
+    }
+
     private val classicRulesetIds =
         setOf(
             "ludoproof-standard-v1",
@@ -93,6 +106,7 @@ object GameJson {
             "ludoproof-standard-v3",
             "ludoproof-standard-v4",
         "ludoproof-standard-v5",
+        "ludoproof-standard-v6",
         )
     private val teamRulesetIds =
         setOf(
@@ -177,6 +191,7 @@ object GameJson {
                 value.optString("winnerTeamId")
                     .takeIf { it == "A" || it == "B" },
             finishOrderPlayerIds = value.optJSONArray("finishOrderPlayerIds").toStringList(),
+            matchGemRewards = parseMatchGemRewards(value.optJSONArray("matchGemRewards")),
             revision = value.optLong("revision", 0L),
             turnDeadlineAt =
                 if (value.has("turnDeadlineAt") && !value.isNull("turnDeadlineAt")) {

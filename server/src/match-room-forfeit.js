@@ -684,12 +684,12 @@ function finishWithRemainingPlayer(
     null;
   state.status =
     "FINISHED";
-  state.winnerPlayerId =
-    winnerSeat == null
-      ? null
-      : state.players[
-          winnerSeat
-        ].playerId;
+  if (Array.isArray(state.finishOrderPlayerIds) && winnerSeat != null &&
+      !state.finishOrderPlayerIds.includes(state.players[winnerSeat].playerId)) {
+    state.finishOrderPlayerIds.push(state.players[winnerSeat].playerId);
+  }
+  state.winnerPlayerId = state.finishOrderPlayerIds?.[0] ??
+    (winnerSeat == null ? null : state.players[winnerSeat].playerId);
   state.turnSeat =
     winnerSeat;
   state.pendingRoll =
@@ -709,10 +709,8 @@ function activeSeatIndexes(
     seat += 1
   ) {
     if (
-      !isForfeitedSeat(
-        state,
-        seat,
-      )
+      !isForfeitedSeat(state, seat) &&
+      !(state.finishOrderPlayerIds ?? []).includes(state.players[seat].playerId)
     ) {
       result.push(
         seat,
@@ -770,10 +768,8 @@ function nextActiveSeat(
       ) %
       playerCount;
     if (
-      !isForfeitedSeat(
-        state,
-        seat,
-      )
+      !isForfeitedSeat(state, seat) &&
+      !(state.finishOrderPlayerIds ?? []).includes(state.players[seat].playerId)
     ) {
       return seat;
     }
