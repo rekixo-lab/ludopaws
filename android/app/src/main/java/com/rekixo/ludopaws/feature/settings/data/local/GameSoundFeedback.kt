@@ -5,6 +5,9 @@ import android.util.Log
 import com.rekixo.ludopaws.core.audio.LudoPawsAudioCatalog
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsFootstepStyle
+import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
+import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsAudioAssetPlayer
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsProceduralAudio
 import com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType
@@ -135,6 +138,15 @@ object GameSoundFeedback {
             rawResourceNames = listOf("lp_sfx_dice_settle"),
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_SETTLE,
         )
+        // Only prewarm the selected cosmetic, not every future dice skin.
+        for (paths in listOf(
+            selectedDiceSoundPaths(context, settle = false),
+            selectedDiceSoundPaths(context, settle = true),
+        )) {
+            if (paths.isNotEmpty()) {
+                preload(context = context, rawResourceNames = emptyList(), assetPaths = paths)
+            }
+        }
     }
 
     fun moveStep(
@@ -206,6 +218,7 @@ object GameSoundFeedback {
             volume = .50f,
             priority = PRIORITY_ROLL,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_ROLL,
+            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = false),
         )
 
     /** Short landing tick when the verified dice face is revealed. */
@@ -218,6 +231,7 @@ object GameSoundFeedback {
             volume = .32f,
             priority = PRIORITY_HIGH,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_SETTLE,
+            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = true),
         )
 
     fun six(context: Context) =
@@ -382,6 +396,12 @@ object GameSoundFeedback {
         }
     }
 
+    private fun selectedDiceSoundPaths(context: Context, settle: Boolean): List<String> {
+        val selectedId = CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
+        val definition = DiceRegistry.resolve(selectedId)
+        return if (settle) definition.settleSoundPaths else definition.rollSoundPaths
+    }
+
     private fun playEventForIndex(
         context: Context,
         eventIndex: Int?,
@@ -390,6 +410,7 @@ object GameSoundFeedback {
         volume: Float,
         priority: Int,
         assetPaths: List<String>,
+        cosmeticOverrideAssetPaths: List<String> = emptyList(),
     ) {
         val soundName = names.firstOrNull() ?: "unknown"
         if (!GameSettingsStore(context).snapshot().soundEnabled) {
@@ -397,6 +418,28 @@ object GameSoundFeedback {
             return
         }
         Log.d(TAG, "EVENT_REQUEST sound=" + soundName + " eventIndex=" + eventIndex + " priority=" + priority)
+        // A selected dice skin wins only when its asset actually exists/loads.
+        // Roll outcomes, event indices and the classic fallback remain untouched.
+        if (cosmeticOverrideAssetPaths.isNotEmpty()) {
+            val overrideAccepted =
+                if (eventIndex != null) {
+                    LudoPawsAudioAssetPlayer.playAuthoredSfxForEvent(
+                        context = context,
+                        assetPaths = cosmeticOverrideAssetPaths,
+                        eventIndex = eventIndex,
+                        volume = volume,
+                        priority = priority,
+                    )
+                } else {
+                    LudoPawsAudioAssetPlayer.playAuthoredSfx(
+                        context = context,
+                        assetPaths = cosmeticOverrideAssetPaths,
+                        volume = volume,
+                        priority = priority,
+                    )
+                }
+            if (overrideAccepted) return
+        }
         val authoredAccepted =
             eventIndex != null &&
                 LudoPawsAudioAssetPlayer.playAuthoredSfxForEvent(
