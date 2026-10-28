@@ -20,22 +20,74 @@ class OfflineFullMatchInstrumentedTest {
     @Test
     fun normalOfflineLaunchRecreationReturnsToTheActiveBoard() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        ActivityScenario.launch<OfflineGameActivity>(Intent(context, OfflineGameActivity::class.java)
-            .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.PASS_AND_PLAY.wireValue)).use { scenario ->
-            var matchId: String? = null
-            scenario.onActivity { activity ->
-                activity.session.clear()
-                val state = activity.session.start(2, "RED")
-                matchId = state.matchId
-                activity.showGame(state)
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val application = context.applicationContext as android.app.Application
+        val original = java.util.concurrent.atomic.AtomicReference<OfflineGameActivity>()
+        val restored = java.util.concurrent.atomic.AtomicReference<OfflineGameActivity>()
+        val attached = java.util.concurrent.CountDownLatch(1)
+        val destroyed = java.util.concurrent.CountDownLatch(1)
+        val callbacks = object : android.app.Application.ActivityLifecycleCallbacks {
+            override fun onActivityResumed(activity: android.app.Activity) {
+                if (activity is OfflineGameActivity && original.get() != null && activity !== original.get()) {
+                    restored.set(activity)
+                    val board = activity.boardView ?: return
+                    if (board.isAttachedToWindow) attached.countDown() else {
+                        board.addOnAttachStateChangeListener(object : android.view.View.OnAttachStateChangeListener {
+                            override fun onViewAttachedToWindow(view: android.view.View) {
+                                view.removeOnAttachStateChangeListener(this)
+                                attached.countDown()
+                            }
+                            override fun onViewDetachedFromWindow(view: android.view.View) = Unit
+                        })
+                    }
+                }
             }
-            scenario.recreate()
-            scenario.onActivity { activity ->
-                assertEquals(matchId, activity.session.snapshot()?.matchId)
-                assertNotNull("recreation must render the board instead of setup", activity.boardView)
-                assertTrue(requireNotNull(activity.boardView).isAttachedToWindow)
-                activity.session.clear()
+            override fun onActivityDestroyed(activity: android.app.Activity) {
+                if (activity === restored.get()) destroyed.countDown()
             }
+            override fun onActivityCreated(activity: android.app.Activity, state: android.os.Bundle?) = Unit
+            override fun onActivityStarted(activity: android.app.Activity) = Unit
+            override fun onActivityPaused(activity: android.app.Activity) = Unit
+            override fun onActivityStopped(activity: android.app.Activity) = Unit
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, state: android.os.Bundle) = Unit
+        }
+        application.registerActivityLifecycleCallbacks(callbacks)
+        try {
+            ActivityScenario.launch<OfflineGameActivity>(Intent(context, OfflineGameActivity::class.java)
+                .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.PASS_AND_PLAY.wireValue)).use { scenario ->
+                try {
+                    var matchId: String? = null
+                    scenario.onActivity { activity ->
+                        original.set(activity)
+                        activity.session.clear()
+                        val state = activity.session.start(2, "RED")
+                        matchId = state.matchId
+                        activity.showGame(state)
+                    }
+                    // A software-rendered animated game need not leave the
+                    // global queue idle. Request the real recreation on main,
+                    // then await its lifecycle/attachment, not waitForIdleSync.
+                    instrumentation.runOnMainSync { original.get().recreate() }
+                    assertTrue("recreated board must attach within 30 seconds",
+                        attached.await(30, java.util.concurrent.TimeUnit.SECONDS))
+                    instrumentation.runOnMainSync {
+                        val activity = requireNotNull(restored.get())
+                        assertEquals(matchId, activity.session.snapshot()?.matchId)
+                        assertNotNull("recreation must render the board instead of setup", activity.boardView)
+                        assertTrue(requireNotNull(activity.boardView).isAttachedToWindow)
+                        activity.session.clear()
+                    }
+                } finally {
+                    instrumentation.runOnMainSync {
+                        restored.get()?.finish()
+                        original.get()?.finish()
+                    }
+                    if (restored.get() != null) assertTrue("recreated activity must release its window",
+                        destroyed.await(30, java.util.concurrent.TimeUnit.SECONDS))
+                }
+            }
+        } finally {
+            application.unregisterActivityLifecycleCallbacks(callbacks)
         }
     }
 
