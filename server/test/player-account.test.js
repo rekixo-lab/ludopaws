@@ -617,7 +617,7 @@ test("simultaneous Friends claims cannot exceed the three-award daily cap", asyn
   await post(account, "/session/create", { accountId, displayName: "Cap Race" });
   const awards = await Promise.all(Array.from({ length: 8 }, (_, i) =>
     post(account, "/wallet/match-reward", {
-      accountId, matchId: "LPABC235" + (i + 2), mode: "FRIENDS",
+      accountId, matchId: "LPABC2345" + (i + 2), mode: "FRIENDS",
       playerCount: 3, rank: 1, amount: 3,
     }).then(async response => ({ status: response.status, body: await response.json() })),
   ));
