@@ -105,5 +105,13 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   if (rewardedAdUnitId) vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID = rewardedAdUnitId;
   else delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID;
 
+  // Emit a public, non-secret deployment identity so signed releases and
+  // smoke tests cannot silently validate an older Cloudflare Worker.
+  const deployCommit = String(environment.GITHUB_SHA ?? "").trim().toLowerCase();
+  if (deployCommit && !/^[a-f0-9]{40}$/.test(deployCommit)) {
+    throw new Error("GITHUB_SHA must be a 40-character Git commit SHA for a production deployment.");
+  }
+  if (deployCommit) vars.LUDOPROOF_DEPLOY_COMMIT_SHA = deployCommit;
+  else delete vars.LUDOPROOF_DEPLOY_COMMIT_SHA;
   return applyReferralRuntimeVars(vars, environment);
 }
