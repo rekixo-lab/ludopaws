@@ -250,6 +250,7 @@ jobs:
     env:
       # UI/device tests must never mutate real production accounts or matches.
       ORG_GRADLE_PROJECT_LUDOPROOF_API_BASE_URL: https://127.0.0.1
+      ORG_GRADLE_PROJECT_LUDOPAWS_QA_BUILD: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262

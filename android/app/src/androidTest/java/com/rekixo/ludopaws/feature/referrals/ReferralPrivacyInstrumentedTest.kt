@@ -30,6 +30,7 @@ class ReferralPrivacyInstrumentedTest {
     @Before fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         check(BuildConfig.LUDOPAWS_QA_BUILD && context.packageName.endsWith(".qa"))
+        check(BuildConfig.LUDOPROOF_API_BASE_URL == "https://127.0.0.1")
         preferences = context.getSharedPreferences("friendship_attribution", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
         context.getSharedPreferences("family_privacy_v1", Context.MODE_PRIVATE).edit().putInt("age_band", 3).commit()
@@ -73,11 +74,19 @@ class ReferralPrivacyInstrumentedTest {
             scenario.onActivity { activity ->
                 val views = descendants(activity.window.decorView)
                 assertEquals(View.GONE, views.filterIsInstance<FriendshipBundleView>().single().visibility)
-                assertFalse(views.filterIsInstance<CheckBox>().single().isChecked)
-                val ordinaryShare = views.filterIsInstance<Button>().single { it.text.toString() == "Share game without a reward" }
+                // Consent now opens on demand; the compact page must not
+                // silently create or preselect a consent checkbox.
+                assertTrue(views.filterIsInstance<CheckBox>().isEmpty())
+                val ordinaryShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share without rewards") }
                 assertTrue(ordinaryShare.isEnabled)
-                val verify = views.filterIsInstance<Button>().single { it.text.toString() == "VERIFY MY INVITATION" }
+                views.filterIsInstance<Button>().single { it.text.toString() == "Got an invite?" }.performClick()
+                val dialogField = ReferralActivity::class.java.getDeclaredField("invitationDialog").apply { isAccessible = true }
+                val dialog = dialogField.get(activity) as android.app.Dialog
+                val verify = descendants(requireNotNull(dialog.window).decorView).filterIsInstance<Button>()
+                    .single { it.text.toString() == "Verify my invitation" }
                 assertFalse(verify.isEnabled)
+                assertFalse(preferences.contains("consented_account"))
+                dialog.dismiss()
             }
         }
     }
