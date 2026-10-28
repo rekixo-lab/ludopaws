@@ -6,9 +6,10 @@ silent Donkey and Lumi Goat's shared Goat vocal identity.
 
 ## Adding character recordings
 
-- Add the character definition and renderer in the existing content registries.
-- Add one `LudoPawsCharacterAudioProfile` entry. The CI parity test requires one
-  profile for every shipped character definition.
+- Create character definition, renderer and avatar under its content folder.
+- Register these plus voice/step profile together in `content/content-manifest.json`
+  and run `node scripts/generate-content-registries.mjs --write`.
+  CI verifies generated definition, rendering and audio registry parity.
 - Optional vocals live at `audio/sfx/voices/<id>/lp_vocal_<id>_<cue>_01.wav`.
   The other supported variant is `_02`. Missing takes use existing fallback.
 - Optional steps live at
@@ -25,9 +26,21 @@ silent Donkey and Lumi Goat's shared Goat vocal identity.
   `audio/sfx/` filenames. The selected skin wins when a clip is present;
   missing clips fall back to the classic authored roll/settle, then raw audio.
 - The audio system never chooses a dice outcome or edits match/proof state.
-- Board ambience layering (separate from soundtrack) is not yet implemented.
+- Each board may optionally set `ambientSoundPaths` to files under
+  `audio/ambience/<board-id>/`. This is an independent, quiet looping
+  `MediaPlayer` layer mixed below the music. The Music setting controls both;
+  sound effects and animal voices remain separate. Empty/missing paths mean
+  no ambience, not another board's ambient clip. Background, focus loss and
+  rapid board changes discard old playback/preparation.
 
 ## Tools
+
+```sh
+node scripts/generate-content-registries.mjs --write
+node scripts/generate-content-registries.mjs --check
+node --test scripts/generate-content-registries.test.mjs
+```
+
 
 ```sh
 node scripts/ludopaws-content-audio-tools.mjs validate

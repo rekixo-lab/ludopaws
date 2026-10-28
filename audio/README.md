@@ -85,3 +85,13 @@ Existing Android res/raw voice names remain a compatibility fallback. If a match
 - A filename in this guide is a slot, not a claim that the sound file already exists.
 
 For per-character audio profiles and optional dice/board sound overrides, see `docs/CONTENT_AUDIO_EXTENSION.md`.
+
+## Board ambience (independent of music)
+
+Optional looping ambient assets for a board live in `audio/ambience/<board-id>/`,
+for example `audio/ambience/board_monsoon_mire/rain_loop.ogg`. Add its exact
+path to that board's `BoardDefinition.ambientSoundPaths`. WAV/OGG/MP3 files
+are packaged automatically by Gradle. This lane runs at a quiet level alongside
+background music and follows the Music toggle, Android audio focus, foreground
+and board selection. Missing assets mean silence for that lane. Never use
+unlicensed third-party recordings; long clips should be optimized/compressed.
