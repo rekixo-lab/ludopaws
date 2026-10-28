@@ -133,6 +133,8 @@ export class PlayerAccount {
       // through a public account endpoint; no expired device session is needed.
       if (request.method === "POST" && url.pathname === "/wallet/play-delivery") return await this.#grantPlayPurchase(request, true);
       if (request.method === "POST" && url.pathname === "/wallet/reward-ad") return await this.#grantAdReward(request);
+      // Internal Durable Object binding only: match server, never a client API.
+      if (request.method === "POST" && url.pathname === "/wallet/match-reward") return await this.#grantMatchReward(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/purchase") return await this.#purchaseCosmetic(request);
       if (request.method === "POST" && url.pathname === "/wallet/cosmetic/select") return await this.#selectCosmetic(request);
       return json(404, { error: "NOT_FOUND", message: "route not found" });
@@ -687,6 +689,57 @@ export class PlayerAccount {
     if ([...this.ctx.storage.sql.exec("SELECT cosmetic_id FROM owned_cosmetics WHERE cosmetic_id = ? LIMIT 1", cosmeticId)].length !== 1) throw httpError(403, "COSMETIC_NOT_OWNED", "this cosmetic is not owned by this account");
     this.ctx.storage.sql.exec("INSERT INTO selected_cosmetics (category, cosmetic_id, updated_at) VALUES (?, ?, ?) ON CONFLICT(category) DO UPDATE SET cosmetic_id = excluded.cosmetic_id, updated_at = excluded.updated_at", cosmetic.category, cosmeticId, Date.now());
     return json(200, { ok: true, cosmeticId, wallet: this.#walletSnapshot(accountId) });
+  }
+
+
+  async #grantMatchReward(request) {
+    const body = await readJson(request);
+    const accountId = requireAccountId(body?.accountId);
+    const matchId = String(body?.matchId ?? "");
+    const mode = String(body?.mode ?? "");
+    const rank = Number(body?.rank);
+    const amount = Number(body?.amount);
+    if (!/^LP[A-Z2-9]{8}$/.test(matchId)) throw httpError(400, "MATCH_REWARD_ID_INVALID", "match ID is invalid");
+    const byMode = {
+      ONLINE: { 2: [3, 0], 4: [3, 2, 1, 0] },
+      FRIENDS: { 2: [3, 0], 3: [3, 2, 0], 4: [3, 2, 1, 0] },
+      TEAM_UP: { 4: [3, 0] },
+    };
+    const count = Number(body?.playerCount);
+    const payouts = byMode[mode]?.[count];
+    if (!payouts || !Number.isInteger(rank) || rank < 1 ||
+        rank > payouts.length || !Number.isInteger(amount) || amount <= 0 ||
+        amount !== payouts[rank - 1]) {
+      throw httpError(400, "MATCH_REWARD_POLICY_INVALID", "match reward is outside the published policy");
+    }
+    const idempotencyKey = "match-reward:" + matchId;
+    const payloadHash = await sha256Hex(JSON.stringify({ matchId, mode, count, rank, amount }));
+    this.#requireAccountNotDeleting(accountId);
+    this.#profileSnapshot(accountId);
+    // Friends matches are invite-based; cap their earning rate to avoid gem farming.
+    // Record a zero-value ledger row when capped to make retries deterministic.
+    let capped = false;
+    if (mode === "FRIENDS") {
+      const sql = this.ctx.storage.sql;
+      const prior = [...sql.exec("SELECT idempotency_key FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
+      if (!prior.length) {
+        const recent = [...sql.exec(
+          "SELECT COUNT(*) AS total FROM wallet_transactions WHERE kind = 'MATCH_REWARD_FRIENDS' AND delta > 0 AND created_at > ?",
+          Date.now() - 24 * 60 * 60 * 1000,
+        )][0];
+        capped = Number(recent?.total ?? 0) >= 3;
+      }
+    }
+    const result = this.#applyWalletTransaction({
+      accountId, idempotencyKey, payloadHash,
+      kind: capped ? "MATCH_REWARD_FRIENDS_LIMIT" : "MATCH_REWARD_" + mode,
+      delta: capped ? 0 : amount,
+      sourceRefHash: await sha256Hex("ludopaws:match-reward:v1:" + matchId),
+      removeAds: false,
+    });
+    const awarded = !capped && Number(result.balance) >= 0;
+    return json(200, { ok: true, ...result, awarded, amount: capped ? 0 : amount,
+      wallet: this.#walletSnapshot(accountId) });
   }
 
   #applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind, delta, sourceRefHash, removeAds, cosmeticGrant = null }) {
