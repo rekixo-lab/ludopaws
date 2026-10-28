@@ -6,6 +6,7 @@ import android.app.Dialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
@@ -18,6 +19,7 @@ import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
+import com.rekixo.ludopaws.ui.home.HomeSpaceBackgroundView
 import com.rekixo.ludopaws.R
 
 internal fun showReferralBundlePopup(
@@ -37,10 +39,9 @@ internal fun showReferralBundlePopup(
     val panel = LinearLayout(activity).apply {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(16), dp(10), dp(16), dp(12))
-        background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0xFF214C40.toInt(), 0xFF122D35.toInt())).apply {
-            cornerRadius = dp(26).toFloat(); setStroke(dp(1), 0xFF86B493.toInt())
-        }
+        // The popup has one galaxy background at its outermost container;
+        // don't paint an opaque panel above it.
+        background = null
     }
     val heading = FrameLayout(activity)
     val title = when (state) {
@@ -55,7 +56,11 @@ internal fun showReferralBundlePopup(
         FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.TOP))
     panel.addView(heading, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
     val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-    val art = FriendshipBundleView(activity, ownedItems = owned)
+    val art = FriendshipBundleView(activity, ownedItems = owned).apply {
+        // This instance sits inside the popup's shared galaxy. Keep the
+        // standalone referral screen's own card background unchanged.
+        background = null
+    }
     body.addView(art, LinearLayout.LayoutParams(-1, -2))
     body.addView(copy(when (state) {
         "FRIEND_JOINED" -> string(R.string.friendship_joined_body)
@@ -75,7 +80,11 @@ internal fun showReferralBundlePopup(
             super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(
                 height, View.MeasureSpec.AT_MOST))
         }
-    }.apply { addView(panel); isVerticalScrollBarEnabled = false }
+    }.apply {
+        background = null
+        addView(panel)
+        isVerticalScrollBarEnabled = false
+    }
     val invite = Button(activity).apply {
         text = string(when { state != "INVITE" -> R.string.friendship_progress; linked -> R.string.friendship_invite_action; else -> R.string.friendship_connect_action })
         textSize = 15f; isAllCaps = false; typeface = Typeface.DEFAULT_BOLD
@@ -102,19 +111,40 @@ internal fun showReferralBundlePopup(
         }
     }, LinearLayout.LayoutParams(0, -2, 1f))
     panel.addView(footer)
-    dialog.setContentView(scroll)
+
+    // One animated space layer behind the entire scrollable popup—not
+    // another gradient behind the inner bundle art or parent panel.
+    val space = HomeSpaceBackgroundView(activity)
+    val surface = FrameLayout(activity).apply {
+        // Transparent outline only, to clip the galaxy and scrolled content
+        // to one common radius. This drawable paints no second background.
+        background = GradientDrawable().apply {
+            setColor(Color.TRANSPARENT)
+            cornerRadius = dp(26).toFloat()
+        }
+        clipToOutline = true
+        addView(space, FrameLayout.LayoutParams(-1, -1))
+        addView(scroll, FrameLayout.LayoutParams(-1, -2))
+    }
+    dialog.setContentView(surface)
     dialog.setOnShowListener {
         dialog.window?.apply {
             setGravity(Gravity.CENTER)
             setLayout(minOf(dp(380), (activity.resources.displayMetrics.widthPixels * .9f).toInt()), -2)
         }
         art.setActive(true)
+        space.setActive(true)
         if (ValueAnimator.areAnimatorsEnabled()) {
-            panel.alpha = 0f; panel.scaleX = .96f; panel.scaleY = .96f
-            panel.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220L).start()
+            surface.alpha = 0f; surface.scaleX = .96f; surface.scaleY = .96f
+            surface.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(220L).start()
         }
     }
-    dialog.setOnDismissListener { panel.animate().cancel(); art.setActive(false); onDismiss(deferred) }
+    dialog.setOnDismissListener {
+        surface.animate().cancel()
+        space.setActive(false)
+        art.setActive(false)
+        onDismiss(deferred)
+    }
     dialog.show()
     return dialog
 }
