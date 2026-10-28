@@ -434,7 +434,7 @@ export class MatchRoom {
       now,
       targetPlayerCount,
       matchMode,
-      rulesetKey: requestedRulesetKey ?? (matchMode === "TEAM_UP" ? TEAM_RULESET_V4_KEY : RULESET_V6_KEY),
+      rulesetKey: requestedRulesetKey ?? (matchMode === "TEAM_UP" ? TEAM_RULESET_V4_KEY : RULESET_V4_KEY),
     });
     state = attachHostAuth(
       state,
