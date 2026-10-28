@@ -35,6 +35,7 @@ internal class HomePromotionCarousel(
     }
     private val promotion = GamePawsPromotionView(context, gameplay = false, onExplore = onExplore)
     private val spotlight = FrameLayout(context)
+    private val spaceBackground = HomeSpaceBackgroundView(context)
     private val bundle = FriendshipBundleView(context, compact = true).apply {
         isClickable = true
         isFocusable = true
@@ -65,6 +66,12 @@ internal class HomePromotionCarousel(
         clipToPadding = true
         pages.clipChildren = true
         pages.addView(hero, LayoutParams(-1, -1))
+        // The promotional carousel has one shared, lightweight animated galaxy.
+        // Remove only these two promo cards' old opaque backgrounds; gameplay
+        // promotions and full-size referral screens keep their own styling.
+        promotion.background = null
+        bundle.background = null
+        spotlight.addView(spaceBackground, LayoutParams(-1, -1))
         spotlight.addView(promotion, LayoutParams(-1, -1))
         spotlight.addView(bundle, LayoutParams(-1, -1))
         pages.addView(spotlight, LayoutParams(-1, -1))
@@ -161,6 +168,7 @@ internal class HomePromotionCarousel(
         bundle.visibility = if (bundleShown) VISIBLE else GONE
         promotion.setActive(active && page == 1 && !bundleShown && hasWindowFocus() && windowVisibility == VISIBLE)
         bundle.setActive(active && page == 1 && bundleShown && hasWindowFocus() && windowVisibility == VISIBLE)
+        spaceBackground.setActive(active && spotlight.visibility == VISIBLE)
         indicator.text = if (page == 0) "●  ○" else "○  ●"
         indicator.visibility = if (hasOffers) VISIBLE else GONE
         contentDescription = if (!hasOffers) "Ludo Paws hero" else if (page == 0) "Ludo Paws hero. Page 1 of 2. Swipe left to explore." else if (bundleShown)
@@ -198,6 +206,7 @@ internal class HomePromotionCarousel(
         }
         hero.visibility = VISIBLE
         spotlight.visibility = VISIBLE
+        spaceBackground.setActive(active)
         promotion.setActive(false)
         bundle.setActive(false)
         transition = ValueAnimator.ofFloat(offset, destination).apply {
@@ -237,6 +246,7 @@ internal class HomePromotionCarousel(
             parent?.requestDisallowInterceptTouchEvent(true)
             hero.visibility = VISIBLE
             spotlight.visibility = VISIBLE
+            spaceBackground.setActive(active)
             promotion.setActive(false)
             bundle.setActive(false)
         }
