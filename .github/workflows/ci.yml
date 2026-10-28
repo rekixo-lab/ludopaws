@@ -6,7 +6,7 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
   push:
-    branches: [main, feat/ludopaws-production-readiness, feat/gameplay-polish-futureproof]
+    branches: [main, codex/audit-hardening, feat/ludopaws-production-readiness, feat/gameplay-polish-futureproof]
   workflow_dispatch:
     inputs:
       run_android_instrumentation:
@@ -242,9 +242,10 @@ jobs:
           retention-days: 3
 
   android-instrumentation:
-    # Device testing is deferred to the user's phone. Emulator runs require an
-    # explicit separate opt-in and never execute on PRs or main pushes.
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation }}
+    # The audit candidate runs the complete isolated suite on push so its
+    # GitHub Actions checks satisfy main protection. Other branches opt in
+    # manually; physical devices and production accounts are never used.
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation) || (github.event_name == 'push' && github.ref == 'refs/heads/codex/audit-hardening') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
