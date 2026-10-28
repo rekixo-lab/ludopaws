@@ -1,4 +1,5 @@
 import * as legacy from "./game-v1-core.js";
+import { plannedMatchGemRewards } from "./match-gem-rewards.js";
 import {
   LEGACY_RULESET,
   LEGACY_RULESET_KEY,
@@ -267,6 +268,7 @@ export function publicState(state) {
     ...base,
     pendingRoll,
     rulesetId: rulesetForState(state).id,
+    matchGemRewards: plannedMatchGemRewards(state).map(({ playerId, rank, amount }) => ({ playerId, rank, amount })),
     turnDeadlineAt: Number.isSafeInteger(state.turnDeadlineAt)
       ? state.turnDeadlineAt
       : null,

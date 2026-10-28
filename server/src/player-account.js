@@ -737,8 +737,8 @@ export class PlayerAccount {
       sourceRefHash: await sha256Hex("ludopaws:match-reward:v1:" + matchId),
       removeAds: false,
     });
-    const awarded = !capped && Number(result.balance) >= 0;
-    return json(200, { ok: true, ...result, awarded, amount: capped ? 0 : amount,
+    const awarded = result.credited > 0;
+    return json(200, { ok: true, ...result, awarded, amount: result.credited,
       wallet: this.#walletSnapshot(accountId) });
   }
 
@@ -754,11 +754,11 @@ export class PlayerAccount {
         this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'PLAY_PRODUCT', ?, ?)",
           cosmeticGrant.id, cosmeticGrant.category, Date.now(), sourceRefHash);
       };
-      const prior = [...this.ctx.storage.sql.exec("SELECT payload_hash, balance_after FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
+      const prior = [...this.ctx.storage.sql.exec("SELECT payload_hash, balance_after, delta FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
       if (prior.length) {
         if (String(prior[0].payload_hash) !== payloadHash) throw httpError(409, "WALLET_IDEMPOTENCY_CONFLICT", "wallet transaction key was reused with different details");
         grantCosmetic();
-        result = { replay: true, balance: Number(prior[0].balance_after) }; return;
+        result = { replay: true, balance: Number(prior[0].balance_after), credited: Number(prior[0].delta) }; return;
       }
       const rows = [...this.ctx.storage.sql.exec("SELECT balance FROM wallet WHERE account_id = ? LIMIT 1", accountId)];
       if (!rows.length) throw httpError(404, "WALLET_NOT_FOUND", "wallet was not found");
@@ -768,7 +768,7 @@ export class PlayerAccount {
       this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, ads_removed = CASE WHEN ? = 1 THEN 1 ELSE ads_removed END, updated_at = ? WHERE account_id = ?", next, removeAds ? 1 : 0, now, accountId);
       this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, kind, delta, next, sourceRefHash, now);
       grantCosmetic();
-      result = { replay: false, balance: next };
+      result = { replay: false, balance: next, credited: delta };
     });
     return result;
   }
