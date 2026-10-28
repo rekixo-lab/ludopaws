@@ -1109,7 +1109,7 @@ export class MatchRoom {
       matchId: state.matchId,
       entries: awards.map(award => ({ ...award, delivered: false })),
       attempts: 0, nextAt: Date.now(),
-      expiresAt: Date.now() + 24 * 60 * 60_000,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60_000,
     });
   }
 
@@ -1124,19 +1124,27 @@ export class MatchRoom {
     const pending = await this.ctx.storage.get("gem-reward-outbox");
     if (!pending) return;
     if (pending.expiresAt <= Date.now()) {
+      // Keep an explicit audit marker: do not silently erase unpaid rewards.
+      await this.ctx.storage.put("gem-reward-expired", {
+        matchId: pending.matchId,
+        unpaidPlayers: pending.entries.filter(entry => !entry.delivered).map(entry => entry.playerId),
+        expiredAt: Date.now(),
+      });
       await this.ctx.storage.delete("gem-reward-outbox");
-      console.error("Match gem credit expired", { code: "MATCH_REWARD_OUTBOX_EXPIRED" });
+      console.error("Match gem delivery expired", { matchId: pending.matchId, code: "MATCH_REWARD_OUTBOX_EXPIRED" });
       return;
     }
     if (pending.nextAt > Date.now()) return;
-    try {
-      const directory = this.env.LUDOPROOF_ACCOUNT_DIRECTORY;
-      const accounts = this.env.LUDOPROOF_PLAYER_ACCOUNTS;
-      if (!directory || !accounts) throw new Error("MATCH_REWARD_ACCOUNTS_UNAVAILABLE");
-      const identityTarget = directory.get(directory.idFromName("GLOBAL:V1"));
-      for (const entry of pending.entries) {
-        if (entry.delivered) continue;
+
+    const directory = this.env.LUDOPROOF_ACCOUNT_DIRECTORY;
+    const accounts = this.env.LUDOPROOF_PLAYER_ACCOUNTS;
+    let failed = false;
+    for (const entry of pending.entries) {
+      if (entry.delivered) continue;
+      try {
+        if (!directory || !accounts) throw new Error("MATCH_REWARD_ACCOUNTS_UNAVAILABLE");
         if (!entry.profileId && !entry.friendId) throw new Error("MATCH_REWARD_IDENTITY_NOT_LINKED");
+        const identityTarget = directory.get(directory.idFromName("GLOBAL:V1"));
         const found = await identityTarget.fetch(new Request("https://account-directory/referral/identity", {
           method: "POST", headers: { "content-type": "application/json" },
           body: JSON.stringify({ profileId: entry.profileId, friendId: entry.friendId }),
@@ -1154,20 +1162,28 @@ export class MatchRoom {
           }),
         }));
         if (!result.ok) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
-        const body = await result.json();
-        if (body.ok !== true) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
+        const response = await result.json();
+        if (response.ok !== true) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
         entry.delivered = true;
+        // Persist each success before trying the next recipient. Replays are
+        // still safe if a storage failure occurs after a wallet transaction.
         await this.ctx.storage.put("gem-reward-outbox", pending);
+      } catch {
+        // One unlinked/deleted/unavailable account must not block the other
+        // legitimate winners from receiving their currency.
+        failed = true;
       }
+    }
+    if (!failed && pending.entries.every(entry => entry.delivered)) {
       await this.ctx.storage.put("gem-reward-done", true);
       await this.ctx.storage.delete("gem-reward-outbox");
-    } catch {
-      const attempts = pending.attempts + 1;
-      await this.ctx.storage.put("gem-reward-outbox", {
-        ...pending, attempts,
-        nextAt: Date.now() + Math.min(60 * 60_000, 30_000 * 2 ** Math.min(attempts, 8)),
-      });
+      return;
     }
+    const attempts = pending.attempts + 1;
+    await this.ctx.storage.put("gem-reward-outbox", {
+      ...pending, attempts,
+      nextAt: Date.now() + Math.min(60 * 60_000, 30_000 * 2 ** Math.min(attempts, 8)),
+    });
   }
 
   async scheduleGemRetry() {

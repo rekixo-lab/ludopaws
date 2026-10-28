@@ -609,3 +609,21 @@ test("three-player friend rewards obey 3/2/0 and daily earning cap with determin
   });
   assert.equal(invalidThird.status, 400);
 });
+
+
+test("simultaneous Friends claims cannot exceed the three-award daily cap", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Cap Race" });
+  const awards = await Promise.all(Array.from({ length: 8 }, (_, i) =>
+    post(account, "/wallet/match-reward", {
+      accountId, matchId: "LPABC235" + (i + 2), mode: "FRIENDS",
+      playerCount: 3, rank: 1, amount: 3,
+    }).then(async response => ({ status: response.status, body: await response.json() })),
+  ));
+  assert.ok(awards.every(item => item.status === 200));
+  assert.equal(awards.reduce((sum, item) => sum + item.body.amount, 0), 9);
+  assert.equal(sql.wallet.get(accountId).balance, 9);
+  assert.equal([...sql.walletTransactions.values()].filter(tx => tx.delta === 3).length, 3);
+  assert.equal([...sql.walletTransactions.values()].filter(tx => tx.delta === 0).length, 5);
+});

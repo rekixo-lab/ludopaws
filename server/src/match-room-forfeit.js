@@ -408,7 +408,8 @@ export class MatchRoom extends BaseMatchRoom {
       isForfeitedSeat(
         state,
         state.turnSeat,
-      )
+      ) ||
+      (state.finishOrderPlayerIds ?? []).includes(state.players[state.turnSeat]?.playerId)
     ) {
       const next =
         structuredClone(
@@ -690,8 +691,12 @@ function finishWithRemainingPlayer(
   }
   state.winnerPlayerId = state.finishOrderPlayerIds?.[0] ??
     (winnerSeat == null ? null : state.players[winnerSeat].playerId);
-  state.turnSeat =
-    winnerSeat;
+  // Keep a valid seated turn index even when the final active player forfeits.
+  // A null turnSeat makes a FINISHED snapshot fail Android schema validation.
+  state.turnSeat = winnerSeat ??
+    state.players.findIndex(player => player.playerId === state.winnerPlayerId) >= 0
+      ? (winnerSeat ?? state.players.findIndex(player => player.playerId === state.winnerPlayerId))
+      : (Number.isInteger(state.turnSeat) ? state.turnSeat : 0);
   state.pendingRoll =
     null;
   state.finishedAt =
