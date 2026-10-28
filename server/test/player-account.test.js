@@ -558,3 +558,54 @@ test("only Classic dice are granted; Coming Soon dice cannot consume gems or ads
   assert.equal(sql.wallet.get(accountId).balance, 1000);
   assert.equal(sql.walletTransactions.size, 0);
 });
+
+test("server match credit is idempotent, policy bounded and account scoped", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Winner" });
+  const award = { accountId, matchId: "LPABC23456", mode: "ONLINE", playerCount: 4,
+    rank: 2, amount: 2 };
+  const paid = await post(account, "/wallet/match-reward", award);
+  assert.equal(paid.status, 200);
+  assert.equal((await paid.json()).wallet.balance, 2);
+  assert.equal(sql.walletTransactions.size, 1);
+  const replay = await (await post(account, "/wallet/match-reward", award)).json();
+  assert.equal(replay.replay, true);
+  assert.equal(replay.amount, 2);
+  assert.equal(replay.wallet.balance, 2);
+  const forgery = await post(account, "/wallet/match-reward", { ...award, amount: 3 });
+  assert.equal(forgery.status, 400);
+  assert.equal(sql.wallet.get(accountId).balance, 2);
+  const wrongRank = await post(account, "/wallet/match-reward", { ...award, rank: 1, amount: 3 });
+  assert.equal(wrongRank.status, 409);
+  assert.equal((await wrongRank.json()).error, "WALLET_IDEMPOTENCY_CONFLICT");
+  assert.equal(sql.wallet.get(accountId).balance, 2);
+});
+
+test("three-player friend rewards obey 3/2/0 and daily earning cap with deterministic replay", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Friend Winner" });
+  for (let i = 0; i < 4; i++) {
+    const matchId = "LPABC2345" + (i + 2);
+    const body = { accountId, matchId, mode: "FRIENDS", playerCount: 3, rank: 1, amount: 3 };
+    const response = await post(account, "/wallet/match-reward", body);
+    assert.equal(response.status, 200);
+    const receipt = await response.json();
+    assert.equal(receipt.amount, i < 3 ? 3 : 0);
+    assert.equal(receipt.wallet.balance, Math.min(i + 1, 3) * 3);
+    const again = await (await post(account, "/wallet/match-reward", body)).json();
+    assert.equal(again.replay, true);
+    assert.equal(again.amount, receipt.amount);
+  }
+  assert.equal(sql.walletTransactions.size, 4);
+  const runnerUp = await post(account, "/wallet/match-reward", {
+    accountId, matchId: "LPABC23458", mode: "FRIENDS", playerCount: 3, rank: 2, amount: 2,
+  });
+  assert.equal(runnerUp.status, 200);
+  assert.equal((await runnerUp.json()).amount, 0);
+  const invalidThird = await post(account, "/wallet/match-reward", {
+    accountId, matchId: "LPABC23459", mode: "FRIENDS", playerCount: 3, rank: 3, amount: 1,
+  });
+  assert.equal(invalidThird.status, 400);
+});
