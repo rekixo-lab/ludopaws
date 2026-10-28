@@ -1155,7 +1155,12 @@ class FriendsActivity : Activity() {
                 api.registerFriend(
                     displayName = displayName,
                     clientRequestId = requestId,
-                )
+                ).also { registered ->
+                    runCatching {
+                        (application as LudoProofApplication).accountRepository
+                            .ensureLinkedFriendWallet(registered.getString("friendToken"))
+                    }
+                }
             },
             onSuccess = success@ { response ->
                 val next = FriendCredential(
@@ -1185,6 +1190,10 @@ class FriendsActivity : Activity() {
         runRequest(
             working = if (announce) "Refreshing friends…" else null,
             action = {
+                runCatching {
+                    (application as LudoProofApplication).accountRepository
+                        .ensureLinkedFriendWallet(auth.friendToken)
+                }
                 val result = api.friendSnapshot(auth.friendToken)
                 runCatching { api.friendRecent(auth.friendToken) }
                     .onSuccess { recent -> result.put("_recent", recent) }

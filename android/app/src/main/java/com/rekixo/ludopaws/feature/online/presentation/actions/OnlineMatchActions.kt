@@ -338,6 +338,10 @@ internal fun MainActivity.ensureLeaderboardCredential():
         )
     store.load()
         ?.let {
+            runCatching {
+                (application as LudoProofApplication).accountRepository
+                    .ensureLinkedLeaderboardWallet(it.profileToken)
+            }
             return it
         }
 
@@ -365,6 +369,10 @@ internal fun MainActivity.ensureLeaderboardCredential():
     store.save(
         credential,
     )
+    runCatching {
+        (application as LudoProofApplication).accountRepository
+            .ensureLinkedLeaderboardWallet(credential.profileToken)
+    }
     return credential
 }
 

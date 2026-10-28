@@ -980,7 +980,13 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     private fun ensureLeaderboardCredential(): LeaderboardCredential {
-        identityStore.load()?.let { return it }
+        identityStore.load()?.let {
+            runCatching {
+                (application as LudoProofApplication).accountRepository
+                    .ensureLinkedLeaderboardWallet(it.profileToken)
+            }
+            return it
+        }
         val requestId = identityStore.registrationRequestId()
         val response = LeaderboardApi().registerProfile(requestId)
         val credential = LeaderboardCredential(
@@ -989,6 +995,10 @@ class TeamUpActivity : ComponentActivity() {
             registrationRequestId = requestId,
         )
         identityStore.save(credential)
+        runCatching {
+            (application as LudoProofApplication).accountRepository
+                .ensureLinkedLeaderboardWallet(credential.profileToken)
+        }
         return credential
     }
 
