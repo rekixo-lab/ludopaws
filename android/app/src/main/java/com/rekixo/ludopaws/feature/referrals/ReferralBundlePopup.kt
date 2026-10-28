@@ -6,11 +6,12 @@ import android.app.Dialog
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Typeface
-import android.graphics.Color
+import android.graphics.Outline
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.view.Gravity
 import android.view.View
+import android.view.ViewOutlineProvider
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -116,11 +117,16 @@ internal fun showReferralBundlePopup(
     // another gradient behind the inner bundle art or parent panel.
     val space = HomeSpaceBackgroundView(activity)
     val surface = FrameLayout(activity).apply {
-        // Transparent outline only, to clip the galaxy and scrolled content
-        // to one common radius. This drawable paints no second background.
-        background = GradientDrawable().apply {
-            setColor(Color.TRANSPARENT)
-            cornerRadius = dp(26).toFloat()
+        // No background drawable at all: only the shared galaxy paints the
+        // panel. An outline clips both the scrolling content and starlight.
+        outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                if (view.width <= 0 || view.height <= 0) {
+                    outline.setEmpty()
+                } else {
+                    outline.setRoundRect(0, 0, view.width, view.height, dp(26).toFloat())
+                }
+            }
         }
         clipToOutline = true
         addView(space, FrameLayout.LayoutParams(-1, -1))
