@@ -81,6 +81,25 @@ class MainActivity : ComponentActivity() {
         }
     internal val mainHandler =
         Handler(Looper.getMainLooper())
+    internal var lastGemWalletSyncMatchId: String? = null
+
+    internal fun refreshMatchGemWalletAfterFinish(completedMatchId: String) {
+        if (lastGemWalletSyncMatchId == completedMatchId) return
+        lastGemWalletSyncMatchId = completedMatchId
+        // Match settlement may be asynchronous; never claim payment until the
+        // server wallet snapshot confirms it. Opening the store also refreshes.
+        mainHandler.postDelayed({
+            executor.execute {
+                runCatching {
+                    val repository = (application as LudoProofApplication).accountRepository
+                    val session = repository.currentSession() ?: return@runCatching
+                    val snapshot = repository.wallet()
+                    GemWalletStore(this).applyServerSnapshot(snapshot, session.accountId)
+                }
+            }
+        }, 3_000L)
+    }
+
 
     internal lateinit var arcadeRootView: FrameLayout
     internal lateinit var lobbyPanel: LinearLayout

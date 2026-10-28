@@ -118,6 +118,10 @@ internal fun MainActivity.applyResponse(
         lastRealtimeRevision = serverRevision.toInt()
     }
 
+    if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED" &&
+        playerId?.let(state.matchGemRewards::containsKey) == true) {
+        refreshMatchGemWalletAfterFinish(state.matchId)
+    }
     if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED") {
         val winners = state.players.filter { player ->
             if (state.winnerTeamId != null) player.teamId == state.winnerTeamId else player.playerId == state.winnerPlayerId
