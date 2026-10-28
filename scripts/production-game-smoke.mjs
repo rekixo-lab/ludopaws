@@ -389,6 +389,57 @@ if (
   );
 }
 
+
+// The V5 smoke above proves backwards compatibility; this independent room
+// must prove that the deployed Worker actually implements CLASSIC_V6. Only
+// active-state operations are performed: no winners, wallet credits or ad
+// callbacks are synthesized by this production smoke test.
+const rankedHost = await api("POST", "/api/matches", {
+  token: hostProfileToken,
+  body: { displayName: "V6 Smoke Host", rulesetKey: "CLASSIC_V6",
+    targetPlayerCount: 2, clientRequestId: randomUUID() },
+});
+const rankedMatchId = requireText(rankedHost.matchId, "rankedHost.matchId");
+const rankedGuest = await api("POST", "/api/matches/" + encodeURIComponent(rankedMatchId) + "/join", {
+  token: guestProfileToken,
+  body: { displayName: "V6 Smoke Guest", clientRequestId: randomUUID() },
+});
+requireText(rankedGuest.playerToken, "rankedGuest.playerToken");
+const rankedStart = await api("POST", "/api/matches/" + encodeURIComponent(rankedMatchId) + "/start", {
+  token: rankedHost.playerToken, body: {},
+});
+const rankedState = rankedStart.state;
+if (rankedState?.status !== "ACTIVE" ||
+    rankedState.rulesetId !== "ludoproof-standard-v6" ||
+    rankedState.players?.length !== 2 ||
+    !Array.isArray(rankedState.finishOrderPlayerIds) ||
+    rankedState.finishOrderPlayerIds.length !== 0 ||
+    !Array.isArray(rankedState.matchGemRewards) ||
+    rankedState.matchGemRewards.length !== 0) {
+  throw new Error("Production Worker is missing the V6 ranked-match and no-early-reward contract.");
+}
+const rankedActor = rankedState.players[rankedState.turnSeat]?.playerId;
+const rankedActorToken = rankedActor === rankedHost.playerId
+  ? rankedHost.playerToken : rankedGuest.playerToken;
+const rankedRollId = randomUUID();
+const rankedRollUrl = "/api/matches/" + encodeURIComponent(rankedMatchId) + "/roll";
+const rankedRoll = await api("POST", rankedRollUrl, {
+  token: rankedActorToken,
+  body: { clientRequestId: rankedRollId, expectedEventIndex: rankedState.randomEventIndex },
+});
+const rankedReplay = await api("POST", rankedRollUrl, {
+  token: rankedActorToken,
+  body: { clientRequestId: rankedRollId, expectedEventIndex: rankedState.randomEventIndex },
+});
+if (rankedReplay.replayed !== true ||
+    rankedReplay.outcome !== rankedRoll.outcome ||
+    rankedReplay.proofDigest !== rankedRoll.proofDigest ||
+    rankedReplay.state?.revision !== rankedRoll.state?.revision ||
+    rankedRoll.state?.matchGemRewards?.length !== 0) {
+  throw new Error("V6 production roll retry failed or an ACTIVE match exposed Gems rewards.");
+}
+console.log("Production CLASSIC_V6 ranked-match smoke passed without minting Gems.");
+
 const friendsSmoke =
   await verifyFriendsFlow();
 

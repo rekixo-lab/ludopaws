@@ -131,3 +131,15 @@ test("ads still require publisher approval and unknown-age-safe Android treatmen
     ADMOB_APP_ID: "ca-app-pub-1234567890123456~1234567890" };
   assert.throws(() => buildCloudflareRuntimeVars({}, configured), /AD_SAFETY_REVIEW_APPROVED/);
 });
+
+// A release must prove the live Worker came from the exact signed source commit.
+test("runtime vars bind a deploy to the exact, validated GitHub commit", () => {
+  const sha = "8e359b5e3c7dc92a6c8a9df33b67851599d4d31b";
+  const vars = buildCloudflareRuntimeVars({}, { ...valid, GITHUB_SHA: sha });
+  assert.equal(vars.LUDOPROOF_DEPLOY_COMMIT_SHA, sha);
+  assert.equal(
+    "LUDOPROOF_DEPLOY_COMMIT_SHA" in buildCloudflareRuntimeVars(vars, valid),
+    false,
+  );
+  assert.throws(() => buildCloudflareRuntimeVars({}, { ...valid, GITHUB_SHA: "not-a-commit" }), /GITHUB_SHA/);
+});

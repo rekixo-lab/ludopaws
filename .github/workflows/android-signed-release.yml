@@ -212,6 +212,11 @@ jobs:
               console.error("Worker readiness must explicitly report productionClaim=false until independent review is completed.");
               process.exit(3);
             }
+            if (!/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA ?? "") ||
+                ready.deploymentRevision !== process.env.GITHUB_SHA) {
+              console.error("Signed Android release blocked: live Worker does not match the exact release commit. Deploy main first.");
+              process.exit(5);
+            }
             console.log("Worker is operationally ready; productionClaim=false.");
           ' "$ready_json"
           capabilities_json="$(curl --fail --silent --show-error "$API_BASE/api/capabilities")"

@@ -196,6 +196,8 @@ export async function handleAccountRequest(request, env) {
           ok: ready,
           ready,
           productionClaim: ready && body?.productionClaim === true,
+          deploymentRevision: /^[a-f0-9]{40}$/.test(String(env?.LUDOPROOF_DEPLOY_COMMIT_SHA ?? ""))
+            ? env.LUDOPROOF_DEPLOY_COMMIT_SHA : null,
           checks: {
             ...(body?.checks ?? {}),
             accountDirectoryConfigured,
