@@ -116,7 +116,26 @@ internal fun showReferralBundlePopup(
     // One animated space layer behind the entire scrollable popup—not
     // another gradient behind the inner bundle art or parent panel.
     val space = HomeSpaceBackgroundView(activity)
-    val surface = FrameLayout(activity).apply {
+    val surface = object : FrameLayout(activity) {
+        // A MATCH_PARENT background child must not determine dialog height.
+        // Measure the actual scroll content first, then size the space layer
+        // to exactly that height. Tall content is still capped by ScrollView.
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            val maxHeight = when (View.MeasureSpec.getMode(heightMeasureSpec)) {
+                View.MeasureSpec.UNSPECIFIED ->
+                    (resources.displayMetrics.heightPixels * .82f).toInt()
+                else -> View.MeasureSpec.getSize(heightMeasureSpec)
+            }.coerceAtLeast(0)
+            scroll.measure(
+                widthMeasureSpec,
+                View.MeasureSpec.makeMeasureSpec(maxHeight, View.MeasureSpec.AT_MOST),
+            )
+            super.onMeasure(
+                widthMeasureSpec,
+                View.MeasureSpec.makeMeasureSpec(scroll.measuredHeight, View.MeasureSpec.EXACTLY),
+            )
+        }
+    }.apply {
         // No background drawable at all: only the shared galaxy paints the
         // panel. An outline clips both the scrolling content and starlight.
         outlineProvider = object : ViewOutlineProvider() {

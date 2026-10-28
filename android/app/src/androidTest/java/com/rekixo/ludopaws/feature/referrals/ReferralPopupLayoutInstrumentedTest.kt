@@ -3,6 +3,8 @@ package com.rekixo.ludopaws.feature.referrals
 import android.content.res.Configuration
 import android.view.View
 import android.view.ViewGroup
+import android.view.Gravity
+import android.widget.FrameLayout
 import android.widget.ScrollView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -51,13 +53,44 @@ class ReferralPopupLayoutInstrumentedTest {
                         val space = views.filterIsInstance<HomeSpaceBackgroundView>()
                         assertEquals(1, space.size)
                         assertTrue(space.single().parent === scroll.parent)
-                        assertTrue((scroll.parent as View).clipToOutline)
+                        val surface = scroll.parent as FrameLayout
+                        assertTrue(surface.clipToOutline)
+                        assertEquals(scroll.measuredHeight, surface.measuredHeight)
+                        assertEquals(surface.measuredHeight, space.single().measuredHeight)
                         assertNull((scroll.parent as View).background)
                         assertNull(scroll.background)
                         assertNull(scroll.getChildAt(0).background)
                         assertNull(views.filterIsInstance<FriendshipBundleView>().single().background)
                     } finally { dialog.dismiss() }
                 } finally { activity.resources.updateConfiguration(original, activity.resources.displayMetrics) }
+            }
+        }
+    }
+
+    @Test fun defaultFontPopupWrapsContentAndDoesNotStretchToAvailableScreenHeight() {
+        ActivityScenario.launch(HomeActivity::class.java).use { scenario ->
+            scenario.onActivity { activity ->
+                val dialog = showReferralBundlePopup(activity, "INVITE", true, emptySet()) { }
+                try {
+                    val scroll = descendants(dialog.window!!.decorView).filterIsInstance<ScrollView>().single()
+                    val surface = scroll.parent as FrameLayout
+                    val space = descendants(surface).filterIsInstance<HomeSpaceBackgroundView>().single()
+                    val density = activity.resources.displayMetrics.density
+                    val width = (360f * density).toInt()
+                    // A deliberately oversized available height exposes the
+                    // old MATCH_PARENT starfield expanding the entire popup.
+                    val availableHeight = (1600f * density).toInt()
+                    surface.measure(
+                        View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                        View.MeasureSpec.makeMeasureSpec(availableHeight, View.MeasureSpec.AT_MOST),
+                    )
+                    assertEquals(scroll.measuredHeight, surface.measuredHeight)
+                    assertEquals(surface.measuredHeight, space.measuredHeight)
+                    assertTrue(surface.measuredHeight < availableHeight)
+                    assertEquals(Gravity.CENTER, dialog.window!!.attributes.gravity)
+                } finally {
+                    dialog.dismiss()
+                }
             }
         }
     }
