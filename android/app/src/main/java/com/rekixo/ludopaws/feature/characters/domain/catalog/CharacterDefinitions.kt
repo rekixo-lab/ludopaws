@@ -14,7 +14,7 @@ import com.rekixo.ludopaws.feature.characters.content.rabbit.RabbitDefinition
 
 /** Add new shipped character definitions here; UI/catalog entries derive from this list. */
 object CharacterDefinitions {
-    val all = listOf(DogDefinition.content, GoatDefinition.content, DuckDefinition.content, CatDefinition.content, DonkeyDefinition.content, LumiGoatDefinition.content, CockDefinition.content, PigDefinition.content, ElephantDefinition.content, HorseDefinition.content, RabbitDefinition.content)
+    val all = GeneratedCharacterDefinitions.all
     init {
         require(all.map { it.character.id }.distinct().size == all.size) { "Duplicate character definition" }
     }

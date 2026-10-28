@@ -29,7 +29,7 @@ export function validateVocalFilename(fileName, voiceOwner) {
 export function inspectAudio(root = process.cwd()) {
   const profiles = parseCharacterAudioProfiles(read(
     root,
-    'android/app/src/main/java/com/rekixo/ludopaws/feature/characters/domain/audio/LudoPawsCharacterAudioProfiles.kt',
+    'android/app/src/main/java/com/rekixo/ludopaws/feature/characters/domain/audio/GeneratedCharacterAudioProfiles.kt',
   ));
   const errors = [];
   const ids = profiles.map(profile => profile.id);
@@ -42,7 +42,7 @@ export function inspectAudio(root = process.cwd()) {
     }
   }
   const definitions = read(
-    root, 'android/app/src/main/java/com/rekixo/ludopaws/feature/characters/domain/catalog/CharacterDefinitions.kt',
+    root, 'android/app/src/main/java/com/rekixo/ludopaws/feature/characters/domain/catalog/GeneratedCharacterDefinitions.kt',
   );
   const registration = definitions.split('val all = listOf(')[1]?.split(')')[0] ?? '';
   const shippedCount = [...registration.matchAll(/[A-Za-z]+Definition\.content/g)].length;

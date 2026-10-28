@@ -17,23 +17,7 @@ import com.rekixo.ludopaws.feature.boards.content.alien.AlienBoardDefinition
 import com.rekixo.ludopaws.feature.boards.content.penguin.PenguinBoardDefinition
 
 object BoardRegistry {
-    val all = listOf(
-        ClassicBoardDefinition.content,
-        AutumnBoardDefinition.content,
-        BlossomBoardDefinition.content,
-        WinterBoardDefinition.content,
-        MonsoonBoardDefinition.content,
-        CloudLagoonBoardDefinition.content,
-        AstralBoardDefinition.content,
-        CheckersBoardDefinition.content,
-        ChessBoardDefinition.content,
-        DiwaliBoardDefinition.content,
-        DenimBoardDefinition.content,
-        NeonBoardDefinition.content,
-        PirateBoardDefinition.content,
-        AlienBoardDefinition.content,
-        PenguinBoardDefinition.content,
-    )
+    val all = GeneratedBoardDefinitions.all
     private val byId = all.associateBy { it.id }
     init { require(byId.size == all.size) { "Duplicate board content ID" } }
     fun find(id: String): BoardDefinition? = byId[id]

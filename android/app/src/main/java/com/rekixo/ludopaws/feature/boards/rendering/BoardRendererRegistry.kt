@@ -10,15 +10,7 @@ import com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardRenderer
 import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
 
 internal object BoardRendererRegistry {
-    private val factories: Map<String, () -> BoardRenderer> = mapOf(
-        "classic" to { ClassicBoardRenderer() },
-        "astral" to { AstralBoardRenderer() },
-        "cloud_lagoon" to { CloudLagoonBoardRenderer() },
-        "autumn_forest" to { AutumnBoardRenderer() },
-        "blossom_garden" to { BlossomBoardRenderer() },
-        "winter_haven" to { WinterBoardRenderer() },
-        "monsoon_mire" to { MonsoonBoardRenderer() },
-    )
+    private val factories = GeneratedBoardRendererFactories.factories
     fun supports(key: String): Boolean = key in factories
     fun create(definition: BoardDefinition): BoardRenderer =
         (factories[definition.rendererKey] ?: error("Missing board renderer: ${definition.rendererKey}"))()

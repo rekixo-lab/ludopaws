@@ -40,22 +40,7 @@ object LudoPawsCharacterAudioProfiles {
     private val web = LudoPawsAudioCatalog.Sfx.MOVE_STEP_DUCK
     private val catPaw = LudoPawsAudioCatalog.Sfx.MOVE_STEP_CAT
 
-    val all: Map<String, LudoPawsCharacterAudioProfile> =
-        listOf(
-            LudoPawsCharacterAudioProfile("dog", "dog", LudoPawsFootstepStyle.PAW, paw),
-            LudoPawsCharacterAudioProfile("goat", "goat", LudoPawsFootstepStyle.HOOF, hoof),
-            LudoPawsCharacterAudioProfile("duck", "duck", LudoPawsFootstepStyle.WEB, web, .28f),
-            LudoPawsCharacterAudioProfile("cat", "cat", LudoPawsFootstepStyle.PAW, catPaw),
-            // Lumi has an independent saved ID but deliberately shares Goat vocals.
-            LudoPawsCharacterAudioProfile("goat_lumi", "goat", LudoPawsFootstepStyle.HOOF, hoof),
-            // Donkey has no vocals until its own recorded voice set is authored.
-            LudoPawsCharacterAudioProfile("donkey", null, LudoPawsFootstepStyle.PAW, paw),
-            LudoPawsCharacterAudioProfile("cock", "cock", LudoPawsFootstepStyle.PAW, paw),
-            LudoPawsCharacterAudioProfile("pig", "pig", LudoPawsFootstepStyle.HOOF, hoof),
-            LudoPawsCharacterAudioProfile("elephant", "elephant", LudoPawsFootstepStyle.PAW, catPaw),
-            LudoPawsCharacterAudioProfile("horse", "horse", LudoPawsFootstepStyle.HOOF, hoof),
-            LudoPawsCharacterAudioProfile("rabbit", "rabbit", LudoPawsFootstepStyle.PAW, catPaw),
-        ).associateBy { it.characterId }
+    val all: Map<String, LudoPawsCharacterAudioProfile> = GeneratedCharacterAudioProfiles.all
 
     val supportedVoiceAssetIds: Set<String> = all.values.mapNotNull { it.voiceAssetOwnerId }.toSet()
 
