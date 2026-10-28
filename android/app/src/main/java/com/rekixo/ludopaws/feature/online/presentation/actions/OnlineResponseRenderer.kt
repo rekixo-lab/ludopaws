@@ -308,7 +308,7 @@ internal fun MainActivity.updateTurnBanner(
                 val reward = playerId?.let(state.matchGemRewards::get)
                 resultSubtitleText.text =
                     "$winners • server-authoritative team result • match complete" +
-                    (if (reward != null && reward > 0) "\nEligible reward: +$reward Gems • wallet verification pending" else "")
+                    (if (reward != null && reward > 0) "\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit" else "")
             } else {
                 val rank = playerId?.let { LudoPawsFinishPresentation.ranks(state)[it] }
                 val standings = LudoPawsFinishPresentation.standings(state)
@@ -317,7 +317,7 @@ internal fun MainActivity.updateTurnBanner(
                     if (rank == 4) append("WELL PLAYED!\n")
                     append(standings.ifBlank { "Match complete • verified result" })
                     val reward = playerId?.let(state.matchGemRewards::get)
-                    if (reward != null && reward > 0) append("\nEligible reward: +$reward Gems • wallet verification pending")
+                    if (reward != null && reward > 0) append("\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit")
                 }
             }
         }

@@ -701,7 +701,7 @@ export class PlayerAccount {
     const amount = Number(body?.amount);
     if (!/^LP[A-Z2-9]{8}$/.test(matchId)) throw httpError(400, "MATCH_REWARD_ID_INVALID", "match ID is invalid");
     const byMode = {
-      ONLINE: { 2: [3, 0], 4: [3, 2, 1, 0] },
+      ONLINE: { 2: [3, 0], 3: [3, 2, 0], 4: [3, 2, 1, 0] },
       FRIENDS: { 2: [3, 0], 3: [3, 2, 0], 4: [3, 2, 1, 0] },
       TEAM_UP: { 4: [3, 0] },
     };
@@ -716,24 +716,13 @@ export class PlayerAccount {
     const payloadHash = await sha256Hex(JSON.stringify({ matchId, mode, count, rank, amount }));
     this.#requireAccountNotDeleting(accountId);
     this.#profileSnapshot(accountId);
-    // Friends matches are invite-based; cap their earning rate to avoid gem farming.
-    // Record a zero-value ledger row when capped to make retries deterministic.
-    let capped = false;
-    if (mode === "FRIENDS") {
-      const sql = this.ctx.storage.sql;
-      const prior = [...sql.exec("SELECT idempotency_key FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idempotencyKey)];
-      if (!prior.length) {
-        const recent = [...sql.exec(
-          "SELECT COUNT(*) AS total FROM wallet_transactions WHERE kind = 'MATCH_REWARD_FRIENDS' AND delta > 0 AND created_at > ?",
-          Date.now() - 24 * 60 * 60 * 1000,
-        )][0];
-        capped = Number(recent?.total ?? 0) >= 3;
-      }
-    }
+    // Apply the rolling Friends cap inside the SAME SQL transaction as the credit.
+    // Checking it before async hashing permits concurrent requests to bypass it.
     const result = this.#applyWalletTransaction({
       accountId, idempotencyKey, payloadHash,
-      kind: capped ? "MATCH_REWARD_FRIENDS_LIMIT" : "MATCH_REWARD_" + mode,
-      delta: capped ? 0 : amount,
+      kind: "MATCH_REWARD_" + mode,
+      delta: amount,
+      matchRewardLimit: mode === "FRIENDS" ? { kind: "MATCH_REWARD_FRIENDS", count: 3, windowMs: 24 * 60 * 60 * 1000 } : null,
       sourceRefHash: await sha256Hex("ludopaws:match-reward:v1:" + matchId),
       removeAds: false,
     });
@@ -742,7 +731,7 @@ export class PlayerAccount {
       wallet: this.#walletSnapshot(accountId) });
   }
 
-  #applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind, delta, sourceRefHash, removeAds, cosmeticGrant = null }) {
+  #applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind, delta, sourceRefHash, removeAds, cosmeticGrant = null, matchRewardLimit = null }) {
     let result;
     this.ctx.storage.transactionSync(() => {
       this.#requireAccountNotDeleting(accountId);
@@ -760,15 +749,27 @@ export class PlayerAccount {
         grantCosmetic();
         result = { replay: true, balance: Number(prior[0].balance_after), credited: Number(prior[0].delta) }; return;
       }
+      let appliedDelta = delta;
+      let appliedKind = kind;
+      if (matchRewardLimit != null && delta > 0) {
+        const recent = [...this.ctx.storage.sql.exec(
+          "SELECT COUNT(*) AS total FROM wallet_transactions WHERE kind = ? AND delta > 0 AND created_at > ?",
+          matchRewardLimit.kind, Date.now() - matchRewardLimit.windowMs,
+        )][0];
+        if (Number(recent?.total ?? 0) >= matchRewardLimit.count) {
+          appliedDelta = 0;
+          appliedKind = "MATCH_REWARD_FRIENDS_LIMIT";
+        }
+      }
       const rows = [...this.ctx.storage.sql.exec("SELECT balance FROM wallet WHERE account_id = ? LIMIT 1", accountId)];
       if (!rows.length) throw httpError(404, "WALLET_NOT_FOUND", "wallet was not found");
-      const next = Number(rows[0].balance) + delta;
+      const next = Number(rows[0].balance) + appliedDelta;
       if (!Number.isSafeInteger(next) || next < 0 || next > MAX_BALANCE) throw httpError(409, "WALLET_BALANCE_LIMIT", "wallet balance cannot safely be updated");
       const now = Date.now();
       this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, ads_removed = CASE WHEN ? = 1 THEN 1 ELSE ads_removed END, updated_at = ? WHERE account_id = ?", next, removeAds ? 1 : 0, now, accountId);
-      this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, kind, delta, next, sourceRefHash, now);
+      this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, appliedKind, appliedDelta, next, sourceRefHash, now);
       grantCosmetic();
-      result = { replay: false, balance: next, credited: delta };
+      result = { replay: false, balance: next, credited: appliedDelta };
     });
     return result;
   }

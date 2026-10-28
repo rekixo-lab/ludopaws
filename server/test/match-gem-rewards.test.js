@@ -40,9 +40,9 @@ for (const [count, expected] of [[2, [3]], [3, [3, 2]], [4, [3, 2, 1]]]) {
   });
 }
 
-test("online rewards are restricted to two or four human players", () => {
+test("online three-player rooms pay first and second only", () => {
   const state = completed(3, "ONLINE");
-  assert.deepEqual(plannedMatchGemRewards(state), []);
+  assert.deepEqual(plannedMatchGemRewards(state).map(entry => entry.amount), [3, 2]);
   state.matchMode = "FRIENDS";
   state.players[0].playerType = "BOT";
   assert.deepEqual(plannedMatchGemRewards(state), []);

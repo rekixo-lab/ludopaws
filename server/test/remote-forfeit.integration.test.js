@@ -591,3 +591,19 @@ test(
     );
   },
 );
+
+
+test("V6 turn normalization skips a first finisher if the persisted seat is stale", async () => {
+  const { ctx, room, players } = await createStartedMatch(3, "ONLINE", "CLASSIC_V6");
+  const current = await ctx.storage.get("match-state");
+  current.finishOrderPlayerIds = [players[0].playerId];
+  current.players[0].tokens = [57, 57, 57, 57];
+  current.turnSeat = 0;
+  await ctx.storage.put("match-state", current);
+  const response = await json(await room.fetch(request("/state", { token: players[1].playerToken })));
+  assert.equal(response.response.status, 200);
+  assert.equal(response.body.state.status, "ACTIVE");
+  assert.equal(response.body.state.turnSeat, 1);
+  const restored = await ctx.storage.get("match-state");
+  assert.equal(restored.turnSeat, 1);
+});
