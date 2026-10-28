@@ -8,7 +8,10 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.R
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import com.rekixo.ludopaws.ui.home.HomeSpaceBackgroundView
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -43,6 +46,15 @@ class ReferralPopupLayoutInstrumentedTest {
                         val scroll = views.filterIsInstance<ScrollView>().single()
                         assertTrue(scroll.measuredHeight <= height)
                         assertTrue(scroll.getChildAt(0).measuredHeight > scroll.measuredHeight)
+                        // One shared galaxy behind the popup; neither the
+                        // parent panel nor the inner reward artwork hides it.
+                        val space = views.filterIsInstance<HomeSpaceBackgroundView>()
+                        assertEquals(1, space.size)
+                        assertTrue(space.single().parent === scroll.parent)
+                        assertTrue((scroll.parent as View).clipToOutline)
+                        assertNull(scroll.background)
+                        assertNull(scroll.getChildAt(0).background)
+                        assertNull(views.filterIsInstance<FriendshipBundleView>().single().background)
                     } finally { dialog.dismiss() }
                 } finally { activity.resources.updateConfiguration(original, activity.resources.displayMetrics) }
             }
