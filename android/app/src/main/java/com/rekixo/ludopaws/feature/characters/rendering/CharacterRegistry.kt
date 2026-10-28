@@ -54,19 +54,7 @@ internal object CharacterRegistry {
         }
     }
 
-    val all = listOf(
-        RegisteredCharacter(DogDefinition.content, DogRenderer, DogAvatarRenderer),
-        RegisteredCharacter(GoatDefinition.content, GoatRenderer, GoatAvatarRenderer),
-        RegisteredCharacter(DuckDefinition.content, DuckRenderer, DuckAvatarRenderer),
-        RegisteredCharacter(CatDefinition.content, CatRenderer, CatAvatarRenderer),
-        RegisteredCharacter(DonkeyDefinition.content, DonkeyRenderer, DonkeyAvatarRenderer),
-        RegisteredCharacter(LumiGoatDefinition.content, LumiGoatRenderer, LumiGoatAvatarRenderer),
-        RegisteredCharacter(CockDefinition.content, CockRenderer, CockAvatarRenderer),
-        RegisteredCharacter(PigDefinition.content, PigRenderer, PigAvatarRenderer),
-        RegisteredCharacter(ElephantDefinition.content, ElephantRenderer, ElephantAvatarRenderer),
-        RegisteredCharacter(HorseDefinition.content, HorseRenderer, HorseAvatarRenderer),
-        RegisteredCharacter(RabbitDefinition.content, RabbitRenderer, RabbitAvatarRenderer),
-    )
+    val all = GeneratedCharacterEntries.all
     private val byId = all.associateBy { it.id }
     init {
         require(byId.size == all.size) { "Duplicate character renderer" }

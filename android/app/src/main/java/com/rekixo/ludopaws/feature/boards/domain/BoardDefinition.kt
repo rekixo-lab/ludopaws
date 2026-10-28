@@ -17,8 +17,14 @@ data class BoardDefinition(
     val classicRoadReliefEnabled: Boolean = false,
     // Optional looping theme soundtrack. Missing files fall back to existing BGM.
     val backgroundMusicPaths: List<String> = emptyList(),
+    // Independent ambient loop (rain, birds, wind, etc.). Never influences gameplay.
+    val ambientSoundPaths: List<String> = emptyList(),
 ) {
     init {
+        require(ambientSoundPaths.all { path ->
+            path.matches(Regex("""audio/ambience/[a-z0-9_]+/[A-Za-z0-9_. ()-]+\.(wav|ogg|mp3)""", RegexOption.IGNORE_CASE))
+        }) { "Board ambience must use audio/ambience/<board-id>/ and WAV, OGG or MP3" }
+
         require(backgroundMusicPaths.all { path ->
             path.startsWith("audio/music/") &&
                 listOf(".wav", ".ogg", ".mp3").any { path.endsWith(it, ignoreCase = true) }

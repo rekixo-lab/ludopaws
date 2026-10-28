@@ -135,6 +135,10 @@ jobs:
         run: node scripts/check-ludo-paws-reaction-director.mjs
       - name: Ludo Paws production audio gate
         run: node scripts/check-ludo-paws-audio.mjs
+      - name: Unified content manifest and generated registries gate
+        run: node scripts/generate-content-registries.mjs --check
+      - name: Unified content manifest regression tests
+        run: node --test scripts/generate-content-registries.test.mjs
       - name: Audio content registration and coverage gate
         run: node scripts/ludopaws-content-audio-tools.mjs validate
       - name: Audio content creator-tool tests
