@@ -49,6 +49,7 @@ import {
   RULESET_V3_KEY,
   RULESET_V4_KEY,
   RULESET_V5_KEY,
+  RULESET_V6_KEY,
   TEAM_RULESET_KEY,
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4_KEY,
@@ -320,7 +321,7 @@ export class MatchRoom {
       const acceptedRulesets =
         matchMode === "TEAM_UP"
           ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY]
-          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY];
+          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY, RULESET_V6_KEY];
       if (!acceptedRulesets.includes(requestedRulesetKey)) {
         throw httpError(
           400,
@@ -429,7 +430,7 @@ export class MatchRoom {
       now,
       targetPlayerCount,
       matchMode,
-      rulesetKey: requestedRulesetKey ?? (matchMode === "TEAM_UP" ? TEAM_RULESET_V4_KEY : RULESET_V4_KEY),
+      rulesetKey: requestedRulesetKey ?? (matchMode === "TEAM_UP" ? TEAM_RULESET_V4_KEY : RULESET_V6_KEY),
     });
     state = attachHostAuth(
       state,

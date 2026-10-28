@@ -300,7 +300,8 @@ function nextActiveSeat(state, currentSeat) {
   for (let offset = 1; offset <= count; offset += 1) {
     const candidate = ((start + offset) % count + count) % count;
     const player = state.players[candidate];
-    if (!Number.isSafeInteger(player?.forfeitedAt)) {
+    if (!Number.isSafeInteger(player?.forfeitedAt) &&
+      !(state.finishOrderPlayerIds ?? []).includes(player?.playerId)) {
       return candidate;
     }
   }

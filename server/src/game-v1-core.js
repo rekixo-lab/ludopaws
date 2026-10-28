@@ -435,11 +435,15 @@ export function forfeitTimedOutTurn(state, { now }) {
     } else {
       const activeSeats = next.players
         .map((candidate, index) => ({ candidate, index }))
-        .filter(({ candidate }) => !Number.isSafeInteger(candidate.forfeitedAt));
+        .filter(({ candidate }) => !Number.isSafeInteger(candidate.forfeitedAt) &&
+          !(next.finishOrderPlayerIds ?? []).includes(candidate.playerId));
       if (activeSeats.length <= 1) {
         const winner = activeSeats[0] ?? null;
         next.status = "FINISHED";
-        next.winnerPlayerId = winner?.candidate.playerId ?? null;
+        if (winner && Array.isArray(next.finishOrderPlayerIds) && !next.finishOrderPlayerIds.includes(winner.candidate.playerId)) {
+          next.finishOrderPlayerIds.push(winner.candidate.playerId);
+        }
+        next.winnerPlayerId = next.finishOrderPlayerIds?.[0] ?? winner?.candidate.playerId ?? null;
         next.winnerTeamId = null;
         next.turnSeat = winner?.index ?? seat;
         next.finishedAt = now;
@@ -633,15 +637,29 @@ export function applyMove(state, { playerId, tokenIndex, now }) {
       };
     }
   } else if (playerFinished(player)) {
-    next.status = "FINISHED";
-    next.winnerPlayerId = player.playerId;
-    next.finishedAt = now;
+    if (Array.isArray(next.finishOrderPlayerIds) && !next.finishOrderPlayerIds.includes(player.playerId)) {
+      next.finishOrderPlayerIds.push(player.playerId);
+    }
+    const remaining = next.players.filter(candidate =>
+      !Number.isSafeInteger(candidate.forfeitedAt) &&
+      !(next.finishOrderPlayerIds ?? []).includes(candidate.playerId));
+    if (!Array.isArray(next.finishOrderPlayerIds) || remaining.length <= 1) {
+      if (Array.isArray(next.finishOrderPlayerIds) && remaining.length === 1) {
+        next.finishOrderPlayerIds.push(remaining[0].playerId);
+      }
+      next.status = "FINISHED";
+      next.winnerPlayerId = next.finishOrderPlayerIds?.[0] ?? player.playerId;
+      next.finishedAt = now;
+    } else {
+      // V6: first finisher is the winner, but play continues to determine all places.
+      advanceTurn(next);
+    }
     touch(next, now);
     return {
       state: next,
       captures,
       extraTurn: false,
-      winnerPlayerId: player.playerId,
+      winnerPlayerId: next.winnerPlayerId,
       winnerTeamId: null,
     };
   }
@@ -726,6 +744,7 @@ export function publicState(state) {
         }
       : null,
     winnerPlayerId: state.winnerPlayerId,
+    ...(Array.isArray(state.finishOrderPlayerIds) ? { finishOrderPlayerIds: [...state.finishOrderPlayerIds] } : {}),
     rulesetId: ruleset.id,
   };
 }
@@ -804,7 +823,8 @@ function advanceTurn(state) {
   const start = Number.isInteger(state.turnSeat) ? state.turnSeat : -1;
   for (let offset = 1; offset <= count; offset += 1) {
     const candidate = ((start + offset) % count + count) % count;
-    if (!Number.isSafeInteger(state.players[candidate]?.forfeitedAt)) {
+    if (!Number.isSafeInteger(state.players[candidate]?.forfeitedAt) &&
+        !(state.finishOrderPlayerIds ?? []).includes(state.players[candidate]?.playerId)) {
       state.turnSeat = candidate;
       return;
     }
