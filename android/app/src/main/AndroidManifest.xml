@@ -39,11 +39,6 @@
             android:name="com.google.android.gms.games.SUPPRESS_GAME_PROFILE_CREATION"
             android:value="true" />
         <activity
-            android:name=".CharacterPreviewActivity"
-            android:exported="false"
-            android:launchMode="singleTop"
-            android:screenOrientation="portrait" />
-        <activity
             android:name=".MainActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

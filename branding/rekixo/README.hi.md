@@ -12,15 +12,15 @@ Repo root से:
 
 ```bash
 python3 scripts/generate-rekixo-launch.py --check
-./android/gradlew -p android :app:assembleDebug -PLUDOPAWS_DEV_BUILD=true -PLUDOPROOF_BILLING_ENABLED=false -PLUDOPROOF_ADS_ENABLED=false
+./android/gradlew -p android :app:assembleDebug -PLUDOPROOF_BILLING_ENABLED=false -PLUDOPROOF_ADS_ENABLED=false
 adb devices
 adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
-adb shell am force-stop com.rekixo.ludopaws.dev
-adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.rekixo.ludopaws.dev/com.rekixo.ludopaws.HomeActivity
+adb shell am force-stop com.rekixo.ludopaws
+adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -n com.rekixo.ludopaws/com.rekixo.ludopaws.HomeActivity
 ```
 
-यह `.dev` preview app है; production `com.rekixo.ludopaws` को replace नहीं करता। Development tools और preview behavior इसी separate package में हैं; यह Play release/payment test नहीं है। अगर `adb devices` में कई devices हों तो हर adb command में `-s DEVICE_ID` लगाएँ। Public app की signature अलग होने पर उसे uninstall करना इस test का हिस्सा नहीं।
+एक ही package `com.rekixo.ludopaws` है; अलग developer/QA app नहीं है। ऊपर commands अंतिम build/device acceptance के लिए हैं; वर्तमान चरणों में इन्हें बार-बार नहीं चलाना है। Debug और release में user-facing UI एक है, signing अलग हो सकती है। Signature mismatch पर existing app uninstall/data-clear न करें।
 
-भौतिक launch test: app drawer से LudoPaws Preview icon tap करें; cold start में पूरा Rekixo wordmark, सही proportions, dark background और कोई edge clipping/white flash देखें। Hot resume में forced branding delay नहीं होना चाहिए। Android 9–11 और 12+ पर यह checklist अलग चलाएँ। Stage-2 source/build checks वास्तविक device visual acceptance का विकल्प नहीं हैं।
+भौतिक launch test: app drawer से Ludo Paws icon tap करें; cold start में पूरा Rekixo wordmark, सही proportions, dark background और कोई edge clipping/white flash देखें। Hot resume में forced branding delay नहीं होना चाहिए। Android 9–11 और 12+ पर यह checklist अलग चलाएँ। Stage-2 source/build checks वास्तविक device visual acceptance का विकल्प नहीं हैं।
 
 इस चरण के logs और resource preview chat workspace के `audit-2026-10-29-launch-branding/` में हैं; वे इस source change का runtime payload नहीं हैं।

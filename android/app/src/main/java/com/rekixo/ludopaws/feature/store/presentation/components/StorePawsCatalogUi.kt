@@ -6,7 +6,6 @@ import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
@@ -318,41 +317,6 @@ private fun StoreActivity.pawsComingSoonCard(
                 1f,
             ),
         )
-
-        // Debug builds can preview registered future-pack characters, but the offer
-        // remains unavailable so tapping it cannot equip the pack or spend value.
-        val previewPack = pack.characterPackId?.let(LudoPawsCharacterCatalog::pack)
-        val previewCharacters = previewPack?.let {
-            LudoPawsCharacterCatalog.charactersForPack(it.id)
-        }.orEmpty()
-        if (BuildConfig.DEBUG && previewCharacters.isNotEmpty()) {
-            addView(
-                LinearLayout(this@pawsComingSoonCard).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                    previewCharacters.take(4).forEach { character ->
-                        addView(
-                            LudoPawsCharacterAvatarView(this@pawsComingSoonCard).apply {
-                                bind(
-                                    characterId = character.id,
-                                    ringColor = pack.previewSecondary,
-                                    highlighted = false,
-                                    showCircularChrome = true,
-                                )
-                                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                            },
-                            LinearLayout.LayoutParams(dp(26), dp(26)).apply {
-                                setMargins(dp(1), 0, dp(1), 0)
-                            },
-                        )
-                    }
-                },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(30),
-                ),
-            )
-        }
 
         addView(
             TextView(this@pawsComingSoonCard).apply {

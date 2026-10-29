@@ -93,18 +93,6 @@ internal fun showSettingsDialog(
             return@postDelayed
         }
         panel.removeView(loadingLabel)
-        if (com.rekixo.ludopaws.BuildConfig.DEBUG) {
-            panel.addView(settingsDropdownField(context, "Developer tools").apply {
-                text = "Developer tools"
-                contentDescription = "Open developer previews and feature diagnostics"
-                setOnClickListener {
-                    dialog.dismiss()
-                    activity.startActivity(android.content.Intent().setClassName(
-                        context.packageName, "com.rekixo.ludopaws.DeveloperToolsActivity",
-                    ))
-                }
-            }, fullWidthParams(context, 8))
-        }
         val settingsStore =
             GameSettingsStore(context)
         val cosmetics =

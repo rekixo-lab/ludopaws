@@ -107,7 +107,7 @@ internal class RewardedAdsController(
         }
 
         rewardedAd = null
-        if (!BuildConfig.LUDOPAWS_TEST_ADS) ad.setServerSideVerificationOptions(
+        ad.setServerSideVerificationOptions(
             ServerSideVerificationOptions.Builder()
                 .setUserId(userId)
                 .setCustomData(customData)

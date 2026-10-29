@@ -1,5 +1,7 @@
 # चरण 3 — Splash और Google Play Games
 
+**Cleanup के बाद:** अब source में Dev tools, CharacterPreviewActivity, अलग developer/QA application IDs और demo-ad mode नहीं हैं। नीचे के APK hash/tests पहले के phase-3 build की historical evidence हैं; cleanup source का नया APK या test run नहीं हुआ है। वर्तमान install/process निर्देश: [main app device acceptance](../production-readiness/PHONE_TESTING.hi.md)।
+
 **नवीन device feedback:** यूज़र ने Rekixo launch और game splash दोनों देखकर तेज़ Home transition स्वीकार किया है। अब Play Games को Home के age/privacy popup flow में शुरू करने की requirement है। यह Application/splash initialization timing हटाने वाला runtime बदलाव चरण 4 में popup के साथ होगा; नीचे चरण 3 के implemented behavior और उसके build की historical evidence है। आगे हर edit पर build/lint/tests नहीं; अंतिम संयुक्त verification सभी दस चरण पूरे होने पर होगा।
 
 यूज़र के screenshots में ऊपर avatar, नाम और level के साथ दिखा “Hi there” Google Play Games का native welcome banner है। यह backend guest, Google-save और Play Billing से अलग है। इस implementation में PGS v2 का automatic platform authentication इस्तेमाल है; custom welcome banner, fake success या backend wallet identity change नहीं है।
@@ -60,7 +62,7 @@ adb shell am start -W -a android.intent.action.MAIN \
 
 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` का अर्थ installed Play app और debug APK signatures अलग हैं। Data बचाने के लिए app uninstall न करें। उसी signing key का approved build/internal Play update चाहिए। `.dev` preview अलग install हो सकती है, लेकिन उससे actual production PGS authentication validate नहीं होगी। यह चरण billing/ads test या v11 production release नहीं है।
 
-इस APK का package original `com.rekixo.ludopaws` है, `.dev` नहीं; build type फिर भी `debug` है। `HomeBottomActionsUi.kt` में `BuildConfig.DEBUG` के कारण Rate on Google की जगह Dev tools दिखता है। DeveloperToolsActivity `src/debug` source set में है, release में शामिल नहीं होती। Debug signing के कारण Play-installed release से signature mismatch हो सकता है। इस build command में billing और ads बंद हैं। इसलिए इसे production purchase/ads acceptance build न मानें।
+इस पुराने APK का package original `com.rekixo.ludopaws` था; debug build में Dev tools दिखते थे। Cleanup के बाद वे source से हटे हैं; उस पुराने APK में बदलाव अपने-आप नहीं होगा। Debug signing के कारण Play-installed release से signature mismatch हो सकता है। इस पुराने build command में billing और ads बंद थे, इसलिए वह production purchase/ads acceptance build नहीं था।
 
 Launch screens देखने के लिए पहले force-stop और फिर launcher intent जरूरी diagnostic path है; सिर्फ `am start -n` या पहले से खुले Home को resume करना बराबर जाँच नहीं है। विकल्प: force-stop के बाद फोन की Home screen से game icon दबाएँ। Fast preparation में custom splash बहुत कम समय रह सकती है; वह visibility समस्या अलग device observation है, केवल सही APK installed होने से उसे passed न मानें। पुराने GOT IT popup का दिखना चरण 4 से पहले अपेक्षित है।
 

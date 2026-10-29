@@ -69,26 +69,9 @@ class CosmeticInventoryStore(
     ): Boolean =
         cosmeticId in ownedCosmeticIds()
 
-    private fun developerDicePreviewAllowed(): Boolean =
-        com.rekixo.ludopaws.BuildConfig.DEBUG &&
-            com.rekixo.ludopaws.BuildConfig.APPLICATION_ID == "com.rekixo.ludopaws.dev"
-
-    /** Visual override in the separate Dev app; never grants ownership or changes server inventory. */
-    fun setDeveloperDicePreview(styleId: String?) {
-        check(developerDicePreviewAllowed()) { "Dice preview equipment is available only in the separate Dev app." }
-        require(styleId == null ||
-            com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(styleId)?.offer?.contentAvailable == true)
-        check(prefs.edit().putString("developer_dice_preview", styleId).commit())
-    }
-
     fun selectedId(
         category: CosmeticCategory,
     ): String {
-        if (developerDicePreviewAllowed() && category == CosmeticCategory.DICE) {
-            prefs.getString("developer_dice_preview", null)?.takeIf { id ->
-                com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(id)?.offer?.contentAvailable == true
-            }?.let { return it }
-        }
         prefs.getString("offline_selection_" + category.name, null)
             ?.takeIf { id -> StoreCosmeticCatalog.find(id)?.let {
                 it.category == category && it.contentAvailable &&
