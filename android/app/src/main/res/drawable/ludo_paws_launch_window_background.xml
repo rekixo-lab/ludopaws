@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Android 9–11 starting window; Android 12+ uses the same native vector via its splash attribute. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item>
-        <shape android:shape="rectangle">
-            <solid android:color="#03153F" />
-        </shape>
-    </item>
+    <item android:drawable="@color/rekixo_launch_background" />
+    <item
+        android:width="288dp"
+        android:height="288dp"
+        android:gravity="center"
+        android:drawable="@drawable/ic_rekixo_launch" />
 </layer-list>
