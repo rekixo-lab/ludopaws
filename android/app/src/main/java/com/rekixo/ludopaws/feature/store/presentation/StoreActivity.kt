@@ -54,6 +54,7 @@ class StoreActivity :
         StoreTab.GEMS
     internal var refreshBoardSelection: (() -> Unit)? = null
     internal var featuredCharacterId: String? = null
+    internal var promotedCosmeticId: String? = null
     internal var featuredPawsCard: com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsCard? = null
     internal var showcaseResumed = false
     internal val referralPromotions by lazy {
@@ -186,6 +187,12 @@ class StoreActivity :
         checkoutRetryNeeded = chosenProductId != null
         featuredCharacterId = (savedInstanceState?.getString("store_character") ?: intent.getStringExtra(EXTRA_FEATURED_CHARACTER_ID))
             ?.takeIf { com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.find(it) != null }
+        promotedCosmeticId = if (savedInstanceState != null) savedInstanceState.getString("store_promoted_item")
+            else intent.getStringExtra(EXTRA_PROMOTED_COSMETIC_ID)
+        promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.find(it) != null }
+        if (savedInstanceState == null) promotedCosmeticId?.let { id ->
+            StoreCosmeticCatalog.find(id)?.let { selectedTab = PromotionInterest.tabFor(it) }
+        }
         if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && !BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
             if (savedInstanceState == null) intent
@@ -217,6 +224,7 @@ class StoreActivity :
 
     internal fun showFeaturedCharacter(characterId: String) {
         featuredCharacterId = characterId
+        if (promotedCosmeticId != null) promotedCosmeticId = StoreCosmeticCatalog.characterUnlock(characterId)?.id
         selectedTab = StoreTab.PAWS
         renderStore()
     }
@@ -369,6 +377,7 @@ class StoreActivity :
         renderedTab?.let { tab -> scrollPositions[tab] = catalogScroll?.scrollY ?: scrollPositions[tab] ?: 0 }
         outState.putString("store_tab", selectedTab.name)
         outState.putString("store_character", featuredCharacterId)
+        outState.putString("store_promoted_item", promotedCosmeticId)
         outState.putString("store_product", chosenProductId)
         outState.putString("store_product_owner", chosenProductOwner)
         scrollPositions.forEach { (tab, position) -> outState.putInt("store_scroll_" + tab.name, position) }
@@ -1182,7 +1191,7 @@ class StoreActivity :
 
     private fun renderStoreNow() {
         val signature = listOf(
-            selectedTab, featuredCharacterId, liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
+            selectedTab, featuredCharacterId, promotedCosmeticId, liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
             cosmetics.ownedCosmeticIds(),
             com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.entries.map { cosmetics.selectedId(it) },
             com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.all.let { items ->
@@ -1377,6 +1386,7 @@ class StoreActivity :
     }
 
     companion object {
+        const val EXTRA_PROMOTED_COSMETIC_ID = "promoted_cosmetic_id"
         const val EXTRA_FEATURED_CHARACTER_ID = "ludo_paws_featured_character_id"
         const val EXTRA_INITIAL_TAB =
             "ludo_paws_store_initial_tab"

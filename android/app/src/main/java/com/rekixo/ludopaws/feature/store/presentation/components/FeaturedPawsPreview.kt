@@ -22,6 +22,7 @@ internal class FeaturedPawsPreview(
     context: Context,
     private val frameIntervalMillis: Long = 33L,
     private val playful: Boolean = false,
+    private val prominent: Boolean = false,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
@@ -171,9 +172,12 @@ internal class FeaturedPawsPreview(
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled) else sampled
                     // Reserve headroom in the GL viewport itself: allowing
                     // parent overflow cannot recover pixels clipped by GL.
-                    val zoom = if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 2.8f) .6f else .72f
-                    scene.drawPortrait(id, "BLUE", pose, life, previewZoom = zoom,
-                        synchronizeGpu = false, verticalAnchor = .69f)
+                    val tall = com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 3.2f
+                    val zoom = if (prominent) { if (tall) .68f else .78f }
+                        else if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 2.8f) .6f else .72f
+                    val framedPose = if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
+                    scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,
+                        synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f)
                     check(window?.swap() == true) { "Showcase buffer swap failed" }
                     if (notifyReady) post {
                         if (session === this && active && characterId == id && !failed) onReady?.invoke()

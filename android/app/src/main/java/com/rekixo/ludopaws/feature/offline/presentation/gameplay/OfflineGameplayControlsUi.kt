@@ -302,6 +302,7 @@ internal fun OfflineGameActivity.renderGame(
     val active = state.players.getOrNull(state.turnSeat)
     if (state.status == "FINISHED") {
         resultPanel.visibility = if (blockedRemainingMillis > 0L) View.GONE else View.VISIBLE
+        if (blockedRemainingMillis <= 0L) com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.showWhenFinished(this)
         // Phase 11 compatibility marker retained for the integration gate:
         // You brought all 4 paws home.
         val humanRank = engine.humanPlayerId()?.let { LudoPawsFinishPresentation.ranks(state)[it] }

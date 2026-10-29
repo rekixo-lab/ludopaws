@@ -51,6 +51,9 @@ internal fun StoreActivity.storeContent(): LinearLayout {
     }
     return LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
+        promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(it) }
+            ?.takeIf { com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.tabFor(it) == selectedTab }
+            ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }) }
         bundleItem?.let { addView(referralPromotions.storeEntry(it), LinearLayout.LayoutParams(-1, -2)) }
         addView(catalog, LinearLayout.LayoutParams(-1, -2))
     }

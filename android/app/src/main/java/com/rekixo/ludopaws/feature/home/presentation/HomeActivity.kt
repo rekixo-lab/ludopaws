@@ -353,10 +353,10 @@ class HomeActivity : Activity() {
                 dp(if (isCompact()) 350 else 388),
             )
         contentHost.addView(
-            HomePromotionCarousel(this) { tab, characterId ->
+            HomePromotionCarousel(this) { tab, cosmeticId ->
                 launchPlayerScreen(Intent(this, StoreActivity::class.java).apply {
                     putExtra(StoreActivity.EXTRA_INITIAL_TAB, tab)
-                    characterId?.let { putExtra(StoreActivity.EXTRA_FEATURED_CHARACTER_ID, it) }
+                    cosmeticId?.let { putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, it) }
                 })
             }.also { promotionCarousel = it },
             FrameLayout.LayoutParams(
