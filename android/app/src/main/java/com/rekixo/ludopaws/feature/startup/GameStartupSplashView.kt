@@ -25,7 +25,13 @@ import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
 
 /** Preparation UI only. It never initializes an identity/ad SDK or fabricates timed progress. */
-class GameStartupSplashView(activity: Activity, retry: () -> Unit, exit: () -> Unit) : FrameLayout(activity) {
+class GameStartupSplashView(
+    activity: Activity,
+    retry: () -> Unit,
+    exit: () -> Unit,
+    private val firstFrame: () -> Unit = {},
+) : FrameLayout(activity) {
+    private var firstFrameReported = false
     private fun dp(value: Int) = LudoProofTheme.dp(context, value)
     private val status = TextView(context).apply {
         text = "Preparing Ludo Paws…"
@@ -86,6 +92,16 @@ class GameStartupSplashView(activity: Activity, retry: () -> Unit, exit: () -> U
             insets
         }
         setPadding(dp(24), dp(24), dp(24), 0)
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (!firstFrameReported) {
+            firstFrameReported = true
+            // Start its own visibility interval only after the native launch
+            // gate has allowed a real game-splash frame to be drawn.
+            post { if (isAttachedToWindow) firstFrame() }
+        }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

@@ -17,3 +17,12 @@ User ने square corners और bottom-touching track report किया औ�
 - इसी source का normal main-app debug build सफल; connected Samsung SM-A715F (1080×2400, density 420) पर `install -r` सफल और cold launch चला। App uninstall/data-clear नहीं किया। Existing account/age choices इस visual check के लिए नहीं बदलीं।
 - Real-device 8-second cold-launch recording से splash frames inspect किए। Logo के चारों rounded corners स्पष्ट हैं। Frame 14 में gold track bounds x=66..1013, y=1754..1809; visible track के नीचे screen edge तक 590px खाली जगह है। Home खुलना भी recording में दिखा। यह reported physical DPI से approx inch placement है, ruler-based measurement नहीं।
 - Temporary evidence: `/tmp/ludopaws-splash-device-review/launch.mp4`, `frame-14.png`। Recording/build visual acceptance के लिए हैं; full unit/instrumentation/lint suite नहीं चलाई गई। चरण 9–10 और live-price decisions अपरिवर्तित हैं।
+
+## Relaxed timing — नवीन user requirement
+
+यूज़र ने तेज़ launch/splash को अब जानबूझकर readable बनाने को कहा: लगभग एक-एक सेकंड। यह पहले के no-minimum-delay निर्णय को बदलता है।
+
+- पहली startup flow में Activity decor का bounded pre-draw gate native Rekixo launch को लगभग 1000ms का minimum देता है। कोई Thread.sleep/main-thread blocking नहीं; वास्तविक preparation इस दौरान जारी है। OS/process startup overhead अलग होने से native screen का exact total time device पर निर्भर है।
+- Game splash का minimum 1000ms उसके वास्तविक first dispatchDraw के बाद शुरू होता है। Account/artwork पहले ready हों तब भी Home इस interval से पहले नहीं खुलता। Unknown work का existing 3000ms account grace और local watchdog/error/retry contract बरकरार है। Ready state का interval fake progress नहीं भरता।
+- Home पहले दिख चुका हो तो saved-state/process session branch native gate/custom splash delay bypass करती है। सामान्य foreground resume और दूसरे page से Back पर startup sequence नहीं दोहरती। Timer stop/destroy cleanup और resume re-evaluation हैं; retry को नया splash interval मिलता है।
+- Source recheck: first-frame gate, cached artwork, settled/slow/offline account, grace/watchdog, retry, Home restoration और lifecycle paths पढ़े; whitespace साफ। इस timing-only iteration में नया build/device recording या test suite नहीं चला है। पिछली device recording rounded-logo/spacing fix की है, इस नए timing की acceptance नहीं।
