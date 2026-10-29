@@ -160,9 +160,8 @@ class HomeActivity : Activity() {
             startupSession.refresh(StartupReadiness.canBootstrapAccount(connectivityMonitor.isOnline(), remoteExitSaved))
         }, exit = { finish() }).also { setContentView(it) }
         val generation = ++preparationGeneration
-        heroBitmap?.let { bitmap ->
+        heroBitmap?.let {
             localReady = true
-            splash?.artworkReady(bitmap)
             updateSplash()
             maybeShowHome()
             return
@@ -180,7 +179,6 @@ class HomeActivity : Activity() {
                     localReady = true
                     startupHandler.removeCallbacks(watchdog)
                     if (foreground) {
-                        splash?.artworkReady(bitmap)
                         updateSplash()
                     }
                     maybeShowHome()
@@ -513,7 +511,6 @@ class HomeActivity : Activity() {
         // Time spent backgrounded is not a local preparation failure.
         if (!homeShown && !preparationFailed) startedAt = SystemClock.elapsedRealtime()
         if (preparationFailed) splash?.showPreparationError()
-        else heroBitmap?.let { splash?.artworkReady(it) }
         startupSession.subscribe(startupObserver)
         lastOnline = null
         armStartupTimers()

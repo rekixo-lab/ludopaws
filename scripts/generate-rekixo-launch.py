@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'branding/rekixo/rekixo-logo-static.svg'
 OUTPUT = ROOT / 'android/app/src/main/res/drawable/ic_rekixo_launch.xml'
+OUTPUT_V31 = ROOT / 'android/app/src/main/res/drawable-v31/ic_rekixo_launch.xml'
 ANDROID = 'http://schemas.android.com/apk/res/android'
 AAPT = 'http://schemas.android.com/aapt'
 SVG = 'http://www.w3.org/2000/svg'
@@ -18,7 +19,7 @@ ET.register_namespace('aapt', AAPT)
 
 def a(name): return '{' + ANDROID + '}' + name
 
-def generate():
+def generate(width=216):
     raw = SOURCE.read_bytes()
     # The vendored file normalizes the upstream redundant final blank line.
     upstream = raw + b'\n'
@@ -26,9 +27,11 @@ def generate():
     assert blob == '75d2e1197f8925061ca5b36cf67bac5d5e1dce9a', 'Pinned branding source changed'
     source = ET.fromstring(raw)
     assert source.get('viewBox') == '0 0 1737 402'
-    # Android's 288dp no-background splash icon has a 192dp safe circle.
-    width, height = 180, 180 * 402 / 1737
-    assert math.hypot(width / 2, height / 2) < 96
+    # Android <=30 can show the requested 20% enlargement (180 ->216dp).
+    # Android 12+ masks the native icon to a 192dp circle: keep its complete
+    # wide wordmark at 187dp, the largest whole-dp width without clipping.
+    height = width * 402 / 1737
+    assert math.hypot(width / 2, height / 2) < (96 if width == 187 else 144)
     scale = width / 1737
     vector = ET.Element('vector', {a('width'): '288dp', a('height'): '288dp',
         a('viewportWidth'): '288', a('viewportHeight'): '288'})
@@ -70,10 +73,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
-    result = generate()
-    if args.check:
-        if not OUTPUT.exists() or OUTPUT.read_text() != result:
-            raise SystemExit('Launch vector is out of date; regenerate it.')
-    else:
-        OUTPUT.write_text(result)
-    print('Rekixo launch vector: 16 paths, original aspect ratio, inside Android 192dp safe circle.')
+    for destination, width in ((OUTPUT, 216), (OUTPUT_V31, 187)):
+        result = generate(width)
+        if args.check:
+            if not destination.exists() or destination.read_text() != result:
+                raise SystemExit('Launch vector is out of date; regenerate it.')
+        else:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            destination.write_text(result)
+    print('Rekixo launch vectors: 216dp on Android <=30; mask-safe 187dp on Android 12+.')
