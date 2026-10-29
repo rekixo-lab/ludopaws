@@ -1,6 +1,5 @@
 package com.rekixo.ludopaws.feature.startup
 
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -11,9 +10,9 @@ import android.graphics.Shader
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
+import android.os.SystemClock
 import android.view.Gravity
 import android.view.View
-import android.view.animation.LinearInterpolator
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -168,14 +167,9 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
     private val fill = RectF()
     private val clip = Path()
     private var loading = true
-    private var phase = 0f
+    private var animationStartedAt = 0L
     private var gradient: Shader? = null
-    private val shimmer = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 1400L
-        repeatCount = ValueAnimator.INFINITE
-        interpolator = LinearInterpolator()
-        addUpdateListener { phase = it.animatedValue as Float; invalidate() }
-    }
+    private val markerColors = intArrayOf(0xFFFF5959.toInt(), 0xFF65D895.toInt(), 0xFFFFD76A.toInt(), 0xFF5DB8FF.toInt())
 
     init { contentDescription = "Preparing game" }
 
@@ -186,21 +180,20 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
         invalidate()
     }
 
+    private fun canAnimate() = isAttachedToWindow && isShown && windowVisibility == VISIBLE
+
     private fun syncAnimation() {
-        if (loading && isAttachedToWindow && isShown && windowVisibility == VISIBLE) {
-            if (!shimmer.isStarted) shimmer.start()
-        } else shimmer.cancel()
+        if (canAnimate()) postInvalidateOnAnimation() else animationStartedAt = 0L
     }
 
     override fun onAttachedToWindow() { super.onAttachedToWindow(); syncAnimation() }
-    override fun onDetachedFromWindow() { shimmer.cancel(); super.onDetachedFromWindow() }
+    override fun onDetachedFromWindow() { animationStartedAt = 0L; super.onDetachedFromWindow() }
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
         if (isAttachedToWindow) syncAnimation()
     }
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
-        // Android can dispatch visibility while View's constructor is running.
         if (isAttachedToWindow) syncAnimation()
     }
 
@@ -215,6 +208,13 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (track.width() <= 0 || track.height() <= 0) return
+        // Start on the first drawn frame, not attach (which can happen while
+        // the native launch is still covering this View). Native VSYNC drives
+        // redraws directly; no ValueAnimator can remain stopped at phase zero.
+        val now = SystemClock.uptimeMillis()
+        if (animationStartedAt == 0L) animationStartedAt = now
+        val cycle = ((now - animationStartedAt) % 1_600L).toFloat() / 1_600f
+        val phase = ((1.0 - kotlin.math.cos(cycle * 2.0 * Math.PI)) * 0.5).toFloat()
         val radius = track.height() / 2f
         paint.shader = null
         paint.style = Paint.Style.FILL
@@ -223,13 +223,20 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
         val checkpoint = canvas.save()
         canvas.clipPath(clip)
         val segment = track.width() * 0.38f
-        val left = if (loading) track.left - segment + phase * (track.width() + segment) else track.left
+        val movingLeft = track.left + phase * (track.width() - segment)
+        val left = if (loading) movingLeft else track.left
         fill.set(left, track.top, if (loading) left + segment else track.right, track.bottom)
         paint.shader = gradient
         canvas.drawRoundRect(fill, radius, radius, paint)
         paint.shader = null
         paint.color = 0x55FFFFFF
         canvas.drawRoundRect(fill.left, track.top + density, fill.right, track.centerY(), radius, radius, paint)
+        // Once ready, retain the truthful full track and only move a soft
+        // highlight while the one-second presentation interval finishes.
+        if (!loading) {
+            paint.color = 0x66FFFFFF
+            canvas.drawRoundRect(movingLeft, track.top, movingLeft + segment, track.bottom, radius, radius, paint)
+        }
         // Four Ludo-color markers give the frame the same playful palette as the logo.
         canvas.restoreToCount(checkpoint)
         paint.style = Paint.Style.STROKE
@@ -237,9 +244,10 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
         paint.color = 0xFFEBC477.toInt()
         canvas.drawRoundRect(track, radius, radius, paint)
         paint.style = Paint.Style.FILL
-        intArrayOf(0xFFFF5959.toInt(), 0xFF65D895.toInt(), 0xFFFFD76A.toInt(), 0xFF5DB8FF.toInt()).forEachIndexed { index, color ->
+        markerColors.forEachIndexed { index, color ->
             paint.color = color
             canvas.drawCircle(track.centerX() + (index - 1.5f) * 7f * density, track.centerY(), 1.5f * density, paint)
         }
+        if (canAnimate()) postInvalidateOnAnimation()
     }
 }

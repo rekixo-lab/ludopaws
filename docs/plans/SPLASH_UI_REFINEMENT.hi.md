@@ -30,3 +30,11 @@ User ने square corners और bottom-touching track report किया औ�
 ## Logo size refinement
 
 User के नवीन निर्देश पर game-splash logo width और horizontal padding दोनों आधे किए (300dp container →150dp; 12dp horizontal inset →6dp)। Portrait में actual visible artwork 276dp→138dp है। Actual artwork clipping radius 26dp→36dp बढ़ा; bounds clamp बना है। Rekixo native branding, progress placement और one-second timing इस change में नहीं बदले। Source diff/whitespace recheck किया; नया build/device run/tests नहीं चलाए।
+
+## Visible smooth progress animation
+
+User ने animation frozen/अदृश्य report किया। पुराने track का first phase पूरी तरह offscreen था; ready होते ही animator cancel होकर static full track रहता था।
+
+- ValueAnimator state की जगह native `postInvalidateOnAnimation` frame scheduling और monotonic uptime phase है। पहला segment track के भीतर दिखता है; 1600ms cosine cycle में smoothly आगे/पीछे चलता है। Lifecycle visibility/attach पर frame request और hidden/detach पर scheduling बंद है; phase repeated readiness update पर reset नहीं होता।
+- Genuine ready state में full track रखा जाता है, लेकिन minimum splash interval के बचे समय में soft moving highlight चलता है। कोई fake completion percentage या readiness delay नहीं बढ़ाया।
+- Recheck: first draw, loading→ready, repeated update, visibility/background/detach और empty size branches पढ़े। Colors/geometry reusable हैं; प्रति-frame collection allocation हटाई। Whitespace साफ। इस iteration में build/lint/tests/device recording नहीं चले; physical motion acceptance user के अगले install पर बाकी है।
