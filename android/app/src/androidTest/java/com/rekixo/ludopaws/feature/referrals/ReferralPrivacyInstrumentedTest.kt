@@ -77,8 +77,10 @@ class ReferralPrivacyInstrumentedTest {
                 // Consent now opens on demand; the compact page must not
                 // silently create or preselect a consent checkbox.
                 assertTrue(views.filterIsInstance<CheckBox>().isEmpty())
-                val ordinaryShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share without rewards") }
+                val ordinaryShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share Ludo Paws") }
                 assertTrue(ordinaryShare.isEnabled)
+                val storeLinkShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share Play Store link") }
+                assertTrue(storeLinkShare.isEnabled)
                 views.filterIsInstance<Button>().single { it.text.toString() == "Got an invite?" }.performClick()
                 val dialogField = ReferralActivity::class.java.getDeclaredField("invitationDialog").apply { isAccessible = true }
                 val dialog = dialogField.get(activity) as android.app.Dialog

@@ -24,13 +24,19 @@ class OfflineFullMatchInstrumentedTest {
         ActivityScenario.launch<OfflineGameActivity>(Intent(context, OfflineGameActivity::class.java)
             .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.PASS_AND_PLAY.wireValue)).use { scenario ->
             scenario.onActivity { activity ->
-                activity.session.clear()
-                activity.showGame(activity.session.start(2, "RED"))
-                activity.requestOfflineExit()
-                assertTrue(activity.offlineModalPaused)
-                requireNotNull(activity.exitConfirmationDialog).dismiss()
-                assertTrue(activity.offlineActionsAllowed)
-                activity.session.clear()
+                try {
+                    activity.session.clear()
+                    activity.showGame(activity.session.start(2, "RED"))
+                    activity.requestOfflineExit()
+                    assertTrue(activity.offlineModalPaused)
+                    requireNotNull(activity.exitConfirmationDialog).dismiss()
+                    assertTrue(activity.offlineActionsAllowed)
+                } finally {
+                    activity.session.clear()
+                    // Finish on main before ActivityScenario.close waits for
+                    // global idle: a live animated board continually renders.
+                    activity.finish()
+                }
             }
         }
     }
