@@ -146,7 +146,9 @@ class StoreActivity :
             activity = this,
             enabled = { adsEnabledForBuild },
             adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
-            onMessage = ::showStoreMessage,
+            // A modal loading message steals window focus and can prevent the
+            // queued ad from opening until an unnecessary second tap.
+            onMessage = ::showCosmeticFeedback,
             canPresent = { storeStarted && showcaseResumed },
         )
     }
@@ -436,6 +438,7 @@ class StoreActivity :
     }
 
     override fun onDestroy() {
+        cosmeticFeedback?.cancel()
         observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
         rewardHandler.removeCallbacksAndMessages(null)
         referralPromotions.pause()
@@ -1067,7 +1070,7 @@ class StoreActivity :
                     visible -> "Reward verification pending · Tap to retry"
                     else -> ""
                 })
-                if (confirmed.isNotEmpty()) showStoreMessage("Ad reward verified. Your server wallet is up to date.")
+                if (confirmed.isNotEmpty()) showCosmeticFeedback("Ad reward verified. Your server wallet is up to date.")
                 renderStore()
                 if (visible && rewardRecoveryAttempt < 6) {
                     val delay = minOf(15_000L, 2_000L shl (rewardRecoveryAttempt - 1))
@@ -1259,8 +1262,6 @@ class StoreActivity :
         )
 
         fixedHeader.addView(storeHeader())
-        fixedHeader.addView(catalogStatusLabel())
-        fixedHeader.addView(rewardStatusLabel())
         fixedHeader.addView(
             storeTabs(),
             LinearLayout.LayoutParams(
@@ -1272,8 +1273,24 @@ class StoreActivity :
             },
         )
 
+        // Keep tabs reachable even when several status messages and the offer
+        // are visible together on a short/split-screen window.
+        val offerArea = object : ScrollView(this) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val windowLimit = dp(resources.configuration.screenHeightDp.coerceAtLeast(1)) / 3
+                val parentLimit = if (View.MeasureSpec.getMode(heightMeasureSpec) == View.MeasureSpec.UNSPECIFIED)
+                    windowLimit else minOf(windowLimit, View.MeasureSpec.getSize(heightMeasureSpec))
+                super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(parentLimit, View.MeasureSpec.AT_MOST))
+            }
+        }.apply { overScrollMode = View.OVER_SCROLL_NEVER }
+        val offerContent = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        offerArea.addView(offerContent)
+        fixedHeader.addView(offerArea, LinearLayout.LayoutParams(contentWidth, LinearLayout.LayoutParams.WRAP_CONTENT))
+        offerContent.addView(catalogStatusLabel())
+        offerContent.addView(rewardStatusLabel())
+
         if (BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
-            fixedHeader.addView(
+            offerContent.addView(
                 pinnedRemoveAdsContent(),
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1285,10 +1302,10 @@ class StoreActivity :
         }
 
         if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
-            fixedHeader.addView(rewardedAdCard())
+            offerContent.addView(rewardedAdCard())
         }
 
-        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) fixedHeader.addView(checkoutStatusLabel())
+        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) offerContent.addView(checkoutStatusLabel())
 
         val scroll =
             ScrollView(this).apply {
