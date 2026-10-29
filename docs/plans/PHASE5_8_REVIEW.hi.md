@@ -28,3 +28,10 @@
 - सीमा: server wallet हाल के 100 credited ad nonces लौटाता है। बहुत देर तक unresolved hint रहते हुए दूसरे devices पर 100 से ज्यादा नए rewards आने पर old nonce history से बाहर हो सकता है; support ledger review चाहिए, local balance देखकर claim clear नहीं किया जाएगा।
 
 आधार: [Google rewarded ads callbacks](https://developers.google.com/admob/android/rewarded), [server-side verification](https://developers.google.com/admob/android/ssv)।
+
+## चरण 8 — v11 purchase plan और worldwide preview preparation
+
+- `release/v11/pricing-plan.json` में सात core products के exact USD targets हैं: 1.00 / 0.50 / 1.50 / 2.50 / 5.00 / 10.00 / 20.00। Stable IDs, existing 5-Gems Remove Ads bonus और सभी existing grants सुरक्षित हैं। Cosmetics pricing अलग से अपरिवर्तित है।
+- `scripts/prepare-v11-pricing.mjs` offline release artifact बनाता है और client/server amounts, entitlement types, unique/full coverage, integer cents तथा increasing bulk value जाँचता है। Optional regional conversion में official Google utility endpoint ही है; product mutation/activation code नहीं। Tokens output नहीं होते।
+- Source recheck और `node --check` सफल; offline draft `/tmp/ludopaws-v11-pricing-draft.json` बना। USD 0.50 का Money representation units=0/nanos=500000000 है। Client actual Play formattedPrice ही दिखाता है।
+- **User decision: final v11 release के साथ apply**। इसलिए अभी live Console prices/availability में कोई बदलाव नहीं; authenticated worldwide conversion और per-region Console acceptance अंतिम release gate पर बाकी हैं। `release/v11/README.hi.md` में operator commands, regional review, current-price export और rollout sequence है। Build/test suites नहीं चले।

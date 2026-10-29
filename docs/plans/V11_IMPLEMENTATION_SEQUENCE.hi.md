@@ -95,3 +95,8 @@ Game preparation splash और backend guest/session coordinator के बा�
 ## चरण 1–3 recheck और चरण 4 का परिणाम
 
 Code-level review में startup timer restoration, unknown old-match mode handling और PGS lifecycle timing सुधारी गई। नया Home age/privacy popup लागू है; automatic GOT IT हट गया है। Numeric 1–100 deliberate selection, disabled-until-selection Continue, local band/policy save, one-dialog offline privacy text और restoration/double-submit guards हैं। Source review और deferred checks का विवरण: [PHASE4_AGE_PRIVACY.hi.md](PHASE4_AGE_PRIVACY.hi.md)। इस iteration में build/lint/tests/device execution नहीं चले; अंतिम संयुक्त verification बाकी है। अगला मुख्य काम चरण 5 है।
+
+
+## चरण 5–8 का source implementation परिणाम
+
+Navigation guard और Home callback coalescing (5), Store retry/selection/catalog lifecycle (6), queued rewarded ads तथा account-bound verified recovery (7), और staged v11 purchase-plan/regional-preview tooling (8) लागू हैं। Recheck और सीमाएँ: [चरण 5–8 report](PHASE5_8_REVIEW.hi.md)। User के निर्देश से नई कीमतें final v11 release के साथ ही लागू होंगी; अभी Console untouched है। Source rechecks heavy build/tests का विकल्प नहीं हैं; संयुक्त runtime validation चरण 10 में बाकी है। चरण 9 में v9 free-buy issue सहित payment का अंतिम audit अगला काम है।
