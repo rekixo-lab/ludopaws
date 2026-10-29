@@ -21,21 +21,34 @@ class OfflineFullMatchInstrumentedTest {
     @Test
     fun cancellingExitRestoresOfflineActions() {
         val context = ApplicationProvider.getApplicationContext<Context>()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val running = java.util.concurrent.atomic.AtomicReference<OfflineGameActivity>()
+        val actionsRestored = java.util.concurrent.atomic.AtomicBoolean()
         ActivityScenario.launch<OfflineGameActivity>(Intent(context, OfflineGameActivity::class.java)
             .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.PASS_AND_PLAY.wireValue)).use { scenario ->
-            scenario.onActivity { activity ->
-                try {
+            try {
+                scenario.onActivity { activity ->
+                    running.set(activity)
                     activity.session.clear()
                     activity.showGame(activity.session.start(2, "RED"))
                     activity.requestOfflineExit()
                     assertTrue(activity.offlineModalPaused)
                     requireNotNull(activity.exitConfirmationDialog).dismiss()
-                    assertTrue(activity.offlineActionsAllowed)
-                } finally {
-                    activity.session.clear()
-                    // Finish on main before ActivityScenario.close waits for
-                    // global idle: a live animated board continually renders.
-                    activity.finish()
+                }
+                // Dialog posts OnDismissListener onto main. Inspect on the next
+                // queue turn, after that callback, without waiting for an
+                // animated board to leave the entire queue idle.
+                instrumentation.runOnMainSync {
+                    val activity = requireNotNull(running.get())
+                    actionsRestored.set(!activity.offlineModalPaused && activity.offlineActionsAllowed)
+                }
+                assertTrue("dismissing exit must restore offline controls", actionsRestored.get())
+            } finally {
+                instrumentation.runOnMainSync {
+                    running.get()?.let { activity ->
+                        activity.session.clear()
+                        activity.finish()
+                    }
                 }
             }
         }
