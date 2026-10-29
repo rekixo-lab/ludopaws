@@ -726,8 +726,11 @@ class ProfileActivity : Activity() {
             return
         }
 
-        getSharedPreferences("play_games_opt_in", MODE_PRIVATE).edit().putBoolean("enabled", true).apply()
-        com.google.android.gms.games.PlayGamesSdk.initialize(applicationContext)
+        if (!(application as LudoProofApplication).startupPlayGames.initializeForExplicitSignIn()) {
+            playGamesStatus = getString(R.string.profile_play_games_setup_required)
+            renderProfile()
+            return
+        }
         playGamesSignInInProgress = true
         playGamesStatus = getString(R.string.profile_play_games_sign_in_opening)
         renderProfile()
@@ -735,6 +738,10 @@ class ProfileActivity : Activity() {
             .signIn()
             .addOnCompleteListener { task ->
                 if (isFinishing || isDestroyed) return@addOnCompleteListener
+                if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) {
+                    onPrivacyChoiceChanged()
+                    return@addOnCompleteListener
+                }
                 playGamesSignInInProgress = false
                 if (!task.isSuccessful) {
                     Log.w(TAG, "Play Games sign-in failed", task.exception)
@@ -774,11 +781,25 @@ class ProfileActivity : Activity() {
             }
     }
 
+    internal fun onPrivacyChoiceChanged() {
+        playGamesSignInInProgress = false
+        playGamesAuthenticated = false
+        playGamesDisplayName = null
+        playGamesStatus = getString(R.string.profile_play_games_sign_in_prompt)
+        renderProfile()
+        if (com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) refreshPlayGamesSignIn()
+    }
+
     private fun refreshPlayGamesSignIn() {
         // Automatic platform authentication does not require the old manual opt-in.
         // Preserve the neutral age boundary; Google-save is a separate flow.
-        if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) return
-        if (isPlayGamesConfigured) com.google.android.gms.games.PlayGamesSdk.initialize(applicationContext)
+        if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) {
+            playGamesAuthenticated = false
+            playGamesDisplayName = null
+            playGamesStatus = getString(R.string.profile_play_games_sign_in_prompt)
+            renderProfile()
+            return
+        }
 
         if (!isPlayGamesConfigured) {
             playGamesAuthenticated = false
@@ -788,11 +809,15 @@ class ProfileActivity : Activity() {
             renderProfile()
             return
         }
-        if (playGamesSignInInProgress) return
+        if (playGamesSignInInProgress || !(application as LudoProofApplication).startupPlayGames.initialized) return
         PlayGames.getGamesSignInClient(this)
             .isAuthenticated()
             .addOnCompleteListener { task ->
                 if (isFinishing || isDestroyed) return@addOnCompleteListener
+                if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) {
+                    onPrivacyChoiceChanged()
+                    return@addOnCompleteListener
+                }
                 if (!task.isSuccessful) {
                     Log.w(TAG, "Could not check Play Games sign-in state", task.exception)
                     playGamesAuthenticated = false
@@ -818,6 +843,10 @@ class ProfileActivity : Activity() {
             .currentPlayer
             .addOnCompleteListener { task ->
                 if (isFinishing || isDestroyed) return@addOnCompleteListener
+                if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) {
+                    onPrivacyChoiceChanged()
+                    return@addOnCompleteListener
+                }
                 if (!task.isSuccessful) {
                     Log.w(TAG, "Play Games authenticated, but player profile could not be loaded", task.exception)
                     playGamesDisplayName = null

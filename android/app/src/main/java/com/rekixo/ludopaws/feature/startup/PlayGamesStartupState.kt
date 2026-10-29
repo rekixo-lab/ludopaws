@@ -9,7 +9,7 @@ enum class PlayGamesStartupState {
         CONNECTED -> "Google Play Games connected"
         UNAVAILABLE -> "Play Games unavailable — you can still play"
         PRIVACY_REQUIRED -> "Welcome to Ludo Paws"
-        NOT_CONFIGURED -> "Game preview — Play Games not configured"
+        NOT_CONFIGURED -> "Play Games not configured"
     }
 }
 

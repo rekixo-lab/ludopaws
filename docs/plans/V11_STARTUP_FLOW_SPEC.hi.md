@@ -1,5 +1,7 @@
 # V11 Startup Flow — चरण 1 की पूरी specification
 
+**Implementation update:** चरण 2–4 का source अब लागू है। नवीन canonical behavior और code-level recheck: [चरण 4](PHASE4_AGE_PRIVACY.hi.md)। Play Games केवल Home/privacy flow में है, launch/splash में नहीं। यह document प्रारंभिक design decisions भी रखता है; नीचे के पुराने review-result counts historical हैं।
+
 स्थिति: **चरण 1 पूरा: flow/design contract तैयार।** 29 अक्टूबर 2026। यह runtime implementation नहीं है; launch assets/theme, splash/session और popup क्रमशः चरण 2–4 में बनेंगे। Payment/pricing/release इस चरण से बाहर हैं। यह document V11_IMPLEMENTATION_SEQUENCE.hi.md की requirement को operational बनाता है; trade-offs नीचे स्पष्ट decisions के रूप में दर्ज हैं।
 
 ## 1. User-visible contract
@@ -23,12 +25,12 @@ Home popup लगने से पहले Shop/Online/Share/other Home control
 ### B. Game splash/preparation
 
 - बीच में मौजूदा game logo; top safe inset के नीचे एक compact status line, bottom safe inset से ऊपर progress bar। Insets और text scaling का पालन।
-- Status precedence: account recovery problem → offline/pending status → restored/created game account status। Optional Play Games success केवल वास्तविक provider success पर।
+- Splash की status/progress केवल game preparation की है। Account recovery/pending banner Home पर है। Play Games readiness splash/Home transition को gate नहीं करती।
 - Copy states: `Preparing your game…`, `Connecting your guest account…`, `Guest account ready`, `Welcome back`, `Offline play available`, `Connecting — offline play available`, `Restore your saved account to reconnect`।
 - PGS के native welcome banner को अपने custom guest status के बराबर न मानें। User की identity/email UI में अपने-आप न दिखाएँ।
 - Required local tasks: persisted settings/onboarding read, essential logo/Home assets, account cache classification, minimal render prerequisites। Existing expensive board/yard preparation के सभी extras को blocking readiness में न जोड़ें; nonessential work background में।
 - Progress: known local tasks का actual completed/total count; unknown network duration पर indeterminate bar। Account success बताने के लिए fake 100% नहीं। `Home ready` का अर्थ UI/local readiness है, payment/remote service readiness नहीं।
-- Network grace budget **अधिकतम 3 seconds**, minimum splash duration **0**। Local Home तैयार और account settled हों तो तुरंत आगे। 3s पर remote काम अधूरा हो तो Home + pending status; request को success न कहें। Known offline हो तो network grace का इंतजार नहीं। यह UI budget है, HTTP request timeout नहीं। Grace की घड़ी पहली bootstrap dispatch से चले; स्थानीय तैयारी के बाद फिर नया 3-second wait न शुरू हो। Essential local prep के लिए 5-second watchdog: readiness न आए तो PREPARE_ERROR, fake success नहीं। ये design budgets हैं, measured performance results नहीं।
+- Network grace budget **अधिकतम 3 seconds**, minimum splash duration **0**। Local Home तैयार और account settled हों तो तुरंत आगे। 3s पर remote काम अधूरा हो तो Home + pending status; request को success न कहें। Known offline हो तो network grace का इंतजार नहीं। यह UI budget है, HTTP request timeout नहीं। Grace की घड़ी foreground preparation से चले; स्थानीय तैयारी के बाद फिर नया 3-second wait न शुरू हो। Restored Activity के नए artwork काम और background से लौटने को पुराना expired watchdog तत्काल fail न करे। Essential local prep के लिए 5-second watchdog: readiness न आए तो PREPARE_ERROR, fake success नहीं। ये design budgets हैं, measured performance results नहीं।
 - Required local content fail हो तो bounded error screen `Couldn't prepare the game` + Retry/Exit; missing required assets को छिपाकर playable claim नहीं। Optional art fail हो तो verified built-in fallback।
 
 ### C. Home का एक age/privacy popup

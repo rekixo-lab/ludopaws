@@ -1,7 +1,6 @@
 package com.rekixo.ludopaws.ui.home
 
 import android.app.Activity
-import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -13,47 +12,8 @@ import android.widget.TextView
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
 import com.rekixo.ludopaws.ui.dialogs.settingsDp
 import com.rekixo.ludopaws.ui.dialogs.sizeDialog
-import com.rekixo.ludopaws.GameMode
-import com.rekixo.ludopaws.HomeActivity
-import com.rekixo.ludopaws.openGameMode
-import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
-import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsObserver
 
-/**
- * First-run guide is optional, offline-safe, and asks for no personal data.
- * It never triggers ads, social sign-in, age prompts or backend calls.
- */
-internal class HomeGuideStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences(
-        "ludopaws_home_guide_v1", Context.MODE_PRIVATE,
-    )
-    fun wasSeen(): Boolean = prefs.getBoolean("intro_seen", false)
-    fun markSeen() { prefs.edit().putBoolean("intro_seen", true).apply() }
-}
-
-internal fun HomeActivity.showFirstRunGuideIfNeeded() {
-    if (homeGuideVisible || isFinishing || isDestroyed) return
-    val store = HomeGuideStore(this)
-    if (store.wasSeen() || ProfileStore(this).snapshot().totalGames > 0) return
-    homeGuideVisible = true
-    window.decorView.post {
-        if (isFinishing || isDestroyed) {
-            homeGuideVisible = false
-            return@post
-        }
-        showLudoPawsGuide(
-            activity = this,
-            onTryRobot = { openGameMode(GameMode.COMPUTER) },
-            onDismissed = {
-                store.markSeen()
-                homeGuideVisible = false
-
-            },
-        )
-    }
-}
-
-/** Reusable from Settings; help remains available after first-run dismissal. */
+/** Help is opened explicitly from Settings; never shown automatically on Home. */
 internal fun showLudoPawsGuide(
     activity: Activity,
     onTryRobot: (() -> Unit)? = null,
@@ -184,7 +144,7 @@ internal fun showLudoPawsGuide(
 
     // A single, centered bottom action: dismissing the guide is enough.
     panel.addView(
-        guideAction("GOT IT") { dialog.dismiss() },
+        guideAction("Close") { dialog.dismiss() },
         LinearLayout.LayoutParams(
             settingsDp(activity, 152),
             LinearLayout.LayoutParams.WRAP_CONTENT,

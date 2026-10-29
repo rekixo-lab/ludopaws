@@ -79,14 +79,14 @@ class GameStartupSplashView(activity: Activity, retry: () -> Unit, exit: () -> U
         fallbackTitle.visibility = View.GONE
     }
 
-    fun update(account: StartupAccountSnapshot, localReady: Boolean, playGames: PlayGamesStartupState) {
-        status.text = playGames.message
+    fun update(account: StartupAccountSnapshot, localReady: Boolean) {
+        status.text = "Preparing Ludo Paws…"
         caption.text = when {
             !localReady -> "Preparing game artwork…"
-            !account.settled || !playGames.settled -> "Preparing — offline play available"
+            !account.settled -> "Preparing — offline play available"
             else -> "Game ready"
         }
-        progress.isIndeterminate = !localReady || !account.settled || !playGames.settled
+        progress.isIndeterminate = !localReady || !account.settled
         if (!progress.isIndeterminate) { progress.max = 1; progress.progress = 1 }
     }
 

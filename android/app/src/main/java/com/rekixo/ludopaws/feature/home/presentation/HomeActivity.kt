@@ -33,7 +33,6 @@ class HomeActivity : Activity() {
         TextView? = null
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
-    internal var homeGuideVisible: Boolean = false
 
     private val startupHandler = Handler(Looper.getMainLooper())
     private val startupSession get() = (application as LudoProofApplication).startupSession
@@ -50,6 +49,8 @@ class HomeActivity : Activity() {
     private var lastOnline: Boolean? = null
     private var remoteExitSaved = true
     private var startupBanner: TextView? = null
+    private var homeRoot: FrameLayout? = null
+    private var privacyBlocker: View? = null
     private val startupObserver: (StartupAccountSnapshot) -> Unit = { snapshot ->
         if (foreground && !isFinishing && !isDestroyed) {
             updateSplash()
@@ -57,15 +58,13 @@ class HomeActivity : Activity() {
             maybeShowHome()
         }
     }
-    private val playGamesObserver: (PlayGamesStartupState) -> Unit = {
-        if (foreground && !isFinishing && !isDestroyed) {
-            updateSplash()
-            maybeShowHome()
-        }
+    private val privacyReady: () -> Unit = {
+        syncHomePrivacyGate()
+        if (resumed && homeShown && !isFinishing && !isDestroyed) startupPlayGames.refresh(this)
     }
 
     private fun updateSplash() {
-        if (!preparationFailed) splash?.update(startupSession.snapshot, localReady, startupPlayGames.status.state)
+        if (!preparationFailed) splash?.update(startupSession.snapshot, localReady)
     }
     private val grace = Runnable { maybeShowHome() }
     private val watchdog = Runnable {
@@ -79,15 +78,17 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
-        val now = SystemClock.elapsedRealtime()
-        startedAt = (savedInstanceState?.getLong("startup_started_at", now) ?: now).coerceAtMost(now)
+        heroBitmap = (application as LudoProofApplication).startupArtwork
+        // A restored Activity starts new artwork work. Reusing an old elapsed
+        // timestamp could immediately trip its watchdog after process death.
+        startedAt = SystemClock.elapsedRealtime()
         connectivityMonitor = ConnectivityMonitor(this) { online ->
             runOnUiThread {
                 if (!foreground || isFinishing || isDestroyed) return@runOnUiThread
                 if (lastOnline != online) {
                     lastOnline = online
                     startupSession.refresh(StartupReadiness.canBootstrapAccount(online, remoteExitSaved))
-                    startupPlayGames.refresh(this)
+                    if (homeShown && resumed) resumeHomePrivacy()
                 }
                 if (::connectivityText.isInitialized) connectivityText.text = if (online) "● ONLINE" else "● OFFLINE"
                 updateStartupBanner(startupSession.snapshot)
@@ -111,9 +112,15 @@ class HomeActivity : Activity() {
             showPreparation()
             armStartupTimers()
             startupSession.refresh(StartupReadiness.canBootstrapAccount(connectivityMonitor.isOnline(), remoteExitSaved))
-            startupPlayGames.refresh(this)
         }, exit = { finish() }).also { setContentView(it) }
         val generation = ++preparationGeneration
+        heroBitmap?.let { bitmap ->
+            localReady = true
+            splash?.artworkReady(bitmap)
+            updateSplash()
+            maybeShowHome()
+            return
+        }
         (application as LudoProofApplication).startupArtworkExecutor.execute {
             val bitmap = try { BitmapFactory.decodeResource(resources, R.drawable.ludo_paws_home_hero) } catch (_: Exception) { null }
             startupHandler.post {
@@ -123,6 +130,7 @@ class HomeActivity : Activity() {
                     if (foreground) splash?.showPreparationError()
                 } else {
                     heroBitmap = bitmap
+                    (application as LudoProofApplication).startupArtwork = bitmap
                     localReady = true
                     startupHandler.removeCallbacks(watchdog)
                     if (foreground) {
@@ -146,11 +154,12 @@ class HomeActivity : Activity() {
     private fun maybeShowHome() {
         if (!foreground || homeShown || preparationFailed || isFinishing || isDestroyed) return
         if (StartupReadiness.canShowHome(localReady,
-                startupSession.snapshot.settled && startupPlayGames.status.state.settled, elapsedStartup())) showHome()
+                startupSession.snapshot.settled, elapsedStartup())) showHome()
     }
 
     private fun showHome() {
         if (homeShown) return
+        val firstHomeInProcess = !startupSession.hasShownHome
         homeShown = true
         startupSession.hasShownHome = true
         startupHandler.removeCallbacks(grace)
@@ -161,7 +170,9 @@ class HomeActivity : Activity() {
             updateStartupBanner(startupSession.snapshot)
             if (resumed) resumeHome()
         }
-        // Optional board preparation must not hold the startup account/loading gate.
+        // Optional preparation runs once per process, not again for the PGS
+        // host recreation or a return from another screen.
+        if (!firstHomeInProcess) return
         com.rekixo.ludopaws.feature.boards.rendering.BoardRendererRegistry
             .create(com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve("board_classic"))
             .prepare {}
@@ -347,6 +358,25 @@ class HomeActivity : Activity() {
                 leftMargin = dp(24); rightMargin = dp(24)
             })
         }
+        homeRoot = root
+        privacyBlocker = View(this).apply {
+            isClickable = true
+            isFocusable = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            elevation = dp(100).toFloat()
+        }.also { root.addView(it, FrameLayout.LayoutParams(-1, -1)) }
+        syncHomePrivacyGate()
+    }
+
+    private fun syncHomePrivacyGate() {
+        val ready = com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)
+        privacyBlocker?.visibility = if (ready) View.GONE else View.VISIBLE
+        // The dialog owns a separate window. Hide only the underlying Home
+        // from accessibility/focus while its required privacy choice is pending.
+        homeRoot?.apply {
+            importantForAccessibility = if (ready) View.IMPORTANT_FOR_ACCESSIBILITY_AUTO else View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            descendantFocusability = if (ready) android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS else android.view.ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        }
     }
 
     private fun updateStartupBanner(snapshot: StartupAccountSnapshot) {
@@ -366,7 +396,6 @@ class HomeActivity : Activity() {
     override fun onResume() {
         super.onResume()
         resumed = true
-        startupPlayGames.refresh(this)
         if (homeShown) resumeHome()
     }
 
@@ -384,12 +413,17 @@ class HomeActivity : Activity() {
     private fun resumeHome() {
         refreshHomeProfileSummary()
         refreshHomeGemBalance()
-        if (!remoteExitSaved) {
-            android.widget.Toast.makeText(this, "Could not save the pending match result. Please reopen the match before leaving.", android.widget.Toast.LENGTH_LONG).show()
-            return
-        }
-        showFirstRunGuideIfNeeded()
+        resumeHomePrivacy()
     }
+
+    private fun resumeHomePrivacy() {
+        if (!homeShown || !resumed || isFinishing || isDestroyed) return
+        syncHomePrivacyGate()
+        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.ensureEntryChoice(this, privacyReady)
+    }
+
+    internal fun isHomeReadyForPlatformConnection(): Boolean =
+        resumed && homeShown && !isFinishing && !isDestroyed
 
     override fun onPause() {
         resumed = false
@@ -397,14 +431,15 @@ class HomeActivity : Activity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        outState.putLong("startup_started_at", startedAt)
         outState.putBoolean("startup_home_shown", homeShown)
         super.onSaveInstanceState(outState)
     }
 
     private fun recordAbandonedRemoteLossIfNeeded() {
         val session = SecureSessionStore(this).load() ?: return
-        val mode = GameMode.fromWireValue(session.modeWire) ?: return
+        val mode = requireNotNull(GameMode.fromWireValue(session.modeWire)) {
+            "Cannot save the pending match result for an unknown game mode"
+        }
         SecureSessionStore(this).savePendingForfeit(PendingRemoteForfeit(
             matchId = session.matchId, playerId = session.playerId, playerToken = session.playerToken,
             ranked = mode.ranked,
@@ -417,8 +452,8 @@ class HomeActivity : Activity() {
         super.onStart()
         foreground = true
         prepareHomeRemoteExit()
-        startupPlayGames.refresh(this)
-        startupPlayGames.status.subscribe(playGamesObserver)
+        // Time spent backgrounded is not a local preparation failure.
+        if (!homeShown && !preparationFailed) startedAt = SystemClock.elapsedRealtime()
         if (preparationFailed) splash?.showPreparationError()
         else heroBitmap?.let { splash?.artworkReady(it) }
         startupSession.subscribe(startupObserver)
@@ -432,7 +467,6 @@ class HomeActivity : Activity() {
     override fun onStop() {
         foreground = false
         startupSession.unsubscribe(startupObserver)
-        startupPlayGames.status.unsubscribe(playGamesObserver)
         startupHandler.removeCallbacks(grace)
         startupHandler.removeCallbacks(watchdog)
         connectivityMonitor.stop()
@@ -441,8 +475,8 @@ class HomeActivity : Activity() {
 
     override fun onDestroy() {
         preparationGeneration += 1
+        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)
         startupSession.unsubscribe(startupObserver)
-        startupPlayGames.status.unsubscribe(playGamesObserver)
         startupHandler.removeCallbacksAndMessages(null)
         if (
             ::connectivityMonitor

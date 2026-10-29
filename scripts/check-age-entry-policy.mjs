@@ -37,7 +37,7 @@ const adsPrivacy = read(root + "feature/store/data/ads/FamilyAdsPrivacy.kt");
 for (const token of ["AgeRestrictedTreatment.CHILD", "MAX_AD_CONTENT_RATING_G", 'putString("npa", "1")', "setTagForUnderAgeOfConsent(true)"]) {
   if (!adsPrivacy.includes(token)) throw Error("Family advertising privacy regression: " + token);
 }
-for (const file of ["feature/home/presentation/HomeActivity.kt", "core/app/LudoProofApplication.kt",
+for (const file of ["core/app/LudoProofApplication.kt",
     "core/navigation/GameModeNavigation.kt", "feature/store/data/ads/RewardedAdsController.kt",
     "feature/store/data/ads/PostWinInterstitialAdController.kt"]) {
   if (read(root + file).includes("FamilyAgeScreen")) throw Error("Age entry must not interrupt startup or gameplay: " + file);
@@ -51,4 +51,9 @@ for (const file of ["RewardedAdsController.kt", "PostWinInterstitialAdController
   if (!source.includes("FamilyAdsPrivacy.request()") || !source.includes("FamilyAdsPrivacy.consentParameters()"))
     throw Error("Ad request bypasses family privacy: " + file);
 }
-console.log("PASS: no startup/gameplay age prompt; child-directed, G-rated, non-personalized ads before SDK initialization");
+const home = read(root + "feature/home/presentation/HomeActivity.kt");
+if (!home.includes("FamilyAgeScreen.ensureEntryChoice") || home.includes("showFirstRunGuideIfNeeded"))
+  throw Error("Home must use the single neutral privacy popup, without the old automatic guide");
+if (read(root + "core/app/LudoProofApplication.kt").includes("startupPlayGames.initializeIfAllowed"))
+  throw Error("PGS must not initialize before the Home privacy flow");
+console.log("PASS: one neutral Home privacy popup; gameplay/ads retain family treatment and no shared DOB");

@@ -10,7 +10,6 @@ const expectedFiles = [
   "feature/profile/presentation/components/ProfileCommonUi.kt",
   "feature/store/presentation/StoreActivity.kt",
   "feature/settings/presentation/SettingsDialogUi.kt",
-  "feature/safety/FamilyAgeScreen.kt",
 ];
 const helperPath = path.join(appSource, "core/ui/dialogs/components/PlywoodAlertDialogBuilder.kt");
 const helper = fs.readFileSync(helperPath, "utf8");
@@ -55,9 +54,9 @@ for (const relative of expectedFiles) {
   found.set(relative, (source.match(/PlywoodAlertDialogBuilder\(/g) ?? []).length);
 }
 const count = [...found.values()].reduce((a, b) => a + b, 0);
-// Guest checkout opens the native Play sheet; the backup and extra confirmation dialogs were removed.
-if (count < 28) {
-  throw new Error(`Plywood dialog gate: expected at least 28 migrated call sites including Friends menu, found ${count}`);
+// Guest checkout opens the native Play sheet; privacy now uses one restorable custom dialog instead of two list/alert call sites.
+if (count < 26) {
+  throw new Error(`Plywood dialog gate: expected at least 26 migrated call sites including Friends menu, found ${count}`);
 }
 const friends = fs.readFileSync(path.join(appSource, "feature/friends/presentation/FriendsActivity.kt"), "utf8");
 insist(friends, 'setTitle("FRIEND OPTIONS")', "Friends custom options menu");
@@ -65,9 +64,14 @@ for (const action of ["Copy Friend ID", "Remove Friend", "Block Player", "Report
   insist(friends, action, "Friends menu action");
 }
 const age = fs.readFileSync(path.join(appSource, "feature/safety/FamilyAgeScreen.kt"), "utf8");
-for (const marker of ['"Under 13"', '"18 or older"', '.setOnCancelListener { pending.remove(activity) }',
-                      '.setOnDismissListener { pending.remove(activity) }', 'putInt(KEY, which)']) {
-  insist(age, marker, "age/privacy behavior");
+for (const marker of ['age !in 1..100', 'putInt(KEY, band)', 'putInt(POLICY_KEY, POLICY_VERSION)',
+                      'manager.findFragmentByTag(TAG)', 'fun detach(activity: Activity)']) {
+  insist(age, marker, "durable neutral age/privacy behavior");
+}
+const privacyDialog = fs.readFileSync(path.join(appSource, "feature/safety/FamilyPrivacyDialog.kt"), "utf8");
+for (const marker of ['DialogFragment()', 'baseDialog(host)', 'How old are you?', 'Privacy Policy',
+                      'max = 100', 'selectedAge = 0', 'onSaveInstanceState', 'FamilyAgeScreen.completed(host)']) {
+  insist(privacyDialog, marker, "single restorable age/privacy surface");
 }
 const store = fs.readFileSync(path.join(appSource, "feature/store/presentation/StoreActivity.kt"), "utf8");
 for (const marker of ["billing.launchPurchase(productId)", "selectCosmetic(", "launchReadyCheckout()",

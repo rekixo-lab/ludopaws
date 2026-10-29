@@ -1,5 +1,7 @@
 # चरण 3 — Splash और Google Play Games
 
+**चरण 4 के बाद वर्तमान flow:** नीचे चरण-3 implementation/build की historical evidence है। PGS initialization अब Application/splash से हटाकर Home/privacy flow में लागू है। नया popup और source-only recheck: [चरण 4](PHASE4_AGE_PRIVACY.hi.md)। पुराने build के 523 tests/469 lint warnings को नए source की verification न मानें।
+
 **Cleanup के बाद:** अब source में Dev tools, CharacterPreviewActivity, अलग developer/QA application IDs और demo-ad mode नहीं हैं। नीचे के APK hash/tests पहले के phase-3 build की historical evidence हैं; cleanup source का नया APK या test run नहीं हुआ है। वर्तमान install/process निर्देश: [main app device acceptance](../production-readiness/PHONE_TESTING.hi.md)।
 
 **नवीन device feedback:** यूज़र ने Rekixo launch और game splash दोनों देखकर तेज़ Home transition स्वीकार किया है। अब Play Games को Home के age/privacy popup flow में शुरू करने की requirement है। यह Application/splash initialization timing हटाने वाला runtime बदलाव चरण 4 में popup के साथ होगा; नीचे चरण 3 के implemented behavior और उसके build की historical evidence है। आगे हर edit पर build/lint/tests नहीं; अंतिम संयुक्त verification सभी दस चरण पूरे होने पर होगा।

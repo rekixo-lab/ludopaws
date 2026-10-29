@@ -16,6 +16,9 @@ class LudoProofApplication :
         FriendPresenceController
     val accountRepository: AccountRepository by lazy { AccountRepository(this) }
     val startupPlayGames by lazy { com.rekixo.ludopaws.feature.startup.StartupPlayGames(this) }
+    // One bounded Home asset, reused across the privacy/PGS host recreation.
+    var startupArtwork: android.graphics.Bitmap? = null
+        internal set
     val startupArtworkExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
         Thread(task, "LudoPawsStartupArtwork").apply { isDaemon = true }
     }
@@ -61,7 +64,6 @@ class LudoProofApplication :
 
     override fun onCreate() {
         super.onCreate()
-        startupPlayGames.initializeIfAllowed()
         // Prime the process-local cosmetic mirror before any remote create/join
         // request can be sent. Character selection remains presentation-only.
         CharacterSelectionStore(this).load()
