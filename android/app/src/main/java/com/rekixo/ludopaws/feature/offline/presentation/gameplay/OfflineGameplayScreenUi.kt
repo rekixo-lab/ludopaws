@@ -40,6 +40,7 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
         LudoProofTheme.arcadeRoot(
             context = this,
             gameplayBackground = true,
+            gameplayBoardEnvironment = true,
         )
 
     val horizontalPaddingDp =
@@ -201,6 +202,11 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
         host = host,
         context = this,
         onBack = { requestOfflineExit() },
+        centerContent = if (state.status == "ACTIVE") {
+            com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionView(this).apply {
+                protect(listOfNotNull(topPlayerRail, bottomPlayerRail, boardView))
+            }
+        } else null,
         onSettings = {
             showSettingsDialog(
                 this,

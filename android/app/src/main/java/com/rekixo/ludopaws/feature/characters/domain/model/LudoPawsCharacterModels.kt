@@ -28,6 +28,7 @@ enum class AnimalSpecies {
     DOG,
     GOAT,
     CAT,
+    COCK,
 }
 
 enum class AnimalPersonality {

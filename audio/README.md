@@ -71,7 +71,7 @@ Use exact cue names and numbered variants, for example:
 - audio/sfx/voices/duck/lp_vocal_duck_home_01.wav
 - audio/sfx/voices/goat/lp_vocal_goat_six_01.ogg
 
-Supported character IDs: dog, goat, duck, cat. The reaction profile currently requests voice variants _01 and _02. Use short, non-verbal, original/licensed character takes. Normal movement and routine turn-start moments should remain vocally quiet; capture, home, third-six and final results may get a stronger reaction.
+Supported recorded character IDs: dog, goat, duck, cat, cock, pig, elephant, horse, rabbit. Lumi Goat currently uses Goat vocal clips; Donkey is intentionally silent. The reaction profile currently requests voice variants _01 and _02. Use short, non-verbal, original/licensed character takes. Normal movement and routine turn-start moments should remain vocally quiet; capture, home, third-six and final results may get a stronger reaction.
 
 Existing Android res/raw voice names remain a compatibility fallback. If a matching root audio file exists, it is preferred.
 
@@ -83,3 +83,15 @@ Existing Android res/raw voice names remain a compatibility fallback. If a match
 - No digital clipping or unnecessarily aggressive loudness normalization.
 - Keep physical SFX, animal vocals and background music as separate assets/lanes.
 - A filename in this guide is a slot, not a claim that the sound file already exists.
+
+For per-character audio profiles and optional dice/board sound overrides, see `docs/CONTENT_AUDIO_EXTENSION.md`.
+
+## Board ambience (independent of music)
+
+Optional looping ambient assets for a board live in `audio/ambience/<board-id>/`,
+for example `audio/ambience/board_monsoon_mire/rain_loop.ogg`. Add its exact
+path to that board's `BoardDefinition.ambientSoundPaths`. WAV/OGG/MP3 files
+are packaged automatically by Gradle. This lane runs at a quiet level alongside
+background music and follows the Music toggle, Android audio focus, foreground
+and board selection. Missing assets mean silence for that lane. Never use
+unlicensed third-party recordings; long clips should be optimized/compressed.

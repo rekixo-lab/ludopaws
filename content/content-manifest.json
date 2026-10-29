@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 1,
+  "characters": [
+    {
+      "id": "dog",
+      "folder": "dog",
+      "definition": "DogDefinition",
+      "renderer": "DogRenderer",
+      "avatar": "DogAvatarRenderer",
+      "audio": {
+        "voiceOwner": "dog",
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_DOG"
+      }
+    },
+    {
+      "id": "goat",
+      "folder": "goat",
+      "definition": "GoatDefinition",
+      "renderer": "GoatRenderer",
+      "avatar": "GoatAvatarRenderer",
+      "audio": {
+        "voiceOwner": "goat",
+        "footstepStyle": "HOOF",
+        "footstepFallback": "MOVE_STEP_GOAT"
+      }
+    },
+    {
+      "id": "duck",
+      "folder": "duck",
+      "definition": "DuckDefinition",
+      "renderer": "DuckRenderer",
+      "avatar": "DuckAvatarRenderer",
+      "audio": {
+        "voiceOwner": "duck",
+        "footstepStyle": "WEB",
+        "footstepFallback": "MOVE_STEP_DUCK",
+        "volume": 0.28
+      }
+    },
+    {
+      "id": "cat",
+      "folder": "cat",
+      "definition": "CatDefinition",
+      "renderer": "CatRenderer",
+      "avatar": "CatAvatarRenderer",
+      "audio": {
+        "voiceOwner": "cat",
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_CAT"
+      }
+    },
+    {
+      "id": "donkey",
+      "folder": "donkey",
+      "definition": "DonkeyDefinition",
+      "renderer": "DonkeyRenderer",
+      "avatar": "DonkeyAvatarRenderer",
+      "audio": {
+        "voiceOwner": null,
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_DOG"
+      }
+    },
+    {
+      "id": "goat_lumi",
+      "folder": "lumi",
+      "definition": "LumiGoatDefinition",
+      "renderer": "LumiGoatRenderer",
+      "avatar": "LumiGoatAvatarRenderer",
+      "audio": {
+        "voiceOwner": "goat",
+        "footstepStyle": "HOOF",
+        "footstepFallback": "MOVE_STEP_GOAT"
+      }
+    },
+    {
+      "id": "cock",
+      "folder": "cock",
+      "definition": "CockDefinition",
+      "renderer": "CockRenderer",
+      "avatar": "CockAvatarRenderer",
+      "audio": {
+        "voiceOwner": "cock",
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_DOG"
+      }
+    },
+    {
+      "id": "pig",
+      "folder": "pig",
+      "definition": "PigDefinition",
+      "renderer": "PigRenderer",
+      "avatar": "PigAvatarRenderer",
+      "audio": {
+        "voiceOwner": "pig",
+        "footstepStyle": "HOOF",
+        "footstepFallback": "MOVE_STEP_GOAT"
+      }
+    },
+    {
+      "id": "elephant",
+      "folder": "elephant",
+      "definition": "ElephantDefinition",
+      "renderer": "ElephantRenderer",
+      "avatar": "ElephantAvatarRenderer",
+      "audio": {
+        "voiceOwner": "elephant",
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_CAT"
+      }
+    },
+    {
+      "id": "horse",
+      "folder": "horse",
+      "definition": "HorseDefinition",
+      "renderer": "HorseRenderer",
+      "avatar": "HorseAvatarRenderer",
+      "audio": {
+        "voiceOwner": "horse",
+        "footstepStyle": "HOOF",
+        "footstepFallback": "MOVE_STEP_GOAT"
+      }
+    },
+    {
+      "id": "rabbit",
+      "folder": "rabbit",
+      "definition": "RabbitDefinition",
+      "renderer": "RabbitRenderer",
+      "avatar": "RabbitAvatarRenderer",
+      "audio": {
+        "voiceOwner": "rabbit",
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_CAT"
+      }
+    }
+  ],
+  "boards": [
+    {
+      "id": "board_classic",
+      "folder": "classic",
+      "definition": "ClassicBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_autumn_forest",
+      "folder": "autumn",
+      "definition": "AutumnBoardDefinition",
+      "rendererKey": "autumn_forest"
+    },
+    {
+      "id": "board_blossom_garden",
+      "folder": "spring",
+      "definition": "BlossomBoardDefinition",
+      "rendererKey": "blossom_garden"
+    },
+    {
+      "id": "board_winter_haven",
+      "folder": "winter",
+      "definition": "WinterBoardDefinition",
+      "rendererKey": "winter_haven"
+    },
+    {
+      "id": "board_monsoon_mire",
+      "folder": "monsoon",
+      "definition": "MonsoonBoardDefinition",
+      "rendererKey": "monsoon_mire"
+    },
+    {
+      "id": "board_cloud_lagoon",
+      "folder": "lagoon",
+      "definition": "CloudLagoonBoardDefinition",
+      "rendererKey": "cloud_lagoon"
+    },
+    {
+      "id": "board_astral",
+      "folder": "astral",
+      "definition": "AstralBoardDefinition",
+      "rendererKey": "astral"
+    },
+    {
+      "id": "board_checkers",
+      "folder": "checkers",
+      "definition": "CheckersBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_chess",
+      "folder": "chess",
+      "definition": "ChessBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_diwali",
+      "folder": "diwali",
+      "definition": "DiwaliBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_denim",
+      "folder": "denim",
+      "definition": "DenimBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_neon",
+      "folder": "neon",
+      "definition": "NeonBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_pirate",
+      "folder": "pirate",
+      "definition": "PirateBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_alien",
+      "folder": "alien",
+      "definition": "AlienBoardDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "board_penguin",
+      "folder": "penguin",
+      "definition": "PenguinBoardDefinition",
+      "rendererKey": "classic"
+    }
+  ],
+  "dice": [
+    {
+      "id": "dice_classic",
+      "folder": "classic",
+      "definition": "ClassicDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_pearl_paw",
+      "folder": "pearl",
+      "definition": "PearlPawDiceDefinition",
+      "rendererKey": "pearl_paw"
+    },
+    {
+      "id": "dice_pumpkin",
+      "folder": "pumpkin",
+      "definition": "PumpkinDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_diwali",
+      "folder": "diwali",
+      "definition": "DiwaliDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_football",
+      "folder": "football",
+      "definition": "FootballDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_cricket",
+      "folder": "cricket",
+      "definition": "CricketDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_summers",
+      "folder": "summers",
+      "definition": "SummersDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_colors",
+      "folder": "colors",
+      "definition": "ColorsDiceDefinition",
+      "rendererKey": "classic"
+    },
+    {
+      "id": "dice_heart",
+      "folder": "heart",
+      "definition": "HeartDiceDefinition",
+      "rendererKey": "classic"
+    }
+  ],
+  "boardRenderers": [
+    {
+      "key": "classic",
+      "folder": "classic",
+      "className": "ClassicBoardRenderer"
+    },
+    {
+      "key": "astral",
+      "folder": "astral",
+      "className": "AstralBoardRenderer"
+    },
+    {
+      "key": "cloud_lagoon",
+      "folder": "lagoon",
+      "className": "CloudLagoonBoardRenderer"
+    },
+    {
+      "key": "autumn_forest",
+      "folder": "autumn",
+      "className": "AutumnBoardRenderer"
+    },
+    {
+      "key": "blossom_garden",
+      "folder": "spring",
+      "className": "BlossomBoardRenderer"
+    },
+    {
+      "key": "winter_haven",
+      "folder": "winter",
+      "className": "WinterBoardRenderer"
+    },
+    {
+      "key": "monsoon_mire",
+      "folder": "monsoon",
+      "className": "MonsoonBoardRenderer"
+    }
+  ],
+  "diceRenderers": [
+    {
+      "key": "classic",
+      "folder": "classic",
+      "className": "ClassicDiceRenderer",
+      "densityArg": true
+    },
+    {
+      "key": "pearl_paw",
+      "folder": "pearl",
+      "className": "PearlPawDiceRenderer",
+      "densityArg": false
+    }
+  ]
+}

@@ -35,6 +35,10 @@ internal data class LudoPaws3DCaptureReturnState(
 
 internal data class LudoPaws3DSceneState(
     val snapshot: MatchSnapshot? = null,
+    val stoneRoadOverlayEnabled: Boolean = true,
+    val classicRoadReliefEnabled: Boolean = false,
+    val monsoonEffectsEnabled: Boolean = false,
+    val monsoonAnimationEnabled: Boolean = true,
     val localPlayerId: String? = null,
     val perspectiveColor: String? = null,
     val characterIdsBySeat: List<String> = emptyList(),
@@ -67,6 +71,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
 
     @Volatile
     private var sceneState = LudoPaws3DSceneState()
+    private var previewBoardThemeId: String? = null
 
     @Volatile
     private var renderLoop: RenderLoop? = null
@@ -427,6 +432,10 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         sceneState =
             LudoPaws3DSceneState(
                 snapshot = state,
+                stoneRoadOverlayEnabled = previousState.stoneRoadOverlayEnabled,
+                classicRoadReliefEnabled = previousState.classicRoadReliefEnabled,
+                monsoonEffectsEnabled = previousState.monsoonEffectsEnabled,
+                monsoonAnimationEnabled = previousState.monsoonAnimationEnabled,
                 localPlayerId = playerId,
                 perspectiveColor =
                     perspectiveColor?.takeIf {
@@ -599,6 +608,30 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
         updateRenderVisibility()
+    }
+
+    internal fun reloadStyle() {
+        val themeId = previewBoardThemeId
+            ?: com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(context)
+                .selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
+        val definition = com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.resolve(themeId)
+        sceneState = sceneState.copy(
+            stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled,
+            classicRoadReliefEnabled = definition.classicRoadReliefEnabled,
+            monsoonEffectsEnabled = definition.monsoonEffectsEnabled,
+            monsoonAnimationEnabled = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+                android.animation.ValueAnimator.areAnimatorsEnabled(),
+        )
+    }
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        previewBoardThemeId = themeId
+        reloadStyle()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        reloadStyle()
     }
 
     override fun onDetachedFromWindow() {
@@ -888,6 +921,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         }
 
         override fun run() {
+            val startupAt = SystemClock.elapsedRealtime()
             var egl: EglWindow? = null
             var ownedRenderer: LudoPaws3DSceneRenderer? = null
             try {
@@ -929,6 +963,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     if (!egl.swapBuffers()) error("EGL swapBuffers failed")
                     if (frameState.snapshot != null && !firstBoardSubmitted) {
                         firstBoardSubmitted = true
+                        Log.d("LudoPawsLoad", "game first_frame_ms=${SystemClock.elapsedRealtime() - startupAt}")
                         // Release the cover only after a complete board buffer is available.
                         // Do not depend on TextureView updates while an opaque cover is above it.
                         post { if (renderLoop === this) setOperational(true) }

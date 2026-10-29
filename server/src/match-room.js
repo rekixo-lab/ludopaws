@@ -1,4 +1,6 @@
 import { familyResponse, isFamilyMode, familyPlayerName } from "./family-safety.js";
+import { referralRequest, referralsConfigured } from "./referral-config.js";
+import { plannedMatchGemRewards } from "./match-gem-rewards.js";
 import { rulesetHashForState, rollResponse, publicStateWithHistory } from "./match-room-state.js";
 import { optionalTargetPlayerCount, normalizeMatchMode, optionalLeaderboardProfileId } from "./match-room-validation.js";
 import { readJson, json, errorResponse } from "./match-room-http.js";
@@ -48,6 +50,7 @@ import {
   RULESET_V3_KEY,
   RULESET_V4_KEY,
   RULESET_V5_KEY,
+  RULESET_V6_KEY,
   TEAM_RULESET_KEY,
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4_KEY,
@@ -74,6 +77,8 @@ export class MatchRoom {
     this.ctx = ctx;
     this.env = env;
     this.mutationTail = Promise.resolve();
+    this.referralDeliveryPromise = null;
+    this.matchGemDeliveryPromise = null;
   }
 
   async fetch(request) {
@@ -179,6 +184,17 @@ export class MatchRoom {
       }
 
       if (typeof this.ctx.storage.deleteAll === "function") {
+        if (await this.ctx.storage.get("referral-outbox") || await this.ctx.storage.get("gem-reward-outbox")) {
+          const retained = new Set(["referral-outbox", "gem-reward-outbox"]);
+          while (true) {
+            const keys = [...(await this.ctx.storage.list({ limit: 1000 })).keys()].filter(key => !retained.has(key));
+            if (!keys.length) break;
+            await Promise.all(keys.map(key => this.ctx.storage.delete(key)));
+          }
+          await this.scheduleReferralRetry();
+          await this.scheduleGemRetry();
+          return;
+        }
         await this.ctx.storage.deleteAll();
       }
     });
@@ -318,7 +334,7 @@ export class MatchRoom {
       const acceptedRulesets =
         matchMode === "TEAM_UP"
           ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY]
-          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY];
+          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY, RULESET_V6_KEY];
       if (!acceptedRulesets.includes(requestedRulesetKey)) {
         throw httpError(
           400,
@@ -1034,9 +1050,172 @@ export class MatchRoom {
     return this.#recordFinishedMatchIfNeeded(state);
   }
 
+  async prepareReferralResult(state) {
+    if (state?.status !== "FINISHED" || !referralsConfigured(this.env) ||
+        await this.ctx.storage.get("referral-delivered") || await this.ctx.storage.get("referral-outbox")) return;
+    await this.ctx.storage.put("referral-outbox", {
+      attempts: 0, nextAt: Date.now(), expiresAt: Number(this.env.LUDOPAWS_REFERRAL_START_MS) + 104 * 86_400_000,
+      payload: {
+        homePosition: rulesetForState(state).homePosition,
+        state: { matchId: state.matchId, status: state.status, createdAt: state.startedAt ?? state.createdAt, finishedAt: state.finishedAt,
+          winnerPlayerId: state.winnerPlayerId, players: state.players.map(player => ({
+            playerId: player.playerId, profileId: player.profileId, friendId: player.friendId, playerType: player.playerType,
+            forfeitedAt: player.forfeitedAt, tokens: player.tokens, moveCount: state.playerMoveCounts?.[player.playerId] ?? 0,
+          })) },
+      },
+    });
+  }
+
+  async recordReferralResult(state) {
+    if (this.referralDeliveryPromise) return this.referralDeliveryPromise;
+    const task = this.deliverReferralResult(state);
+    this.referralDeliveryPromise = task;
+    try { return await task; } finally { this.referralDeliveryPromise = null; }
+  }
+
+  async deliverReferralResult(state) {
+    await this.prepareReferralResult(state);
+    const pending = await this.ctx.storage.get("referral-outbox");
+    if (!pending) return;
+    if (pending.expiresAt <= Date.now()) {
+      await this.ctx.storage.delete("referral-outbox");
+      console.error("Referral terminal-event retention expired", { code: "REFERRAL_OUTBOX_EXPIRED" });
+      return;
+    }
+    if (!referralsConfigured(this.env) || pending.nextAt > Date.now()) return;
+    try {
+      const response = await referralRequest(this.env, "/match", pending.payload);
+      if (!response.ok) throw new Error("REFERRAL_EVENT_UNAVAILABLE");
+      await this.ctx.storage.put("referral-delivered", true);
+      await this.ctx.storage.delete("referral-outbox");
+    } catch {
+      const attempts = pending.attempts + 1;
+      await this.ctx.storage.put("referral-outbox", { ...pending, attempts,
+        nextAt: Date.now() + Math.min(60 * 60_000, 60_000 * 2 ** Math.min(attempts, 6)) });
+    }
+  }
+
+  async scheduleReferralRetry() {
+    const pending = await this.ctx.storage.get("referral-outbox");
+    if (!pending) return null;
+    const nextAt = Math.min(pending.expiresAt, referralsConfigured(this.env) ? Math.max(Date.now() + 1000, pending.nextAt) : Date.now() + 60 * 60_000);
+    await this.ctx.storage.setAlarm(nextAt);
+    return nextAt;
+  }
+
+
+  // Only this server-owned room can determine payout; never a client balance edit.
+  async prepareMatchGemResult(state) {
+    if (state?.status !== "FINISHED" ||
+        await this.ctx.storage.get("gem-reward-done") ||
+        await this.ctx.storage.get("gem-reward-outbox")) return;
+    const awards = plannedMatchGemRewards(state);
+    if (!awards.length) {
+      await this.ctx.storage.put("gem-reward-done", true);
+      return;
+    }
+    await this.ctx.storage.put("gem-reward-outbox", {
+      matchId: state.matchId,
+      entries: awards.map(award => ({ ...award, delivered: false })),
+      attempts: 0, nextAt: Date.now(),
+      expiresAt: Date.now() + 7 * 24 * 60 * 60_000,
+    });
+  }
+
+  async recordMatchGemResult() {
+    if (this.matchGemDeliveryPromise) return this.matchGemDeliveryPromise;
+    const pending = this.deliverMatchGemResult();
+    this.matchGemDeliveryPromise = pending;
+    try { await pending; } finally { this.matchGemDeliveryPromise = null; }
+  }
+
+  async deliverMatchGemResult() {
+    const pending = await this.ctx.storage.get("gem-reward-outbox");
+    if (!pending) return;
+    if (pending.expiresAt <= Date.now()) {
+      // Keep an explicit audit marker: do not silently erase unpaid rewards.
+      await this.ctx.storage.put("gem-reward-expired", {
+        matchId: pending.matchId,
+        unpaidPlayers: pending.entries.filter(entry => !entry.delivered).map(entry => entry.playerId),
+        expiredAt: Date.now(),
+      });
+      await this.ctx.storage.delete("gem-reward-outbox");
+      console.error("Match gem delivery expired", { matchId: pending.matchId, code: "MATCH_REWARD_OUTBOX_EXPIRED" });
+      return;
+    }
+    if (pending.nextAt > Date.now()) return;
+
+    const directory = this.env.LUDOPROOF_ACCOUNT_DIRECTORY;
+    const accounts = this.env.LUDOPROOF_PLAYER_ACCOUNTS;
+    let failed = false;
+    for (const entry of pending.entries) {
+      if (entry.delivered) continue;
+      try {
+        if (!directory || !accounts) throw new Error("MATCH_REWARD_ACCOUNTS_UNAVAILABLE");
+        if (!entry.profileId && !entry.friendId) throw new Error("MATCH_REWARD_IDENTITY_NOT_LINKED");
+        const identityTarget = directory.get(directory.idFromName("GLOBAL:V1"));
+        const found = await identityTarget.fetch(new Request("https://account-directory/referral/identity", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ profileId: entry.profileId, friendId: entry.friendId }),
+        }));
+        if (!found.ok) throw new Error("MATCH_REWARD_IDENTITY_LOOKUP_FAILED");
+        const identity = await found.json();
+        if (!identity.accountId) throw new Error("MATCH_REWARD_ACCOUNT_NOT_LINKED");
+        const accountTarget = accounts.get(accounts.idFromName(identity.accountId));
+        const result = await accountTarget.fetch(new Request("https://player-account/wallet/match-reward", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            accountId: identity.accountId, matchId: pending.matchId,
+            mode: entry.mode, playerCount: entry.playerCount,
+            rank: entry.rank, amount: entry.amount,
+          }),
+        }));
+        if (!result.ok) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
+        const response = await result.json();
+        if (response.ok !== true) throw new Error("MATCH_REWARD_WALLET_CREDIT_FAILED");
+        entry.delivered = true;
+        // Persist each success before trying the next recipient. Replays are
+        // still safe if a storage failure occurs after a wallet transaction.
+        await this.ctx.storage.put("gem-reward-outbox", pending);
+      } catch {
+        // One unlinked/deleted/unavailable account must not block the other
+        // legitimate winners from receiving their currency.
+        failed = true;
+      }
+    }
+    if (!failed && pending.entries.every(entry => entry.delivered)) {
+      await this.ctx.storage.put("gem-reward-done", true);
+      await this.ctx.storage.delete("gem-reward-outbox");
+      return;
+    }
+    const attempts = pending.attempts + 1;
+    await this.ctx.storage.put("gem-reward-outbox", {
+      ...pending, attempts,
+      nextAt: Date.now() + Math.min(60 * 60_000, 30_000 * 2 ** Math.min(attempts, 8)),
+    });
+  }
+
+  async scheduleGemRetry() {
+    const pending = await this.ctx.storage.get("gem-reward-outbox");
+    if (!pending) return null;
+    const next = Math.min(pending.expiresAt, Math.max(Date.now() + 1000, pending.nextAt));
+    if (typeof this.ctx.storage.setAlarm === "function") await this.ctx.storage.setAlarm(next);
+    return next;
+  }
+
   async #recordFinishedMatchIfNeeded(
     state,
   ) {
+    if (state.status === "FINISHED") {
+      await this.prepareMatchGemResult(state);
+      const gems = this.recordMatchGemResult();
+      if (typeof this.ctx.waitUntil === "function") this.ctx.waitUntil(gems);
+      else await gems;
+      await this.prepareReferralResult(state);
+      const recording = this.recordReferralResult(state);
+      if (typeof this.ctx.waitUntil === "function") this.ctx.waitUntil(recording);
+      else await recording;
+    }
     if (
       state.status !== "FINISHED" ||
       state.leaderboardRecordedAt != null

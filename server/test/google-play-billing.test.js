@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { StorePurchaseLedger } from "../src/store-purchase-ledger.js";
 import {
   GOOGLE_PLAY_PRODUCTS,
+  googleAccessToken,
+  googlePlayFetch,
   verifyAndRedeemGooglePlayPurchase,
 } from "../src/google-play-billing.js";
 import worker from "../src/index.js";
@@ -25,6 +27,8 @@ class FakeStorage {
   async delete(key) {
     return this.values.delete(key);
   }
+  async setAlarm(time) { this.values.set("alarm", time); }
+  async deleteAlarm() { this.values.delete("alarm"); }
 }
 
 function makeLedgerNamespace() {
@@ -141,6 +145,65 @@ async function makeEnv() {
   };
 }
 
+test("billing shares a cold OAuth refresh and recovers after a rejected refresh", async () => {
+  const env = await makeEnv();
+  let calls = 0;
+  const fetchImpl = async () => {
+    calls++;
+    await new Promise(resolve => setTimeout(resolve, 5));
+    return Response.json({ access_token: "shared-billing-token", expires_in: 3600 });
+  };
+  const values = await Promise.all(Array.from({ length: 8 }, () => googleAccessToken(env, fetchImpl)));
+  assert.equal(calls, 1);
+  assert.ok(values.every(value => value === "shared-billing-token"));
+  const rejectedEnv = await makeEnv();
+  await assert.rejects(googleAccessToken(rejectedEnv, async () => Response.json({ access_token: "", expires_in: -1 })));
+  assert.equal(await googleAccessToken(rejectedEnv, fetchImpl), "shared-billing-token");
+});
+
+test("retrying an old fulfilled ledger also arms durable delivery without a provider token replay", async () => {
+  const env = await makeEnv(), purchaseToken = "historical-verified-paid-token";
+  const accountId = "a".repeat(64), ownerAccountId = "00000000-0000-4000-8000-000000000081";
+  const digest = await sha256Hex("ludoproof:google-play-purchase:v1:" + purchaseToken);
+  const ledger = env.LUDOPROOF_STORE_PURCHASES.get(env.LUDOPROOF_STORE_PURCHASES.idFromName(digest));
+  const body = { accountId, ownerAccountId, productId: "gems_300", gemAmount: 300, removeAds: false,
+    purchaseTokenHash: await sha256Hex("ludoproof:google-play-wallet-token:v1:" + purchaseToken) };
+  for (const path of ["/reserve", "/complete"])
+    assert.equal((await ledger.fetch(new Request("https://ledger" + path, { method: "POST", body: JSON.stringify(body) }))).status, 200);
+  await verifyAndRedeemGooglePlayPurchase(env, { productId: body.productId, accountId, ownerAccountId, purchaseToken },
+    async () => { throw Error("Already-verified replay should not need a new Google call"); });
+  const state = await (await ledger.fetch(new Request("https://ledger/status"))).json();
+  assert.ok(state.purchase.verifiedAt > 0);
+  assert.equal(state.purchase.purchaseLedgerId, digest);
+  assert.equal(state.purchase.state, "FULFILLED");
+});
+
+test("Publisher 401 refreshes once, 403 never refreshes, repeated 401 expires cache", async () => {
+  const env = await makeEnv();
+  let oauth = 0, publisher = 0;
+  const fetchImpl = async (url, init) => {
+    if (String(url).includes("oauth2.googleapis.com")) {
+      oauth++;
+      return Response.json({ access_token: "billing-token-" + oauth, expires_in: 3600 });
+    }
+    publisher++;
+    assert.equal(new Headers(init.headers).get("authorization"), "Bearer billing-token-" + oauth);
+    return new Response(null, { status: publisher === 1 ? 401 : 200 });
+  };
+  assert.equal((await googlePlayFetch(env, "https://publisher.test/read", {}, fetchImpl)).status, 200);
+  assert.equal(oauth, 2); assert.equal(publisher, 2);
+  const forbidden = async (url, init) => String(url).includes("oauth2.googleapis.com")
+    ? fetchImpl(url, init) : new Response(null, { status: 403 });
+  assert.equal((await googlePlayFetch(env, "https://publisher.test/read", {}, forbidden)).status, 403);
+  assert.equal(oauth, 2);
+  const unauthorized = async (url, init) => String(url).includes("oauth2.googleapis.com")
+    ? fetchImpl(url, init) : new Response(null, { status: 401 });
+  assert.equal((await googlePlayFetch(env, "https://publisher.test/read", {}, unauthorized)).status, 401);
+  assert.equal(oauth, 3);
+  await googleAccessToken(env, fetchImpl);
+  assert.equal(oauth, 4);
+});
+
 test("purchase ledger deletion is owner-bound and idempotent", async () => {
   const storage = new FakeStorage();
   const ledger = new StorePurchaseLedger({ storage });
@@ -187,6 +250,17 @@ test("server product grants match the Android product definitions", () => {
       ]),
     ),
     {
+      character_cock: [0, false],
+      character_pig: [0, false],
+      character_elephant: [0, false],
+      character_horse: [0, false],
+      character_rabbit: [0, false],
+      board_astral: [0, false],
+      board_cloud_lagoon: [0, false],
+      board_autumn_forest: [0, false],
+      board_blossom_garden: [0, false],
+      board_winter_haven: [0, false],
+      board_monsoon_mire: [0, false],
       remove_ads: [5, true],
       gems_300: [300, false],
       gems_1500: [1_200, false],
@@ -196,6 +270,15 @@ test("server product grants match the Android product definitions", () => {
       gems_200000: [35_000, false],
     },
   );
+});
+
+test("cosmetic Play products are non-consumable entitlements and Pearl Paw has no cash SKU", () => {
+  const cosmeticIds = ["character_cock", "character_pig", "character_elephant", "character_horse", "character_rabbit", "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"];
+  for (const cosmeticId of cosmeticIds) {
+    assert.equal(GOOGLE_PLAY_PRODUCTS[cosmeticId].cosmeticId, cosmeticId);
+    assert.equal(GOOGLE_PLAY_PRODUCTS[cosmeticId].consumable, false);
+  }
+  assert.equal(GOOGLE_PLAY_PRODUCTS.dice_pearl_paw, undefined);
 });
 
 test("verified purchases are consumed, redeemed once, and recover idempotently", async () => {

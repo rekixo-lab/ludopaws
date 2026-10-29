@@ -31,6 +31,8 @@ import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.store.domain.PostWinInterstitialPolicy
 
 class MainActivity : ComponentActivity() {
+    internal var gameplayPawsPromotion:
+        com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionSlot? = null
     internal val gameMode:
         GameMode by lazy {
         GameMode
@@ -79,6 +81,36 @@ class MainActivity : ComponentActivity() {
         }
     internal val mainHandler =
         Handler(Looper.getMainLooper())
+    internal var lastGemWalletSyncMatchId: String? = null
+
+    internal fun refreshMatchGemWalletAfterFinish(completedMatchId: String) {
+        if (lastGemWalletSyncMatchId == completedMatchId) return
+        lastGemWalletSyncMatchId = completedMatchId
+        // Match settlement may be asynchronous. Fetch the confirmed server
+        // wallet a bounded three times and let the Store refresh thereafter.
+        // An Activity may be destroyed between scheduling and execution.
+        listOf(2_000L, 12_000L, 30_000L).forEach { delay ->
+            mainHandler.postDelayed({
+                if (
+                    isFinishing || isDestroyed || executor.isShutdown ||
+                    lastGemWalletSyncMatchId != completedMatchId
+                ) {
+                    return@postDelayed
+                }
+                runCatching {
+                    executor.execute {
+                        runCatching {
+                            val repository = (application as LudoProofApplication).accountRepository
+                            val session = repository.currentSession() ?: return@runCatching
+                            val snapshot = repository.wallet()
+                            GemWalletStore(this).applyServerSnapshot(snapshot, session.accountId)
+                        }
+                    }
+                }
+            }, delay)
+        }
+    }
+
 
     internal lateinit var arcadeRootView: FrameLayout
     internal lateinit var lobbyPanel: LinearLayout

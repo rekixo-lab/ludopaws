@@ -23,6 +23,5 @@ internal object DonkeyAvatarRenderer: CharacterAvatarRenderer {
         canvas.drawOval(RectF(33f,67f,40f,71f),fill);canvas.drawOval(RectF(60f,67f,67f,71f),fill)
         stroke.color=0xFF42454B.toInt();stroke.strokeWidth=1.5f
         canvas.drawArc(RectF(37f,72f,63f,81f),0f,180f,false,stroke)
-        fill.color=0xFF2688E8.toInt();canvas.drawRoundRect(RectF(33f,86f,67f,91f),3f,3f,fill)
     }
 }

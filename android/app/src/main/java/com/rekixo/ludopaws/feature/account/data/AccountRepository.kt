@@ -13,6 +13,30 @@ class AccountRepository(context: Context) {
     private val appContext = context.applicationContext
     private val sessions = AccountSessionStore(appContext)
     private val baseUrl = BuildConfig.LUDOPROOF_API_BASE_URL.trimEnd('/')
+    private var linkedLeaderboardCredential: String? = null
+    private var linkedFriendCredential: String? = null
+
+    /** Bind verified game credentials to the current wallet account once per process.
+     * On failure the caller can retry at the next authenticated game action.
+     */
+    @Synchronized
+    fun ensureLinkedLeaderboardWallet(profileToken: String) {
+        val session = ensureGuestSession()
+        val key = session.accountId + ":" + profileToken
+        if (linkedLeaderboardCredential == key) return
+        linkLeaderboardIdentity(profileToken)
+        linkedLeaderboardCredential = key
+    }
+
+    @Synchronized
+    fun ensureLinkedFriendWallet(friendToken: String) {
+        val session = ensureGuestSession()
+        val key = session.accountId + ":" + friendToken
+        if (linkedFriendCredential == key) return
+        linkFriendIdentity(friendToken)
+        linkedFriendCredential = key
+    }
+
 
     @Synchronized
     fun ensureGuestSession(): AccountSession {
@@ -60,6 +84,15 @@ class AccountRepository(context: Context) {
     }
 
     fun currentSession(): AccountSession? = sessions.load()
+
+    fun referralRequest(operation: String, body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
+        require(operation in setOf("status", "invite", "challenge", "bind", "enroll", "withdraw"))
+        val session = requireSession()
+        if (expectedAccountId != null && session.accountId != expectedAccountId) {
+            throw AccountApiException(409, "ACCOUNT_SESSION_CHANGED", "Your account changed. Please retry.")
+        }
+        return request(if (operation == "status") "GET" else "POST", "/api/referrals/$operation", body, session.accessToken)
+    }
 
     @Synchronized
     fun validSession(current: AccountSession): AccountSession {
@@ -309,6 +342,14 @@ class AccountRepository(context: Context) {
         if (!response.optBoolean("deleted", false)) {
             throw AccountApiException(502, "ACCOUNT_DELETE_INCOMPLETE", "The account service did not confirm deletion.")
         }
+        val referralPrefs = appContext.getSharedPreferences("friendship_attribution", Context.MODE_PRIVATE)
+        if (referralPrefs.getString("consented_account", null) == session.accountId || referralPrefs.getString("verification_account", null) == session.accountId) {
+            referralPrefs.edit().clear().putBoolean("bound", true).putBoolean("referrer_read", true).commit()
+        }
+        val promotionPrefs = appContext.getSharedPreferences("referral_popup_v1", Context.MODE_PRIVATE)
+        promotionPrefs.edit().also { editor ->
+            promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
+        }.commit()
         sessions.clear()
         return response
     }
@@ -388,7 +429,8 @@ class AccountRepository(context: Context) {
             if (token != null) connection.setRequestProperty("Authorization", "Bearer $token")
             if (body != null) {
                 val bytes = body.toString().toByteArray(Charsets.UTF_8)
-                require(bytes.size <= MAX_REQUEST_BYTES) { "Account request exceeded the safety limit." }
+                val maximumBytes = if (path == "/api/referrals/bind") 24 * 1024 else MAX_REQUEST_BYTES
+                require(bytes.size <= maximumBytes) { "Account request exceeded the safety limit." }
                 connection.doOutput = true
                 connection.setRequestProperty("Content-Type", "application/json")
                 connection.outputStream.use { it.write(bytes) }

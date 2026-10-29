@@ -83,7 +83,8 @@ if (!fs.existsSync(adaptiveIconPath)) {
 const strings = fs.readFileSync(stringsPath, "utf8");
 for (const [name, value] of requiredStrings) {
   const expected = `<string name="${name}">${value}</string>`;
-  if (!strings.includes(expected)) {
+  const resource = strings.match(new RegExp(`<string\\b[^>]*\\bname="${name}"[^>]*>([\\s\\S]*?)</string>`));
+  if (resource?.[1] !== value) {
     violations.push(`strings.xml is missing required brand string: ${expected}`);
   }
 }

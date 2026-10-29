@@ -20,3 +20,8 @@
 Connected Samsung SM-A715F के सामान्य user 0 में main/preview/QA app नहीं मिला। केवल orphan instrumentation runner `com.rekixo.ludopaws.test` मिला; उसी package को user cleanup के अंतर्गत हटाया गया और command ने Success लौटाया। Main app/player data इस कार्रवाई में uninstall/clear नहीं हुआ।
 
 केवल source/manual reference review किया गया है। User के निर्देश के अनुसार tests, lint, APK build, instrumentation और backend deployment नहीं चले। नया cleaned APK install नहीं हुआ। पहले का generated debug APK Dev tools वाला था; stale install से बचने के लिए इस checkout का वह generated APK/output metadata हटाया गया है। नया compatible signed main build अंतिम build/acceptance में बनेगा।
+
+
+## बाद का feature restoration update
+
+Latest main में मौजूद नए production features इस branch में अलग merge किए गए हैं। Multiple-mode helper की जगह अब `android-local-testing.mjs` का **single main-app runner** है; केवल configure/run, कोई अलग developer/QA app या demo-ad mode नहीं। यह पुराने shortcuts के false-default feature flags की समस्या ठीक करता है और published configuration पढ़ता है। Latest integration report: [FEATURE_RESTORE_AUDIT.hi.md](FEATURE_RESTORE_AUDIT.hi.md)।

@@ -15,6 +15,9 @@ enum class LudoPaws3DSpecies {
     GOAT,
     DUCK,
     CAT,
+    ELEPHANT,
+    HORSE,
+    RABBIT,
 }
 
 internal object LudoPaws3DCharacterPolicy {
@@ -46,8 +49,12 @@ internal object LudoPaws3DCharacterPolicy {
                 .canonicalCharacterId(characterId)
         ) {
             "dog" -> LudoPaws3DSpecies.DOG
+            "pig" -> LudoPaws3DSpecies.GOAT
+            "elephant" -> LudoPaws3DSpecies.ELEPHANT
+            "horse" -> LudoPaws3DSpecies.HORSE
+            "rabbit" -> LudoPaws3DSpecies.RABBIT
             "goat", "goat_lumi" -> LudoPaws3DSpecies.GOAT
-            "duck" -> LudoPaws3DSpecies.DUCK
+            "duck", "cock" -> LudoPaws3DSpecies.DUCK
             "cat" -> LudoPaws3DSpecies.CAT
             "donkey" -> LudoPaws3DSpecies.GOAT
             else -> null

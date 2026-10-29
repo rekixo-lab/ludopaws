@@ -22,26 +22,54 @@ private const val LOCKED_DICE_TITLE = "LOCKED DICE"
 internal fun StoreActivity.diceCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        val panels = StoreCosmeticCatalog.dice
-        val groups = panels.chunked(2)
-        addView(VirtualCatalogRows(this@diceCatalogContent, groups.size, dp(188), dp(10)) { index ->
-            LinearLayout(this@diceCatalogContent).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.TOP
-                groups[index].forEach { item ->
-                    addView(dicePanel(item), LinearLayout.LayoutParams(0, dp(188), 1f).apply {
+
+        val panels = StoreCosmeticCatalog.dice.filter { it.contentAvailable }
+        val ownedIds = cosmetics.ownedCosmeticIds()
+        val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.DICE)
+
+        panels.chunked(2).forEachIndexed { rowIndex, rowDice ->
+            val row =
+                LinearLayout(this@diceCatalogContent).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.TOP
+                }
+
+            rowDice.forEach { dice ->
+                row.addView(
+                    dicePanel(dice, dice.id in ownedIds, dice.id in ownedIds && selectedId == dice.id),
+                    LinearLayout.LayoutParams(
+                        0,
+                        dp(208),
+                        1f,
+                    ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
-                    })
-                }
-                repeat(2 - groups[index].size) {
-                    addView(TextView(this@diceCatalogContent), LinearLayout.LayoutParams(0, dp(188), 1f))
-                }
+                    },
+                )
             }
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+
+            repeat(2 - rowDice.size) {
+                row.addView(
+                    TextView(this@diceCatalogContent),
+                    LinearLayout.LayoutParams(0, dp(208), 1f),
+                )
+            }
+
+            addView(
+                row,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    if (rowIndex > 0) topMargin = dp(10)
+                },
+            )
+        }
     }
 
 private fun StoreActivity.dicePanel(
     dice: StoreCosmetic,
+    owned: Boolean,
+    selected: Boolean,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -49,11 +77,6 @@ private fun StoreActivity.dicePanel(
         setPadding(dp(6), dp(8), dp(6), dp(8))
 
         val locked = !dice.contentAvailable
-        val owned = cosmetics.isOwned(dice.id)
-        val selected =
-            owned &&
-                cosmetics.selectedId(dice.category) == dice.id
-
         // Keep the same plywood and selected-check styling as Board Store.
         background =
             if (locked || !owned) {
@@ -114,12 +137,12 @@ private fun StoreActivity.dicePanel(
                 DiceView(this@dicePanel).apply {
                     // Preview this offer's actual renderer palette without equipping it.
                     setPreviewStyle(dice.id)
-                    showOutcome(6, animate = false)
+                    showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(dice.id).previewFace, animate = false)
                     setPlayerTeamColor(null)
                     isClickable = false
                     isFocusable = false
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    contentDescription = "Classic gameplay dice preview"
+                    contentDescription = "${dice.title} dice preview"
                 },
                 LinearLayout.LayoutParams(
                     dp(104),
@@ -176,7 +199,10 @@ private fun StoreActivity.diceStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "🔓 UNLOCKED"
-            dice.gemPrice > 0 -> "${dice.gemPrice} GEMS"
+            dice.gemPrice > 0 && dice.requiredAdViews > 0 -> android.text.SpannableStringBuilder("🔒 ").append(
+                CosmeticPriceLabels.gems(this@diceStatusBadge, dice.gemPrice,
+                    "\nOR ${cosmetics.rewardedAdProgress(dice.id).coerceAtMost(dice.requiredAdViews)}/${dice.requiredAdViews} ADS"))
+            dice.gemPrice > 0 -> CosmeticPriceLabels.gems(this@diceStatusBadge, dice.gemPrice)
             dice.requiredAdViews > 0 -> "${dice.requiredAdViews} ADS"
             else -> "GET"
         }
@@ -192,7 +218,7 @@ private fun StoreActivity.diceStatusBadge(
         )
         gravity = Gravity.CENTER
         includeFontPadding = false
-        maxLines = 1
+        maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
         background =

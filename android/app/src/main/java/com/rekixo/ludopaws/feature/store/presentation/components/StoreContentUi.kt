@@ -28,9 +28,8 @@ internal fun StoreActivity.pinnedRemoveAdsContent(): LinearLayout {
     return featuredRemoveAdsCard(product)
 }
 
-internal fun StoreActivity.storeContent():
-    LinearLayout =
-    when (selectedTab) {
+internal fun StoreActivity.storeContent(): LinearLayout {
+    val catalog = when (selectedTab) {
         StoreTab.GEMS ->
             gemsContent()
 
@@ -44,6 +43,18 @@ internal fun StoreActivity.storeContent():
             diceCatalogContent()
 
     }
+    val bundleItem = when (selectedTab) {
+        StoreTab.PAWS -> "character_rabbit"
+        StoreTab.BOARD -> "board_blossom_garden"
+        StoreTab.DICE -> "dice_pearl_paw"
+        else -> null
+    }
+    return LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        bundleItem?.let { addView(referralPromotions.storeEntry(it), LinearLayout.LayoutParams(-1, -2)) }
+        addView(catalog, LinearLayout.LayoutParams(-1, -2))
+    }
+}
 
 private fun StoreActivity.gemsContent():
     LinearLayout =
@@ -55,7 +66,7 @@ private fun StoreActivity.gemsContent():
             StoreCatalog
                 .products
                 .filter {
-                    BuildConfig.LUDOPROOF_BILLING_ENABLED && !it.featured
+                    !it.featured && it.kind == com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind.CONSUMABLE_GEMS
                 }
 
         packs.chunked(

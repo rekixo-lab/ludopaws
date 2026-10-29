@@ -3,7 +3,6 @@ package com.rekixo.ludopaws
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
 import android.content.Intent
-import com.rekixo.ludopaws.feature.mode.presentation.RemoteModeEntryActivity
 import com.rekixo.ludopaws.feature.friends.presentation.FriendsActivity
 import com.rekixo.ludopaws.feature.team.presentation.TeamUpActivity
 import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsObserver

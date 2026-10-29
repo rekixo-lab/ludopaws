@@ -25,6 +25,7 @@ import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.components.storeContent
@@ -47,6 +48,17 @@ class StoreActivity :
 
     internal var selectedTab =
         StoreTab.GEMS
+    internal var refreshBoardSelection: (() -> Unit)? = null
+    internal var featuredCharacterId: String? = null
+    internal var featuredPawsCard: com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsCard? = null
+    internal var showcaseResumed = false
+    internal val referralPromotions by lazy {
+        com.rekixo.ludopaws.feature.referrals.ReferralPromotionController(this,
+            uiAvailable = { showcaseResumed && !cosmeticUpdateInProgress && !purchaseEligibilityInProgress && pendingAutoPurchaseProductId == null },
+            popupVisibility = { visible -> featuredPawsCard?.setActive(showcaseResumed && !visible) })
+    }
+    private var cosmeticUpdateInProgress = false
+    private var cosmeticFeedback: Toast? = null
     internal var liveProducts:
         Map<
             String,
@@ -67,6 +79,11 @@ class StoreActivity :
     private var rewardedAdsStatusError: Exception? = null
     private var billingWasCreated = false
     private var rewardedAdsWasCreated = false
+    private var storeRootHost: FrameLayout? = null
+    private var catalogScroll: ScrollView? = null
+    private var renderedTab: StoreTab? = null
+    private var renderedSignature: List<Any?>? = null
+    private var renderQueued = false
     private val accountRepository by lazy {
         (application as LudoProofApplication).accountRepository
     }
@@ -137,11 +154,33 @@ class StoreActivity :
         selectedTab =
             requestedInitialTab()
                 ?: StoreTab.GEMS
+        featuredCharacterId = intent.getStringExtra(EXTRA_FEATURED_CHARACTER_ID)
+            ?.takeIf { com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.find(it) != null }
         if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && !BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
             intent
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
                 ?.takeIf { it == StoreCatalog.REMOVE_ADS }
+        renderStore()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        showcaseResumed = true
+        referralPromotions.resume()
+        featuredPawsCard?.setActive(true)
+    }
+
+    override fun onPause() {
+        showcaseResumed = false
+        referralPromotions.pause()
+        featuredPawsCard?.setActive(false)
+        super.onPause()
+    }
+
+    internal fun showFeaturedCharacter(characterId: String) {
+        featuredCharacterId = characterId
+        selectedTab = StoreTab.PAWS
         renderStore()
     }
 
@@ -308,6 +347,7 @@ class StoreActivity :
     }
 
     override fun onDestroy() {
+        referralPromotions.pause()
         if (billingWasCreated) billing.close()
         if (rewardedAdsWasCreated) rewardedAds.close()
         billingExecutor.shutdownNow()
@@ -644,27 +684,42 @@ class StoreActivity :
     }
 
     internal fun purchaseOrSelectCosmetic(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic) {
-        if (BuildConfig.LUDOPAWS_FAMILY_MODE && cosmetics.selectOfflineFreeCosmetic(cosmetic)) {
-            renderStore()
+        if (cosmeticUpdateInProgress) {
+            showCosmeticFeedback("Saving selection…")
+            return
+        }
+        if (cosmetics.selectOfflineFreeCosmetic(cosmetic)) {
+            val refresh = refreshBoardSelection
+            if (cosmetic.category == com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD && refresh != null) {
+                refresh()
+            } else {
+                renderStore()
+            }
+            showCosmeticFeedback("${cosmetic.title} selected")
             return
         }
         val owned = cosmetics.isOwned(cosmetic.id)
-        if (!owned && cosmetic.remoteManaged && cosmetic.unlockChannels.size > 1) {
+        if (!owned && cosmetic.unlockChannels.size > 1) {
             val channels = cosmetic.unlockChannels
             val labels = channels.map { channel ->
                 when (channel) {
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.FREE ->
                         "Free"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS ->
-                        "${cosmetic.gemPrice} Gems"
+                        CosmeticPriceLabels.gems(this, cosmetic.gemPrice)
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.REWARDED_ADS ->
-                        "Watch ${cosmetic.requiredAdViews} rewarded ads"
+                        cosmetics.rewardedAdProgress(cosmetic.id).let { progress ->
+                            if (progress >= cosmetic.requiredAdViews) "Unlock · ads completed"
+                            else "Watch ad · $progress/${cosmetic.requiredAdViews} completed"
+                        }
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.LEVEL ->
                         "Reach level ${cosmetic.requiredLevel}"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.EVENT ->
                         "Event unlock"
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT ->
-                        "Google Play purchase (not available yet)"
+                        StoreCatalog.cosmeticProductId(cosmetic.id)?.let { productId ->
+                            liveProducts[productId]?.formattedPrice?.let { "Buy · $it" }
+                        } ?: "Google Play · price unavailable"
                 }
             }
             PlywoodAlertDialogBuilder(this)
@@ -676,7 +731,7 @@ class StoreActivity :
                     ) {
                         requestRewardedAd(cosmetic.id)
                     } else {
-                        performCosmeticPurchaseOrSelect(cosmetic, channel.name)
+                        chooseCosmeticUnlock(cosmetic, channel.name)
                     }
                 }
                 .setNegativeButton("Cancel", null)
@@ -684,18 +739,44 @@ class StoreActivity :
             return
         }
 
-        val unlockChannel = if (cosmetic.remoteManaged && cosmetic.unlockChannels.size == 1) {
+        val unlockChannel = if (cosmetic.unlockChannels.size == 1) {
             cosmetic.unlockChannels.single().name
         } else {
             null
         }
-        performCosmeticPurchaseOrSelect(cosmetic, unlockChannel)
+        if (owned) performCosmeticPurchaseOrSelect(cosmetic, null)
+        else chooseCosmeticUnlock(cosmetic, unlockChannel)
+    }
+
+    private fun chooseCosmeticUnlock(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+        channel: String?,
+    ) {
+        if (channel == "PLAY_PRODUCT") {
+            val productId = StoreCatalog.cosmeticProductId(cosmetic.id)
+            if (productId == null) showStoreMessage("This item has no verified Google Play product.")
+            else requestPurchase(productId)
+            return
+        }
+        if (channel == "GEMS" || channel == null && cosmetic.unlockKind ==
+            com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS) {
+            PlywoodAlertDialogBuilder(this)
+                .setTitle("Unlock ${cosmetic.title}?")
+                .setMessage(android.text.SpannableStringBuilder("Spend ")
+                    .append(CosmeticPriceLabels.gems(this, cosmetic.gemPrice))
+                    .append("? This unlock is saved to your account."))
+                .setPositiveButton("Unlock") { _, _ -> performCosmeticPurchaseOrSelect(cosmetic, channel) }
+                .setNegativeButton("Cancel", null).show()
+            return
+        }
+        performCosmeticPurchaseOrSelect(cosmetic, channel)
     }
 
     private fun performCosmeticPurchaseOrSelect(
         cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
         unlockChannel: String?,
     ) {
+        if (cosmeticUpdateInProgress) return
         if (unlockChannel == "PLAY_PRODUCT" || unlockChannel == "LEVEL" || unlockChannel == "EVENT") {
             showStoreMessage(
                 "This unlock method is not available yet. No Gems or entitlements were changed.",
@@ -708,6 +789,8 @@ class StoreActivity :
             requestRewardedAd(cosmetic.id)
             return
         }
+        cosmeticUpdateInProgress = true
+        showCosmeticFeedback("Saving ${cosmetic.title}…")
         billingExecutor.execute {
             try {
                 val session = accountRepository.requireSession()
@@ -716,7 +799,7 @@ class StoreActivity :
                 } else {
                     accountRepository.purchaseCosmetic(
                         cosmetic.id,
-                        unlockChannel = if (cosmetic.remoteManaged) unlockChannel else null,
+                        unlockChannel = unlockChannel,
                     )
                 }
                 val serverWallet = response.optJSONObject("wallet") ?: accountRepository.wallet()
@@ -726,10 +809,13 @@ class StoreActivity :
                 cosmetics.applyServerSnapshot(serverWallet, session.accountId)
                 cosmetics.clearOfflineSelection(cosmetic.category)
                 runOnUiThread {
+                    cosmeticUpdateInProgress = false
                     if (!canRenderStoreUi()) return@runOnUiThread
                     renderStore()
                     showStoreMessage(
-                        if (response.optBoolean("alreadyOwned", false)) {
+                        if (cosmetics.selectedId(cosmetic.category) == cosmetic.id) {
+                            "${cosmetic.title} selected."
+                        } else if (response.optBoolean("alreadyOwned", false)) {
                             "${cosmetic.title} is already owned."
                         } else {
                             "${cosmetic.title} was saved to your account."
@@ -752,11 +838,17 @@ class StoreActivity :
                     else -> error.message ?: "The store could not update your account. Try again when connected."
                 }
                 runOnUiThread {
+                    cosmeticUpdateInProgress = false
                     if (!canRenderStoreUi()) return@runOnUiThread
                     showStoreMessage(message)
                 }
             }
         }
+    }
+
+    private fun showCosmeticFeedback(message: String) {
+        cosmeticFeedback?.cancel()
+        cosmeticFeedback = Toast.makeText(this, message, Toast.LENGTH_SHORT).also { it.show() }
     }
 
     private fun refreshWalletAfterRewardedAd(
@@ -891,51 +983,47 @@ class StoreActivity :
     }
 
     private var checkoutStatusView: TextView? = null
-    private var stableStorePage: LinearLayout? = null
-    private var stableStoreHeader: LinearLayout? = null
-    private var stableStoreCatalog: FrameLayout? = null
-    private var stableStoreScroll: ScrollView? = null
-    private var renderedStoreTab: StoreTab? = null
-    private var renderedCatalogKey: String? = null
-    private val storeScrollPositions = mutableMapOf<StoreTab, Int>()
-
     internal fun renderStore() {
         if (!canRenderStoreUi()) return
-
-        val inventoryKey = getSharedPreferences(com.rekixo.ludopaws.feature.store.data.local.StorePreferences.PREFS_NAME, MODE_PRIVATE)
-            .all.toSortedMap().toString()
-        val contentKey = listOf(selectedTab, StoreCosmeticCatalog.all.hashCode(), inventoryKey,
-            liveProducts.toString(), billingAvailable, adsEnabledForBuild).joinToString("|")
-        stableStorePage?.let {
-            val scroll = requireNotNull(stableStoreScroll)
-            renderedStoreTab?.let { tab -> storeScrollPositions[tab] = scroll.scrollY }
-            val header = requireNotNull(stableStoreHeader)
-            header.removeAllViews()
-            header.addView(storeHeader())
-            header.addView(storeTabs(), LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(14) })
-            if (selectedTab == StoreTab.GEMS) {
-                if (BuildConfig.LUDOPROOF_BILLING_ENABLED) header.addView(pinnedRemoveAdsContent())
-                else if (BuildConfig.LUDOPROOF_ADS_ENABLED) header.addView(rewardedAdCard())
+        if (storeRootHost == null) {
+            renderStoreNow()
+        } else if (!renderQueued) {
+            renderQueued = true
+            window.decorView.postOnAnimation {
+                renderQueued = false
+                if (canRenderStoreUi()) renderStoreNow()
             }
-            if (BuildConfig.LUDOPROOF_BILLING_ENABLED) header.addView(checkoutStatusLabel())
-            if (renderedCatalogKey != contentKey) {
-                val catalog = requireNotNull(stableStoreCatalog)
-                val width = catalog.getChildAt(0)?.layoutParams?.width ?: -1
-                catalog.removeAllViews()
-                catalog.addView(storeContent(), FrameLayout.LayoutParams(width, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-                val y = storeScrollPositions[selectedTab] ?: 0
-                scroll.post { if (renderedCatalogKey == contentKey) scroll.scrollTo(0, y) }
-            }
-            renderedStoreTab = selectedTab
-            renderedCatalogKey = contentKey
-            return
         }
+    }
 
-        val (root, host) =
-            LudoProofTheme.arcadeRoot(
-                this,
-                gameplayBackground = true,
-            )
+    private fun renderStoreNow() {
+        val signature = listOf(
+            selectedTab, featuredCharacterId, liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
+            cosmetics.ownedCosmeticIds(),
+            com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.entries.map { cosmetics.selectedId(it) },
+            com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.all.let { items ->
+                items.map { it to cosmetics.rewardedAdProgress(it.id) }
+            },
+            ProfileStore(this).snapshot(), accountRepository.currentSession()?.accountId,
+            billingAvailable, billingProductCatalogLoaded, purchaseEligibilityInProgress, cosmeticUpdateInProgress,
+            pendingAutoPurchaseProductId, rewardedAdsEnabledByServer, rewardedAdsStatusLoaded,
+            rewardedAdsStatusError?.javaClass?.name,
+        )
+        if (renderedSignature == signature) return
+        val previousScroll = if (renderedTab == selectedTab) catalogScroll?.scrollY ?: 0 else 0
+        renderedSignature = signature
+        renderedTab = selectedTab
+        featuredPawsCard?.setActive(false)
+        featuredPawsCard = null
+        refreshBoardSelection = null
+        val renderStartedAt = android.os.SystemClock.elapsedRealtime()
+
+        val host = storeRootHost ?: LudoProofTheme.arcadeRoot(this, gameplayBackground = true).let { (root, newHost) ->
+            setContentView(root)
+            storeRootHost = newHost
+            newHost
+        }
+        host.removeAllViews()
 
         val horizontalPadding =
             dp(
@@ -1027,6 +1115,7 @@ class StoreActivity :
                 clipToPadding = true
                 elevation = 0f
             }
+        catalogScroll = scroll
         page.addView(
             scroll,
             LinearLayout.LayoutParams(
@@ -1059,13 +1148,8 @@ class StoreActivity :
             ),
         )
 
-        stableStorePage = page
-        stableStoreHeader = fixedHeader
-        stableStoreCatalog = scrollContentHost
-        stableStoreScroll = scroll
-        renderedStoreTab = selectedTab
-        renderedCatalogKey = contentKey
-        setContentView(root)
+        if (previousScroll > 0) scroll.post { scroll.scrollTo(0, previousScroll) }
+        Log.d("LudoPawsLoad", "store tab=$selectedTab ui_build_ms=${android.os.SystemClock.elapsedRealtime() - renderStartedAt}")
     }
 
     internal fun showStoreMessage(
@@ -1092,6 +1176,7 @@ class StoreActivity :
     }
 
     companion object {
+        const val EXTRA_FEATURED_CHARACTER_ID = "ludo_paws_featured_character_id"
         const val EXTRA_INITIAL_TAB =
             "ludo_paws_store_initial_tab"
         const val EXTRA_PURCHASE_PRODUCT_ID =

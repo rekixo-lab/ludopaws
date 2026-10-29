@@ -38,7 +38,7 @@ class CharacterPackStoreCatalogTest {
             LudoPawsCharacterCatalog.charactersForPack(
                 requireNotNull(starter.characterPackId),
             )
-        assertEquals(6, characters.size)
+        assertEquals(11, characters.size)
         characters.forEach { character ->
             assertNotNull(
                 LudoPawsCharacterCatalog.voiceSet(
@@ -75,8 +75,7 @@ class CharacterPackStoreCatalogTest {
         val future =
             StoreCosmeticCatalog.characterPacks
                 .filter {
-                    it.id !=
-                        StoreCosmeticCatalog.DEFAULT_CHARACTER_PACK
+                    it.characterPackId != "starter_paws"
                 }
 
         assertTrue(future.isNotEmpty())

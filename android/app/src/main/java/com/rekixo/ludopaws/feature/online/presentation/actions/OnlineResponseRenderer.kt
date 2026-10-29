@@ -99,7 +99,7 @@ internal fun MainActivity.applyResponse(
     applyOnlineGameplayPacing(previousState, state)
     LudoProofTheme.setGameplayBackground(
         root = arcadeRootView,
-        enabled = state.status == "ACTIVE",
+        enabled = state.status == "ACTIVE" || state.status == "FINISHED",
     )
     uiStateHolder.update {
         it.copy(
@@ -118,6 +118,18 @@ internal fun MainActivity.applyResponse(
         lastRealtimeRevision = serverRevision.toInt()
     }
 
+    if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED" &&
+        playerId?.let(state.matchGemRewards::containsKey) == true) {
+        refreshMatchGemWalletAfterFinish(state.matchId)
+    }
+    if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED") {
+        val winners = state.players.filter { player ->
+            if (state.winnerTeamId != null) player.teamId == state.winnerTeamId else player.playerId == state.winnerPlayerId
+        }
+        if (winners.isNotEmpty() && winners.all { it.tokens.size == 4 && it.tokens.all { position -> position == LudoPathEncoding.HOME_POSITION } }) {
+            com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(state.matchId)
+        }
+    }
     if (state.status == "FINISHED") {
         stopFriendsVoice("Voice ended with the match.")
         realtimeClient.disconnect()
@@ -192,7 +204,7 @@ internal fun MainActivity.applyResponse(
 
     updateTurnBanner(state)
     updateVerification(state)
-    proofDetailsText.text = proofDetails(state)
+    if (proofDetailsText.isShown) proofDetailsText.text = proofDetails(state)
     updateControls(state)
     updateRollButton()
 
@@ -293,8 +305,10 @@ internal fun MainActivity.updateTurnBanner(
 
                 resultTitleText.text =
                     if (won) "YOUR TEAM WON" else "TEAM ${winnerTeam ?: "—"} WINS"
+                val reward = playerId?.let(state.matchGemRewards::get)
                 resultSubtitleText.text =
-                    "$winners • server-authoritative team result • match complete"
+                    "$winners • server-authoritative team result • match complete" +
+                    (if (reward != null && reward > 0) "\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit" else "")
             } else {
                 val rank = playerId?.let { LudoPawsFinishPresentation.ranks(state)[it] }
                 val standings = LudoPawsFinishPresentation.standings(state)
@@ -302,6 +316,8 @@ internal fun MainActivity.updateTurnBanner(
                 resultSubtitleText.text = buildString {
                     if (rank == 4) append("WELL PLAYED!\n")
                     append(standings.ifBlank { "Match complete • verified result" })
+                    val reward = playerId?.let(state.matchGemRewards::get)
+                    if (reward != null && reward > 0) append("\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit")
                 }
             }
         }

@@ -6,7 +6,7 @@ on:
   pull_request:
     types: [opened, reopened, ready_for_review, synchronize]
   push:
-    branches: [main, feat/ludopaws-production-readiness, feat/gameplay-polish-futureproof]
+    branches: [main, codex/audit-hardening, feat/ludopaws-production-readiness, feat/gameplay-polish-futureproof]
   workflow_dispatch:
     inputs:
       run_android_instrumentation:
@@ -42,6 +42,18 @@ jobs:
       - name: Repository security gate
         working-directory: .
         run: node scripts/security-check.mjs
+      - name: Validate GitHub workflow semantics
+        working-directory: .
+        shell: bash
+        run: |
+          actionlint_archive="$RUNNER_TEMP/actionlint-1.7.12.tar.gz"
+          curl --fail --location --silent --show-error --connect-timeout 15 --max-time 120 --retry 2 \
+            --proto '=https' --proto-redir '=https' \
+            https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_1.7.12_linux_amd64.tar.gz \
+            --output "$actionlint_archive"
+          printf '%s  %s\n' 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8 "$actionlint_archive" | sha256sum --check --strict
+          tar -xzf "$actionlint_archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -shellcheck= -pyflakes=
       - name: Cloudflare production runtime config tests
         working-directory: .
         run: node --test scripts/cloudflare-runtime-config.test.mjs
@@ -59,6 +71,9 @@ jobs:
         run: node scripts/check-age-entry-policy.mjs
       - name: Server tests
         run: npm test
+      - name: Operational and supply-chain gate tests
+        working-directory: .
+        run: node --test scripts/referral-health-check.test.mjs scripts/check-dependency-advisories.test.mjs scripts/check-referral-release-version.test.mjs scripts/check-release-ci.test.mjs
       - name: Production smoke syntax check
         working-directory: .
         run: node --check scripts/production-game-smoke.mjs
@@ -120,6 +135,14 @@ jobs:
         run: node scripts/check-ludo-paws-reaction-director.mjs
       - name: Ludo Paws production audio gate
         run: node scripts/check-ludo-paws-audio.mjs
+      - name: Unified content manifest and generated registries gate
+        run: node scripts/generate-content-registries.mjs --check
+      - name: Unified content manifest regression tests
+        run: node --test scripts/generate-content-registries.test.mjs
+      - name: Audio content registration and coverage gate
+        run: node scripts/ludopaws-content-audio-tools.mjs validate
+      - name: Audio content creator-tool tests
+        run: node --test scripts/ludopaws-content-audio-tools.test.mjs
       - name: Ludo Paws gameplay background gate
         run: node scripts/check-ludo-paws-gameplay-background.mjs
       - name: Ludo Paws Quick Chat and settings UI gate
@@ -183,6 +206,8 @@ jobs:
         run: gradle -p android :app:writeReleaseDependencyInventory --console=plain
       - name: Generate CycloneDX SBOM
         run: node scripts/generate-sbom.mjs
+      - name: Check resolved runtime dependency advisories
+        run: node scripts/check-dependency-advisories.mjs
       - name: Upload SBOM evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         # Keep build/test CI status independent of GitHub's shared artifact quota.
@@ -193,6 +218,7 @@ jobs:
           path: |
             ludoproof-sbom.cdx.json
             ludoproof-sbom.sha256
+            dependency-advisories.json
           if-no-files-found: error
           retention-days: 7
 
@@ -224,13 +250,13 @@ jobs:
           retention-days: 3
 
   android-instrumentation:
-    # Device testing is deferred to the user's phone. Emulator runs require an
-    # explicit separate opt-in and never execute on PRs or main pushes.
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation }}
+    # The audit candidate runs the complete isolated suite on push so its
+    # GitHub Actions checks satisfy main protection. Other branches opt in
+    # manually; physical devices and production accounts are never used.
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation) || (github.event_name == 'push' && github.ref == 'refs/heads/codex/audit-hardening') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      ANDROID_AVD_HOME: /tmp/ludopaws-avd
       # UI/device tests must never mutate real production accounts or matches.
       ORG_GRADLE_PROJECT_LUDOPROOF_API_BASE_URL: https://127.0.0.1
     steps:
@@ -245,32 +271,42 @@ jobs:
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a
         with:
           gradle-version: "8.11.1"
-      - name: Free disk space for Android emulator
+      - name: Prepare disk-backed Android emulator storage
         shell: bash
         run: |
           set -Eeuo pipefail
-          echo "Disk usage before Android emulator cleanup:"
-          df -h /tmp
-          # The hosted runner image preinstalls large SDKs/toolchains that this Android
-          # instrumentation job does not use. Remove only those unrelated directories.
-          sudo rm -rf \
-            /opt/microsoft \
-            /opt/az \
-            /opt/ghc \
-            /opt/hostedtoolcache/CodeQL \
-            /usr/share/miniconda \
-            /usr/share/dotnet \
-            /usr/share/az* \
-            /usr/local/share/chromium \
-            /usr/local/share/powershell \
-            /usr/local/share/boost
-          docker image prune --all --force || true
-          docker builder prune --all --force || true
-          echo "Disk usage after Android emulator cleanup:"
-          df -h /tmp
-          available_kb="$(df -Pk /tmp | awk 'NR == 2 { print $4 }')"
+          export ANDROID_AVD_HOME="$RUNNER_TEMP/ludopaws-avd"
+          printf 'ANDROID_AVD_HOME=%s\n' "$ANDROID_AVD_HOME" >> "$GITHUB_ENV"
+          mkdir -p "$ANDROID_AVD_HOME"
+          echo "Disk usage for the actual Android emulator storage:"
+          df -h "$ANDROID_AVD_HOME"
+          available_kb="$(df -Pk "$ANDROID_AVD_HOME" | awk 'NR == 2 { print $4 }')"
+          if [[ ! "$available_kb" =~ ^[0-9]+$ ]]; then
+            echo "Could not determine emulator storage capacity." >&2
+            exit 1
+          fi
+          if (( available_kb < 8 * 1024 * 1024 )); then
+            # The hosted runner image preinstalls large SDKs/toolchains that this Android
+            # instrumentation job does not use. Remove only those unrelated directories.
+            sudo rm -rf \
+              /opt/microsoft \
+              /opt/az \
+              /opt/ghc \
+              /opt/hostedtoolcache/CodeQL \
+              /usr/share/miniconda \
+              /usr/share/dotnet \
+              /usr/share/az* \
+              /usr/local/share/chromium \
+              /usr/local/share/powershell \
+              /usr/local/share/boost
+            docker image prune --all --force || true
+            docker builder prune --all --force || true
+          fi
+          echo "Disk usage after Android emulator storage preparation:"
+          df -h "$ANDROID_AVD_HOME"
+          available_kb="$(df -Pk "$ANDROID_AVD_HOME" | awk 'NR == 2 { print $4 }')"
           if [[ ! "$available_kb" =~ ^[0-9]+$ ]] || (( available_kb < 8 * 1024 * 1024 )); then
-            echo "Expected at least 8 GiB of free space on /tmp after cleanup." >&2
+            echo "Expected at least 8 GiB of free space on the emulator storage filesystem." >&2
             exit 1
           fi
       - name: Install emulator and Android SDK
@@ -459,6 +495,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Node.js 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      - name: Verify unified local runner without installing
+        run: node --test scripts/android-local-testing.test.mjs
       - name: Validate PowerShell script syntax
         shell: powershell
         run: |

@@ -17,6 +17,15 @@ enum class LudoPawsProceduralVocal {
     CAT_MEW,
     CAT_PURR,
     CAT_HUFF,
+    COCK_CROW,
+    COCK_CLUCK,
+    PIG_OINK,
+    PIG_SQUEAL,
+    ELEPHANT_TRUMPET,
+    ELEPHANT_RUMBLE,
+    HORSE_NEIGH,
+    HORSE_SNORT,
+    RABBIT_SNUFFLE,
 }
 
 data class LudoPawsVocalPlan(
@@ -80,7 +89,7 @@ object LudoPawsReactionAudioProfile {
                     species = species,
                     cue = cue,
                 ),
-            volume = volumeFor(cue),
+            volume = volumeFor(cue) * if (species == AnimalSpecies.RABBIT) .55f else 1f,
             playbackRate = playbackRateFor(species, cue),
             probabilityPercent = probability,
             delayMillis = delayFor(reaction.momentType),
@@ -189,6 +198,36 @@ object LudoPawsReactionAudioProfile {
                     -> LudoPawsProceduralVocal.DUCK_SOFT_QUACK
 
                     else -> LudoPawsProceduralVocal.DUCK_QUACK
+                }
+
+            AnimalSpecies.RABBIT -> LudoPawsProceduralVocal.RABBIT_SNUFFLE
+
+            AnimalSpecies.HORSE ->
+                when (cue) {
+                    VoiceCue.SIX, VoiceCue.YARD_EXIT, VoiceCue.CAPTURED,
+                    VoiceCue.HOME, VoiceCue.VICTORY -> LudoPawsProceduralVocal.HORSE_NEIGH
+                    else -> LudoPawsProceduralVocal.HORSE_SNORT
+                }
+
+            AnimalSpecies.ELEPHANT ->
+                when (cue) {
+                    VoiceCue.SIX, VoiceCue.YARD_EXIT, VoiceCue.CAPTURE,
+                    VoiceCue.CAPTURED, VoiceCue.HOME, VoiceCue.VICTORY -> LudoPawsProceduralVocal.ELEPHANT_TRUMPET
+                    else -> LudoPawsProceduralVocal.ELEPHANT_RUMBLE
+                }
+
+            AnimalSpecies.PIG ->
+                when (cue) {
+                    VoiceCue.CAPTURED, VoiceCue.THIRD_SIX,
+                    VoiceCue.VICTORY -> LudoPawsProceduralVocal.PIG_SQUEAL
+                    else -> LudoPawsProceduralVocal.PIG_OINK
+                }
+
+            AnimalSpecies.COCK ->
+                when (cue) {
+                    VoiceCue.SIX, VoiceCue.YARD_EXIT, VoiceCue.HOME,
+                    VoiceCue.PROUD, VoiceCue.VICTORY -> LudoPawsProceduralVocal.COCK_CROW
+                    else -> LudoPawsProceduralVocal.COCK_CLUCK
                 }
 
             AnimalSpecies.CAT ->

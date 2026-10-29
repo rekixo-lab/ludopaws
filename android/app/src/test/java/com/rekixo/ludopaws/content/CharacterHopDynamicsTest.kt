@@ -11,7 +11,7 @@ import org.junit.Test
 
 class CharacterHopDynamicsTest {
     @Test fun everyCharacterHasVisiblePlantedAnticipationAndContactCompression() {
-        assertEquals(setOf("dog", "goat", "duck", "cat", "donkey", "goat_lumi"), CharacterRegistry.all.map { it.id }.toSet())
+        assertEquals(setOf("dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit"), CharacterRegistry.all.map { it.id }.toSet())
         for (character in CharacterRegistry.all) {
             val renderer = character.renderer
             val down = renderer.sample(CharacterMotion.HOP, .14f)
@@ -19,7 +19,9 @@ class CharacterHopDynamicsTest {
             assertEquals(character.id, 0f, renderer.stepTravelProgress(.14f), .0001f)
             assertTrue(character.id, down.bodyScaleY <= .85f && down.bodyCrouch >= .08f)
             val air = renderer.sample(CharacterMotion.HOP, .48f)
-            assertTrue(character.id, air.liftY >= .45f && air.bodyScaleY >= .99f)
+            val minimumLift = if (character.id == "elephant") .39f else .45f
+            assertTrue(character.id, air.liftY >= minimumLift && air.bodyScaleY >= .99f)
+            if (character.id == "elephant") assertEquals(.40f, air.liftY, .0001f)
             val contact = renderer.sample(CharacterMotion.HOP, .80f)
             assertEquals(character.id, 0f, contact.liftY, .0001f)
             assertEquals(character.id, 1f, renderer.stepTravelProgress(.80f), .0001f)

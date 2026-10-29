@@ -136,6 +136,13 @@ export const TEAM_RULESET_V5 = Object.freeze({
   ...TEAM_RULESET_V4, id: "ludoproof-team-v5", opponentStackCapture: "OPPONENT_STACK_PROTECTED",
 });
 
+// V6 finishes all ranked places in a classic match; older match contracts remain immutable.
+export const RULESET_V6_KEY = "CLASSIC_V6";
+export const RULESET_V6 = Object.freeze({
+  ...RULESET_V5, id: "ludoproof-standard-v6",
+  placementPolicy: "FINISH_ALL_BUT_LAST",
+});
+
 export function rulesetKeyForState(state, { teamUp = false } = {}) {
   const key = state?.rulesetKey;
   if (key == null) {
@@ -163,6 +170,7 @@ export function rulesetForKey(key) {
     case TEAM_RULESET_V4_KEY:
       return TEAM_RULESET_V4;
     case RULESET_V5_KEY: return RULESET_V5;
+    case RULESET_V6_KEY: return RULESET_V6;
     case TEAM_RULESET_V5_KEY: return TEAM_RULESET_V5;
     default: {
       const error = new Error(`unsupported ruleset key: ${String(key)}`);

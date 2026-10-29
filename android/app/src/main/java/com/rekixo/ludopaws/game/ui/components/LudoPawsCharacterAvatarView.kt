@@ -52,6 +52,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
     private var modelTeamColor: String = LudoPawsTeamColor.BLUE.wireName
     private var requestedPortraitKey: String? = null
     private var portraitBitmap: Bitmap? = null
+    private val visibleBounds = android.graphics.Rect()
 
     fun bind(
         characterId: String?,
@@ -86,27 +87,24 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
                 teamColor = this.modelTeamColor,
             )
         if (requestedPortraitKey != requestKey) {
-            requestedPortraitKey = requestKey
+            requestedPortraitKey = null
             portraitBitmap = null
-            val requestedCharacterId = this.characterId
-            val requestedTeamColor = this.modelTeamColor
-            LudoPawsCharacterPortraitBitmapCache.request(
-                characterId = requestedCharacterId,
-                teamColor = requestedTeamColor,
-            ) { bitmap ->
-                // Views can be rebound while a portrait is still rendering.
-                // Never let an older request overwrite a newer selection.
-                if (
-                    requestedPortraitKey == requestKey &&
-                    this.characterId == requestedCharacterId &&
-                    this.modelTeamColor == requestedTeamColor
-                ) {
-                    portraitBitmap = bitmap
-                    invalidate()
-                }
-            }
         }
         invalidate()
+    }
+
+    private fun requestVisiblePortrait() {
+        if (!isAttachedToWindow || !isShown || !getLocalVisibleRect(visibleBounds)) return
+        val requestKey = LudoPawsCharacterPortraitBitmapCache.keyFor(characterId, modelTeamColor)
+        if (requestedPortraitKey == requestKey) return
+        requestedPortraitKey = requestKey
+        val requestedCharacterId = characterId
+        LudoPawsCharacterPortraitBitmapCache.request(requestedCharacterId, modelTeamColor) { bitmap ->
+            if (requestedPortraitKey == requestKey && characterId == requestedCharacterId) {
+                portraitBitmap = bitmap
+                invalidate()
+            }
+        }
     }
 
     override fun onMeasure(
@@ -124,6 +122,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         super.onDraw(canvas)
         val size = min(width, height).toFloat()
         if (size <= 0f) return
+        requestVisiblePortrait()
 
         val scale = size / 100f
         canvas.save()

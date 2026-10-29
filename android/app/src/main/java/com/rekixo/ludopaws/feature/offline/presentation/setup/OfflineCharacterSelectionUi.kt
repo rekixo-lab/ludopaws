@@ -99,7 +99,8 @@ internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
 internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: String) {
     if (!characterSelectionStore.isUnlocked(characterId)) {
         startActivity(android.content.Intent(this, com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java)
-            .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS"))
+            .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
+            .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId))
         return
     }
     selectedCharacterIds =
@@ -342,7 +343,7 @@ private fun OfflineGameActivity.characterChoiceCard(
         addView(
             TextView(this@characterChoiceCard).apply {
                 text =
-                    if (!characterSelectionStore.isUnlocked(character.id)) "🔒 ${com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(character.id)?.requiredAdViews} ADS" else character.personality.name
+                    if (!characterSelectionStore.isUnlocked(character.id)) characterUnlockLabel(character.id) else character.personality.name
                         .lowercase()
                         .replaceFirstChar(Char::uppercase)
                 textSize = if (isCompactSetup()) 9.5f else 10.5f
@@ -460,7 +461,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
             ?.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
         card.findViewWithTag<TextView>(CHARACTER_PERSONALITY_TAG)?.apply {
             text = if (!characterSelectionStore.isUnlocked(characterId)) {
-                "🔒 ${com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(characterId)?.requiredAdViews} ADS"
+                characterUnlockLabel(characterId)
             } else com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.character(characterId)
                 ?.personality?.name?.lowercase()?.replaceFirstChar(Char::uppercase).orEmpty()
             setTextColor(0xFFBCD5FF.toInt())
@@ -469,6 +470,15 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
     }
 
 
+}
+
+private fun OfflineGameActivity.characterUnlockLabel(characterId: String): CharSequence {
+    val offer = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(characterId)
+        ?: return "🔒 LOCKED"
+    return if (offer.gemPrice > 0) {
+        com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels.gems(this,
+            offer.gemPrice, " · STORE")
+    } else "🔒 ${offer.requiredAdViews} ADS"
 }
 
 private const val CHARACTER_AVATAR_TAG =

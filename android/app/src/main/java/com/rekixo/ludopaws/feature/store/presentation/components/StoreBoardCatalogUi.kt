@@ -21,26 +21,64 @@ private const val LOCKED_BOARD_TITLE = "LOCKED BOARD"
 internal fun StoreActivity.boardCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        val panels = StoreCosmeticCatalog.boards
-        val groups = panels.chunked(2)
-        addView(VirtualCatalogRows(this@boardCatalogContent, groups.size, dp(188), dp(10)) { index ->
-            LinearLayout(this@boardCatalogContent).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.TOP
-                groups[index].forEach { item ->
-                    addView(boardPanel(item), LinearLayout.LayoutParams(0, dp(188), 1f).apply {
-                        setMargins(dp(4), 0, dp(4), 0)
-                    })
-                }
-                repeat(2 - groups[index].size) {
-                    addView(TextView(this@boardCatalogContent), LinearLayout.LayoutParams(0, dp(188), 1f))
-                }
+
+        val panels = StoreCosmeticCatalog.boards.filter { it.contentAvailable }
+        val ownedIds = cosmetics.ownedCosmeticIds()
+        val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
+        val selectionUpdates = mutableMapOf<String, (Boolean, Boolean) -> Unit>()
+        refreshBoardSelection = {
+            val currentOwned = cosmetics.ownedCosmeticIds()
+            val currentSelected = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
+            selectionUpdates.forEach { (id, update) ->
+                update(id in currentOwned, id in currentOwned && id == currentSelected)
             }
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+
+        // Use the same two-card row rhythm as Paws so every board preview gets more room.
+        panels.chunked(2).forEachIndexed { rowIndex, rowBoards ->
+            val row =
+                LinearLayout(this@boardCatalogContent).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.TOP
+                }
+
+            rowBoards.forEach { board ->
+                row.addView(
+                    boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
+                    LinearLayout.LayoutParams(
+                        0,
+                        dp(208),
+                        1f,
+                    ).apply {
+                        setMargins(dp(4), 0, dp(4), 0)
+                    },
+                )
+            }
+
+            repeat(2 - rowBoards.size) {
+                row.addView(
+                    TextView(this@boardCatalogContent),
+                    LinearLayout.LayoutParams(0, dp(208), 1f),
+                )
+            }
+
+            addView(
+                row,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    if (rowIndex > 0) topMargin = dp(10)
+                },
+            )
+        }
     }
 
 private fun StoreActivity.boardPanel(
     board: StoreCosmetic,
+    owned: Boolean,
+    selected: Boolean,
+    selectionUpdates: MutableMap<String, (Boolean, Boolean) -> Unit>,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -48,37 +86,8 @@ private fun StoreActivity.boardPanel(
         setPadding(dp(6), dp(8), dp(6), dp(8))
 
         val locked = !board.contentAvailable
-        val owned = cosmetics.isOwned(board.id)
-        val selected =
-            owned &&
-                cosmetics.selectedId(board.category) == board.id
-
-        // Only the timber panel is used. No blue/purple arcade face or coloured icon well.
-        background =
-            if (locked || !owned) {
-                plywoodBackground(this@boardPanel, cornerRadiusDp = 13f)
-            } else {
-                playerCountSelectionBackground(
-                    context = this@boardPanel,
-                    selected = selected,
-                    outerCornerRadiusDp = 13f,
-                    checkBadgeAtTopEnd = true,
-                    emphasizeSelected = true,
-                    showCheckBadge = selected,
-                    checkMarkScale = 2.0f,
-                    useRecessedPlywood = false,
-                )
-            }
-        elevation = dp(if (selected) 4 else 2).toFloat()
         isClickable = !locked
         isFocusable = !locked
-        contentDescription =
-            when {
-                locked && board.remoteManaged -> "${board.title}, not available in this app build yet"
-                locked -> "$LOCKED_BOARD_TITLE, locked, coming soon"
-                !owned -> "${board.title}, available to unlock"
-                else -> "${board.title}, unlocked" + if (selected) ", selected" else ""
-            }
 
         addView(
             TextView(this@boardPanel).apply {
@@ -110,18 +119,25 @@ private fun StoreActivity.boardPanel(
                 ),
             )
         } else {
-            // A passive Classic-only miniature mirrors the production board geometry and colors.
-            // It deliberately has no touch handling, so taps continue to reach the whole panel.
+            if (!owned && board.requiredAdViews > 0) {
+                addView(TextView(this@boardPanel).apply {
+                    text = "or ${board.requiredAdViews} ads"
+                    textSize = 9f
+                    includeFontPadding = false
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER
+                })
+            }
             addView(
-                ClassicBoardIconView(this@boardPanel, board.id).apply {
+                BoardIconView(this@boardPanel, board.id).apply {
                     isClickable = false
                     isFocusable = false
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    contentDescription = "Classic Ludo board preview"
+                    contentDescription = "${board.title} board preview"
                 },
                 LinearLayout.LayoutParams(
-                    dp(104),
-                    dp(104),
+                    dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
+                    dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
                 ).apply {
                     topMargin = dp(1)
                     bottomMargin = dp(1)
@@ -129,8 +145,9 @@ private fun StoreActivity.boardPanel(
             )
         }
 
+        val statusBadge = boardStatusBadge(board = board, locked = locked, owned = owned, selected = selected)
         addView(
-            boardStatusBadge(board = board, locked = locked, owned = owned, selected = selected),
+            statusBadge,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -138,6 +155,35 @@ private fun StoreActivity.boardPanel(
                 topMargin = dp(8)
             },
         )
+
+        val updateSelection: (Boolean, Boolean) -> Unit = { currentOwned, currentSelected ->
+            isSelected = currentSelected
+            background = if (locked || !currentOwned) {
+                plywoodBackground(this@boardPanel, cornerRadiusDp = 13f)
+            } else {
+                playerCountSelectionBackground(
+                    context = this@boardPanel,
+                    selected = currentSelected,
+                    outerCornerRadiusDp = 13f,
+                    checkBadgeAtTopEnd = true,
+                    emphasizeSelected = true,
+                    showCheckBadge = currentSelected,
+                    checkMarkScale = 2.0f,
+                    useRecessedPlywood = false,
+                )
+            }
+            elevation = dp(if (currentSelected) 4 else 2).toFloat()
+            contentDescription = when {
+                locked && board.remoteManaged -> "${board.title}, not available in this app build yet"
+                locked -> "$LOCKED_BOARD_TITLE, locked, coming soon"
+                !currentOwned -> "${board.title}, available to unlock"
+                currentSelected -> "${board.title}, selected"
+                else -> "${board.title}, unlocked, tap to select"
+            }
+            boardStatusBadge(board, locked, currentOwned, currentSelected, statusBadge)
+        }
+        selectionUpdates[board.id] = updateSelection
+        updateSelection(owned, selected)
 
         if (locked) {
             addView(
@@ -155,9 +201,8 @@ private fun StoreActivity.boardPanel(
             )
         } else {
             setOnClickListener { clicked ->
-                clicked.playSelectionPopAnimation {
-                    handleCosmeticTap(board)
-                }
+                handleCosmeticTap(board)
+                clicked.playSelectionPopAnimation {}
             }
             AppFocusRing.apply(this, cornerRadiusDp = 13f)
         }
@@ -168,13 +213,15 @@ private fun StoreActivity.boardStatusBadge(
     locked: Boolean,
     owned: Boolean,
     selected: Boolean,
+    badge: TextView = TextView(this),
 ): TextView =
-    TextView(this).apply {
+    badge.apply {
         text = when {
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
-            owned -> "🔓 UNLOCKED"
-            board.gemPrice > 0 -> "${board.gemPrice} GEMS"
+            owned -> "TAP TO SELECT"
+            board.unlockChannels.size > 1 -> cosmeticPurchaseLabel(board)
+            board.gemPrice > 0 -> CosmeticPriceLabels.gems(this@boardStatusBadge, board.gemPrice)
             board.requiredAdViews > 0 -> "${board.requiredAdViews} ADS"
             else -> "GET"
         }
@@ -190,7 +237,7 @@ private fun StoreActivity.boardStatusBadge(
         )
         gravity = Gravity.CENTER
         includeFontPadding = false
-        maxLines = 1
+        maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
         background =
@@ -218,21 +265,21 @@ private fun StoreActivity.boardStatusBadge(
     }
 
 
-/** The same board, relief, garden and joined houses used in gameplay; no duplicate flat artwork. */
-private class ClassicBoardIconView(
+private class BoardIconView(
     context: android.content.Context,
     previewThemeId: String,
 ) : android.widget.FrameLayout(context) {
     init {
-        require(previewThemeId == StoreCosmeticCatalog.DEFAULT_BOARD)
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        contentDescription = "Classic 3D gameplay board preview"
-        addView(com.rekixo.ludopaws.LudoPawsReactiveBoardView(context).apply {
-            bind(com.rekixo.ludopaws.MatchSnapshot(
-                matchId = "store-classic-preview", status = "WAITING", hostPlayerId = "",
-                players = emptyList(), turnSeat = 0, randomEventIndex = 0, pendingRoll = null,
-                winnerPlayerId = null, rulesetId = "ludoproof-standard-v5", history = emptyList(),
-            ), playerId = null, perspectiveColor = "YELLOW")
+        contentDescription = "Gameplay board artwork preview"
+        addView(com.rekixo.ludopaws.LudoBoardView(context).apply {
+            setBoardThemeOverride(previewThemeId)
+            setClassicTokenDrawingEnabled(false)
+            isClickable = false
+            isFocusable = false
+        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(com.rekixo.ludopaws.LudoPawsBoardChromeView(context).apply {
+            setBoardThemeOverride(previewThemeId)
         }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }
 

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="store_title">Ludo Paws: बोलने वाले जानवर</string>
+    <string name="brand_tagline">डाइस घुमाएँ। दौड़ें। दहाड़ें!</string>
+    <string name="home_hero_tagline">डाइस घुमाएँ। दौड़ें। दहाड़ें!</string>
+    <string name="home_hero_supporting_copy">बोलने वाले जानवरों की गोटियों और सत्यापित फ़ेयर डाइस के साथ ऑनलाइन या लोकल खेलें।</string>
+    <string name="share_chooser_title">Ludo Paws शेयर करें</string>
+    <string name="share_message">Ludo Paws खेलें — डाइस घुमाएँ। दौड़ें। दहाड़ें! बोलने वाले जानवरों की गोटियों और सत्यापित फ़ेयर डाइस के साथ ऑनलाइन या लोकल खेलें।</string>
+    <string name="rate_accessibility_label">Ludo Paws को रेटिंग दें</string>
+    <string name="rate_dialog_title">LUDO PAWS को रेटिंग दें</string>
+    <string name="rate_dialog_question">Ludo Paws पसंद आ रहा है?</string>
+    <string name="profile_play_games_title">GOOGLE PLAY GAMES</string>
+    <string name="profile_play_games_signed_in_as">%1$s के रूप में साइन इन हैं</string>
+    <string name="profile_play_games_connected">Play Games जुड़ा हुआ है।</string>
+    <string name="profile_play_games_sign_in_prompt">अपनी Play Games प्रोफ़ाइल जोड़ने के लिए साइन इन करें।</string>
+    <string name="profile_play_games_setup_required">साइन इन चालू करने के लिए Play Games Services प्रोजेक्ट ID जोड़ें।</string>
+    <string name="profile_play_games_sign_in_opening">Play Games साइन इन खोल रहे हैं…</string>
+    <string name="profile_play_games_sign_in_not_completed">साइन इन पूरा नहीं हुआ। आप कभी भी फिर कोशिश कर सकते हैं।</string>
+    <string name="profile_play_games_sign_in_failed">Play Games साइन इन नहीं हुआ। अपना Google Play Games सेटअप जाँचें।</string>
+    <string name="profile_play_games_sign_in_failed_detail">Play Games साइन इन नहीं हुआ: %1$s</string>
+    <string name="profile_play_games_check_failed">Play Games साइन इन जाँचा नहीं जा सका। दोबारा कोशिश करने के लिए टैप करें।</string>
+    <string name="profile_play_games_setup_button_message">Play Games साइन इन के लिए ऐप की configuration में Play Console प्रोजेक्ट ID चाहिए।</string>
+</resources>

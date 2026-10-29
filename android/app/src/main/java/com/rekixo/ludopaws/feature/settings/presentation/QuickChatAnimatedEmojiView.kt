@@ -55,7 +55,7 @@ internal class QuickChatAnimatedEmojiView(
                 setImageDrawable(result)
                 if (animated) (result as? AnimatedImageDrawable)?.apply {
                     repeatCount = AnimatedImageDrawable.REPEAT_INFINITE
-                    if (windowVisibility == VISIBLE) start()
+                    updateAnimation()
                 }
             }
         }
@@ -63,8 +63,18 @@ internal class QuickChatAnimatedEmojiView(
 
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
+        updateAnimation()
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        updateAnimation()
+    }
+
+    private fun updateAnimation() {
         (drawable as? AnimatedImageDrawable)?.let {
-            if (visibility == VISIBLE && animated && !disposed) it.start() else it.stop()
+            if (animated && !disposed && isAttachedToWindow && isShown && windowVisibility == VISIBLE &&
+                android.animation.ValueAnimator.areAnimatorsEnabled()) it.start() else it.stop()
         }
     }
 

@@ -43,6 +43,7 @@ import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.art.playGamesSignInBackground
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
+import com.rekixo.ludopaws.LudoProofApplication
 import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.PlayerSession
 import com.rekixo.ludopaws.SecureSessionStore
@@ -980,7 +981,13 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     private fun ensureLeaderboardCredential(): LeaderboardCredential {
-        identityStore.load()?.let { return it }
+        identityStore.load()?.let {
+            runCatching {
+                (application as LudoProofApplication).accountRepository
+                    .ensureLinkedLeaderboardWallet(it.profileToken)
+            }
+            return it
+        }
         val requestId = identityStore.registrationRequestId()
         val response = LeaderboardApi().registerProfile(requestId)
         val credential = LeaderboardCredential(
@@ -989,6 +996,10 @@ class TeamUpActivity : ComponentActivity() {
             registrationRequestId = requestId,
         )
         identityStore.save(credential)
+        runCatching {
+            (application as LudoProofApplication).accountRepository
+                .ensureLinkedLeaderboardWallet(credential.profileToken)
+        }
         return credential
     }
 

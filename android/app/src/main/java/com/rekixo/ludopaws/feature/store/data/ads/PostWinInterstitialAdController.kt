@@ -92,6 +92,7 @@ internal class PostWinInterstitialAdController(
 
         fun finishOnce(wasDismissed: Boolean) {
             if (completed) return
+            com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
             completed = true
             showing = false
             showConsumed = false
@@ -114,6 +115,7 @@ internal class PostWinInterstitialAdController(
             }
 
         try {
+            com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
             ad.show(activity)
         } catch (error: Exception) {
             Log.w(TAG, "Post-win interstitial could not be shown", error)

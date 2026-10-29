@@ -364,29 +364,5 @@ internal fun HomeActivity.footer(): TextView =
     }
 
 internal fun HomeActivity.shareLudoPaws() {
-    val storeUrl =
-        "https://play.google.com/store/apps/details?id=$packageName"
-    val shareText =
-        buildString {
-            append(getString(R.string.share_message))
-            append("\n\n")
-            append(storeUrl)
-        }
-
-    val share =
-        Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(
-                Intent.EXTRA_SUBJECT,
-                getString(R.string.share_subject),
-            )
-            putExtra(Intent.EXTRA_TEXT, shareText)
-        }
-
-    startActivity(
-        Intent.createChooser(
-            share,
-            getString(R.string.share_chooser_title),
-        ),
-    )
+    startActivity(Intent(this, com.rekixo.ludopaws.feature.referrals.ReferralActivity::class.java))
 }

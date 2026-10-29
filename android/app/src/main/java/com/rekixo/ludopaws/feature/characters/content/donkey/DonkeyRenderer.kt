@@ -57,10 +57,6 @@ internal object DonkeyRenderer : CharacterRenderer {
             Matrix.translateM(neck, 0, 0f, -.38f, 0f)
             surface = CharacterSurface.SOFT_FUR
             donkeyMesh(neck, DonkeyGeometry.neck, DONKEY_COAT)
-            surface = CharacterSurface.MATTE
-            donkeyMesh(neck, DonkeyGeometry.collar, teamColor.glColor, y=-.15f, z=.17f, sx=.98f, sy=.85f)
-            surface = CharacterSurface.HORN
-            drawPart(neck, 0f, .225f, .465f, .060f, .076f, .026f, TAG_GOLD)
             prepareHead(neck, .82f, pose.headTiltDegrees)
             // Keep room above the forehead for the long expressive ears.
             Matrix.translateM(head,0,0f,.73f,.20f)

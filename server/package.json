@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "pretest": "node ../scripts/check-node-version.mjs",
     "test": "node --test",
     "deploy": "npx --yes wrangler@4.135.0 deploy",
     "dev": "npx --yes wrangler@4.135.0 dev"

@@ -399,6 +399,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
                     val heightRatio = LudoPawsPawnLayout.silhouetteHeight(id)
                     val halfWidth = radius * when (id) {
                         "duck" -> .95f
+                        "elephant" -> 1.0f
                         "cat" -> .86f * CatDefinition.MODEL_SIZE_MULTIPLIER
                         "goat_lumi" -> .86f * LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
                         else -> .86f
@@ -542,6 +543,12 @@ class LudoPawsBoardView @JvmOverloads constructor(
         boardSurface.reloadStyle()
         baseBoard.reloadStyle()
         boardChrome.reloadStyle()
+    }
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        boardSurface.setBoardThemeOverride(themeId)
+        baseBoard.setBoardThemeOverride(themeId)
+        boardChrome.setBoardThemeOverride(themeId)
     }
 
     // BOARD SIZE LOCK: exactly mirror the approved LudoBoardView square.

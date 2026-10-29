@@ -11,7 +11,8 @@ import android.os.Bundle
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
-import android.widget.ImageView
+import android.content.Intent
+import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
@@ -33,6 +34,18 @@ class HomeActivity : Activity() {
         TextView? = null
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
+
+    private var promotionCarousel: HomePromotionCarousel? = null
+    private var referralPopupVisible = false
+    private var promotionsStarted = false
+    private val referralPromotions by lazy {
+        com.rekixo.ludopaws.feature.referrals.ReferralPromotionController(this,
+            uiAvailable = { resumed && homeShown && com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this) },
+            popupVisibility = { visible ->
+                referralPopupVisible = visible
+                promotionCarousel?.setActive(resumed && !visible)
+            })
+    }
 
     private val startupHandler = Handler(Looper.getMainLooper())
     private val startupSession get() = (application as LudoProofApplication).startupSession
@@ -60,7 +73,10 @@ class HomeActivity : Activity() {
     }
     private val privacyReady: () -> Unit = {
         syncHomePrivacyGate()
-        if (resumed && homeShown && !isFinishing && !isDestroyed) startupPlayGames.refresh(this)
+        if (resumed && homeShown && !isFinishing && !isDestroyed) {
+            startupPlayGames.refresh(this)
+            resumeHomePromotions()
+        }
     }
 
     private fun updateSplash() {
@@ -78,6 +94,9 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
+        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.host == "api.ludopaws.rekixo.com") {
+            android.widget.Toast.makeText(this, "Welcome! Only a new Play installation from an invitation can qualify. Your inviter receives the reward after verified play.", android.widget.Toast.LENGTH_LONG).show()
+        }
         heroBitmap = (application as LudoProofApplication).startupArtwork
         // A restored Activity starts new artwork work. Reusing an old elapsed
         // timestamp could immediately trip its watchdog after process death.
@@ -262,17 +281,12 @@ class HomeActivity : Activity() {
                 dp(if (isCompact()) 350 else 388),
             )
         contentHost.addView(
-            ImageView(this).apply {
-                val bitmap = heroBitmap
-                if (bitmap != null) setImageBitmap(bitmap) else setImageResource(R.drawable.ludo_paws_home_hero)
-                scaleType =
-                    ImageView.ScaleType.FIT_CENTER
-                adjustViewBounds = false
-                contentDescription =
-                    "Ludo Paws characters"
-                importantForAccessibility =
-                    View.IMPORTANT_FOR_ACCESSIBILITY_YES
-            },
+            HomePromotionCarousel(this) { tab, characterId ->
+                startActivity(Intent(this, StoreActivity::class.java).apply {
+                    putExtra(StoreActivity.EXTRA_INITIAL_TAB, tab)
+                    characterId?.let { putExtra(StoreActivity.EXTRA_FEATURED_CHARACTER_ID, it) }
+                })
+            }.also { promotionCarousel = it },
             FrameLayout.LayoutParams(
                 heroWidth,
                 dp(if (isCompact()) 272 else 302),
@@ -425,8 +439,31 @@ class HomeActivity : Activity() {
     internal fun isHomeReadyForPlatformConnection(): Boolean =
         resumed && homeShown && !isFinishing && !isDestroyed
 
+    private fun resumeHomePromotions() {
+        if (!isHomeReadyForPlatformConnection() || !com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)) return
+        promotionCarousel?.setActive(!referralPopupVisible)
+        // The PGS host recreation must not consume and cancel the one-per-session
+        // referral opportunity before the restored Home can display it.
+        if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this) ||
+            startupPlayGames.authenticationBootstrapPending || promotionsStarted) return
+        promotionsStarted = true
+        referralPromotions.resume(home = true)
+        startupHandler.postDelayed({
+            if (resumed && homeShown && !isFinishing && !isDestroyed) {
+                com.rekixo.ludopaws.feature.referrals.ReferralRepository(this).refreshAttribution()
+                val selected = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load()
+                com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.prewarm(
+                    listOf(selected.characterId, "dog", "goat", "duck", "cat"))
+                com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback.preloadMovementEventSfx(this)
+            }
+        }, 1200L)
+    }
+
     override fun onPause() {
         resumed = false
+        promotionsStarted = false
+        referralPromotions.pause()
+        promotionCarousel?.setActive(false)
         super.onPause()
     }
 
@@ -475,6 +512,7 @@ class HomeActivity : Activity() {
 
     override fun onDestroy() {
         preparationGeneration += 1
+        referralPromotions.pause()
         com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)
         startupSession.unsubscribe(startupObserver)
         startupHandler.removeCallbacksAndMessages(null)

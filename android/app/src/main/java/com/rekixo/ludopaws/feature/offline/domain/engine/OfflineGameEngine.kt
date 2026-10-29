@@ -409,6 +409,7 @@ class OfflineGameEngine(
                     current.finishedPlayerIds.firstOrNull()
                 current.revision += 1
                 persist()
+                com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(current.matchId)
                 return current.toSnapshot()
             }
 
@@ -439,7 +440,7 @@ class OfflineGameEngine(
         state = null
         synchronized(checkpoints) {
             checkpoints[mode] = null
-            checkpointWriter.execute {
+            checkpointWrites.submit(mode) {
                 runCatching { check(prefs.edit().clear().commit()) }
                     .onFailure { android.util.Log.e("OfflineSave", "Could not clear checkpoint", it) }
             }
@@ -559,11 +560,9 @@ class OfflineGameEngine(
         val current = active.frozenCopy()
         synchronized(checkpoints) {
             checkpoints[mode] = current
-            checkpointWriter.execute {
-                runCatching {
-                    if (synchronized(checkpoints) { checkpoints[mode] === current }) writeCheckpoint(current)
-                    reconcileFinishedResult(current)
-                }
+            if (current.status == "FINISHED") checkpointWriter.execute { reconcileFinishedResult(current) }
+            checkpointWrites.submit(mode) {
+                runCatching { writeCheckpoint(current) }
                     .onFailure { android.util.Log.e("OfflineSave", "Could not serialize checkpoint", it) }
             }
         }
@@ -1109,6 +1108,9 @@ class OfflineGameEngine(
         val checkpoints = mutableMapOf<GameMode, LocalState?>()
         val checkpointWriter = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
             Thread(task, "LudoPawsCheckpoint").apply { isDaemon = true }
+        }
+        val checkpointWrites = LatestWriteQueue<GameMode>(checkpointWriter) {
+            android.util.Log.e("OfflineSave", "Could not write checkpoint", it)
         }
         const val PREFS_NAME = "ludoproof_offline_game"
         const val PREFS_NAME_COMPUTER = "ludoproof_computer_game"

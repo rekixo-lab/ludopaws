@@ -1,3 +1,5 @@
+import { applyReferralRuntimeVars } from "./referral-runtime-config.mjs";
+
 const GOOGLE_WEB_CLIENT_ID = /^[0-9]+-[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/;
 const GOOGLE_PLAY_SERVICE_ACCOUNT = /^[^@\s]+@[^@\s]+\.iam\.gserviceaccount\.com$/;
 const ADMOB_REWARDED_UNIT = /^ca-app-pub-[0-9]{16}\/[0-9]{10}$/;
@@ -103,5 +105,13 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   if (rewardedAdUnitId) vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID = rewardedAdUnitId;
   else delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID;
 
-  return vars;
+  // Emit a public, non-secret deployment identity so signed releases and
+  // smoke tests cannot silently validate an older Cloudflare Worker.
+  const deployCommit = String(environment.GITHUB_SHA ?? "").trim().toLowerCase();
+  if (deployCommit && !/^[a-f0-9]{40}$/.test(deployCommit)) {
+    throw new Error("GITHUB_SHA must be a 40-character Git commit SHA for a production deployment.");
+  }
+  if (deployCommit) vars.LUDOPROOF_DEPLOY_COMMIT_SHA = deployCommit;
+  else delete vars.LUDOPROOF_DEPLOY_COMMIT_SHA;
+  return applyReferralRuntimeVars(vars, environment);
 }

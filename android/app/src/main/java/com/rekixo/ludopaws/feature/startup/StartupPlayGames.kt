@@ -17,6 +17,7 @@ class StartupPlayGames(private val application: Application) {
         private set
     private var needsHostCreation = false
     private var recreationQueued = false
+    val authenticationBootstrapPending: Boolean get() = needsHostCreation || recreationQueued
     val configured: Boolean get() =
         BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
             BuildConfig.APPLICATION_ID == "com.rekixo.ludopaws" &&

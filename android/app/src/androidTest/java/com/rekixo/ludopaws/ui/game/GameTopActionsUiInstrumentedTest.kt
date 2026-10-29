@@ -8,7 +8,6 @@ import com.rekixo.ludopaws.OfflineGameActivity
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.feature.friends.presentation.FriendsActivity
 import com.rekixo.ludopaws.feature.leaderboard.presentation.LeaderboardActivity
-import com.rekixo.ludopaws.feature.mode.presentation.RemoteModeEntryActivity
 import com.rekixo.ludopaws.feature.profile.presentation.BadgesActivity
 import com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -76,7 +75,6 @@ class GameTopActionsUiInstrumentedTest {
             HomeActivity::class.java,
             OfflineGameActivity::class.java,
             MainActivity::class.java,
-            RemoteModeEntryActivity::class.java,
             TeamUpActivity::class.java,
             FriendsActivity::class.java,
             LeaderboardActivity::class.java,

@@ -42,26 +42,43 @@ class CosmeticInventoryStore(
      * Settings uses this to populate Boards and Dice without reloading account
      * credentials and the owned set once per catalog item.
      */
-    fun ownedCosmeticIds(): Set<String> =
-        if (!com.rekixo.ludopaws.BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED || !hasCurrentAccountSnapshot()) {
-            StoreCosmeticCatalog.all.filter {
-                it.contentAvailable && it.unlockKind == CosmeticUnlockKind.FREE && it.requiredLevel == 0
-            }.map { it.id }.toSet()
+    fun ownedCosmeticIds(): Set<String> {
+        val shippedFreeIds = StoreCosmeticCatalog.all
+            .filter(::isShippedFreeCosmetic)
+            .map { it.id }.toSet()
+        return if (!com.rekixo.ludopaws.BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED || !hasCurrentAccountSnapshot()) {
+            shippedFreeIds
         } else {
-            prefs.getStringSet(
+            shippedFreeIds + (prefs.getStringSet(
                 StorePreferences.KEY_OWNED_COSMETICS,
                 emptySet(),
-            )?.toSet() ?: emptySet()
+            )?.toSet() ?: emptySet())
         }
+    }
+
+    private fun isShippedFreeCosmetic(cosmetic: StoreCosmetic): Boolean {
+        val shipped = StoreCosmeticCatalog.findBuiltIn(cosmetic.id) ?: return false
+        return shipped.category == cosmetic.category && shipped.contentAvailable &&
+            shipped.unlockKind == CosmeticUnlockKind.FREE && shipped.requiredLevel == 0 &&
+            cosmetic.contentAvailable && cosmetic.unlockKind == CosmeticUnlockKind.FREE &&
+            cosmetic.requiredLevel == 0
+    }
 
     fun selectOfflineFreeCosmetic(cosmetic: StoreCosmetic): Boolean {
-        if (!cosmetic.contentAvailable ||
-            cosmetic.unlockKind != CosmeticUnlockKind.FREE || cosmetic.requiredLevel != 0) return false
-        return prefs.edit().putString("offline_selection_" + cosmetic.category.name, cosmetic.id).commit()
+        val current = StoreCosmeticCatalog.find(cosmetic.id) ?: return false
+        if (current.category != cosmetic.category || !isShippedFreeCosmetic(current)) return false
+        prefs.edit().putString("offline_selection_" + current.category.name, current.id).apply()
+        if (current.category == CosmeticCategory.DICE && developerDicePreviewAllowed()) {
+            prefs.edit().remove("developer_dice_preview").apply()
+        }
+        return true
     }
 
     fun clearOfflineSelection(category: CosmeticCategory) {
-        check(prefs.edit().remove("offline_selection_" + category.name).commit())
+        prefs.edit().remove("offline_selection_" + category.name).apply()
+        if (category == CosmeticCategory.DICE && developerDicePreviewAllowed()) {
+            prefs.edit().remove("developer_dice_preview").apply()
+        }
     }
 
     fun isOwned(
@@ -74,8 +91,7 @@ class CosmeticInventoryStore(
     ): String {
         prefs.getString("offline_selection_" + category.name, null)
             ?.takeIf { id -> StoreCosmeticCatalog.find(id)?.let {
-                it.category == category && it.contentAvailable &&
-                    it.unlockKind == CosmeticUnlockKind.FREE && it.requiredLevel == 0
+                it.category == category && isShippedFreeCosmetic(it)
             } == true }?.let { return it }
         if (!hasCurrentAccountSnapshot()) return StoreCosmeticCatalog.defaultId(category)
         return prefs.getString(

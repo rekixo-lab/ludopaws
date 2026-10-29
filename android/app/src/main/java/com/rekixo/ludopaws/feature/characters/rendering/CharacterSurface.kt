@@ -7,4 +7,5 @@ internal enum class CharacterSurface(val kind: Float, val gloss: Float) {
     LUMI_FUR(15f, .035f), LUMI_GLOSS(16f, .15f), LUMI_EYE(17f, .45f),
     FINISH_METAL(12f, .65f), PARTY_BULB(13f, .85f), PARTY_GLOW(14f, 0f),
     GARDEN_GROUND(9f, .015f), GARDEN_STONE(10f, .045f), GARDEN_LEAF(11f, .08f),
+    BOARD_WATER(0f, .10f),
 }

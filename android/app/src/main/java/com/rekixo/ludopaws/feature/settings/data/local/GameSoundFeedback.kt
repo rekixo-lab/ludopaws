@@ -3,6 +3,11 @@ package com.rekixo.ludopaws.feature.settings.data.local
 import android.content.Context
 import android.util.Log
 import com.rekixo.ludopaws.core.audio.LudoPawsAudioCatalog
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsFootstepStyle
+import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
+import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsAudioAssetPlayer
 import com.rekixo.ludopaws.feature.characters.data.audio.LudoPawsProceduralAudio
 import com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType
@@ -18,6 +23,30 @@ import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsReaction
  * contained identical audio.
  */
 object GameSoundFeedback {
+    private val movementPrewarmScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val dicePrewarmScheduled = java.util.concurrent.atomic.AtomicBoolean(false)
+    private val prewarmExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsAudioPrewarm").apply { isDaemon = true }
+    }
+
+    private fun prewarmOnce(context: Context, scheduled: java.util.concurrent.atomic.AtomicBoolean,
+        label: String, action: (Context) -> Unit) {
+        if (!scheduled.compareAndSet(false, true)) return
+        val appContext = context.applicationContext
+        prewarmExecutor.execute {
+            if (!GameSettingsStore(appContext).snapshot().soundEnabled) {
+                scheduled.set(false)
+                return@execute
+            }
+            val startedAt = android.os.SystemClock.elapsedRealtime()
+            val result = runCatching { action(appContext) }
+            result.onFailure {
+                scheduled.set(false)
+                Log.w("LudoPawsLoad", "Audio prewarm failed for $label", it)
+            }
+            Log.d("LudoPawsLoad", "audio=$label prepare_ms=${android.os.SystemClock.elapsedRealtime() - startedAt} success=${result.isSuccess}")
+        }
+    }
     fun click(context: Context) =
         play(
             context = context,
@@ -52,6 +81,10 @@ object GameSoundFeedback {
      * an authored clip to finish loading.
      */
     fun preloadMovementEventSfx(context: Context) {
+        prewarmOnce(context, movementPrewarmScheduled, "movement", ::preloadMovementEventSfxNow)
+    }
+
+    private fun preloadMovementEventSfxNow(context: Context) {
         val sounds =
             listOf(
                 listOf("lp_sfx_move_paw") to LudoPawsAudioCatalog.Sfx.MOVE_STEP_DOG,
@@ -91,6 +124,10 @@ object GameSoundFeedback {
      */
     /** Preloads roll/settle audio to avoid first-tap load latency in online matches. */
     fun preloadDiceFeedback(context: Context) {
+        prewarmOnce(context, dicePrewarmScheduled, "dice", ::preloadDiceFeedbackNow)
+    }
+
+    private fun preloadDiceFeedbackNow(context: Context) {
         preload(
             context = context,
             rawResourceNames = listOf("lp_sfx_dice_roll"),
@@ -101,6 +138,15 @@ object GameSoundFeedback {
             rawResourceNames = listOf("lp_sfx_dice_settle"),
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_SETTLE,
         )
+        // Only prewarm the selected cosmetic, not every future dice skin.
+        for (paths in listOf(
+            selectedDiceSoundPaths(context, settle = false),
+            selectedDiceSoundPaths(context, settle = true),
+        )) {
+            if (paths.isNotEmpty()) {
+                preload(context = context, rawResourceNames = emptyList(), assetPaths = paths)
+            }
+        }
     }
 
     fun moveStep(
@@ -109,66 +155,40 @@ object GameSoundFeedback {
     ) {
         if (!GameSettingsStore(context).snapshot().soundEnabled) return
 
-        val movement =
-            when (characterId) {
-                "goat", "goat_lumi" ->
-                    Triple(
-                        listOf("lp_sfx_move_hoof"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_HOOF,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_GOAT,
-                    )
-                "duck" ->
-                    Triple(
-                        listOf("lp_sfx_move_web"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_WEB,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_DUCK,
-                    )
-                "cat" ->
-                    Triple(
-                        listOf("lp_sfx_move_paw"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_PAW,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_CAT,
-                    )
-                else ->
-                    Triple(
-                        listOf("lp_sfx_move_paw"),
-                        LudoPawsProceduralAudio.Sfx.MOVE_PAW,
-                        LudoPawsAudioCatalog.Sfx.MOVE_STEP_DOG,
-                    )
+        val profile = LudoPawsCharacterAudioProfiles.forCharacter(characterId)
+        val (rawNames, generatedFallback) =
+            when (profile.footstepStyle) {
+                LudoPawsFootstepStyle.HOOF ->
+                    listOf("lp_sfx_move_hoof") to LudoPawsProceduralAudio.Sfx.MOVE_HOOF
+                LudoPawsFootstepStyle.WEB ->
+                    listOf("lp_sfx_move_web") to LudoPawsProceduralAudio.Sfx.MOVE_WEB
+                LudoPawsFootstepStyle.PAW ->
+                    listOf("lp_sfx_move_paw") to LudoPawsProceduralAudio.Sfx.MOVE_PAW
             }
-        val volume =
-            when (characterId) {
-                "goat", "goat_lumi" -> .30f
-                "duck" -> .28f
-                else -> .30f
-            }
-        val priority = PRIORITY_MOVEMENT
-        if (
-            LudoPawsAudioAssetPlayer.playAuthoredSfx(
-                context = context,
-                assetPaths = movement.third,
-                volume = volume,
-                priority = priority,
-            )
-        ) {
-            return
+        for (paths in profile.stepAssetFamilies()) {
+            if (
+                LudoPawsAudioAssetPlayer.playAuthoredSfx(
+                    context = context,
+                    assetPaths = paths,
+                    volume = profile.stepVolume,
+                    priority = PRIORITY_MOVEMENT,
+                )
+            ) return
         }
         if (
             LudoPawsAudioAssetPlayer.playAuthoredSfx(
                 context = context,
                 assetPaths = LudoPawsAudioCatalog.Sfx.MOVE_STEP,
-                volume = volume,
-                priority = priority,
+                volume = profile.stepVolume,
+                priority = PRIORITY_MOVEMENT,
             )
-        ) {
-            return
-        }
+        ) return
         LudoPawsAudioAssetPlayer.playSfx(
             context = context,
-            rawResourceNames = movement.first,
-            fallback = movement.second,
-            volume = volume,
-            priority = priority,
+            rawResourceNames = rawNames,
+            fallback = generatedFallback,
+            volume = profile.stepVolume,
+            priority = PRIORITY_MOVEMENT,
         )
     }
 
@@ -198,6 +218,7 @@ object GameSoundFeedback {
             volume = .50f,
             priority = PRIORITY_ROLL,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_ROLL,
+            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = false),
         )
 
     /** Short landing tick when the verified dice face is revealed. */
@@ -210,6 +231,7 @@ object GameSoundFeedback {
             volume = .32f,
             priority = PRIORITY_HIGH,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_SETTLE,
+            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = true),
         )
 
     fun six(context: Context) =
@@ -374,6 +396,12 @@ object GameSoundFeedback {
         }
     }
 
+    private fun selectedDiceSoundPaths(context: Context, settle: Boolean): List<String> {
+        val selectedId = CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
+        val definition = DiceRegistry.resolve(selectedId)
+        return if (settle) definition.settleSoundPaths else definition.rollSoundPaths
+    }
+
     private fun playEventForIndex(
         context: Context,
         eventIndex: Int?,
@@ -382,6 +410,7 @@ object GameSoundFeedback {
         volume: Float,
         priority: Int,
         assetPaths: List<String>,
+        cosmeticOverrideAssetPaths: List<String> = emptyList(),
     ) {
         val soundName = names.firstOrNull() ?: "unknown"
         if (!GameSettingsStore(context).snapshot().soundEnabled) {
@@ -389,6 +418,28 @@ object GameSoundFeedback {
             return
         }
         Log.d(TAG, "EVENT_REQUEST sound=" + soundName + " eventIndex=" + eventIndex + " priority=" + priority)
+        // A selected dice skin wins only when its asset actually exists/loads.
+        // Roll outcomes, event indices and the classic fallback remain untouched.
+        if (cosmeticOverrideAssetPaths.isNotEmpty()) {
+            val overrideAccepted =
+                if (eventIndex != null) {
+                    LudoPawsAudioAssetPlayer.playAuthoredSfxForEvent(
+                        context = context,
+                        assetPaths = cosmeticOverrideAssetPaths,
+                        eventIndex = eventIndex,
+                        volume = volume,
+                        priority = priority,
+                    )
+                } else {
+                    LudoPawsAudioAssetPlayer.playAuthoredSfx(
+                        context = context,
+                        assetPaths = cosmeticOverrideAssetPaths,
+                        volume = volume,
+                        priority = priority,
+                    )
+                }
+            if (overrideAccepted) return
+        }
         val authoredAccepted =
             eventIndex != null &&
                 LudoPawsAudioAssetPlayer.playAuthoredSfxForEvent(

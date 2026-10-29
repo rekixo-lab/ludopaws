@@ -45,14 +45,11 @@ internal object DuckGeometry {
         Ring(0f, .15f, .10f), Ring(.13f, .15f, .07f, centerZ = -.055f),
         Ring(.28f, .012f, .012f, centerZ = -.10f),
     ), 16, subdivisions = 2)
-    val band = MeshLoft.build(listOf(
-        Ring(.38f, .284f, .269f), Ring(.45f, .273f, .258f),
-    ), 24)
     val leg = MeshLoft.build(listOf(
         Ring(-.5f,.65f,.65f), Ring(0f,1f,1f), Ring(.5f,.75f,.75f),
     ),12)
     val foot = webbedFoot()
-    val all get() = listOf(body, neck, head, bill, wing, feather, tuft, tail, band, leg, foot)
+    val all get() = listOf(body, neck, head, bill, wing, feather, tuft, tail, leg, foot)
 
     private fun webbedFoot(): MeshGeometry {
         val outline = arrayOf(

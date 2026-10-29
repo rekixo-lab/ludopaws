@@ -21,6 +21,7 @@ export class AccountDirectory {
       sql.exec(`CREATE TABLE IF NOT EXISTS account_deletion_claims (account_id TEXT PRIMARY KEY, source TEXT NOT NULL, credential_hash TEXT, claimed_at INTEGER NOT NULL)`);
       sql.exec(`CREATE TABLE IF NOT EXISTS google_identities (subject_hash TEXT PRIMARY KEY, account_id TEXT NOT NULL UNIQUE, linked_at INTEGER NOT NULL)`);
       sql.exec(`CREATE TABLE IF NOT EXISTS google_nonces (nonce_hash TEXT PRIMARY KEY, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, consumed_at INTEGER)`);
+      sql.exec("CREATE INDEX IF NOT EXISTS idx_google_nonces_expiry ON google_nonces(expires_at)");
       sql.exec(`CREATE TABLE IF NOT EXISTS account_identity_links (identity_type TEXT NOT NULL, external_id TEXT NOT NULL, account_id TEXT NOT NULL, linked_at INTEGER NOT NULL, PRIMARY KEY(identity_type, external_id), UNIQUE(identity_type, account_id))`);
       sql.exec("CREATE INDEX IF NOT EXISTS idx_account_links_account ON account_identity_links(account_id, identity_type)");
     });
@@ -40,6 +41,7 @@ export class AccountDirectory {
       if (request.method === "POST" && url.pathname === "/google/lookup") return await this.#lookupGoogle(request);
       if (request.method === "POST" && url.pathname === "/identity/link") return await this.#linkExternalIdentity(request);
       if (request.method === "POST" && url.pathname === "/identity/list") return await this.#listExternalIdentities(request);
+      if (request.method === "POST" && url.pathname === "/referral/identity") return await this.#referralIdentity(request);
       return json(404, { error: "NOT_FOUND", message: "route not found" });
     } catch (error) { return errorResponse(error); }
   }
@@ -341,6 +343,27 @@ export class AccountDirectory {
       this.ctx.storage.sql.exec("INSERT INTO account_identity_links (identity_type, external_id, account_id, linked_at) VALUES (?, ?, ?, ?)", identityType, externalId, accountId, Date.now());
     });
     return json(200, { ok: true, identityType, externalId, replay });
+  }
+
+  async #referralIdentity(request) {
+    const body = await readJson(request);
+    let accountId = body.accountId;
+    if (!accountId && typeof body.profileId === "string" && PROFILE_ID.test(body.profileId)) {
+      accountId = [...this.ctx.storage.sql.exec("SELECT account_id FROM account_identity_links WHERE identity_type = 'leaderboard' AND external_id = ?", body.profileId.toLowerCase())][0]?.account_id;
+    }
+    if (!accountId && typeof body.friendId === "string" && FRIEND_ID.test(body.friendId)) {
+      accountId = [...this.ctx.storage.sql.exec("SELECT account_id FROM account_identity_links WHERE identity_type = 'friend' AND external_id = ?", body.friendId)][0]?.account_id;
+    }
+    if (!accountId) return json(200, { ok: true, accountId: null });
+    accountId = requireAccountId(accountId);
+    const account = [...this.ctx.storage.sql.exec("SELECT created_at FROM account_registry WHERE account_id = ?", accountId)][0];
+    if (!account || [...this.ctx.storage.sql.exec("SELECT account_id FROM account_deletion_claims WHERE account_id = ?", accountId)].length ||
+        [...this.ctx.storage.sql.exec("SELECT account_id FROM guest_deletion_claims WHERE account_id = ?", accountId)].length) {
+      if (!body.accountId) return json(200, { ok: true, accountId: null });
+      throw httpError(409, "ACCOUNT_UNAVAILABLE", "This account is unavailable.");
+    }
+    const google = [...this.ctx.storage.sql.exec("SELECT subject_hash FROM google_identities WHERE account_id = ?", accountId)][0];
+    return json(200, { ok: true, accountId, createdAt: Number(account.created_at), subjectHash: google?.subject_hash ?? null });
   }
 
   async #listExternalIdentities(request) {

@@ -28,8 +28,6 @@ internal object DuckAvatarRenderer : CharacterAvatarRenderer {
         stroke.strokeWidth = 2f
         canvas.drawLine(35f, 61f, 65f, 61f, stroke)
 
-        fill.color = 0xFF4DB6E9.toInt()
-        canvas.drawArc(RectF(35f, 67f, 65f, 84f), 0f, 180f, true, fill)
 
     }
 }

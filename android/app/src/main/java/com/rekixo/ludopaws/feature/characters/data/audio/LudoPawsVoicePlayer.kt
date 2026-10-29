@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsReactionAudioProfile
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType
 import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsReaction
@@ -56,9 +57,12 @@ class LudoPawsVoicePlayer(
                 return@forEach
             }
 
+            val voiceAssetOwner =
+                LudoPawsCharacterAudioProfiles.all[character.id]?.voiceAssetOwnerId
+                    ?: return@forEach
             val plan =
                 LudoPawsReactionAudioProfile.plan(
-                    characterId = if (character.id == "goat_lumi") "goat" else character.id,
+                    characterId = voiceAssetOwner,
                     species = character.species,
                     reaction = reaction,
                 ) ?: return@forEach
@@ -93,7 +97,7 @@ class LudoPawsVoicePlayer(
             schedule(
                 delayMillis = captureDelay + plan.delayMillis,
             ) {
-                if (closed) return@schedule
+                if (closed || !GameSettingsStore(appContext).snapshot().animalVoicesEnabled) return@schedule
                 GameMusicController.duckForVoice(VOCAL_DUCK_MILLIS)
                 LudoPawsAudioAssetPlayer.playVocal(
                     context = appContext,

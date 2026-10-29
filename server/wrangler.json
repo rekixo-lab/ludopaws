@@ -63,6 +63,10 @@
       {
         "name": "LUDOPROOF_BILLING_RECONCILIATION",
         "class_name": "BillingReconciliation"
+      },
+      {
+        "name": "LUDOPAWS_REFERRALS",
+        "class_name": "ReferralCampaign"
       }
     ]
   },
@@ -151,10 +155,18 @@
       "new_sqlite_classes": [
         "BillingReconciliation"
       ]
+    },
+    {
+      "tag": "v15-referral-campaign",
+      "new_sqlite_classes": ["ReferralCampaign"]
     }
   ],
   "vars": {
-    "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V2"
+    "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V2",
+    "LUDOPAWS_REFERRALS_ENABLED": "false",
+    "LUDOPAWS_REFERRAL_POLICY_APPROVED": "false",
+    "LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED": "false",
+    "LUDOPAWS_REFERRAL_RELEASE_VALIDATED": "false"
   },
   "observability": {
     "enabled": true,

@@ -9,11 +9,27 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.core.audio.LudoPawsSoundPool
+import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
+import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import kotlin.math.max
 
 object GameMusicController {
     private var appForeground = false
     private var player: MediaPlayer? = null
+    private var preparingPlayer = false
+    private var playerGeneration = 0L
+    private var activeBoardMusicId: String? = null
+    // Ambient playback is a distinct looping MediaPlayer, never the BGM player.
+    private var ambientPlayer: MediaPlayer? = null
+    private var preparingAmbient = false
+    private var ambientGeneration = 0L
+    private var unavailableAmbientBoardId: String? = null
+    private var focusDucked = false
+    private val playerWorker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsMusicPrepare").apply { isDaemon = true }
+    }
     private var audioManager: AudioManager? = null
     private var focusRequest: AudioFocusRequest? = null
     private var hasAudioFocus = false
@@ -44,29 +60,25 @@ object GameMusicController {
                 when (change) {
                     AudioManager.AUDIOFOCUS_GAIN -> {
                         hasAudioFocus = true
+                        focusDucked = false
                         applyCurrentVolume()
-                        if (
-                            appForeground &&
-                            player?.isPlaying == false
-                        ) {
-                            runCatching {
-                                player?.start()
-                            }
+                        if (appForeground) {
+                            runCatching { if (player?.isPlaying == false) player?.start() }
+                            runCatching { if (ambientPlayer?.isPlaying == false) ambientPlayer?.start() }
                         }
                     }
 
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK ->
-                        player?.setVolume(
-                            FOCUS_DUCK_VOLUME,
-                            FOCUS_DUCK_VOLUME,
-                        )
+                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+                        focusDucked = true
+                        applyCurrentVolume()
+                    }
 
                     AudioManager.AUDIOFOCUS_LOSS,
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                         hasAudioFocus = false
-                        runCatching {
-                            player?.pause()
-                        }
+                        focusDucked = false
+                        runCatching { player?.pause() }
+                        runCatching { ambientPlayer?.pause() }
                     }
                 }
             }
@@ -83,6 +95,9 @@ object GameMusicController {
     @Synchronized
     fun onAppBackground() {
         appForeground = false
+        // Stop active and queued SFX; callbacks from the old pool must not fire later.
+        LudoPawsSoundPool.release()
+        releaseAmbient()
         voiceDuckUntilMillis = 0L
         mainHandler.removeCallbacks(
             restoreVolumeRunnable,
@@ -123,8 +138,9 @@ object GameMusicController {
 
     @Synchronized
     fun release() {
-        musicGeneration++
+        playerGeneration += 1
         preparingPlayer = false
+        releaseAmbient()
         mainHandler.removeCallbacks(
             restoreVolumeRunnable,
         )
@@ -134,6 +150,7 @@ object GameMusicController {
             player?.release()
         }
         player = null
+        activeBoardMusicId = null
         audioManager = null
     }
 
@@ -149,9 +166,8 @@ object GameMusicController {
             !enabled ||
             !appForeground
         ) {
-            runCatching {
-                player?.pause()
-            }
+            runCatching { player?.pause() }
+            releaseAmbient()
             if (!enabled) {
                 runCatching {
                     player?.seekTo(0)
@@ -161,6 +177,17 @@ object GameMusicController {
             return
         }
 
+        val selectedBoardId =
+            CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD)
+        if (activeBoardMusicId != selectedBoardId) {
+            // A rapid cosmetic change invalidates an outstanding background prepare.
+            activeBoardMusicId = selectedBoardId
+            playerGeneration += 1
+            preparingPlayer = false
+            runCatching { player?.release() }
+            player = null
+            releaseAmbient()
+        }
         ensurePlayer(context)
         if (player == null) {
             return
@@ -170,39 +197,109 @@ object GameMusicController {
             return
         }
 
+        ensureAmbientPlayer(
+            context = context,
+            boardId = selectedBoardId,
+            paths = BoardRegistry.resolve(selectedBoardId).ambientSoundPaths,
+        )
         applyCurrentVolume()
         if (player?.isPlaying == false) {
-            runCatching {
-                player?.start()
+            runCatching { player?.start() }
+        }
+        if (ambientPlayer?.isPlaying == false) {
+            runCatching { ambientPlayer?.start() }
+        }
+    }
+
+    private fun releaseAmbient() {
+        ambientGeneration += 1
+        preparingAmbient = false
+        unavailableAmbientBoardId = null
+        runCatching { ambientPlayer?.release() }
+        ambientPlayer = null
+    }
+
+    /**
+     * Prepares the selected board's soundscape separately from the soundtrack.
+     * Only the newest selected board can install an asynchronous prepared player.
+     * Missing ambient clips mean silence, not a borrowed sound from another board.
+     */
+    private fun ensureAmbientPlayer(
+        context: Context,
+        boardId: String,
+        paths: List<String>,
+    ) {
+        if (paths.isEmpty() || ambientPlayer != null || preparingAmbient ||
+            unavailableAmbientBoardId == boardId) return
+        preparingAmbient = true
+        val generation = ++ambientGeneration
+        val appContext = context.applicationContext
+        playerWorker.execute {
+            val prepared = paths.firstNotNullOfOrNull { path ->
+                createAssetPlayer(appContext, path)
+            }
+            mainHandler.post {
+                synchronized(this) {
+                    if (generation != ambientGeneration) {
+                        runCatching { prepared?.release() }
+                        return@synchronized
+                    }
+                    preparingAmbient = false
+                    if (prepared == null) {
+                        unavailableAmbientBoardId = boardId
+                    } else {
+                        ambientPlayer = prepared
+                        applyCurrentVolume()
+                        if (appForeground &&
+                            GameSettingsStore(appContext).snapshot().musicEnabled &&
+                            hasAudioFocus
+                        ) {
+                            runCatching { ambientPlayer?.start() }
+                        }
+                    }
+                }
             }
         }
     }
 
-    private var preparingPlayer = false
-    private var musicGeneration = 0L
-    private val musicPreparation = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
-        Thread(task, "LudoPawsMusicPreparation").apply { isDaemon = true }
-    }
-
-    private fun ensurePlayer(context: Context) {
-        if (player != null || preparingPlayer) return
+    private fun ensurePlayer(
+        context: Context,
+    ) {
+        if (player != null || preparingPlayer) {
+            return
+        }
         preparingPlayer = true
-        val generation = musicGeneration
-        val app = context.applicationContext
-        musicPreparation.execute {
-            val prepared = runCatching {
-                val authored = authoredBackgroundMusicPaths(app).firstNotNullOfOrNull { createAssetPlayer(app, it) }
-                (authored ?: MediaPlayer.create(app, R.raw.ludoproof_theme))?.apply { isLooping = true }
-            }.getOrNull()
+        val generation = playerGeneration
+        val appContext = context.applicationContext
+        val boardMusicPaths = BoardRegistry.resolve(activeBoardMusicId ?: "board_classic").backgroundMusicPaths
+        playerWorker.execute {
+            val startedAt = SystemClock.elapsedRealtime()
+            val result = runCatching {
+                (boardMusicPaths + authoredBackgroundMusicPaths(appContext))
+                    .distinct()
+                    .firstNotNullOfOrNull { assetPath -> createAssetPlayer(appContext, assetPath) }
+                    ?: MediaPlayer.create(appContext, R.raw.ludoproof_theme)
+            }
+            val preparedPlayer = result.getOrNull()
             mainHandler.post {
                 synchronized(this) {
-                    if (generation != musicGeneration) {
-                        prepared?.release()
+                    if (generation != playerGeneration) {
+                        runCatching { preparedPlayer?.release() }
                         return@synchronized
                     }
                     preparingPlayer = false
-                    player = prepared
-                    if (prepared != null) sync(app)
+                    player = runCatching {
+                        preparedPlayer?.apply {
+                            isLooping = true
+                            setVolume(currentTargetVolume(), currentTargetVolume())
+                        }
+                    }.getOrElse {
+                        runCatching { preparedPlayer?.release() }
+                        null
+                    }
+                    result.onFailure { android.util.Log.w("LudoPawsLoad", "Music preparation failed", it) }
+                    android.util.Log.d("LudoPawsLoad", "music prepare_ms=${SystemClock.elapsedRealtime() - startedAt} success=${player != null}")
+                    if (player != null) sync(appContext)
                 }
             }
         }
@@ -334,24 +431,24 @@ object GameMusicController {
     }
 
     private fun currentTargetVolume(): Float =
-        if (
-            SystemClock.elapsedRealtime() <
-            voiceDuckUntilMillis
-        ) {
-            VOICE_DUCK_VOLUME
-        } else {
-            MUSIC_VOLUME
+        when {
+            focusDucked -> FOCUS_DUCK_VOLUME
+            SystemClock.elapsedRealtime() < voiceDuckUntilMillis -> VOICE_DUCK_VOLUME
+            else -> MUSIC_VOLUME
+        }
+
+    private fun currentAmbientVolume(): Float =
+        when {
+            focusDucked -> FOCUS_AMBIENT_VOLUME
+            SystemClock.elapsedRealtime() < voiceDuckUntilMillis -> VOICE_AMBIENT_VOLUME
+            else -> AMBIENT_VOLUME
         }
 
     private fun applyCurrentVolume() {
-        val volume =
-            currentTargetVolume()
-        runCatching {
-            player?.setVolume(
-                volume,
-                volume,
-            )
-        }
+        val musicVolume = currentTargetVolume()
+        val ambienceVolume = currentAmbientVolume()
+        runCatching { player?.setVolume(musicVolume, musicVolume) }
+        runCatching { ambientPlayer?.setVolume(ambienceVolume, ambienceVolume) }
     }
 
     private fun abandonFocus() {
@@ -367,8 +464,12 @@ object GameMusicController {
             }
         }
         hasAudioFocus = false
+        focusDucked = false
     }
 
+    private const val AMBIENT_VOLUME = .08f
+    private const val VOICE_AMBIENT_VOLUME = .025f
+    private const val FOCUS_AMBIENT_VOLUME = .012f
     private const val MUSIC_VOLUME = .16f
     private const val VOICE_DUCK_VOLUME = .075f
     private const val FOCUS_DUCK_VOLUME = .05f

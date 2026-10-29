@@ -5,6 +5,7 @@ import android.content.res.AssetManager
 import com.rekixo.ludopaws.core.audio.LudoPawsAudioCatalog
 import com.rekixo.ludopaws.core.audio.LudoPawsSoundPool
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsProceduralVocal
+import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
 
 /**
  * Resolves authored assets before raw-resource and procedural fallbacks.
@@ -43,10 +44,10 @@ internal object LudoPawsAudioAssetPlayer {
         val vocalAssetPaths =
             orderedNames.flatMap { resourceName ->
                 val characterId =
-                    resourceName
-                        .removePrefix("lp_vocal_")
-                        .substringBefore('_')
-                if (characterId !in SUPPORTED_VOCAL_CHARACTERS) {
+                    LudoPawsCharacterAudioProfiles.supportedVoiceAssetIds
+                        .filter { resourceName.startsWith("lp_vocal_${it}_") }
+                        .maxByOrNull(String::length)
+                if (characterId == null) {
                     emptyList()
                 } else {
                     listOf(
@@ -326,9 +327,6 @@ internal object LudoPawsAudioAssetPlayer {
             .orEmpty()
             .replace(Regex("_\\d{2}\\.(wav|ogg)$"), "_variant.$1")
 
-    private val SUPPORTED_VOCAL_CHARACTERS =
-        setOf("dog", "goat", "duck", "cat")
-
     internal fun packagedFallbackResourceName(
         preset: LudoPawsProceduralVocal,
     ): String =
@@ -344,6 +342,15 @@ internal object LudoPawsAudioAssetPlayer {
             LudoPawsProceduralVocal.CAT_MEW -> "lp_vocal_cat_mew"
             LudoPawsProceduralVocal.CAT_PURR -> "lp_vocal_cat_purr"
             LudoPawsProceduralVocal.CAT_HUFF -> "lp_vocal_cat_huff"
+            LudoPawsProceduralVocal.COCK_CROW -> "lp_vocal_cock_crow"
+            LudoPawsProceduralVocal.COCK_CLUCK -> "lp_vocal_cock_cluck"
+            LudoPawsProceduralVocal.PIG_OINK -> "lp_vocal_pig_oink"
+            LudoPawsProceduralVocal.PIG_SQUEAL -> "lp_vocal_pig_squeal"
+            LudoPawsProceduralVocal.ELEPHANT_TRUMPET -> "lp_vocal_elephant_trumpet"
+            LudoPawsProceduralVocal.ELEPHANT_RUMBLE -> "lp_vocal_elephant_rumble"
+            LudoPawsProceduralVocal.HORSE_NEIGH -> "lp_vocal_horse_neigh"
+            LudoPawsProceduralVocal.HORSE_SNORT -> "lp_vocal_horse_snort"
+            LudoPawsProceduralVocal.RABBIT_SNUFFLE -> "lp_vocal_rabbit_snuffle"
         }
 
     @Suppress("DEPRECATION")

@@ -16,9 +16,12 @@ Each animal has its own `characters/content/<id>/` directory:
 - `<Animal>Materials.kt`: coat, eye and material colors.
 - `<Animal>AvatarRenderer.kt`: synchronous Canvas fallback for loading/unavailable portraits.
 
-Register the definition in `characters/domain/catalog/CharacterDefinitions.kt`
-and the renderer/avatar pair in `characters/rendering/CharacterRegistry.kt`.
-The registry checks that every definition has exactly one renderer entry.
+Register the stable ID, definition, renderer, avatar and audio profile together in
+`content/content-manifest.json`; run
+`node scripts/generate-content-registries.mjs --write`. This generates the
+character definition and renderer entries along with audio binding. CI runs
+`--check`, validates declarations and fails on stale generated files. The
+registry checks that every definition has exactly one renderer entry.
 Gameplay, portrait generation and avatar fallback resolve the same character ID.
 
 Every definition has an explicit `packId`. Register new packs in
@@ -31,13 +34,14 @@ individual character purchases are a separate feature, not enabled here.
 ## Boards
 
 Each theme has `boards/content/<id>/<Name>BoardDefinition.kt`, containing its
-existing offer and visual palette. Register it in `boards/domain/BoardRegistry.kt`.
+existing offer and visual palette. Register its definition and renderer key in
+`content/content-manifest.json` and run the generator.
 Store offers and preview palettes derive from these definitions. Existing draft
 boards remain unavailable.
 
 Palette themes reuse `boards/content/classic/ClassicBoardRenderer.kt`. For new
-chrome, implement `boards/rendering/BoardRenderer`, add a factory in
-`BoardRendererRegistry.kt`, and set the definition's `rendererKey`. Instances
+chrome, implement `boards/rendering/BoardRenderer`, register the factory
+under `boardRenderers` in the manifest, and set the definition's `rendererKey`. Instances
 are created per view so mutable Paint and texture caches are not shared.
 
 `LudoBoardView` still owns the logical route, touch mapping and base cells.
@@ -48,12 +52,13 @@ hit testing or game rules. Different logical geometry is a gameplay feature.
 ## Dice
 
 Each style has `dice/content/<id>/<Name>DiceDefinition.kt`, containing its offer
-and palette factory. Register it in `dice/domain/DiceRegistry.kt`. Each factory
+and palette factory. Register it under `dice` in the content manifest, then
+run the generator. Each factory
 returns separate color arrays; the team border override remains supported.
 
 Palette skins reuse `dice/content/classic/ClassicDiceRenderer.kt`. For different
 art, implement `dice/rendering/DiceRenderer`, add its factory to
-`DiceRendererRegistry.kt`, and reference its key from the definition.
+`diceRenderers` in the manifest, and reference its key from the definition.
 `DiceView` owns input, roll/settle timing, countdown and transforms. Renderers
 receive a resolved face and only draw it; they cannot choose roll outcomes.
 
@@ -89,3 +94,19 @@ Use the single main application package for final device acceptance; there is no
 The existing portrait and dice visibility instrumentation tests exercise real
 GLES portraits and Canvas drawing on a connected device. Compilation alone
 cannot verify driver behavior or the visual quality of new art.
+
+## Manifest authoring
+
+`content/content-manifest.json` is the **registration source of truth** for
+character definitions/renderers/avatars/audio, board definitions/renderers,
+and dice definitions/renderers. Its seven generated Kotlin files are checked
+in for Android Studio builds without a Node dependency. Generation is
+explicit, and CI verifies the generated files are current. New store/offer
+registration and backend pricing/availability still require separate review;
+manifest changes alone never enable purchases or change saved IDs.
+
+```sh
+node scripts/generate-content-registries.mjs --write
+node scripts/generate-content-registries.mjs --check
+node --test scripts/generate-content-registries.test.mjs
+```

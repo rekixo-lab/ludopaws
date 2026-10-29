@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friendship_joined_title">Your friend joined!</string>
+    <string name="friendship_pending_title">Reward on the way</string>
+    <string name="friendship_gems_title">100 Gems for friendship</string>
+    <string name="friendship_invite_title">Better with a friend</string>
+    <string name="friendship_close">Close friendship offer</string>
+    <string name="friendship_joined_body">Your friend is connected. Their qualifying match is the next step; they don\'t have to win.</string>
+    <string name="friendship_pending_body">Your match was verified. Your reward is being delivered; open progress for the latest status.</string>
+    <string name="friendship_owned_body">You already own all three items. A new friend’s verified play can still earn you 100 Gems, once this campaign.</string>
+    <string name="friendship_invite_body">A new friend installs through your invitation and finishes a qualifying match. Only you earn the bundle + 100 Gems.</string>
+    <string name="friendship_no_install_reward">Sharing or installing alone earns no reward.</string>
+    <string name="friendship_progress">View progress</string>
+    <string name="friendship_invite_action">Invite a friend</string>
+    <string name="friendship_connect_action">Connect Google &amp; invite</string>
+    <string name="friendship_later">Later</string>
+    <string name="friendship_rules">Rules &amp; privacy</string>
+    <string name="action_back">Back</string>
+    <string name="friendship_refresh">Refresh invitation progress</string>
+    <string name="friendship_page_title">Invite friends</string>
+    <string name="friendship_page_intro">Better with a friend.</string>
+    <string name="friendship_page_summary">Invite a new player. Get this bundle\nafter their first qualifying match.</string>
+    <string name="friendship_checking">Checking your bundle…</string>
+    <string name="friendship_reward_condition">Only you earn the reward. Sharing or installing alone doesn\'t count.</string>
+</resources>

@@ -15,6 +15,7 @@ import kotlin.math.min
 internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var footprintSource: LudoBoardView? = null
     private var definition = BoardRegistry.resolve("board_classic")
+    private var previewBoardThemeId: String? = null
     private var staticBoard: Bitmap? = null
     private var requestedKey: ArtworkKey? = null
     internal var artworkReady = false
@@ -58,13 +59,19 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     }
 
     fun reloadStyle() {
-        val next = BoardRegistry.resolve(CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
+        val next = BoardRegistry.resolve(previewBoardThemeId ?: CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
         if (next != definition) {
             definition = next
             requestedKey = null
             requestArtwork()
         }
         invalidate()
+    }
+
+    internal fun setBoardThemeOverride(themeId: String) {
+        require(BoardRegistry.find(themeId)?.offer?.contentAvailable == true)
+        previewBoardThemeId = themeId
+        reloadStyle()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -100,7 +107,9 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
 
     companion object {
         private val artworkLock = Any()
-        private val completed = linkedMapOf<ArtworkKey, Bitmap>()
+        private val completed = object : android.util.LruCache<ArtworkKey, Bitmap>(12 * 1024 * 1024) {
+            override fun sizeOf(key: ArtworkKey, value: Bitmap): Int = value.byteCount
+        }
         private val pending = mutableMapOf<ArtworkKey, MutableList<(Bitmap?) -> Unit>>()
         private val artworkWorker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
             Thread(task, "LudoPawsBoardArtwork").apply { isDaemon = true }
@@ -127,9 +136,10 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
                 pending[key]?.let { it.add(onReady); return }
                 pending[key] = mutableListOf(onReady)
             }
+            val requestedAt = android.os.SystemClock.elapsedRealtime()
             val renderer = BoardRendererRegistry.create(key.definition)
             renderer.prepare {
-                LudoPawsYardHabitatRenderer.prepare {
+                prepareHabitat(key.definition) {
                     artworkWorker.execute {
                         val result = runCatching {
                             val size = key.pixels.toFloat()
@@ -140,23 +150,26 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
                             val target = Canvas(artwork)
                             val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
                             renderer.draw(target, size, density, definition)
-                            yardHabitatRenderer.draw(target, cell)
+                            if (definition.yardHabitatEnabled) yardHabitatRenderer.draw(target, cell)
                             artwork
                         }
                         val bitmap = result.getOrNull()
                         val callbacks = synchronized(artworkLock) {
                             if (bitmap != null) {
-                                completed[key] = bitmap
-                                // Two screen/style variants bound memory; never recycle a displayed bitmap.
-                                while (completed.size > 2) completed.remove(completed.keys.first())
+                                completed.put(key, bitmap)
                             }
                             pending.remove(key).orEmpty()
                         }
                         result.onFailure { android.util.Log.w("BoardArtwork", "Board bake failed", it) }
+                        android.util.Log.d("LudoPawsLoad", "board=${key.definition.id} pixels=${key.pixels} ready_ms=${android.os.SystemClock.elapsedRealtime() - requestedAt} success=${bitmap != null}")
                         callbacks.forEach { it(bitmap) }
                     }
                 }
             }
+        }
+
+        private fun prepareHabitat(definition: BoardDefinition, onReady: () -> Unit) {
+            if (definition.yardHabitatEnabled) LudoPawsYardHabitatRenderer.prepare(onReady) else onReady()
         }
     }
 

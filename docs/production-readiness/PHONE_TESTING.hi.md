@@ -14,15 +14,16 @@ Source pull से installed APK नहीं बदलता। नया APK �
 
 ## User का Ctrl+Shift+B shortcut
 
-VS Code का default build task Linux/macOS पर Bash script `scripts/run-ludoproof.sh` चलाता है; PowerShell केवल Windows override है। Repo pull के बाद Ctrl+Shift+B से main app का incremental build → चुने connected device पर install → cold launcher start होता है। इसमें unit tests या lint tasks नहीं हैं। केवल user shortcut दबाने पर build होता है; agent ने cleanup/task-fix के दौरान इसे नहीं चलाया है।
-
-Terminal से उसी shortcut का विकल्प:
+VS Code और terminal अब एक ही Node runner चलाते हैं: `scripts/android-local-testing.mjs run`। यह केवल main package बनाता है; developer UI, preview/QA package या demo ads नहीं लौटे हैं। Ctrl+Shift+B से incremental build → selected connected device पर install → cold launcher start होता है। इसमें tests/lint default से नहीं चलते। `bash scripts/run-ludoproof.sh` उसी runner का compatibility wrapper है।
 
 ```bash
-bash scripts/run-ludoproof.sh
+node scripts/android-local-testing.mjs configure
+node scripts/android-local-testing.mjs run
 ```
 
-Android SDK `LUDOPROOF_ANDROID_SDK`, `ANDROID_HOME`, `ANDROID_SDK_ROOT` या सामान्य home SDK location से मिलता है। Script `local.properties` में केवल SDK path ठीक करता है, अन्य properties रखता है। Multiple devices पर `ANDROID_SERIAL` चुनें। Package केवल `com.rekixo.ludopaws` है; developer UI/अलग app नहीं बनता। Build debug signing का है, इसलिए Play-installed app की key से mismatch हो सकता है; script uninstall/data-clear/downgrade नहीं करता। Local versionCode कम से कम 10 (या installed versionCode) है और public PGS project 314526321614 default है; `ORG_GRADLE_PROJECT_...` variables से explicit version/project दिए जा सकते हैं। Google authentication के लिए इस machine की signing SHA-1 का configured Android credential फिर भी जरूरी है। बाकी feature flags existing Gradle configuration से आते हैं।
+`configure` public GitHub Actions/production variables ही पढ़ता है; release signing secrets नहीं। Existing configured billing, rewarded/interstitial ads, production ad unit IDs, Google linking और Play Games IDs इसी से build में आते हैं। Incomplete config पर features चुपचाप बंद करके APK लगाने के बजाय runner रुकता है और configure करने को कहता है। Cached config में नए flags गायब हों तो वह refresh होती है। SDK discovery Windows/Linux/macOS पर है; local.properties की अन्य settings बचती हैं। Multiple devices पर ANDROID_SERIAL चुनें। Explicit version downgrade, signature conflict, build failure और missing artifact में install/launch रुकते हैं; uninstall/data-clear नहीं होता। Public production flags बदलना, payment करना, ads दिखाना या Play upload करना इस runner का हिस्सा नहीं।
+
+Source pull या configure से APK अपने-आप नहीं बदलता। उसके बाद user को Ctrl+Shift+B/run दबाना है। Actual auth के लिए इस machine का registered signing SHA-1 और valid Play account जरूरी हैं।
 
 ## Device install — नया main APK मिलने पर
 

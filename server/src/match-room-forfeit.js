@@ -408,7 +408,8 @@ export class MatchRoom extends BaseMatchRoom {
       isForfeitedSeat(
         state,
         state.turnSeat,
-      )
+      ) ||
+      (state.finishOrderPlayerIds ?? []).includes(state.players[state.turnSeat]?.playerId)
     ) {
       const next =
         structuredClone(
@@ -684,14 +685,19 @@ function finishWithRemainingPlayer(
     null;
   state.status =
     "FINISHED";
-  state.winnerPlayerId =
-    winnerSeat == null
-      ? null
-      : state.players[
-          winnerSeat
-        ].playerId;
-  state.turnSeat =
-    winnerSeat;
+  if (Array.isArray(state.finishOrderPlayerIds) && winnerSeat != null &&
+      !state.finishOrderPlayerIds.includes(state.players[winnerSeat].playerId)) {
+    state.finishOrderPlayerIds.push(state.players[winnerSeat].playerId);
+  }
+  state.winnerPlayerId = state.finishOrderPlayerIds?.[0] ??
+    (winnerSeat == null ? null : state.players[winnerSeat].playerId);
+  // Keep a valid seated turn index even when the final active player forfeits.
+  // A null turnSeat makes a FINISHED snapshot fail Android schema validation.
+  const finishedWinnerSeat = state.players.findIndex(player => player.playerId === state.winnerPlayerId);
+  state.turnSeat = winnerSeat ?? (finishedWinnerSeat >= 0
+    ? finishedWinnerSeat
+    : (Number.isInteger(state.turnSeat) && state.turnSeat >= 0 && state.turnSeat < state.players.length
+      ? state.turnSeat : 0));
   state.pendingRoll =
     null;
   state.finishedAt =
@@ -709,10 +715,8 @@ function activeSeatIndexes(
     seat += 1
   ) {
     if (
-      !isForfeitedSeat(
-        state,
-        seat,
-      )
+      !isForfeitedSeat(state, seat) &&
+      !(state.finishOrderPlayerIds ?? []).includes(state.players[seat].playerId)
     ) {
       result.push(
         seat,
@@ -770,10 +774,8 @@ function nextActiveSeat(
       ) %
       playerCount;
     if (
-      !isForfeitedSeat(
-        state,
-        seat,
-      )
+      !isForfeitedSeat(state, seat) &&
+      !(state.finishOrderPlayerIds ?? []).includes(state.players[seat].playerId)
     ) {
       return seat;
     }

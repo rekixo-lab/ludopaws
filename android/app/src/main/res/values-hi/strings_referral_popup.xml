@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="friendship_joined_title">आपका दोस्त जुड़ गया!</string>
+    <string name="friendship_pending_title">रिवॉर्ड आ रहा है</string>
+    <string name="friendship_gems_title">दोस्ती के लिए 100 जेम्स</string>
+    <string name="friendship_invite_title">दोस्त के साथ और मज़ा</string>
+    <string name="friendship_close">दोस्ती का ऑफ़र बंद करें</string>
+    <string name="friendship_joined_body">आपका दोस्त जुड़ गया है। अब उसे शर्तों के अनुसार एक मैच पूरा करना है; जीतना ज़रूरी नहीं है।</string>
+    <string name="friendship_pending_body">मैच सत्यापित हो गया है। आपका रिवॉर्ड भेजा जा रहा है; ताज़ा स्थिति के लिए प्रगति देखें।</string>
+    <string name="friendship_owned_body">तीनों चीज़ें आपके पास हैं। इस कैंपेन में एक नए दोस्त के सत्यापित खेल से आपको एक बार 100 जेम्स मिल सकते हैं।</string>
+    <string name="friendship_invite_body">नया दोस्त आपके निमंत्रण से इंस्टॉल करके शर्तों के अनुसार मैच पूरा करे। बंडल और 100 जेम्स केवल आपको मिलेंगे।</string>
+    <string name="friendship_no_install_reward">सिर्फ शेयर या इंस्टॉल करने से रिवॉर्ड नहीं मिलता।</string>
+    <string name="friendship_progress">प्रगति देखें</string>
+    <string name="friendship_invite_action">दोस्त को बुलाएँ</string>
+    <string name="friendship_connect_action">Google जोड़ें और बुलाएँ</string>
+    <string name="friendship_later">बाद में</string>
+    <string name="friendship_rules">नियम और गोपनीयता</string>
+    <string name="action_back">वापस जाएँ</string>
+    <string name="friendship_refresh">निमंत्रण की ताज़ा स्थिति देखें</string>
+    <string name="friendship_page_title">दोस्तों को बुलाएँ</string>
+    <string name="friendship_page_intro">दोस्त के साथ और मज़ा।</string>
+    <string name="friendship_page_summary">नए खिलाड़ी को बुलाएँ। शर्तों के अनुसार उसका पहला\nमैच पूरा होने पर यह बंडल पाएँ।</string>
+    <string name="friendship_checking">आपका बंडल जाँच रहे हैं…</string>
+    <string name="friendship_reward_condition">रिवॉर्ड केवल आपको मिलता है। सिर्फ शेयर या इंस्टॉल करना पर्याप्त नहीं है।</string>
+</resources>

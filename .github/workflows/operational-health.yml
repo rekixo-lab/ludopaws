@@ -1,0 +1,23 @@
+name: Ludo Paws operational health
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '11,26,41,56 * * * *'
+permissions:
+  contents: read
+concurrency:
+  group: ludopaws-operational-health
+  cancel-in-progress: false
+jobs:
+  delivery-health:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.LUDOPAWS_OPERATIONAL_HEALTH_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+      # Failure status is surfaced by GitHub Actions; the endpoint's 503 also
+      # feeds the already-scoped Cloudflare Worker 5xx monitor. No user payloads.
+      - run: node scripts/operational-health-check.mjs
