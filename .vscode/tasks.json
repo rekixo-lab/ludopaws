@@ -3,15 +3,15 @@
   "tasks": [
     {
       "label": "⚡ Fast Run LudoProof",
-      "type": "shell",
-      "command": "powershell",
+      "type": "process",
+      "command": "bash",
       "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}\\scripts\\run-ludoproof.ps1"
+        "${workspaceFolder}/scripts/run-ludoproof.sh"
       ],
+      "windows": {
+        "command": "powershell",
+        "args": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "${workspaceFolder}/scripts/run-ludoproof.ps1"]
+      },
       "options": {
         "cwd": "${workspaceFolder}"
       },
@@ -20,28 +20,6 @@
         "kind": "build",
         "isDefault": true
       },
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared",
-        "clear": true
-      }
-    },
-    {
-      "label": "✓ Verify + Run LudoProof",
-      "type": "shell",
-      "command": "powershell",
-      "args": [
-        "-NoProfile",
-        "-ExecutionPolicy",
-        "Bypass",
-        "-File",
-        "${workspaceFolder}\\scripts\\run-ludoproof.ps1",
-        "-Verify"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-      "problemMatcher": [],
       "presentation": {
         "reveal": "always",
         "panel": "shared",

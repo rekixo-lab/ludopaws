@@ -12,6 +12,18 @@ git pull --ff-only origin codex/rekixo-launch-branding
 
 Source pull से installed APK नहीं बदलता। नया APK तैयार होने तक पुराने APK में हटाए गए buttons फिर भी रह सकते हैं। पुराने build को नया साफ किया हुआ build बताकर install न करें।
 
+## User का Ctrl+Shift+B shortcut
+
+VS Code का default build task Linux/macOS पर Bash script `scripts/run-ludoproof.sh` चलाता है; PowerShell केवल Windows override है। Repo pull के बाद Ctrl+Shift+B से main app का incremental build → चुने connected device पर install → cold launcher start होता है। इसमें unit tests या lint tasks नहीं हैं। केवल user shortcut दबाने पर build होता है; agent ने cleanup/task-fix के दौरान इसे नहीं चलाया है।
+
+Terminal से उसी shortcut का विकल्प:
+
+```bash
+bash scripts/run-ludoproof.sh
+```
+
+Android SDK `LUDOPROOF_ANDROID_SDK`, `ANDROID_HOME`, `ANDROID_SDK_ROOT` या सामान्य home SDK location से मिलता है। Script `local.properties` में केवल SDK path ठीक करता है, अन्य properties रखता है। Multiple devices पर `ANDROID_SERIAL` चुनें। Package केवल `com.rekixo.ludopaws` है; developer UI/अलग app नहीं बनता। Build debug signing का है, इसलिए Play-installed app की key से mismatch हो सकता है; script uninstall/data-clear/downgrade नहीं करता। Local versionCode कम से कम 10 (या installed versionCode) है और public PGS project 314526321614 default है; `ORG_GRADLE_PROJECT_...` variables से explicit version/project दिए जा सकते हैं। Google authentication के लिए इस machine की signing SHA-1 का configured Android credential फिर भी जरूरी है। बाकी feature flags existing Gradle configuration से आते हैं।
+
 ## Device install — नया main APK मिलने पर
 
 ```bash
