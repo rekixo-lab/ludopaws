@@ -82,6 +82,27 @@ class HomeActivity : Activity() {
     private fun updateSplash() {
         if (!preparationFailed) splash?.update(startupSession.snapshot, localReady)
     }
+    private var hudRefreshQueued = false
+    private val deferredHomePreparation = Runnable {
+            if (resumed && homeShown && !isFinishing && !isDestroyed) {
+                com.rekixo.ludopaws.feature.referrals.ReferralRepository(this).refreshAttribution()
+                val selected = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load()
+                com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.prewarm(
+                    listOf(selected.characterId, "dog", "goat", "duck", "cat"))
+                com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback.preloadMovementEventSfx(this)
+            }
+    }
+    private fun scheduleHomeHudRefresh() {
+        if (!homeShown || hudRefreshQueued || isFinishing || isDestroyed) return
+        hudRefreshQueued = true
+        window.decorView.postOnAnimation {
+            hudRefreshQueued = false
+            if (foreground && homeShown && !isFinishing && !isDestroyed) {
+                refreshHomeProfileSummary()
+                refreshHomeGemBalance()
+            }
+        }
+    }
     private val grace = Runnable { maybeShowHome() }
     private val watchdog = Runnable {
         if (!homeShown && StartupReadiness.localTimedOut(localReady, elapsedStartup())) {
@@ -282,7 +303,7 @@ class HomeActivity : Activity() {
             )
         contentHost.addView(
             HomePromotionCarousel(this) { tab, characterId ->
-                startActivity(Intent(this, StoreActivity::class.java).apply {
+                launchPlayerScreen(Intent(this, StoreActivity::class.java).apply {
                     putExtra(StoreActivity.EXTRA_INITIAL_TAB, tab)
                     characterId?.let { putExtra(StoreActivity.EXTRA_FEATURED_CHARACTER_ID, it) }
                 })
@@ -357,7 +378,7 @@ class HomeActivity : Activity() {
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             setOnClickListener {
                 if (startupSession.snapshot.state == StartupAccountState.RESTORE_REQUIRED) {
-                    startActivity(android.content.Intent(this@HomeActivity,
+                    launchPlayerScreen(android.content.Intent(this@HomeActivity,
                         com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity::class.java)
                         .putExtra("open_account_actions", true))
                 } else {
@@ -404,7 +425,7 @@ class HomeActivity : Activity() {
                 else -> snapshot.message
             }
         }
-        if (homeShown) { refreshHomeProfileSummary(); refreshHomeGemBalance() }
+        if (homeShown) scheduleHomeHudRefresh()
     }
 
     override fun onResume() {
@@ -425,8 +446,7 @@ class HomeActivity : Activity() {
     }
 
     private fun resumeHome() {
-        refreshHomeProfileSummary()
-        refreshHomeGemBalance()
+        scheduleHomeHudRefresh()
         resumeHomePrivacy()
     }
 
@@ -448,20 +468,14 @@ class HomeActivity : Activity() {
             startupPlayGames.authenticationBootstrapPending || promotionsStarted) return
         promotionsStarted = true
         referralPromotions.resume(home = true)
-        startupHandler.postDelayed({
-            if (resumed && homeShown && !isFinishing && !isDestroyed) {
-                com.rekixo.ludopaws.feature.referrals.ReferralRepository(this).refreshAttribution()
-                val selected = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load()
-                com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.prewarm(
-                    listOf(selected.characterId, "dog", "goat", "duck", "cat"))
-                com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback.preloadMovementEventSfx(this)
-            }
-        }, 1200L)
+        startupHandler.removeCallbacks(deferredHomePreparation)
+        startupHandler.postDelayed(deferredHomePreparation, 1200L)
     }
 
     override fun onPause() {
         resumed = false
         promotionsStarted = false
+        startupHandler.removeCallbacks(deferredHomePreparation)
         referralPromotions.pause()
         promotionCarousel?.setActive(false)
         super.onPause()

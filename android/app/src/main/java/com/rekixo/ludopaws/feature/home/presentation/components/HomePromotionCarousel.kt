@@ -5,6 +5,8 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.app.Activity
+import com.rekixo.ludopaws.launchPlayerScreen
 import android.graphics.Color
 import android.view.Gravity
 import android.view.MotionEvent
@@ -39,7 +41,7 @@ internal class HomePromotionCarousel(
     private val bundle = FriendshipBundleView(context, compact = true).apply {
         isClickable = true
         isFocusable = true
-        setOnClickListener { context.startActivity(Intent(context, ReferralActivity::class.java)) }
+        setOnClickListener { (context as? Activity)?.launchPlayerScreen(Intent(context, ReferralActivity::class.java)) }
     }
     private var bundleAvailable = false
     private var bundleShown = false

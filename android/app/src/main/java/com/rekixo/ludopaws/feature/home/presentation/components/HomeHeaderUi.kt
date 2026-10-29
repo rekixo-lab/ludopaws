@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.ui.home
 
+import com.rekixo.ludopaws.launchPlayerScreen
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -135,7 +136,7 @@ private fun HomeActivity.homeCurrencyPill(): LinearLayout =
             0,
         )
         setOnClickListener {
-            startActivity(
+            launchPlayerScreen(
                 Intent(
                     this@homeCurrencyPill,
                     StoreActivity::class.java,
@@ -194,7 +195,7 @@ private fun HomeActivity.homeCurrencyPill(): LinearLayout =
                         cornerRadiusDp = if (isCompact()) 13f else 15f,
                     )
                 setOnClickListener {
-                    startActivity(
+                    launchPlayerScreen(
                         Intent(
                             this@homeCurrencyPill,
                             StoreActivity::class.java,
@@ -231,7 +232,7 @@ private fun HomeActivity.homeProfilePill(): LinearLayout =
         )
 
         setOnClickListener {
-            startActivity(
+            launchPlayerScreen(
                 Intent(
                     this@homeProfilePill,
                     ProfileActivity::class.java,
@@ -373,7 +374,7 @@ private fun HomeActivity.homeShortcut(
             setOnClickListener {
                 when (item.iconKind) {
                     HomeIconKind.SHOP ->
-                        startActivity(
+                        launchPlayerScreen(
                             Intent(
                                 this@homeShortcut,
                                 StoreActivity::class.java,
@@ -381,7 +382,7 @@ private fun HomeActivity.homeShortcut(
                         )
 
                     HomeIconKind.LEADERBOARD ->
-                        startActivity(
+                        launchPlayerScreen(
                             Intent(
                                 this@homeShortcut,
                                 LeaderboardActivity::class.java,
@@ -389,7 +390,7 @@ private fun HomeActivity.homeShortcut(
                         )
 
                     HomeIconKind.BADGE ->
-                        startActivity(
+                        launchPlayerScreen(
                             Intent(
                                 this@homeShortcut,
                                 BadgesActivity::class.java,
@@ -397,7 +398,7 @@ private fun HomeActivity.homeShortcut(
                         )
 
                     HomeIconKind.AD_BLOCKER ->
-                        startActivity(
+                        launchPlayerScreen(
                             Intent(
                                 this@homeShortcut,
                                 StoreActivity::class.java,

@@ -80,6 +80,7 @@ class LudoProofApplication :
         ImmersiveGameWindow.restore(activity)
         // Apply the shared click SFX to this screen's interactive UI controls.
         UiClickSoundInstaller.install(activity)
+        PlayerNavigation.resumed(activity)
 
     }
 
@@ -147,5 +148,5 @@ class LudoProofApplication :
 
     override fun onActivityDestroyed(
         activity: Activity,
-    ) = Unit
+    ) { PlayerNavigation.destroyed(activity) }
 }
