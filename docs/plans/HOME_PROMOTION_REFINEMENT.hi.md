@@ -34,3 +34,7 @@ Source recheck: तीनों Store sections का shared entry call, explici
 User ने 300 Gems कहा, लेकिन current server/src/referral-config.js grant 100 है। Async clarification पूछा गया है कि 100 रखें या actual reward/text दोनों 300 करें। इस layout-only commit में संख्या 100 और live reward behavior सुरक्षित हैं; pending clarification को approval नहीं माना।
 
 Source recheck: two nested rows, three square slots and shared board/chrome origin, existing card button order, wrap-content height, default-variant preservation और amount consistency पढ़े। Whitespace साफ। Build/lint/tests/device run नहीं किया।
+
+## Store title polish
+
+तीनों Shop friendship cards का title अब “Claim Your Friendship Bundle” है; centered, rounded bold 17sp, deep teal #174F55 with subtle warm highlight और 10dp top/bottom internal padding। Title को wrap की अनुमति है; fixed single-line clipping नहीं। Artwork rows/CTA/eligibility unchanged। User की पुष्टि के अनुसार 100 Gems ही हैं; reward amount बदलने का pending प्रश्न समाप्त। “Claim” heading promotional है; Invite/View progress action और verified-play condition अभी भी actual flow स्पष्ट रखते हैं। Source diff/whitespace recheck किया; build/tests/device run नहीं किया।

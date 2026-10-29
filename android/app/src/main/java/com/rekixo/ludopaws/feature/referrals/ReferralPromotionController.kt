@@ -129,15 +129,19 @@ internal class ReferralPromotionController(
             if (!host.isAttachedToWindow) return@fetch
             host.removeAllViews()
             if (snapshot == null || !eligible(snapshot) || cosmeticId in inventory.ownedCosmeticIds()) { host.visibility = View.GONE; return@fetch }
-            val title = when (cosmeticId) { "character_rabbit" -> "Rabbit"; "board_blossom_garden" -> "Blossom Garden"; else -> "Pearl Paw Dice" }
             val card = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(12), dp(8), dp(12), dp(10))
                 background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 16f)
                 addView(TextView(activity).apply {
-                    text = "Friendship bundle · $title"
-                    textSize = 14f; typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(0xFF422B1C.toInt())
+                    text = "Claim Your Friendship Bundle"
+                    textSize = 17f
+                    typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(dp(4), dp(10), dp(4), dp(10))
+                    setTextColor(0xFF174F55.toInt())
+                    setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0x66FFF4DE)
+                    isAccessibilityHeading = true
                 }, LinearLayout.LayoutParams(-1, -2))
                 addView(ReferralGemRewardView(activity, compact = true, includeBundleItems = true), LinearLayout.LayoutParams(-1, -2))
                 addView(Button(activity).apply {
