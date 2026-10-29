@@ -95,7 +95,7 @@ internal class ReferralPromotionController(
                     ReferralPopupSession.current.automaticShown)) return@fetch
             popupVisibility(true)
             try {
-                popup = showReferralBundlePopup(activity, snapshot.optString("state"), snapshot.optBoolean("googleLinked"), inventory.ownedCosmeticIds()) { deferred ->
+                popup = showReferralBundlePopup(activity, snapshot.optString("state"), inventory.ownedCosmeticIds()) { deferred ->
                     popup = null
                     if (deferred && resumed && currentAccount() == account) preferences.edit().putLong(key + "dismissed", System.currentTimeMillis()).apply()
                     popupVisibility(false)

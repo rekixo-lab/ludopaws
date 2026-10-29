@@ -20,7 +20,8 @@ import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
-import com.rekixo.ludopaws.ui.dialogs.showSettingsDialog
+import com.rekixo.ludopaws.launchPlayerScreen
+import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.feature.safety.FamilyAgeScreen
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import org.json.JSONObject
@@ -30,6 +31,9 @@ class ReferralActivity : Activity() {
     private lateinit var progress: TextView
     private lateinit var ownership: TextView
     private lateinit var action: Button
+    private lateinit var connect: Button
+    private var loadingStatus = false
+    private var externalLaunchAt = 0L
     private lateinit var refresh: View
     private var verify: Button? = null
     private lateinit var stop: Button
@@ -53,8 +57,7 @@ class ReferralActivity : Activity() {
         val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(6), dp(6), dp(6), dp(6))
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF123B38.toInt(), 0xFF102B31.toInt())).apply { cornerRadius = dp(24).toFloat() }
+            background = plywoodBackground(this@ReferralActivity, cornerRadiusDp = 24f)
         }
         val header = FrameLayout(this).apply { setPadding(dp(12), dp(8), dp(12), dp(8)) }
         header.addView(navigationButton(getString(com.rekixo.ludopaws.R.string.action_back), AppIconName.CHEVRON_LEFT) { finish() },
@@ -87,14 +90,22 @@ class ReferralActivity : Activity() {
         progress.accessibilityLiveRegion = android.view.View.ACCESSIBILITY_LIVE_REGION_POLITE
         content.addView(progress, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
         action = Button(this).apply {
-            text = "CHECKING…"; isEnabled = false
-            setTextColor(0xFF163E37.toInt()); typeface = Typeface.DEFAULT_BOLD
+            text = "Share Ludo Paws  ↗"; isEnabled = true
+            setTextColor(0xFF422B1C.toInt()); typeface = Typeface.DEFAULT_BOLD
             minHeight = dp(54); isAllCaps = false; textSize = 16f
             setPadding(dp(16), dp(12), dp(16), dp(12))
+            backgroundTintList = null
             background = buttonSurface(primary = true)
             setOnClickListener { act() }
         }
         content.addView(action, LinearLayout.LayoutParams(-1, -2))
+        connect = secondaryButton("Set up invitation rewards (optional)") {
+            FamilyAgeScreen.withOptionalGoogle(this) {
+                launchPlayerScreen(Intent(this, com.rekixo.ludopaws.ProfileActivity::class.java)
+                    .putExtra("open_account_actions", true))
+            }
+        }.apply { visibility = View.GONE }
+        content.addView(connect, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
         content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_reward_condition), 12f).apply {
             setPadding(dp(8), dp(10), dp(8), dp(8))
         })
@@ -111,12 +122,7 @@ class ReferralActivity : Activity() {
             visibility = android.view.View.GONE
         }
         content.addView(stop, LinearLayout.LayoutParams(-1, -2))
-        content.addView(quietButton("Share without rewards  ↗") {
-            openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, "Play Ludo Paws with me!\nhttps://play.google.com/store/apps/details?id=com.rekixo.ludopaws")
-            }, "Share Ludo Paws"))
-        }, LinearLayout.LayoutParams(-1, -2))
+        content.addView(quietButton("Share Play Store link  ↗") { shareGame() }, LinearLayout.LayoutParams(-1, -2))
         val centeredContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -137,11 +143,7 @@ class ReferralActivity : Activity() {
 
     private fun navigationButton(label: String, icon: AppIconName, onClick: () -> Unit) =
         appIconActionButton(this, label, icon, sizeDp = 52, onClick = onClick).apply {
-            val surface = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF47766A.toInt(), 0xFF285449.toInt())).apply {
-                cornerRadius = dp(26).toFloat()
-                setStroke(dp(1), 0xFFBAD6A6.toInt())
-            }
+            val surface = plywoodBackground(this@ReferralActivity, cornerRadiusDp = 26f)
             background = android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(0x44FFFFFF), surface, null,
             )
@@ -231,14 +233,13 @@ class ReferralActivity : Activity() {
     }
 
     private fun buttonSurface(primary: Boolean = false): android.graphics.drawable.Drawable {
-        val enabled = GradientDrawable(
+        val enabled: android.graphics.drawable.Drawable = if (primary) GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
-            if (primary) intArrayOf(0xFFD8FFE9.toInt(), 0xFF91DDBA.toInt())
-            else intArrayOf(0xFF315A56.toInt(), 0xFF214340.toInt()),
+            intArrayOf(0xFFFFE49B.toInt(), 0xFFE5AF42.toInt()),
         ).apply {
             cornerRadius = dp(16).toFloat()
-            setStroke(dp(1), if (primary) 0xFFE0FFE9.toInt() else 0xFF719D88.toInt())
-        }
+            setStroke(dp(1), 0xFFFFE5A4.toInt())
+        } else plywoodBackground(this, cornerRadiusDp = 16f)
         val disabled = GradientDrawable().apply {
             setColor(if (primary) 0xFFA5B9AF.toInt() else 0xFF405552.toInt())
             cornerRadius = dp(16).toFloat()
@@ -254,7 +255,7 @@ class ReferralActivity : Activity() {
 
     private fun styleSecondaryButton(button: Button) = button.apply {
         isAllCaps = false; textSize = 13f; typeface = Typeface.DEFAULT_BOLD
-        setTextColor(0xFFE4F6EA.toInt()); minHeight = dp(48)
+        setTextColor(0xFF422B1C.toInt()); backgroundTintList = null; minHeight = dp(48)
         setPadding(dp(12), dp(10), dp(12), dp(10))
         background = buttonSurface()
     }
@@ -265,19 +266,24 @@ class ReferralActivity : Activity() {
 
     private fun quietButton(label: String, onClick: () -> Unit) = secondaryButton(label, onClick).apply {
         background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x22FFFFFF), null, null)
-        setTextColor(0xFFBBD7CA.toInt())
+        setTextColor(0xFF60452D.toInt())
         minWidth = 0; minimumWidth = 0
     }
 
     private fun openExternal(intent: Intent) {
+        if (isFinishing || isDestroyed) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (externalLaunchAt > 0L && now - externalLaunchAt < 750L) return
+        externalLaunchAt = now
         runCatching { startActivity(intent) }.onFailure {
+            externalLaunchAt = 0L
             Toast.makeText(this, "No compatible app is available. Please try another browser or sharing app.", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun copy(value: String, size: Float, bold: Boolean = false) = TextView(this).apply {
         text = value; textSize = size; gravity = Gravity.CENTER
-        setTextColor(if (bold) 0xFFFFE8B7.toInt() else 0xFFBBD7CA.toInt())
+        setTextColor(if (bold) 0xFF422B1C.toInt() else 0xFF60452D.toInt())
         if (bold) typeface = Typeface.DEFAULT_BOLD
         includeFontPadding = false
         setLineSpacing(dp(2).toFloat(), 1f)
@@ -285,13 +291,13 @@ class ReferralActivity : Activity() {
     }
 
     override fun onResume() {
-        super.onResume(); resumed = true; showcase.setActive(true)
+        super.onResume(); resumed = true; externalLaunchAt = 0L; showcase.setActive(true)
         pollsRemaining = 20
         repository.refreshAttribution()
         load()
     }
     override fun onPause() {
-        resumed = false; generation++; busy = false; showcase.setActive(false)
+        resumed = false; generation++; busy = false; loadingStatus = false; showcase.setActive(false)
         handler.removeCallbacks(poll)
         super.onPause()
     }
@@ -305,26 +311,30 @@ class ReferralActivity : Activity() {
     private fun load() {
         if (busy) return
         handler.removeCallbacks(poll)
-        busy = true; action.isEnabled = false; refresh.isEnabled = false
+        busy = true; loadingStatus = true
+        connect.visibility = View.GONE
+        verify?.isEnabled = false
+        stop.isEnabled = false
+        action.text = "Share Ludo Paws  ↗"; action.isEnabled = true; refresh.isEnabled = false
         val requestGeneration = ++generation
         ReferralRepository.executor.execute {
             val result = runCatching { repository.status(createAccount = true) }
             runOnUiThread {
                 if (!resumed || isFinishing || isDestroyed || generation != requestGeneration) return@runOnUiThread
-                busy = false; refresh.isEnabled = true
+                busy = false; loadingStatus = false; refresh.isEnabled = true
                 result.onSuccess { snapshot ->
                     val current = (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()
                     if (snapshot.has("localAccountId") && snapshot.optString("localAccountId") != current?.accountId) {
-                        status = null; progress.text = "Account changed. Tap Retry to continue."
-                        action.text = "RETRY"; action.isEnabled = true
+                        status = null; progress.text = "Account changed. Refresh to check invitation rewards; you can still share the game."
+                        action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
                         return@onSuccess
                     }
                     status = snapshot; render(snapshot)
                     if (snapshot.optBoolean("enabled")) repository.refreshAttribution()
                 }.onFailure {
                     status = null
-                    progress.text = "Couldn't load invitations. Tap Retry."
-                    action.text = "RETRY"; action.isEnabled = true
+                    progress.text = "Invitation rewards could not load. You can still share the game; tap Refresh to retry."
+                    action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
                 }
             }
         }
@@ -344,14 +354,17 @@ class ReferralActivity : Activity() {
         progress.text = when {
             state == "REWARDED" -> if (snapshot.optBoolean("walletSynced")) "Bundle received!\nYour items and 100 Gems are in your account." else "Reward granted on the server. Refresh to sync your items and Gems."
             !enabled -> "Rewards are currently unavailable."
-            !linked -> "Connect Google to create your invitation."
+            !linked -> "Share the game now, or optionally connect Google below to set up invitation rewards."
             state == "VERIFYING" -> "Match verified · delivering your reward…"
             state == "FRIEND_JOINED" -> "Friend joined! Next: a completed real match."
             else -> "Ready for your first invitation."
         }
-        action.text = when { state == "REWARDED" -> "Bundle received ✓"; !enabled -> "Currently unavailable"; !linked -> "Connect Google & invite"; state == "VERIFYING" -> "Check my reward"; else -> "Invite a friend  ↗" }
-        action.isEnabled = enabled && state != "REWARDED" && !privacyBlocked
+        action.text = if (enabled && linked && !privacyBlocked && state !in setOf("REWARDED", "VERIFYING")) "Invite a friend  ↗" else "Share Ludo Paws  ↗"
+        action.isEnabled = !busy
+        connect.visibility = if (enabled && !linked && !privacyBlocked) View.VISIBLE else View.GONE
+        connect.isEnabled = !busy
         verify?.isEnabled = enabled && linked && !busy && !privacyBlocked
+        stop.isEnabled = !busy
         stop.visibility = if (snapshot.optBoolean("localConsent") || snapshot.optBoolean("consented")) android.view.View.VISIBLE else android.view.View.GONE
         val attribution = snapshot.optJSONObject("attribution")
         verification.text = when {
@@ -374,15 +387,24 @@ class ReferralActivity : Activity() {
         }
     }
 
+    private fun shareGame() {
+        openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Play Ludo Paws with me")
+            putExtra(Intent.EXTRA_TEXT, "Play Ludo Paws with me!\nhttps://play.google.com/store/apps/details?id=com.rekixo.ludopaws")
+        }, "Share Ludo Paws"))
+    }
+
     private fun act(grant: ConsentGrant? = null) {
-        val snapshot = status ?: return load()
-        if (!snapshot.optBoolean("googleLinked")) {
-            showSettingsDialog(this) { repository.refreshAttribution(); load() }
+        if (busy && !loadingStatus) return
+        val snapshot = status
+        if (loadingStatus || snapshot == null || !snapshot.optBoolean("enabled") ||
+            !snapshot.optBoolean("googleLinked") || snapshot.optString("state") in setOf("REWARDED", "VERIFYING") ||
+            !FamilyAgeScreen.optionalGoogleAllowed(this)) {
+            shareGame()
             return
         }
-        if (snapshot.optString("state") == "VERIFYING") { load(); return }
         if (!requireConsent(snapshot, grant) { act(it) }) return
-        if (!FamilyAgeScreen.optionalGoogleAllowed(this)) { FamilyAgeScreen.withOptionalGoogle(this) { act(grant) }; return }
         if (busy) return
         busy = true; action.isEnabled = false
         val requestGeneration = ++generation
@@ -394,7 +416,12 @@ class ReferralActivity : Activity() {
             }
             runOnUiThread {
                 if (!resumed || isFinishing || isDestroyed || generation != requestGeneration) return@runOnUiThread
-                busy = false; render(snapshot)
+                busy = false
+                val current = (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()
+                if (current?.accountId != snapshot.optString("localAccountId")) {
+                    status = null; load(); return@runOnUiThread
+                }
+                render(snapshot)
                 result.onSuccess { url ->
                     openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
