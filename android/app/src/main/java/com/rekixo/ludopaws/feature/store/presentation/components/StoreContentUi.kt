@@ -55,6 +55,22 @@ internal fun StoreActivity.storeContent(): LinearLayout {
             ?.takeIf { com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.tabFor(it) == selectedTab }
             ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }) }
         bundleItem?.let { addView(referralPromotions.storeEntry(it), LinearLayout.LayoutParams(-1, -2)) }
+        val category = when (selectedTab) {
+            StoreTab.PAWS -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.CHARACTER_PACK
+            StoreTab.BOARD -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD
+            StoreTab.DICE -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.DICE
+            else -> null
+        }
+        if (category != null && promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(it)?.category } != category) {
+            val tab = selectedTab
+            val initial = spotlightPositions[tab] ?: if (tab == StoreTab.PAWS) featuredCharacterId?.let {
+                com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(it)?.id
+            } else null
+            val spotlight = StoreLockedSpotlightView(this@storeContent, category, initial) { spotlightPositions[tab] = it }
+            storeSpotlight = spotlight
+            addView(spotlight, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+            spotlight.setActive(showcaseResumed)
+        }
         addView(catalog, LinearLayout.LayoutParams(-1, -2))
     }
 }

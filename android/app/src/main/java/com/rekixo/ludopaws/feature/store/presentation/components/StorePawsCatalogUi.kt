@@ -21,26 +21,6 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        if (promotedCosmeticId?.let { StoreCosmeticCatalog.find(it) }?.category !=
-            com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.CHARACTER_PACK) {
-            val featured = FeaturedPawsCard(this@pawsCatalogContent, featuredCharacterId, detail = true,
-                playPrice = { id -> cosmeticPlayPrice(id) }) { id ->
-                val selections = CharacterSelectionStore(this@pawsCatalogContent)
-                if (selections.isUnlocked(id)) {
-                    selections.select(LudoPawsCharacterCatalog.STARTER_PACK_ID, id)
-                    featuredPawsCard?.refresh()
-                    renderStore()
-                } else {
-                    val offer = StoreCosmeticCatalog.characterUnlock(id)?.let { StoreCosmeticCatalog.find(it.id) }
-                    if (offer != null) handleCosmeticTap(offer)
-                }
-            }
-            featuredPawsCard = featured
-            featuredCharacterId = featured.characterId
-            addView(featured, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
-            featured.setActive(showcaseResumed)
-        }
-
         // Shipped Starter Paws characters; Lumi and Donkey have individual verified-ad entitlements.
         val starterCharacters =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
