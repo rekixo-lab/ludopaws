@@ -123,9 +123,19 @@ test("configure saves only allowlisted public values outside the repo", context 
 test("invalid options and missing Google configuration cannot start a build", context => {
   const setup = fixture(context);
   assert.throws(() => main(["run", "--release"], setup), /Invalid arguments/);
-  fs.writeFileSync(setup.configPath, "{}");
+  const saved = JSON.parse(fs.readFileSync(setup.configPath, "utf8"));
+  delete saved.GOOGLE_SIGN_IN_WEB_CLIENT_ID;
+  fs.writeFileSync(setup.configPath, JSON.stringify(saved));
   assert.throws(() => main(["run", "--assemble"], setup), /Google configuration is missing/);
   assert.equal(setup.calls.length, 0);
+});
+
+test("missing public feature configuration refreshes safely without starting a build", context => {
+  const setup = fixture(context);
+  fs.writeFileSync(setup.configPath, "{}");
+  assert.throws(() => main(["run", "--assemble"], setup), /Missing or invalid public feature configuration/);
+  assert.equal(setup.calls.length, 2);
+  assert.ok(setup.calls.every(call => call.program === "gh"));
 });
 
 test("installed Play version 10 produces local version 10, never the default 4", context => {

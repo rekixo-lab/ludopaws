@@ -70,8 +70,12 @@ for (const marker of ['age !in 1..100', 'putInt(KEY, band)', 'putInt(POLICY_KEY,
 }
 const privacyDialog = fs.readFileSync(path.join(appSource, "feature/safety/FamilyPrivacyDialog.kt"), "utf8");
 for (const marker of ['DialogFragment()', 'baseDialog(host)', 'How old are you?', 'Privacy Policy',
-                      'max = 100', 'selectedAge = 0', 'onSaveInstanceState', 'FamilyAgeScreen.completed(host)']) {
+                      'AgeSelectionSlider(requireHost())', 'selectedAge = 0', 'onSaveInstanceState', 'FamilyAgeScreen.completed(host)']) {
   insist(privacyDialog, marker, "single restorable age/privacy surface");
+}
+const ageSlider = fs.readFileSync(path.join(appSource, "feature/safety/AgeSelectionSlider.kt"), "utf8");
+for (const marker of ['max = 100', 'class AgeSelectionSlider', ': SeekBar(context)']) {
+  insist(ageSlider, marker, "native numeric age selection range");
 }
 const store = fs.readFileSync(path.join(appSource, "feature/store/presentation/StoreActivity.kt"), "utf8");
 for (const marker of ["billing.launchPurchase(productId)", "selectCosmetic(", "launchReadyCheckout()",
