@@ -83,6 +83,12 @@ class HomeActivity : Activity() {
         if (!preparationFailed) splash?.update(startupSession.snapshot, localReady)
     }
     private var hudRefreshQueued = false
+    private val observedStorePrefs by lazy {
+        getSharedPreferences(com.rekixo.ludopaws.feature.store.data.local.StorePreferences.PREFS_NAME, MODE_PRIVATE)
+    }
+    private val walletChanged = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        runOnUiThread { if (foreground && resumed) scheduleHomeHudRefresh() }
+    }
     private val deferredHomePreparation = Runnable {
             if (resumed && homeShown && !isFinishing && !isDestroyed) {
                 com.rekixo.ludopaws.feature.referrals.ReferralRepository(this).refreshAttribution()
@@ -502,6 +508,7 @@ class HomeActivity : Activity() {
     override fun onStart() {
         super.onStart()
         foreground = true
+        observedStorePrefs.registerOnSharedPreferenceChangeListener(walletChanged)
         prepareHomeRemoteExit()
         // Time spent backgrounded is not a local preparation failure.
         if (!homeShown && !preparationFailed) startedAt = SystemClock.elapsedRealtime()
@@ -517,6 +524,7 @@ class HomeActivity : Activity() {
 
     override fun onStop() {
         foreground = false
+        observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
         startupSession.unsubscribe(startupObserver)
         startupHandler.removeCallbacks(grace)
         startupHandler.removeCallbacks(watchdog)
@@ -525,6 +533,7 @@ class HomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
         preparationGeneration += 1
         referralPromotions.pause()
         com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)

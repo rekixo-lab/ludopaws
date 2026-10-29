@@ -350,6 +350,7 @@ class AccountRepository(context: Context) {
         promotionPrefs.edit().also { editor ->
             promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
         }.commit()
+        runCatching { com.rekixo.ludopaws.feature.store.data.ads.PendingAdRewardStore(appContext).removeAccount(session.accountId) }
         sessions.clear()
         return response
     }

@@ -1,8 +1,9 @@
 package com.rekixo.ludopaws.feature.store.data.ads
 
 import android.app.Activity
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
-import com.rekixo.ludopaws.BuildConfig
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.LoadAdError
@@ -18,6 +19,7 @@ internal class RewardedAdsController(
     private val enabled: () -> Boolean,
     private val adUnitId: String,
     private val onMessage: (String) -> Unit,
+    private val canPresent: () -> Boolean = { true },
 ) {
     private val consentInformation: ConsentInformation =
         UserMessagingPlatform.getConsentInformation(activity)
@@ -26,15 +28,38 @@ internal class RewardedAdsController(
     private var sdkInitializationInProgress = false
     private var sdkInitialized = false
     private var adLoading = false
-    private var adLoadFailed = false
     private var rewardedAd: RewardedAd? = null
     private var closed = false
+    private var showing = false
+    private var loadGeneration = 0
+    private val handler = Handler(Looper.getMainLooper())
+    private data class WatchRequest(val userId: String, val customData: String,
+        val beforeShow: () -> Boolean, val earned: () -> Unit, val finished: (Boolean) -> Unit)
+    private var pendingShow: WatchRequest? = null
+    val isBusy: Boolean get() = pendingShow != null || showing
+    private val requestTimeout = Runnable {
+        if (adLoading) { adLoading = false; loadGeneration++ }
+        failPending("The ad could not load in time. Tap Watch to retry.")
+    }
+
+    fun cancelPendingShow() {
+        pendingShow = null
+        handler.removeCallbacks(requestTimeout)
+    }
+
+    fun onHostResumed() { if (!closed) maybeShowPending() }
+
+    private fun failPending(message: String) {
+        val hadRequest = pendingShow != null
+        cancelPendingShow()
+        if (hadRequest && !closed && canPresent()) onMessage(message)
+    }
 
     fun prepare() {
-        if (!enabled() || closed || rewardedAd != null || adLoading) return
+        if (!enabled() || closed || showing || rewardedAd != null || adLoading) return
         if (activity.isFinishing || activity.isDestroyed) return
         Log.d(TAG, "Preparing rewarded ad; sdkInitialized=$sdkInitialized, consentCanRequestAds=${consentInformation.canRequestAds()}")
-        if (sdkInitialized) {
+        if (sdkInitialized && consentInformation.canRequestAds()) {
             loadRewardedAd()
             return
         }
@@ -48,6 +73,11 @@ internal class RewardedAdsController(
             consentReady@{
                 if (closed || activity.isFinishing || activity.isDestroyed) {
                     consentUpdateInProgress = false
+                    return@consentReady
+                }
+                if (pendingShow == null) {
+                    consentUpdateInProgress = false
+                    initializeAdsIfAllowed()
                     return@consentReady
                 }
                 UserMessagingPlatform.loadAndShowConsentFormIfRequired(activity) { error ->
@@ -70,73 +100,72 @@ internal class RewardedAdsController(
     fun showRewardedAd(
         userId: String,
         customData: String,
+        onBeforeShow: () -> Boolean,
+        onFinished: (Boolean) -> Unit,
         onRewardEarned: () -> Unit,
     ): Boolean {
-        // Recheck UMP consent at display time; a previously loaded ad is not authorization.
-        if (!enabled() || closed) {
+        if (!enabled() || closed || activity.isFinishing || activity.isDestroyed) {
             onMessage("Rewarded ads are currently unavailable.")
             return false
         }
-        if (!consentInformation.canRequestAds()) {
-            // A transient consent-info failure must be recoverable without leaving Store.
+        if (isBusy) { onMessage("An ad request is already loading or open."); return false }
+        if (!userId.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) ||
+            customData.isBlank() || customData.toByteArray(Charsets.UTF_8).size > 1024) {
+            onMessage("The account reward request is invalid. No ad was requested.")
+            return false
+        }
+        pendingShow = WatchRequest(userId, customData, onBeforeShow, onRewardEarned, onFinished)
+        handler.postDelayed(requestTimeout, 30_000L)
+        if (rewardedAd != null && consentInformation.canRequestAds()) maybeShowPending()
+        else {
+            onMessage("Loading your ad… It will open when ready. Leaving Store cancels this request.")
             prepare()
-            onMessage("Checking ad privacy readiness. Please try again shortly.")
-            return false
-        }
-        if (
-            !userId.matches(Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")) ||
-            customData.isBlank() ||
-            customData.toByteArray(Charsets.UTF_8).size > 1024
-        ) {
-            onMessage("The account reward request is invalid. No ad reward was requested.")
-            return false
-        }
-        val ad = rewardedAd
-        if (ad == null) {
-            prepare()
-            onMessage(
-                if (adLoadFailed) {
-                    "No rewarded ad could be loaded right now. Check your connection and try again later."
-                } else if (consentInformation.canRequestAds()) {
-                    "A rewarded ad is loading. Please try again shortly."
-                } else {
-                    "Ads are not ready yet. Review ad privacy choices or try again later."
-                },
-            )
-            return false
-        }
-
-        rewardedAd = null
-        ad.setServerSideVerificationOptions(
-            ServerSideVerificationOptions.Builder()
-                .setUserId(userId)
-                .setCustomData(customData)
-                .build(),
-        )
-        var rewardEarned = false
-        var rewardDelivered = false
-        ad.fullScreenContentCallback =
-            object : FullScreenContentCallback() {
-                override fun onAdDismissedFullScreenContent() {
-                    com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
-                    if (rewardEarned && !rewardDelivered && !closed) {
-                        rewardDelivered = true
-                        onRewardEarned()
-                    }
-                    prepare()
-                }
-
-                override fun onAdFailedToShowFullScreenContent(error: AdError) {
-                    Log.w(TAG, "Rewarded ad failed to show: ${error.message}")
-                    onMessage("The ad could not be shown. No reward was added.")
-                    prepare()
-                }
-            }
-        com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
-        ad.show(activity) {
-            rewardEarned = true
         }
         return true
+    }
+
+    private fun maybeShowPending() {
+        val request = pendingShow ?: return
+        if (closed || showing || !canPresent() || !activity.hasWindowFocus() || activity.isFinishing || activity.isDestroyed) return
+        if (!enabled() || !consentInformation.canRequestAds()) return
+        val ad = rewardedAd ?: return
+        cancelPendingShow()
+        val permitted = try { request.beforeShow() } catch (_: Exception) {
+            onMessage("The reward request could not be prepared safely. Tap Watch to retry.")
+            false
+        }
+        if (!permitted) return
+        rewardedAd = null
+        showing = true
+        var delivered = false
+        ad.fullScreenContentCallback = object : FullScreenContentCallback() {
+            override fun onAdDismissedFullScreenContent() {
+                showing = false
+                com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
+                request.finished(delivered)
+                prepare()
+            }
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                showing = false
+                request.finished(delivered)
+                if (!closed && canPresent()) onMessage("The ad could not be shown. Tap Watch to retry.")
+                prepare()
+            }
+        }
+        com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
+        try {
+            ad.setServerSideVerificationOptions(ServerSideVerificationOptions.Builder()
+                .setUserId(request.userId).setCustomData(request.customData).build())
+            ad.show(activity) {
+                // Mediation may deliver this after dismissal. Record the earned
+                // event exactly once at its own callback, not only on dismiss.
+                if (!delivered) { delivered = true; request.earned() }
+            }
+        } catch (_: RuntimeException) {
+            showing = false
+            request.finished(delivered)
+            if (!closed && canPresent()) onMessage("The ad could not open. Tap Watch to retry.")
+        }
     }
 
     fun showPrivacyOptions() {
@@ -155,11 +184,16 @@ internal class RewardedAdsController(
 
     fun close() {
         closed = true
+        cancelPendingShow()
         rewardedAd = null
     }
 
     private fun initializeAdsIfAllowed() {
-        if (!enabled() || closed || activity.isFinishing || activity.isDestroyed || !consentInformation.canRequestAds()) return
+        if (!enabled() || closed || activity.isFinishing || activity.isDestroyed) return
+        if (!consentInformation.canRequestAds()) {
+            failPending("Ad privacy is not ready. Review privacy options and tap Watch again.")
+            return
+        }
         if (sdkInitialized) {
             loadRewardedAd()
             return
@@ -170,11 +204,12 @@ internal class RewardedAdsController(
         Log.d(TAG, "Initializing Google Mobile Ads SDK")
         FamilyAdsPrivacy.configureBeforeInitialization()
         MobileAds.initialize(activity) {
-            if (closed) return@initialize
-            sdkInitializationInProgress = false
-            sdkInitialized = true
-            Log.d(TAG, "Google Mobile Ads SDK initialized")
-            loadRewardedAd()
+            activity.runOnUiThread {
+                if (closed) return@runOnUiThread
+                sdkInitializationInProgress = false
+                sdkInitialized = true
+                loadRewardedAd()
+            }
         }
     }
 
@@ -184,12 +219,13 @@ internal class RewardedAdsController(
             !enabled() ||
             !consentInformation.canRequestAds() ||
             !sdkInitialized ||
-            adLoading ||
+            adLoading || showing ||
             rewardedAd != null
         ) {
             return
         }
         adLoading = true
+        val generation = ++loadGeneration
         Log.d(TAG, "Loading rewarded ad for configured production ad unit")
         RewardedAd.load(
             activity,
@@ -197,17 +233,19 @@ internal class RewardedAdsController(
             FamilyAdsPrivacy.request(),
             object : RewardedAdLoadCallback() {
                 override fun onAdLoaded(ad: RewardedAd) {
+                    if (generation != loadGeneration) return
                     adLoading = false
-                    adLoadFailed = false
                     Log.i(TAG, "Rewarded ad loaded successfully")
                     if (!closed && consentInformation.canRequestAds()) {
                         rewardedAd = ad
+                        maybeShowPending()
                     }
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
+                    if (generation != loadGeneration) return
                     adLoading = false
-                    adLoadFailed = true
+                    failPending("No ad is available right now. Tap Watch to retry later.")
                     Log.w(
                         TAG,
                         "Rewarded ad failed to load: domain=${error.domain}, code=${error.code}, message=${error.message}",

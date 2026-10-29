@@ -3,6 +3,10 @@ package com.rekixo.ludopaws.feature.store.presentation
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import com.rekixo.ludopaws.feature.store.data.ads.PendingAdReward
+import com.rekixo.ludopaws.feature.store.data.ads.PendingAdRewardStore
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -54,7 +58,7 @@ class StoreActivity :
     internal var showcaseResumed = false
     internal val referralPromotions by lazy {
         com.rekixo.ludopaws.feature.referrals.ReferralPromotionController(this,
-            uiAvailable = { showcaseResumed && !cosmeticUpdateInProgress && !purchaseEligibilityInProgress && pendingAutoPurchaseProductId == null },
+            uiAvailable = { showcaseResumed && !cosmeticUpdateInProgress && !purchaseEligibilityInProgress && !rewardRequestInProgress && !(rewardedAdsWasCreated && rewardedAds.isBusy) && pendingAutoPurchaseProductId == null },
             popupVisibility = { visible -> featuredPawsCard?.setActive(showcaseResumed && !visible) })
     }
     private var cosmeticUpdateInProgress = false
@@ -74,6 +78,19 @@ class StoreActivity :
     private var catalogStatusView: TextView? = null
     private var purchaseEligibilityInProgress = false
     private var rewardRequestInProgress = false
+    private val pendingAdRewards by lazy { PendingAdRewardStore(this) }
+    private val rewardHandler = Handler(Looper.getMainLooper())
+    private var rewardRecoveryInFlight = false
+    private var rewardRecoveryAttempt = 0
+    private var rewardStatusText: TextView? = null
+    private var rewardRecoveryMessage = ""
+    private val retryRewardRecovery = Runnable { recoverPendingAdRewards(resetAttempts = false) }
+    private val observedStorePrefs by lazy {
+        getSharedPreferences(com.rekixo.ludopaws.feature.store.data.local.StorePreferences.PREFS_NAME, MODE_PRIVATE)
+    }
+    private val walletChanged = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        runOnUiThread { if (storeStarted && showcaseResumed && canRenderStoreUi()) renderStore() }
+    }
     private var checkoutGeneration = 0
     private var storeStarted = false
     private var pendingCheckoutProductId: String? = null
@@ -130,6 +147,7 @@ class StoreActivity :
             enabled = { adsEnabledForBuild },
             adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
             onMessage = ::showStoreMessage,
+            canPresent = { storeStarted && showcaseResumed },
         )
     }
 
@@ -178,8 +196,11 @@ class StoreActivity :
     override fun onResume() {
         super.onResume()
         showcaseResumed = true
+        renderStore()
         referralPromotions.resume()
         featuredPawsCard?.setActive(true)
+        if (rewardedAdsWasCreated) rewardedAds.onHostResumed()
+        recoverPendingAdRewards()
         // Play approval/payment may finish while this Activity is only paused.
         // Refresh owned purchases even when onStart is not called again.
         if (billingWasCreated && billingAvailable) billing.refreshPurchases()
@@ -201,6 +222,7 @@ class StoreActivity :
     override fun onStart() {
         super.onStart()
         storeStarted = true
+        observedStorePrefs.registerOnSharedPreferenceChangeListener(walletChanged)
         billingAvailable = false
         billingProductCatalogLoaded = false
 
@@ -273,6 +295,7 @@ class StoreActivity :
             runOnUiThread {
                 if (!storeStarted || availabilityGeneration != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
                 billingAvailable = available
+                recoverPendingAdRewards()
 
                 val requestedProduct = pendingAutoPurchaseProductId
                 if (
@@ -329,7 +352,10 @@ class StoreActivity :
     }
     override fun onStop() {
         if (purchaseEligibilityInProgress || pendingCheckoutProductId != null) checkoutRetryNeeded = chosenProductId != null
+        if (rewardedAdsWasCreated) rewardedAds.cancelPendingShow()
+        rewardHandler.removeCallbacks(retryRewardRecovery)
         storeStarted = false
+        observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
         checkoutGeneration += 1
         catalogRefreshInProgress = false
         clearPendingCheckout()
@@ -404,7 +430,14 @@ class StoreActivity :
         updateCatalogStatus()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && storeStarted && showcaseResumed && rewardedAdsWasCreated) rewardedAds.onHostResumed()
+    }
+
     override fun onDestroy() {
+        observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
+        rewardHandler.removeCallbacksAndMessages(null)
         referralPromotions.pause()
         if (billingWasCreated) billing.close()
         if (rewardedAdsWasCreated) rewardedAds.close()
@@ -555,7 +588,7 @@ class StoreActivity :
             showStoreMessage("Rewarded ads are unavailable in this build.")
             return
         }
-        if (rewardRequestInProgress || !storeStarted || !canRenderStoreUi()) return
+        if (rewardRequestInProgress || (rewardedAdsWasCreated && rewardedAds.isBusy) || !storeStarted || !showcaseResumed || !canRenderStoreUi()) return
         rewardRequestInProgress = true
         val generation = checkoutGeneration
         val rewardRequestId = java.util.UUID.randomUUID().toString()
@@ -565,8 +598,6 @@ class StoreActivity :
                 if (cosmeticId != null) put("cosmeticId", cosmeticId)
             }
             .toString()
-        val initialBalance = wallet.balance()
-        val initialProgress = cosmeticId?.let(cosmetics::rewardedAdProgress) ?: 0
 
         // Session validation can refresh a token over HTTPS. Never call it on the UI
         // thread; a slow/expired session must not throw NetworkOnMainThreadException.
@@ -588,18 +619,27 @@ class StoreActivity :
                         showStoreMessage("The signed-in account changed. Reopen the store and try again.")
                         return@runOnUiThread
                     }
+                    val record = PendingAdReward(session.accountId, rewardRequestId, cosmeticId)
                     rewardedAds.showRewardedAd(
                         userId = session.accountId,
                         customData = customData,
-                    ) {
-                        refreshWalletAfterRewardedAd(
-                            accountId = session.accountId,
-                            rewardRequestId = rewardRequestId,
-                            initialBalance = initialBalance,
-                            cosmeticId = cosmeticId,
-                            initialProgress = initialProgress,
-                        )
-                    }
+                        onBeforeShow = {
+                            if (!storeStarted || !showcaseResumed || accountRepository.currentSession()?.accountId != record.accountId) false
+                            else if (cosmeticId != null && StoreCosmeticCatalog.find(cosmeticId)?.contentAvailable != true) {
+                                showStoreMessage("This item is no longer available. No ad was shown."); false
+                            } else try { pendingAdRewards.put(record); true }
+                            catch (error: Exception) { showStoreMessage(error.message ?: "Reward recovery could not be saved. Please retry."); false }
+                        },
+                        onFinished = { earned ->
+                            if (!earned) runCatching { pendingAdRewards.put(record.copy(abandoned = true)) }
+                            recoverPendingAdRewards()
+                        },
+                        onRewardEarned = {
+                            runCatching { pendingAdRewards.put(record.copy(earned = true)) }
+                                .onFailure { Log.w(TAG, "Earned reward hint remains prepared; server verification is authoritative") }
+                            recoverPendingAdRewards()
+                        },
+                    )
                 }
             } catch (error: Exception) {
                 Log.w(TAG, "Rewarded-ad account preparation failed: ${safeErrorSummary(error)}", error)
@@ -960,49 +1000,79 @@ class StoreActivity :
         cosmeticFeedback = Toast.makeText(this, message, Toast.LENGTH_SHORT).also { it.show() }
     }
 
-    private fun refreshWalletAfterRewardedAd(
-        accountId: String,
-        rewardRequestId: String,
-        initialBalance: Int,
-        cosmeticId: String?,
-        initialProgress: Int,
-    ) {
+    private fun rewardStatusLabel(): TextView = TextView(this).apply {
+        rewardStatusText = this
+        textSize = 12f
+        setTextColor(0xFFEED9B7.toInt())
+        gravity = Gravity.CENTER
+        minHeight = dp(48)
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        setOnClickListener { recoverPendingAdRewards() }
+        text = rewardRecoveryMessage
+        visibility = if (rewardRecoveryMessage.isBlank()) View.GONE else View.VISIBLE
+    }
+
+    private fun updateRewardStatus(message: String) {
+        rewardRecoveryMessage = message
+        rewardStatusText?.apply {
+            text = message
+            visibility = if (message.isBlank()) View.GONE else View.VISIBLE
+        }
+    }
+
+    private fun recoverPendingAdRewards(resetAttempts: Boolean = true) {
+        if (!storeStarted || !showcaseResumed || !canRenderStoreUi() || rewardRecoveryInFlight) return
+        val owner = accountRepository.currentSession()?.accountId ?: return
+        val records = try { pendingAdRewards.forAccount(owner) } catch (_: Exception) {
+            updateRewardStatus("Reward recovery needs attention · Keep the app installed and retry")
+            return
+        }
+        if (records.isEmpty()) { updateRewardStatus(""); return }
+        if (resetAttempts) rewardRecoveryAttempt = 0
+        rewardHandler.removeCallbacks(retryRewardRecovery)
+        rewardRecoveryInFlight = true
+        rewardRecoveryAttempt++
+        val generation = checkoutGeneration
+        if (records.any { it.earned || !it.abandoned }) updateRewardStatus("Checking ad reward verification…")
         rewardVerificationExecutor.execute {
-            var latest: JSONObject? = null
-            var changed = false
-            for (attempt in 0 until 30) {
-                try {
-                    val session = accountRepository.requireSession()
-                    if (session.accountId != accountId) break
-                    val candidate = accountRepository.wallet()
-                    latest = candidate
-                    val receipts = candidate.optJSONArray("creditedAdRequestIds")
-                    changed = receipts != null && (0 until receipts.length()).any { receipts.optString(it) == rewardRequestId }
-                    if (changed) break
-                } catch (error: Exception) {
-                    Log.w(TAG, "Waiting for server-verified ad reward", error)
+            var confirmed = emptySet<String>()
+            try {
+                check(accountRepository.requireSession().accountId == owner)
+                val candidate = accountRepository.wallet()
+                check(candidate.optString("accountId") == owner) { "Reward wallet owner changed" }
+                val receipts = candidate.optJSONArray("creditedAdRequestIds")
+                val credited = if (receipts == null) emptySet() else (0 until receipts.length()).map { receipts.optString(it) }.toSet()
+                confirmed = records.map { it.requestId }.filter { it in credited }.toSet()
+                if (accountRepository.currentSession()?.accountId == owner) {
+                    // Cache the authoritative response before clearing its hint,
+                    // even if the old Store Activity is being destroyed.
+                    wallet.applyServerSnapshot(candidate, owner)
+                    cosmetics.applyServerSnapshot(candidate, owner)
                 }
-                if (attempt < 29) Thread.sleep(2000)
+                pendingAdRewards.confirm(owner, confirmed)
+            } catch (error: Exception) {
+                Log.w(TAG, "Ad reward verification remains pending: ${safeErrorSummary(error)}")
             }
-            val snapshot = latest
             runOnUiThread {
-                if (!canRenderStoreUi()) return@runOnUiThread
-                if (snapshot != null) {
-                    val session = accountRepository.currentSession()
-                    if (session != null && session.accountId == accountId) {
-                        wallet.applyServerSnapshot(snapshot, accountId)
-                        cosmetics.applyServerSnapshot(snapshot, accountId)
-                    }
+                rewardRecoveryInFlight = false
+                if (!storeStarted || !showcaseResumed || !canRenderStoreUi()) return@runOnUiThread
+                if (generation != checkoutGeneration || accountRepository.currentSession()?.accountId != owner) {
+                    recoverPendingAdRewards()
+                    return@runOnUiThread
                 }
+                val remaining = runCatching { pendingAdRewards.forAccount(owner) }.getOrNull()
+                val visible = remaining?.any { it.earned || !it.abandoned } == true
+                updateRewardStatus(when {
+                    remaining == null -> "Reward status could not be saved · Tap to retry"
+                    visible -> "Reward verification pending · Tap to retry"
+                    else -> ""
+                })
+                if (confirmed.isNotEmpty()) showStoreMessage("Ad reward verified. Your server wallet is up to date.")
                 renderStore()
-                showStoreMessage(
-                    if (changed) {
-                        if (cosmeticId == null) "Your +5 rewarded-ad gems were verified by the server."
-                        else "Your +5 gems and rewarded-ad progress for this item were verified by the server."
-                    } else {
-                        "Reward verification is still pending. No local Gems were granted; reopen the store shortly to refresh the server wallet."
-                    },
-                )
+                if (visible && rewardRecoveryAttempt < 6) {
+                    val delay = minOf(15_000L, 2_000L shl (rewardRecoveryAttempt - 1))
+                    rewardHandler.postDelayed(retryRewardRecovery, delay)
+                }
             }
         }
     }
@@ -1190,6 +1260,7 @@ class StoreActivity :
 
         fixedHeader.addView(storeHeader())
         fixedHeader.addView(catalogStatusLabel())
+        fixedHeader.addView(rewardStatusLabel())
         fixedHeader.addView(
             storeTabs(),
             LinearLayout.LayoutParams(
