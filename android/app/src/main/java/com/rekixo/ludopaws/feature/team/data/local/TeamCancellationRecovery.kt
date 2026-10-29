@@ -19,6 +19,7 @@ internal object TeamCancellationRecovery {
         worker.execute {
             try {
                 val ticket = tickets.load() ?: return@execute
+                if (TeamSearchRequests.contains(ticket.requestId)) return@execute
                 val owner = app.accountRepository.currentSession()?.accountId ?: return@execute
                 val identity = LeaderboardIdentityStore(app).load() ?: return@execute
                 tickets.bindOwner(ticket.requestId)

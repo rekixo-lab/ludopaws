@@ -186,7 +186,7 @@ class TeamUpActivity : ComponentActivity() {
         foregroundResults.close()
         connectivity.stop()
         handler.removeCallbacksAndMessages(null)
-        executor.shutdownNow()
+        executor.shutdown()
         super.onDestroy()
     }
 
@@ -836,12 +836,14 @@ class TeamUpActivity : ComponentActivity() {
                 )
             },
             onSuccess = ::applyMatchmakingResponse,
+            creatingRequestId = ticket.requestId,
         )
     }
 
     private fun restartRestoredSearch(ticket: TeamMatchmakingTicket) {
         if (requestInFlight || executor.isShutdown || isFinishing || isDestroyed) return
         if (runCatching { ticketStore.requestCancellation() }.isFailure) { showStatus("Could not save search recovery. Try Cancel again."); return }
+        if (com.rekixo.ludopaws.feature.team.data.local.TeamSearchRequests.contains(ticket.requestId)) return
         restartingRestoredSearch = true
         validatingRestoredSearch = true
         timerText.text = "SEARCH  00:00"
@@ -886,6 +888,7 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     private fun pollSearch() {
+        if (ticketStore.load()?.let { com.rekixo.ludopaws.feature.team.data.local.TeamSearchRequests.contains(it.requestId) } == true) return
         if (!online || stopped || SystemClock.elapsedRealtime() < nextPollAt) return
         if (ticketStore.cancellationRequested()) { cancelSearch(); return }
         val ticket = ticketStore.load() ?: return
@@ -909,7 +912,9 @@ class TeamUpActivity : ComponentActivity() {
             if (exitAfterCancellation) finish()
             return
         }
-        if (!online || requestInFlight) {
+        if (!online || requestInFlight || ticketStore.load()?.let {
+                com.rekixo.ludopaws.feature.team.data.local.TeamSearchRequests.contains(it.requestId)
+            } == true) {
             showStatus("Cancellation saved. It will be checked when connected; you can leave now.")
             if (exitAfterCancellation) finish()
             return
@@ -1084,9 +1089,11 @@ class TeamUpActivity : ComponentActivity() {
         onSuccess: (JSONObject) -> Unit,
         quietFailure: Boolean = false,
         onFailure: ((Exception) -> Unit)? = null,
+        creatingRequestId: String? = null,
     ) {
         if (requestInFlight || !online || stopped || executor.isShutdown || isFinishing || isDestroyed) return
         val owner = (application as LudoProofApplication).accountRepository.currentSession()?.accountId
+        creatingRequestId?.let(com.rekixo.ludopaws.feature.team.data.local.TeamSearchRequests::begin)
         requestInFlight = true
         quickTeamButton.isEnabled = false
         if (::cancelButton.isInitialized) cancelButton.isEnabled = false
@@ -1119,10 +1126,21 @@ class TeamUpActivity : ComponentActivity() {
                             }
                         }
                     }
+                } finally {
+                    creatingRequestId?.let { id ->
+                        com.rekixo.ludopaws.feature.team.data.local.TeamSearchRequests.finish(id)
+                        android.os.Handler(Looper.getMainLooper()).post {
+                            if (ticketStore.cancellationRequested()) {
+                                if (!stopped && !isFinishing && !isDestroyed) cancelSearch()
+                                else com.rekixo.ludopaws.feature.team.data.local.TeamCancellationRecovery.request(applicationContext)
+                            }
+                        }
+                    }
                 }
             }
         }.isSuccess
         if (!submitted) {
+            creatingRequestId?.let(com.rekixo.ludopaws.feature.team.data.local.TeamSearchRequests::finish)
             requestInFlight = false
             updateButtons()
         }

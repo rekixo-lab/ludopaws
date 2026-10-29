@@ -7,7 +7,7 @@ Branch: `codex/ludopaws-next-updates`. Follow-up to the 29 October behavior audi
 | Finding | Implemented behavior |
 |---|---|
 | F1 — Team Up exit | Back and the toolbar leave action finish locally without waiting for cancellation. Cancellation intent and the existing request ID are durable and account-scoped. Home can reconcile explicit pending cancellations when connected. Unknown cancellation responses retain the ticket. |
-| F1 — cancellation/assignment race | A `MATCHED` cancel response is not treated as a complete match: the client persists an assignment-pending state and obtains the full authoritative assignment from status. Already-finished verified matches can open their results. Background recovery never navigates or discards a matched assignment. A late cancellation response cannot clear a newer search. |
+| F1 — cancellation/assignment race | A `MATCHED` cancel response is not treated as a complete match: the client persists an assignment-pending state and obtains the full authoritative assignment from status. Already-finished verified matches can open their results. Background recovery never navigates or discards a matched assignment. A late cancellation response cannot clear a newer search. Pending/queued search creation is registered before dispatch: cancellation and status polling cannot overtake it, including across Activity recreation. In-flight creation settles before saved cancellation is reconciled. |
 | F2 — late foreground callbacks | Team Up and Friends defer UI/navigation results while stopped, discard them on destruction and check account ownership on foreground delivery. Friends resets its cached UI identity when the active account changes. |
 | F3 — owned offline appearance | A verified-owned, shipped Board/Dice can be equipped locally without buying it again or calling the server first. The equipment override is account-scoped, durable and reconciled separately. It never adds owned IDs, Gems, payment receipts or ad progress. Old acknowledgements cannot erase a newer local selection. Account deletion clears the new local preference. |
 | F4 — stale metadata | `contentAvailable` continues to describe local renderer readiness. A separate `purchaseAvailable=false` prevents cached offers spending value. Cached metadata loads before session bootstrap, so expired credentials do not prevent offline discovery. New unlock requests still require fresh offers/server validation. |
@@ -28,7 +28,7 @@ Branch: `codex/ludopaws-next-updates`. Follow-up to the 29 October behavior audi
 
 ## Verification
 
-- Full local Android unit suite: 546 tests passed, zero failures/errors/skips, including new foreground-delivery regression tests.
+- Full local Android unit suite: 548 tests passed, zero failures/errors/skips, including new foreground-delivery regression tests.
 - New Android instrumentation cases compile: owned appearance/account isolation, cancellation persistence/new-request protection, matched cancellation transition and immediate Back navigation.
 - Debug lint completed without errors (561 warnings and one hint remain). The existing warning count is not claimed to be zero.
 - Repository script tests: 64 passed.
