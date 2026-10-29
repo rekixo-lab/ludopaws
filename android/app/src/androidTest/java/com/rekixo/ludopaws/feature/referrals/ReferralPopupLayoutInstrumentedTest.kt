@@ -10,6 +10,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.core.ui.art.PlywoodTextureDrawable
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -31,7 +32,7 @@ class ReferralPopupLayoutInstrumentedTest {
                         setLayoutDirection(java.util.Locale.forLanguageTag("ar"))
                     }
                     activity.resources.updateConfiguration(large, activity.resources.displayMetrics)
-                    val dialog = showReferralBundlePopup(activity, "INVITE", true, emptySet()) { }
+                    val dialog = showReferralBundlePopup(activity, "INVITE", emptySet()) { }
                     try {
                         val decor = dialog.window!!.decorView
                         val density = activity.resources.displayMetrics.density
@@ -48,16 +49,14 @@ class ReferralPopupLayoutInstrumentedTest {
                         val scroll = views.filterIsInstance<ScrollView>().single()
                         assertTrue(scroll.measuredHeight <= height)
                         assertTrue(scroll.getChildAt(0).measuredHeight > scroll.measuredHeight)
-                        // One shared galaxy behind the popup; neither the
-                        // parent panel nor the inner reward artwork hides it.
+                        // One shared plywood surface; scrolling content and reward
+                        // artwork stay transparent over the rounded background.
                         val space = views.filterIsInstance<HomeSpaceBackgroundView>()
-                        assertEquals(1, space.size)
-                        assertTrue(space.single().parent === scroll.parent)
+                        assertTrue(space.isEmpty())
                         val surface = scroll.parent as FrameLayout
                         assertTrue(surface.clipToOutline)
                         assertEquals(scroll.measuredHeight, surface.measuredHeight)
-                        assertEquals(surface.measuredHeight, space.single().measuredHeight)
-                        assertNull((scroll.parent as View).background)
+                        assertTrue(surface.background is PlywoodTextureDrawable)
                         assertNull(scroll.background)
                         assertNull(scroll.getChildAt(0).background)
                         assertNull(views.filterIsInstance<FriendshipBundleView>().single().background)
@@ -70,22 +69,21 @@ class ReferralPopupLayoutInstrumentedTest {
     @Test fun defaultFontPopupWrapsContentAndDoesNotStretchToAvailableScreenHeight() {
         ActivityScenario.launch(HomeActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
-                val dialog = showReferralBundlePopup(activity, "INVITE", true, emptySet()) { }
+                val dialog = showReferralBundlePopup(activity, "INVITE", emptySet()) { }
                 try {
                     val scroll = descendants(dialog.window!!.decorView).filterIsInstance<ScrollView>().single()
                     val surface = scroll.parent as FrameLayout
-                    val space = descendants(surface).filterIsInstance<HomeSpaceBackgroundView>().single()
                     val density = activity.resources.displayMetrics.density
                     val width = (360f * density).toInt()
                     // A deliberately oversized available height exposes the
-                    // old MATCH_PARENT starfield expanding the entire popup.
+                    // previous full-height background expanding the entire popup.
                     val availableHeight = (1600f * density).toInt()
                     surface.measure(
                         View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                         View.MeasureSpec.makeMeasureSpec(availableHeight, View.MeasureSpec.AT_MOST),
                     )
                     assertEquals(scroll.measuredHeight, surface.measuredHeight)
-                    assertEquals(surface.measuredHeight, space.measuredHeight)
+                    assertTrue(surface.background is PlywoodTextureDrawable)
                     assertTrue(surface.measuredHeight < availableHeight)
                     assertEquals(Gravity.CENTER, dialog.window!!.attributes.gravity)
                 } finally {
