@@ -51,10 +51,14 @@ Repo के root में:
 adb devices
 adb install -r -t android/app/build/outputs/apk/debug/app-debug.apk
 adb shell am force-stop com.rekixo.ludopaws
-adb shell am start -W -n com.rekixo.ludopaws/com.rekixo.ludopaws.HomeActivity
+adb shell am start -W -a android.intent.action.MAIN \
+  -c android.intent.category.LAUNCHER \
+  -n com.rekixo.ludopaws/com.rekixo.ludopaws.HomeActivity
 ```
 
 `INSTALL_FAILED_UPDATE_INCOMPATIBLE` का अर्थ installed Play app और debug APK signatures अलग हैं। Data बचाने के लिए app uninstall न करें। उसी signing key का approved build/internal Play update चाहिए। `.dev` preview अलग install हो सकती है, लेकिन उससे actual production PGS authentication validate नहीं होगी। यह चरण billing/ads test या v11 production release नहीं है।
+
+Launch screens देखने के लिए पहले force-stop और फिर launcher intent जरूरी diagnostic path है; सिर्फ `am start -n` या पहले से खुले Home को resume करना बराबर जाँच नहीं है। विकल्प: force-stop के बाद फोन की Home screen से game icon दबाएँ। Fast preparation में custom splash बहुत कम समय रह सकती है; वह visibility समस्या अलग device observation है, केवल सही APK installed होने से उसे passed न मानें। पुराने GOT IT popup का दिखना चरण 4 से पहले अपेक्षित है।
 
 ## Device acceptance
 
