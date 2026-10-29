@@ -1,7 +1,5 @@
 package com.rekixo.ludopaws
 
-import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
-import com.rekixo.ludopaws.feature.characters.rendering.CharacterAvatarContext
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -17,8 +15,8 @@ import kotlin.math.roundToInt
  * Shared character portrait for selection, profile, and gameplay player cards.
  *
  * Portraits are rasterized from the production 3D pawn geometry and cached.
- * The existing vector art remains a synchronous fallback if off-screen OpenGL
- * rendering is unavailable, so the UI never waits on portrait generation.
+ * Only portraits from the actual production model are shown. Pending/failed
+ * preparation has a text status instead of a different 2D character drawing.
  */
 class LudoPawsCharacterAvatarView @JvmOverloads constructor(
     context: Context,
@@ -34,7 +32,6 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             strokeCap = Paint.Cap.ROUND
             strokeJoin = Paint.Join.ROUND
         }
-    private val avatarContext = CharacterAvatarContext(fill, stroke)
     private val portraitPaint =
         Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG).apply {
             isFilterBitmap = true
@@ -53,6 +50,11 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
     private var requestedPortraitKey: String? = null
     private var portraitBitmap: Bitmap? = null
     private val visibleBounds = android.graphics.Rect()
+    private var failedAttempts = 0
+    private var retryAt = 0L
+    private val retryPortrait = Runnable { if (isAttachedToWindow && isShown) invalidate() }
+
+    init { LudoPawsCharacterPortraitBitmapCache.initialize(context) }
 
     fun bind(
         characterId: String?,
@@ -88,13 +90,19 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             )
         if (requestedPortraitKey != requestKey) {
             requestedPortraitKey = null
-            portraitBitmap = null
+            portraitBitmap = LudoPawsCharacterPortraitBitmapCache.peek(this.characterId, this.modelTeamColor)
+            failedAttempts = 0
+            retryAt = 0L
+            removeCallbacks(retryPortrait)
         }
+        if (portraitBitmap == null) contentDescription = "${characterName()}. Loading character image."
+        requestVisiblePortrait()
         invalidate()
     }
 
     private fun requestVisiblePortrait() {
-        if (!isAttachedToWindow || !isShown || !getLocalVisibleRect(visibleBounds)) return
+        if (!isAttachedToWindow || !isShown || !getLocalVisibleRect(visibleBounds) ||
+            portraitBitmap != null || failedAttempts >= 3 || android.os.SystemClock.elapsedRealtime() < retryAt) return
         val requestKey = LudoPawsCharacterPortraitBitmapCache.keyFor(characterId, modelTeamColor)
         if (requestedPortraitKey == requestKey) return
         requestedPortraitKey = requestKey
@@ -102,6 +110,17 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         LudoPawsCharacterPortraitBitmapCache.request(requestedCharacterId, modelTeamColor) { bitmap ->
             if (requestedPortraitKey == requestKey && characterId == requestedCharacterId) {
                 portraitBitmap = bitmap
+                if (bitmap == null) {
+                    requestedPortraitKey = null
+                    failedAttempts++
+                    retryAt = android.os.SystemClock.elapsedRealtime() + 16_000L
+                    contentDescription = "${characterName()}. Character image unavailable." +
+                        if (failedAttempts < 3) " Retrying." else " Reopen this screen to retry."
+                    if (failedAttempts < 3) postDelayed(retryPortrait, 16_000L)
+                } else {
+                    failedAttempts = 0
+                    contentDescription = characterName()
+                }
                 invalidate()
             }
         }
@@ -132,6 +151,16 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         )
         canvas.scale(scale, scale)
 
+        val portrait = portraitBitmap
+        if (portrait == null || portrait.isRecycled) {
+            fill.color = 0xFF6A5140.toInt()
+            fill.textAlign = Paint.Align.CENTER
+            fill.textSize = 11f
+            canvas.drawText(if (failedAttempts > 0) "Unavailable" else "Loading…", 50f, 53f, fill)
+            canvas.restore()
+            return
+        }
+
         if (showCircularChrome) {
             fill.color = 0x22000000
             canvas.drawCircle(50f, 53f, 44f, fill)
@@ -144,23 +173,11 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             canvas.drawCircle(50f, 49f, 43f, stroke)
         }
 
-        val portrait = portraitBitmap
-        if (portrait != null && !portrait.isRecycled) {
-            canvas.drawBitmap(
-                portrait,
-                null,
-                portraitBounds,
-                portraitPaint,
-            )
-        } else {
-            // Keep a non-blank immediate fallback while the shared 3D portrait
-            // is generated, or if ES3/off-screen rendering is unavailable.
-            CharacterRegistry.resolve(characterId).avatar.draw(avatarContext, canvas)
-        }
+        canvas.drawBitmap(portrait, null, portraitBounds, portraitPaint)
 
         if (showTeamBadge) {
             // Always distinguish player colors, even when the 3D texture
-            // is not ready and the vector fallback is displayed.
+            // uses the neutral natural-material portrait.
             val badgeColor = LudoPawsTeamIdentityPolicy.resolve(modelTeamColor)?.argb
                 ?: ringColor
             fill.color = 0xFFFFFFFF.toInt()
@@ -173,6 +190,24 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
         }
 
         canvas.restore()
+    }
+
+    private fun characterName() = LudoPawsCharacterCatalog.character(characterId)?.displayName ?: "Character"
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        if (portraitBitmap == null) {
+            requestedPortraitKey = null
+            failedAttempts = 0
+            retryAt = 0L
+        }
+        invalidate()
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(retryPortrait)
+        requestedPortraitKey = null
+        super.onDetachedFromWindow()
     }
 
     private fun dp(value: Int): Int =

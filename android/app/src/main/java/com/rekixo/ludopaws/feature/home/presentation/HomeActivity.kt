@@ -190,6 +190,10 @@ class HomeActivity : Activity() {
             splashDrawnAt = SystemClock.elapsedRealtime()
             maybeShowHome()
         }).also { setContentView(it) }
+        val selectedCharacter = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load().characterId
+        LudoPawsCharacterPortraitBitmapCache.prewarm(this,
+            listOf(selectedCharacter, "dog", "goat", "duck", "cat") +
+                com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.all.map { it.id })
         val generation = ++preparationGeneration
         heroBitmap?.let {
             localReady = true

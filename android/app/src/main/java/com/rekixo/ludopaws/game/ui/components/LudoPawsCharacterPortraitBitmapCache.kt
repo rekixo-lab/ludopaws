@@ -1,6 +1,10 @@
 package com.rekixo.ludopaws
 
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.content.Context
+import android.util.AtomicFile
+import java.io.File
 import android.opengl.EGL14
 import android.opengl.EGLConfig
 import android.opengl.EGLContext
@@ -48,8 +52,67 @@ internal object LudoPawsCharacterPortraitBitmapCache {
     private var eglSession: OffscreenEglSession? = null
     private var renderer: LudoPaws3DSceneRenderer? = null
 
-    @Volatile
-    private var rendererUnavailable = false
+    // Revision changes when portrait geometry/material framing changes.
+    private const val DISK_REVISION = "portraits-v1"
+    @Volatile private var appContext: Context? = null
+    private val failedUntil = HashMap<String, Long>()
+    private var diskDirectoryName = DISK_REVISION
+    private var diskPrepared = false // portrait-worker only
+
+    @Synchronized fun initialize(context: Context) {
+        if (appContext != null) return
+        val application = context.applicationContext
+        val source = runCatching {
+            @Suppress("DEPRECATION")
+            application.packageManager.getPackageInfo(application.packageName, 0).lastUpdateTime
+        }.getOrDefault(0L)
+        diskDirectoryName = "$DISK_REVISION-$source"
+        appContext = application
+    }
+
+    fun peek(characterId: String?, teamColor: String?): Bitmap? = synchronized(lock) {
+        cache.get(keyFor(characterId, teamColor))
+    }
+
+    fun prewarm(context: Context, ids: List<String>) {
+        initialize(context)
+        ids.distinct().forEach { id -> request(id, null) {} }
+    }
+
+    private fun portraitFile(id: String): File? = appContext?.let { app ->
+        if (!diskPrepared) {
+            // Only derived portrait-cache folders are touched. An app update
+            // invalidates old model images even if its versionCode is reused.
+            app.cacheDir.listFiles()?.filter { it.isDirectory && it.name.startsWith("$DISK_REVISION-") && it.name != diskDirectoryName }
+                ?.forEach { runCatching { it.deleteRecursively() } }
+            diskPrepared = true
+        }
+        File(File(app.cacheDir, diskDirectoryName), "$id.png")
+    }
+
+    private fun readPortrait(id: String): Bitmap? {
+        val file = portraitFile(id) ?: return null
+        if (!file.isFile) return null
+        val bitmap = runCatching { BitmapFactory.decodeFile(file.path) }.getOrNull() ?: return null
+        if (bitmap.width == PORTRAIT_SIZE && bitmap.height == PORTRAIT_SIZE) return bitmap
+        bitmap.recycle()
+        return null
+    }
+
+    private fun savePortrait(id: String, bitmap: Bitmap) {
+        val file = portraitFile(id) ?: return
+        if (file.parentFile?.isDirectory != true && file.parentFile?.mkdirs() != true) return
+        val atomic = AtomicFile(file)
+        var output: java.io.FileOutputStream? = null
+        try {
+            output = atomic.startWrite()
+            check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, output))
+            atomic.finishWrite(output)
+        } catch (error: Exception) {
+            atomic.failWrite(output)
+            Log.w(TAG, "Could not persist the rendered portrait for $id", error)
+        }
+    }
 
     fun keyFor(
         characterId: String?,
@@ -72,7 +135,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         synchronized(lock) {
             cached = cache.get(key)
             if (cached == null) {
-                if (rendererUnavailable) {
+                if ((failedUntil[key] ?: 0L) > android.os.SystemClock.elapsedRealtime()) {
                     unavailable = true
                 } else {
                     val waiters = pendingCallbacks[key]
@@ -88,7 +151,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
 
         cached?.let { bitmap ->
             // Player rails rebind on every turn. A posted cache hit leaves a
-            // newly attached avatar on vector fallback for one visible frame.
+            // newly attached avatar waiting for one visible frame.
             // Deliver an already-rendered portrait synchronously on the UI thread.
             if (Looper.myLooper() == Looper.getMainLooper()) {
                 callback(bitmap)
@@ -106,23 +169,27 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         val requestedAt = android.os.SystemClock.elapsedRealtime()
         executor.execute {
             val startedAt = android.os.SystemClock.elapsedRealtime()
-            val bitmap =
-                if (rendererUnavailable) {
-                    null
-                } else {
-                    try {
-                        render(resolvedCharacterId, resolvedTeamColor)
-                    } catch (error: Throwable) {
-                        rendererUnavailable = true
-                        Log.w(TAG, "3D portrait rendering unavailable; retaining vector fallback", error)
-                        null
+            val bitmap = try {
+                runCatching { readPortrait(resolvedCharacterId) }.getOrNull()
+                    ?: render(resolvedCharacterId, resolvedTeamColor)?.also { portrait ->
+                        runCatching { savePortrait(resolvedCharacterId, portrait) }
+                            .onFailure { Log.w(TAG, "Portrait cache write skipped for $resolvedCharacterId", it) }
                     }
-                }
+            } catch (error: Exception) {
+                runCatching { renderer?.clearPortraitMeshes() }
+                Log.w(TAG, "Actual 3D portrait unavailable for $resolvedCharacterId; no substitute art will be shown", error)
+                null
+            }
 
             val callbacks =
                 synchronized(lock) {
                     if (bitmap != null) {
                         cache.put(key, bitmap)
+                        failedUntil.remove(key)
+                    } else {
+                        // One bad model/context attempt must not disable every
+                        // other character for the rest of the app process.
+                        failedUntil[key] = android.os.SystemClock.elapsedRealtime() + 15_000L
                     }
                     pendingCallbacks.remove(key).orEmpty()
                 }
@@ -194,6 +261,9 @@ internal object LudoPawsCharacterPortraitBitmapCache {
             "glReadPixels failed for character portrait (0x${glError.toString(16)})"
         }
 
+        // Readback is finished; no need to retain every animal's GPU meshes
+        // when warming the whole catalog. The bitmap is the reusable result.
+        activeRenderer.clearPortraitMeshes()
         val argb = IntArray(PORTRAIT_SIZE * PORTRAIT_SIZE)
         var paintedPixels = 0
         for (y in 0 until PORTRAIT_SIZE) {
@@ -216,7 +286,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         }
 
         // A successful GL call that produced a blank canvas must not replace
-        // the known-good vector fallback.
+        // an actual character portrait.
         if (paintedPixels < 128) return null
         return Bitmap.createBitmap(
             argb,
