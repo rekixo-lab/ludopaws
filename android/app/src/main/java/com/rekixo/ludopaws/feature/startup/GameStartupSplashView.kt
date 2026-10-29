@@ -22,15 +22,33 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 
 /** Preparation UI only. It never initializes an identity/ad SDK or fabricates timed progress. */
 class GameStartupSplashView(
     activity: Activity,
     retry: () -> Unit,
     exit: () -> Unit,
+    showLaunchBranding: Boolean = false,
     private val firstFrame: () -> Unit = {},
 ) : FrameLayout(activity) {
     private var firstFrameReported = false
+    private var brandingVisible = showLaunchBranding
+    private var launchLogo: ImageView? = null
+    private lateinit var contentColumn: LinearLayout
+    private val gameBackground = GradientDrawable(GradientDrawable.Orientation.TL_BR,
+        intArrayOf(0xFF102C61.toInt(), 0xFF071B43.toInt(), 0xFF030E28.toInt()))
+    private val finishBranding = Runnable {
+        if (isAttachedToWindow && brandingVisible) {
+            brandingVisible = false
+            launchLogo?.let { removeView(it) }
+            launchLogo = null
+            background = gameBackground
+            contentColumn.visibility = View.VISIBLE
+            firstFrameReported = false
+            invalidate()
+        }
+    }
     private fun dp(value: Int) = LudoProofTheme.dp(context, value)
     private val status = TextView(context).apply {
         text = "Preparing Ludo Paws…"
@@ -60,12 +78,13 @@ class GameStartupSplashView(
     private val clearance = View(context)
 
     init {
-        background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0xFF102C61.toInt(), 0xFF071B43.toInt(), 0xFF030E28.toInt()))
+        background = if (brandingVisible) plywoodBackground(context, cornerRadiusDp = 0f, rimThicknessDp = 0f) else gameBackground
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
+        contentColumn = column
+        column.visibility = if (brandingVisible) View.INVISIBLE else View.VISIBLE
         addView(column, LayoutParams(-1, -1))
         column.addView(status, LinearLayout.LayoutParams(-1, -2))
         val center = FrameLayout(context)
@@ -85,6 +104,13 @@ class GameStartupSplashView(
         column.addView(progress, LinearLayout.LayoutParams(-1, dp(24)).apply { topMargin = dp(12) })
         column.addView(actions, LinearLayout.LayoutParams(-1, -2))
         column.addView(clearance, LinearLayout.LayoutParams(1, 0))
+        if (brandingVisible) {
+            launchLogo = ImageView(context).apply {
+                setImageResource(R.drawable.ic_rekixo_launch)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                contentDescription = "Rekixo"
+            }.also { addView(it, LayoutParams(minOf(dp(330), resources.displayMetrics.widthPixels - dp(48)), dp(288), Gravity.CENTER)) }
+        }
         ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
             val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             view.setPadding(safe.left + dp(24), safe.top + dp(24), safe.right + dp(24), safe.bottom)
@@ -97,10 +123,19 @@ class GameStartupSplashView(
         super.dispatchDraw(canvas)
         if (!firstFrameReported) {
             firstFrameReported = true
-            // Start its own visibility interval only after the native launch
-            // gate has allowed a real game-splash frame to be drawn.
-            post { if (isAttachedToWindow) firstFrame() }
+            if (brandingVisible) {
+                // Android 12+ native splash only supports a solid background.
+                // Draw the shared full-screen wood in-app for one second,
+                // then begin the separate game-splash visibility interval.
+                postDelayed(finishBranding, 1_000L)
+            } else post { if (isAttachedToWindow) firstFrame() }
         }
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(finishBranding)
+        if (brandingVisible) firstFrameReported = false
+        super.onDetachedFromWindow()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {

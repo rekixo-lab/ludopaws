@@ -10,7 +10,6 @@ import com.rekixo.ludopaws.feature.startup.*
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.content.Intent
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -58,8 +57,6 @@ class HomeActivity : Activity() {
     private var preparationGeneration = 0
     private var startedAt = 0L
     private var splashDrawnAt = 0L
-    private var launchGate: ViewTreeObserver.OnPreDrawListener? = null
-    private val releaseLaunchGate = Runnable { window.decorView.invalidate() }
     private val splashMinimum = Runnable { maybeShowHome() }
     private companion object {
         const val SCREEN_MINIMUM_MS = 1_000L
@@ -152,31 +149,13 @@ class HomeActivity : Activity() {
             localReady = true
             showHome()
         } else {
-            holdNativeLaunchBriefly()
-            showPreparation()
+            showPreparation(showLaunchBranding = true)
         }
-    }
-
-    private fun holdNativeLaunchBriefly() {
-        val decor = window.decorView
-        val readyAt = SystemClock.elapsedRealtime() + SCREEN_MINIMUM_MS
-        val gate = object : ViewTreeObserver.OnPreDrawListener {
-            override fun onPreDraw(): Boolean {
-                if (SystemClock.elapsedRealtime() < readyAt) return false
-                if (decor.viewTreeObserver.isAlive) decor.viewTreeObserver.removeOnPreDrawListener(this)
-                launchGate = null
-                return true
-            }
-        }
-        launchGate = gate
-        decor.viewTreeObserver.addOnPreDrawListener(gate)
-        // The UI thread remains free for real asset/session preparation.
-        startupHandler.postDelayed(releaseLaunchGate, SCREEN_MINIMUM_MS)
     }
 
     private fun elapsedStartup() = (SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(0L)
 
-    private fun showPreparation() {
+    private fun showPreparation(showLaunchBranding: Boolean = false) {
         preparationFailed = false
         localReady = false
         splashDrawnAt = 0L
@@ -186,7 +165,7 @@ class HomeActivity : Activity() {
             showPreparation()
             armStartupTimers()
             startupSession.refresh(StartupReadiness.canBootstrapAccount(connectivityMonitor.isOnline(), remoteExitSaved))
-        }, exit = { finish() }, firstFrame = {
+        }, exit = { finish() }, showLaunchBranding = showLaunchBranding, firstFrame = {
             splashDrawnAt = SystemClock.elapsedRealtime()
             maybeShowHome()
         }).also { setContentView(it) }
@@ -571,10 +550,6 @@ class HomeActivity : Activity() {
 
     override fun onDestroy() {
         observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
-        launchGate?.let { gate ->
-            if (window.decorView.viewTreeObserver.isAlive) window.decorView.viewTreeObserver.removeOnPreDrawListener(gate)
-        }
-        launchGate = null
         preparationGeneration += 1
         referralPromotions.pause()
         com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)

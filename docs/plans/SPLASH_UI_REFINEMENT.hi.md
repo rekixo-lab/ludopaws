@@ -38,3 +38,11 @@ User ने animation frozen/अदृश्य report किया। पुर
 - ValueAnimator state की जगह native `postInvalidateOnAnimation` frame scheduling और monotonic uptime phase है। पहला segment track के भीतर दिखता है; 1600ms cosine cycle में smoothly आगे/पीछे चलता है। Lifecycle visibility/attach पर frame request और hidden/detach पर scheduling बंद है; phase repeated readiness update पर reset नहीं होता।
 - Genuine ready state में full track रखा जाता है, लेकिन minimum splash interval के बचे समय में soft moving highlight चलता है। कोई fake completion percentage या readiness delay नहीं बढ़ाया।
 - Recheck: first draw, loading→ready, repeated update, visibility/background/detach और empty size branches पढ़े। Colors/geometry reusable हैं; प्रति-frame collection allocation हटाई। Whitespace साफ। इस iteration में build/lint/tests/device recording नहीं चले; physical motion acceptance user के अगले install पर बाकी है।
+
+## Full-screen plywood launch branding
+
+User ने launch पर पूरे screen में existing game plywood और center में Rekixo wordmark माँगा। उसी shared `plywoodBackground` factory का zero-corner/zero-rim full-bleed background लगाया; नया wood bitmap/duplicate skin नहीं बनाया। Branding phase में game-logo/title/progress column invisible है; केवल Rekixo दिखता है। First drawn branding frame के बाद 1000ms पर navy game splash आता है और उसका अपना first-frame minimum अलग शुरू होता है। Artwork/session preparation पहले की तरह साथ चलती है। Retry पर branding repeat नहीं; already-shown Home/Back flow भी bypass है। Detach पर delayed branding callback cancel होता है।
+
+Android 12+ native OS splash केवल single solid window color लेता है; उसकी छोटी system launch screen के बाद in-app plywood frame आता है। पुराना 1000ms native pre-draw hold हटाया है, ताकि उसके अतिरिक्त एक और जानबूझकर hold न हो। Native icon/theme नहीं हटाए गए; unsupported textured native background का दावा नहीं। आधार: https://developer.android.com/develop/ui/views/launch/splash-screen ।
+
+Source recheck: native gate के obsolete callbacks/imports हटे; branding first draw→remove→game first draw→Home timer क्रम, cached readiness, hidden progress, error/retry और detach paths पढ़े। Whitespace साफ। नया APK build, device recording, lint/test suite इस iteration में नहीं चला।
