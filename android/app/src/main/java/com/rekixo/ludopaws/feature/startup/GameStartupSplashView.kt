@@ -24,7 +24,7 @@ import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 
-/** Preparation UI only. It never initializes an identity/ad SDK or fabricates timed progress. */
+/** Preparation UI only. Fill interpolates readiness milestones; no identity/ad SDK starts here. */
 class GameStartupSplashView(
     activity: Activity,
     retry: () -> Unit,
@@ -128,7 +128,11 @@ class GameStartupSplashView(
             !account.settled -> "Preparing — offline play available"
             else -> "Game ready"
         }
-        progress.setLoading(!localReady || !account.settled)
+        progress.setReadiness(localReady, account.settled)
+    }
+
+    fun finishPreparation(onComplete: () -> Unit) {
+        progress.complete(onComplete)
     }
 
     fun showPreparationError() {
@@ -164,35 +168,50 @@ private class RoundedSplashLogo(activity: Activity) : ImageView(activity) {
     }
 }
 
-/** A gold-rimmed game track. The moving highlight means unknown work, not percent complete. */
+/** Empty recessed wood fills from the left; milestones set a monotonic visual target. */
 private class PawLoadingTrack(activity: Activity) : View(activity) {
     private val density = resources.displayMetrics.density
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val track = RectF()
     private val fill = RectF()
     private val clip = Path()
-    private var loading = true
-    private var animationStartedAt = 0L
+    private var target = 0f
+    private var displayed = 0f
+    private var lastFrameAt = 0L
     private var gradient: Shader? = null
-    private val markerColors = intArrayOf(0xFFFF5959.toInt(), 0xFF65D895.toInt(), 0xFFFFD76A.toInt(), 0xFF5DB8FF.toInt())
+    private var depthGradient: Shader? = null
+    private var completion: (() -> Unit)? = null
 
     init { contentDescription = "Preparing game" }
 
-    fun setLoading(value: Boolean) {
-        loading = value
-        contentDescription = if (value) "Preparing game" else "Game ready"
+    fun setReadiness(localReady: Boolean, accountSettled: Boolean) {
+        // These are preparation milestones, not measured download percentages.
+        val milestone = when {
+            localReady && accountSettled -> 1f
+            localReady -> 0.7f
+            accountSettled -> 0.25f
+            else -> 0.15f
+        }
+        target = maxOf(target, milestone)
         syncAnimation()
-        invalidate()
+    }
+
+    fun complete(onComplete: () -> Unit) {
+        // Home calls this only after real readiness/offline-grace and minimum
+        // visibility gates pass. Let the remaining fill finish before leaving.
+        target = 1f
+        completion = onComplete
+        syncAnimation()
     }
 
     private fun canAnimate() = isAttachedToWindow && isShown && windowVisibility == VISIBLE
 
     private fun syncAnimation() {
-        if (canAnimate()) postInvalidateOnAnimation() else animationStartedAt = 0L
+        if (canAnimate()) postInvalidateOnAnimation() else lastFrameAt = 0L
     }
 
     override fun onAttachedToWindow() { super.onAttachedToWindow(); syncAnimation() }
-    override fun onDetachedFromWindow() { animationStartedAt = 0L; super.onDetachedFromWindow() }
+    override fun onDetachedFromWindow() { lastFrameAt = 0L; completion = null; super.onDetachedFromWindow() }
     override fun onWindowVisibilityChanged(visibility: Int) {
         super.onWindowVisibilityChanged(visibility)
         if (isAttachedToWindow) syncAnimation()
@@ -207,51 +226,52 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
         clip.reset()
         clip.addRoundRect(track, track.height() / 2f, track.height() / 2f, Path.Direction.CW)
         gradient = LinearGradient(0f, 0f, w.coerceAtLeast(1).toFloat(), 0f,
-            intArrayOf(0xFF178EFF.toInt(), 0xFF37D5EE.toInt(), 0xFF71F3BF.toInt()), null, Shader.TileMode.CLAMP)
+            intArrayOf(0xFFFF655B.toInt(), 0xFFFFD35F.toInt(), 0xFF5BDF9F.toInt(), 0xFF45A8FF.toInt()),
+            null, Shader.TileMode.CLAMP)
+        depthGradient = LinearGradient(0f, track.top, 0f, track.bottom.coerceAtLeast(track.top + 1f),
+            intArrayOf(0x88FFFFFF.toInt(), 0x00FFFFFF, 0x55001D3F),
+            floatArrayOf(0f, 0.48f, 1f), Shader.TileMode.CLAMP)
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (track.width() <= 0 || track.height() <= 0) return
-        // Start on the first drawn frame, not attach (which can happen while
-        // the native launch is still covering this View). Native VSYNC drives
-        // redraws directly; no ValueAnimator can remain stopped at phase zero.
         val now = SystemClock.uptimeMillis()
-        if (animationStartedAt == 0L) animationStartedAt = now
-        val cycle = ((now - animationStartedAt) % 1_600L).toFloat() / 1_600f
-        val phase = ((1.0 - kotlin.math.cos(cycle * 2.0 * Math.PI)) * 0.5).toFloat()
-        val radius = track.height() / 2f
-        paint.shader = null
-        paint.style = Paint.Style.FILL
-        // Keep the shared recessed wood visible behind the moving fill.
-        val checkpoint = canvas.save()
-        canvas.clipPath(clip)
-        val segment = track.width() * 0.38f
-        val movingLeft = track.left + phase * (track.width() - segment)
-        val left = if (loading) movingLeft else track.left
-        fill.set(left, track.top, if (loading) left + segment else track.right, track.bottom)
-        paint.shader = gradient
-        canvas.drawRoundRect(fill, radius, radius, paint)
-        paint.shader = null
-        paint.color = 0x55FFFFFF
-        canvas.drawRoundRect(fill.left, track.top + density, fill.right, track.centerY(), radius, radius, paint)
-        // Once ready, retain the truthful full track and only move a soft
-        // highlight while the one-second presentation interval finishes.
-        if (!loading) {
-            paint.color = 0x66FFFFFF
-            canvas.drawRoundRect(movingLeft, track.top, movingLeft + segment, track.bottom, radius, radius, paint)
+        // First frame is genuinely empty, even when preparation finished while
+        // the native launch covered this View. Never jump forward after pause.
+        if (lastFrameAt != 0L) {
+            val step = (now - lastFrameAt).coerceIn(0L, 50L) / 1_000f
+            displayed = minOf(target, displayed + step)
         }
-        // Four Ludo-color markers give the frame the same playful palette as the logo.
-        canvas.restoreToCount(checkpoint)
+        lastFrameAt = now
+        val radius = track.height() / 2f
+        if (displayed > 0f) {
+            val checkpoint = canvas.save()
+            canvas.clipPath(clip)
+            fill.set(track.left, track.top, track.left + track.width() * displayed, track.bottom)
+            val cap = minOf(radius, fill.width() / 2f)
+            paint.style = Paint.Style.FILL
+            paint.shader = gradient
+            canvas.drawRoundRect(fill, cap, cap, paint)
+            // Fixed lighting belongs to the growing fill itself; there is no
+            // separate moving shadow or already-colored empty track.
+            paint.shader = depthGradient
+            canvas.drawRoundRect(fill, cap, cap, paint)
+            canvas.restoreToCount(checkpoint)
+        }
+        paint.shader = null
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = 1.5f * density
         paint.color = 0xFFEBC477.toInt()
         canvas.drawRoundRect(track, radius, radius, paint)
         paint.style = Paint.Style.FILL
-        markerColors.forEachIndexed { index, color ->
-            paint.color = color
-            canvas.drawCircle(track.centerX() + (index - 1.5f) * 7f * density, track.centerY(), 1.5f * density, paint)
+        if (displayed >= 1f) {
+            contentDescription = "Game ready"
+            completion?.let { callback ->
+                completion = null
+                post { if (isAttachedToWindow) callback() }
+            }
         }
-        if (canAnimate()) postInvalidateOnAnimation()
+        if (canAnimate() && displayed < target) postInvalidateOnAnimation()
     }
 }

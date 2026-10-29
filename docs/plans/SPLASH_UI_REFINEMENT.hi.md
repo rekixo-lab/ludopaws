@@ -54,3 +54,13 @@ Source recheck: native gate के obsolete callbacks/imports हटे; brandin
 Progress के पीछे existing `recessedPlywoodBackground` factory वाला static FrameLayout है। 44dp outer surface में 8dp inset; actual animated inner track 24dp ऊँचा है (पहले 20dp): लगभग 20% मोटा। Custom dark-blue base हटाया, इसलिए actual recessed wood पीछे दिखता है। Moving blue/cyan fill और ready shimmer बने हैं। Parent surface static रहने से animated child के हर frame में recessed texture दोबारा बनाना आवश्यक नहीं। Error पर पूरी progress surface hide होती है।
 
 Source recheck: no remaining in-app launch-branding flag/timer, native hold cleanup restored, shared surface imports/internal visibility, child layout params, contrasting text, error/retry, separate first-frame timers और unchanged logo/clearance/animation paths पढ़े। Whitespace साफ। Build/lint/tests/device run इस iteration में नहीं किया। चरण 9–10 pending और live prices अपरिवर्तित।
+
+## Empty-to-filled 3D RGB track — latest user correction
+
+User ने pre-filled color + moving shadow को reject किया। यह पिछले indeterminate segment/ready shimmer निर्णय को supersede करता है।
+
+- First drawn frame में displayed fill=0: केवल recessed wood और thin outline। चार fixed colored dots और सभी moving-highlight/shimmer paths हटे।
+- रंग बाएँ से दाएँ लगातार जुड़ता है; पहले भरा भाग वापस खाली नहीं होता। लाल/पीला/हरा/नीला horizontal gradient और fill की अपनी स्थिर vertical lighting से 3D volume है। Fill के आगे uncovered recessed plywood रहता है।
+- Readiness milestones visual target देते हैं (startup 0.15, account settled 0.25, artwork ready 0.7, दोनों ready 1)। ये download/byte percentages नहीं हैं और numeric प्रतिशत नहीं दिखाया जाता। Native-frame interpolation अधिकतम एक full track प्रति second बढ़ती है; initial ready snapshot सीधे full color नहीं बनता।
+- Home transition real readiness/offline grace + minimum visibility gate के बाद completion request देता है और शेष fill पूरा होने का callback लेता है। Slow/offline account का existing fallback सुरक्षित है; सिर्फ visual completion की अधिकतम remaining अवधि जुड़ती है। Stop/hidden पर frame-clock reset, detach पर pending completion clear, callback में Activity foreground/destroy/error guards हैं।
+- Source recheck: initial ready, early/late readiness, offline grace, repeated target updates, pause/resume, detach/error/retry और completion→Home branches पढ़े। Unused moving-dot/shadow APIs हटे; whitespace साफ। इस iteration में build/lint/tests/device recording नहीं चलाए।

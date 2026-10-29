@@ -236,7 +236,11 @@ class HomeActivity : Activity() {
             return
         }
         if (StartupReadiness.canShowHome(localReady,
-                startupSession.snapshot.settled, elapsedStartup())) showHome()
+                startupSession.snapshot.settled, elapsedStartup())) {
+            splash?.finishPreparation {
+                if (foreground && !homeShown && !preparationFailed && !isFinishing && !isDestroyed) showHome()
+            }
+        }
     }
 
     private fun showHome() {
