@@ -96,7 +96,7 @@ private class AgeTrackDrawable(private val density: Float, private val filled: B
     private var filter: ColorFilter? = null
 
     override fun onBoundsChange(bounds: android.graphics.Rect) {
-        val halfHeight = 6f * density
+        val halfHeight = 12f * density
         track.set(bounds.left.toFloat(), bounds.exactCenterY() - halfHeight, bounds.right.toFloat(), bounds.exactCenterY() + halfHeight)
         clipping.reset()
         clipping.addRoundRect(track, halfHeight, halfHeight, Path.Direction.CW)
@@ -115,16 +115,16 @@ private class AgeTrackDrawable(private val density: Float, private val filled: B
             paint.shader = null
             paint.color = 0xFF614532.toInt()
             paint.alpha = opacity
-            canvas.drawRoundRect(track, 6f * density, 6f * density, paint)
+            canvas.drawRoundRect(track, track.height() / 2f, track.height() / 2f, paint)
             return
         }
         val checkpoint = canvas.save()
         canvas.clipPath(clipping)
         canvas.clipRect(track.left, track.top, track.left + track.width() * level.coerceIn(0, 10000) / 10000f, track.bottom)
         paint.shader = rgb
-        canvas.drawRoundRect(track, 6f * density, 6f * density, paint)
+        canvas.drawRoundRect(track, track.height() / 2f, track.height() / 2f, paint)
         paint.shader = lighting
-        canvas.drawRoundRect(track, 6f * density, 6f * density, paint)
+        canvas.drawRoundRect(track, track.height() / 2f, track.height() / 2f, paint)
         canvas.restoreToCount(checkpoint)
     }
 
