@@ -18,6 +18,10 @@ import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.characters.shared.LudoPaws3DLifeMotion
 import java.util.concurrent.atomic.AtomicBoolean
 
+/** Home bitmap and live preview must use the same framing during handoff. */
+internal fun homeSpotlightPortraitZoom(characterId: String): Float =
+    (if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(characterId) >= 3.2f) .68f else .78f) * 1.25f
+
 internal class FeaturedPawsPreview(
     context: Context,
     private val frameIntervalMillis: Long = 33L,
@@ -172,8 +176,7 @@ internal class FeaturedPawsPreview(
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled) else sampled
                     // Reserve headroom in the GL viewport itself: allowing
                     // parent overflow cannot recover pixels clipped by GL.
-                    val tall = com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 3.2f
-                    val zoom = if (prominent) { if (tall) .68f else .78f }
+                    val zoom = if (prominent) homeSpotlightPortraitZoom(id)
                         else if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 2.8f) .6f else .72f
                     val framedPose = if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
                     scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,

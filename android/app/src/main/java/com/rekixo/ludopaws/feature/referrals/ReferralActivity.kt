@@ -291,13 +291,25 @@ class ReferralActivity : Activity() {
         setPadding(0, dp(5), 0, dp(5))
     }
 
+    private var lastConnected: Boolean? = null
+    private var reloadAfterConnection = false
+    private val connectivity by lazy {
+        com.rekixo.ludopaws.ConnectivityMonitor(this) { online -> runOnUiThread {
+            if (!resumed || isFinishing || isDestroyed) return@runOnUiThread
+            val returned = lastConnected == false && online
+            lastConnected = online
+            if (returned) { if (loadingStatus) reloadAfterConnection = true else load() }
+        } }
+    }
     override fun onResume() {
         super.onResume(); resumed = true; externalLaunchAt = 0L; showcase.setActive(true)
+        connectivity.start()
         pollsRemaining = 20
         repository.refreshAttribution()
         load()
     }
     override fun onPause() {
+        connectivity.stop()
         resumed = false; generation++; busy = false; loadingStatus = false; showcase.setActive(false)
         handler.removeCallbacks(poll)
         super.onPause()
@@ -310,6 +322,13 @@ class ReferralActivity : Activity() {
     }
 
     private fun load() {
+        if (!connectivity.isOnline()) {
+            status = null
+            progress.text = "Offline · you can share the game now. Connect to check invitation rewards."
+            action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
+            refresh.isEnabled = true
+            return
+        }
         if (busy) return
         handler.removeCallbacks(poll)
         busy = true; loadingStatus = true
@@ -337,6 +356,7 @@ class ReferralActivity : Activity() {
                     progress.text = "Invitation rewards could not load. You can still share the game; tap Refresh to retry."
                     action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
                 }
+                if (reloadAfterConnection && resumed) { reloadAfterConnection = false; load() }
             }
         }
     }
@@ -397,6 +417,7 @@ class ReferralActivity : Activity() {
     }
 
     private fun act(grant: ConsentGrant? = null) {
+        if (!connectivity.isOnline()) { shareGame(); return }
         if (busy && !loadingStatus) return
         val snapshot = status
         if (loadingStatus || snapshot == null || !snapshot.optBoolean("enabled") ||
@@ -429,7 +450,11 @@ class ReferralActivity : Activity() {
                         putExtra(Intent.EXTRA_SUBJECT, "Play Ludo Paws with me")
                         putExtra(Intent.EXTRA_TEXT, "Come play Ludo Paws with me! Install through this invitation and finish a real Online or Friends match. I can earn a friendship bundle + 100 Gems when you qualify; invited players do not receive this reward.\n\n$url")
                     }, "Invite a friend"))
-                }.onFailure { progress.text = it.message ?: "Could not create an invitation. Please retry." }
+                }.onFailure {
+                    progress.text = "Invitation reward link could not be verified. Sharing the ordinary game link; sharing alone does not earn Gems."
+                    android.widget.Toast.makeText(this, progress.text, android.widget.Toast.LENGTH_LONG).show()
+                    shareGame()
+                }
             }
         }
     }

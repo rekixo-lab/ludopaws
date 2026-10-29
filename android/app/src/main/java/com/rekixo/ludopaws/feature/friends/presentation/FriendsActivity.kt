@@ -61,6 +61,9 @@ class FriendsActivity : Activity() {
     private var credential: FriendCredential? = null
     private var snapshot: JSONObject? = null
     private var isOnline = true
+    private val foregroundResults = com.rekixo.ludopaws.core.lifecycle.ForegroundResults()
+    private var friendsStarted = false
+    private var friendsOwner: String? = null
 
     @Volatile
     private var requestInFlight = false
@@ -78,7 +81,7 @@ class FriendsActivity : Activity() {
     private val connectivityMonitor by lazy {
         ConnectivityMonitor(this) { online ->
             mainHandler.post {
-                if (isFinishing || isDestroyed) return@post
+                if (!friendsStarted || isFinishing || isDestroyed) return@post
                 val changed = isOnline != online
                 isOnline = online
                 if (!online) {
@@ -109,18 +112,31 @@ class FriendsActivity : Activity() {
 
     override fun onStart() {
         super.onStart()
+        friendsStarted = true
+        val owner = (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()?.accountId
+        if (friendsOwner != owner) {
+            friendsOwner = owner
+            credential = identityStore.load()
+            snapshot = null
+            renderAll()
+        }
+        isOnline = connectivityMonitor.isOnline()
+        foregroundResults.start()
         connectivityMonitor.start()
         mainHandler.removeCallbacks(refreshRunnable)
         mainHandler.post(refreshRunnable)
     }
 
     override fun onStop() {
+        friendsStarted = false
+        foregroundResults.stop()
         connectivityMonitor.stop()
         mainHandler.removeCallbacks(refreshRunnable)
         super.onStop()
     }
 
     override fun onDestroy() {
+        foregroundResults.close()
         mainHandler.removeCallbacksAndMessages(null)
         executor.shutdownNow()
         super.onDestroy()
@@ -1628,6 +1644,7 @@ class FriendsActivity : Activity() {
             }
             return
         }
+        val owner = (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()?.accountId
         requestInFlight = true
         if (working != null) showStatus(working)
         val submitted = runCatching {
@@ -1637,22 +1654,27 @@ class FriendsActivity : Activity() {
                     mainHandler.post {
                         requestInFlight = false
                         if (isFinishing || isDestroyed) return@post
-                        onSuccess(response)
+                        foregroundResults.deliver {
+                            if (!isFinishing && !isDestroyed && (owner == null || owner == (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()?.accountId)) onSuccess(response)
+                        }
                     }
                 } catch (error: Exception) {
                     mainHandler.post {
                         requestInFlight = false
                         if (isFinishing || isDestroyed) return@post
+                        foregroundResults.deliver {
+                        if (owner != null && owner != (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()?.accountId) return@deliver
                         val apiError = error as? GameApiException
                         if (apiError?.code == "FRIEND_AUTH_INVALID") {
                             identityStore.clearCredentialOnly()
                             credential = null
                             friendIdText.text = "RECOVERING…"
                             ensureIdentity()
-                            return@post
+                            return@deliver
                         }
                         if (!quietFailure) {
                             showStatus("Error: ${error.message ?: error}")
+                        }
                         }
                     }
                 }

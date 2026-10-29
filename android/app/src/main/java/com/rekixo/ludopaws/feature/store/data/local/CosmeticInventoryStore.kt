@@ -71,6 +71,45 @@ class CosmeticInventoryStore(
         return true
     }
 
+    private fun equipmentKey(owner: String, category: CosmeticCategory) = "local_equipment_${owner}_${category.name}"
+
+    /** Selection only: never writes owned IDs, Gems, receipts or ad progress. */
+    fun selectOwnedLocalCosmetic(cosmetic: StoreCosmetic): Boolean {
+        synchronized(EQUIPMENT_LOCK) {
+            val current = StoreCosmeticCatalog.find(cosmetic.id) ?: return false
+            if (current.category != cosmetic.category || !current.contentAvailable) return false
+            if (selectOfflineFreeCosmetic(current)) {
+                AccountSessionStore(appContext).load()?.accountId?.let { owner ->
+                    prefs.edit().remove(equipmentKey(owner, current.category)).apply()
+                }
+                return true
+            }
+            if (current.category !in setOf(CosmeticCategory.BOARD, CosmeticCategory.DICE) || !isOwned(current.id)) return false
+            val owner = AccountSessionStore(appContext).load()?.accountId ?: return false
+            check(prefs.edit().putString(equipmentKey(owner, current.category), current.id)
+                .remove("offline_selection_" + current.category.name).commit()) { "Could not save appearance" }
+            return true
+        }
+    }
+
+    fun pendingEquipment(owner: String): Map<CosmeticCategory, String> {
+        if (AccountSessionStore(appContext).load()?.accountId != owner || !hasCurrentAccountSnapshot()) return emptyMap()
+        return listOf(CosmeticCategory.BOARD, CosmeticCategory.DICE).mapNotNull { category ->
+            prefs.getString(equipmentKey(owner, category), null)?.takeIf { id ->
+                isOwned(id) && StoreCosmeticCatalog.findBuiltIn(id)?.let { it.category == category && it.contentAvailable } == true
+            }?.let { category to it }
+        }.toMap()
+    }
+
+    fun confirmEquipment(owner: String, category: CosmeticCategory, id: String) {
+        synchronized(EQUIPMENT_LOCK) {
+            if (AccountSessionStore(appContext).load()?.accountId == owner &&
+                prefs.getString(equipmentKey(owner, category), null) == id) {
+                prefs.edit().remove(equipmentKey(owner, category)).commit()
+            }
+        }
+    }
+
     fun clearOfflineSelection(category: CosmeticCategory) {
         prefs.edit().remove("offline_selection_" + category.name).apply()
     }
@@ -83,6 +122,9 @@ class CosmeticInventoryStore(
     fun selectedId(
         category: CosmeticCategory,
     ): String {
+        AccountSessionStore(appContext).load()?.accountId?.let { owner ->
+            pendingEquipment(owner)[category]?.let { return it }
+        }
         prefs.getString("offline_selection_" + category.name, null)
             ?.takeIf { id -> StoreCosmeticCatalog.find(id)?.let {
                 it.category == category && isShippedFreeCosmetic(it)
@@ -138,7 +180,7 @@ class CosmeticInventoryStore(
         cosmetic: StoreCosmetic,
         currentLevel: Int,
     ): CosmeticAcquireResult {
-        if (!cosmetic.contentAvailable) {
+        if (!cosmetic.contentAvailable || !cosmetic.purchaseAvailable) {
             return CosmeticAcquireResult.CONTENT_UNAVAILABLE
         }
         if (!isSelectableCharacterPack(cosmetic)) return CosmeticAcquireResult.INVALID
@@ -274,4 +316,6 @@ class CosmeticInventoryStore(
                 StorePreferences
                     .KEY_SELECTED_CHARACTER_PACK
         }
+    private companion object { val EQUIPMENT_LOCK = Any() }
+
 }

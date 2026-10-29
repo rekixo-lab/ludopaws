@@ -49,7 +49,24 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         }, LayoutParams(-1, -2))
         val art = object : LinearLayout(context) {
             override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
-        }.apply { gravity = Gravity.CENTER_VERTICAL }
+        }.apply {
+            gravity = Gravity.CENTER_VERTICAL
+            // Keep the artwork clear of the recessed panel's inner rim on
+            // both the Home carousel and the full Share/popup layout.
+            setPadding(dp(12), 0, dp(12), 0)
+        }
+        fun artworkSlot(view: View) = object : FrameLayout(context) {
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+                val side = minOf(measuredWidth, measuredHeight)
+                val exact = MeasureSpec.makeMeasureSpec(side, MeasureSpec.EXACTLY)
+                // Board and chrome share one centered square, even when the
+                // weighted column is wider or narrower than the artwork.
+                getChildAt(0).measure(exact, exact)
+            }
+        }.apply {
+            addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
+        }
         val board = FrameLayout(context).apply {
             addView(LudoBoardView(context).apply {
                 setBoardThemeOverride("board_blossom_garden")
@@ -66,9 +83,9 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
             setPlayerTeamColor(null)
             contentDescription = "Pearl Paw Dice"
         }
-        art.addView(board, LayoutParams(0, dp(if (compact) 76 else 84), 1f))
+        art.addView(artworkSlot(board), LayoutParams(0, dp(if (compact) 76 else 84), 1f))
         art.addView(rabbit, LayoutParams(0, -1, 1.3f))
-        art.addView(dice, LayoutParams(0, dp(if (compact) 76 else 84), 1f))
+        art.addView(artworkSlot(dice), LayoutParams(0, dp(if (compact) 76 else 84), 1f))
         addView(art, if (compact) LayoutParams(-1, 0, 1f) else LayoutParams(-1, dp(132)))
         addView(ReferralGemRewardView(context, compact), LayoutParams(-1, -2))
         addView(label(if (compact) "100 Gems + missing bundle items · Invite & play" else "Board  ·  Rabbit  ·  Dice", if (compact) 11f else 12f).apply {

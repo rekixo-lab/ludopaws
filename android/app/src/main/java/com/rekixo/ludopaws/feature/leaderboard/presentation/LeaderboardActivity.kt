@@ -77,6 +77,42 @@ class LeaderboardActivity :
         String? =
         null
 
+    private var pageStarted = false
+    private var refreshAgain = false
+    private var snapshotOwner: String? = null
+    private fun owner() = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this).load()?.accountId
+    private fun finishRefresh() {
+        refreshing = false
+        if (refreshAgain && pageStarted && !isFinishing && !isDestroyed) {
+            refreshAgain = false
+            refreshLeaderboard()
+        }
+    }
+    private var lastConnected: Boolean? = null
+    private val connectivity by lazy {
+        com.rekixo.ludopaws.ConnectivityMonitor(this) { online -> mainHandler.post {
+            if (!pageStarted || isFinishing || isDestroyed) return@post
+            val returned = lastConnected == false && online
+            lastConnected = online
+            if (returned) { if (refreshing) refreshAgain = true else refreshLeaderboard() }
+            else if (!online) {
+                statusMessage = if (snapshot != null) "Offline · showing saved ranking" else "Offline · connect to load rankings"
+                render()
+            }
+        } }
+    }
+    override fun onStart() {
+        super.onStart()
+        pageStarted = true
+        if (snapshotOwner != owner()) {
+            snapshotOwner = owner(); snapshot = null; showingCached = false; cachedAt = null
+            if (refreshing) refreshAgain = true else refreshLeaderboard()
+        }
+        connectivity.start()
+        if (!refreshing) refreshLeaderboard()
+    }
+    override fun onStop() { pageStarted = false; connectivity.stop(); super.onStop() }
+
     override fun onCreate(
         savedInstanceState: Bundle?,
     ) {
@@ -88,6 +124,7 @@ class LeaderboardActivity :
                 this,
             )
 
+        snapshotOwner = owner()
         cacheStore
             .load()
             ?.let {
@@ -121,6 +158,12 @@ class LeaderboardActivity :
     }
 
     private fun refreshLeaderboard() {
+        if (!connectivity.isOnline()) {
+            loading = false
+            statusMessage = if (snapshot != null) "Offline · showing saved ranking" else "Offline · connect to load rankings"
+            render()
+            return
+        }
         if (refreshing) {
             return
         }
@@ -167,6 +210,7 @@ class LeaderboardActivity :
                         isFinishing ||
                         com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this).load()?.accountId != expectedAccountId
                     ) {
+                        finishRefresh()
                         return@post
                     }
                     snapshot =
@@ -182,6 +226,7 @@ class LeaderboardActivity :
                     statusMessage =
                         null
                     render()
+                    finishRefresh()
                 }
             } catch (
                 error: Exception,
@@ -197,6 +242,7 @@ class LeaderboardActivity :
                         false
                     loading =
                         false
+                    if (owner() != expectedAccountId) { finishRefresh(); return@post }
                     statusMessage =
                         if (
                             snapshot !=
@@ -207,6 +253,7 @@ class LeaderboardActivity :
                             "Leaderboard is unavailable right now. Check your connection and try again."
                         }
                     render()
+                    finishRefresh()
                 }
             }
         }

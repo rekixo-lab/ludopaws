@@ -139,12 +139,24 @@ class HomeActivity : Activity() {
         connectivityMonitor = ConnectivityMonitor(this) { online ->
             runOnUiThread {
                 if (!foreground || isFinishing || isDestroyed) return@runOnUiThread
-                if (lastOnline != online) {
+                val connectionChanged = lastOnline != online
+                if (connectionChanged) {
                     lastOnline = online
                     startupSession.refresh(StartupReadiness.canBootstrapAccount(online, remoteExitSaved))
                     if (homeShown && resumed) resumeHomePrivacy()
                 }
-                if (::connectivityText.isInitialized) connectivityText.text = if (online) "● ONLINE" else "● OFFLINE"
+                if (::connectivityText.isInitialized) {
+                    connectivityText.text = "● OFFLINE · Robot and Pass & Play are available"
+                    connectivityText.visibility = if (online) View.GONE else View.VISIBLE
+                }
+                if (online) {
+                    com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
+                    com.rekixo.ludopaws.feature.team.data.local.TeamCancellationRecovery.request(this) {
+                        if (foreground && resumed && !isFinishing && !isDestroyed) android.widget.Toast.makeText(this,
+                            "A team was found before cancellation. Open Team Up to check the saved match.", android.widget.Toast.LENGTH_LONG).show()
+                    }
+                }
+                if (connectionChanged) promotionCarousel?.refreshConnectivity()
                 updateStartupBanner(startupSession.snapshot)
             }
         }

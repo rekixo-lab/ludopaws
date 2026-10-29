@@ -55,12 +55,36 @@ class StoreActivity :
     internal var refreshBoardSelection: (() -> Unit)? = null
     internal var featuredCharacterId: String? = null
     internal var promotedCosmeticId: String? = null
-    internal var featuredPawsCard: com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsCard? = null
+    internal var storeSpotlight: com.rekixo.ludopaws.feature.store.presentation.components.StoreLockedSpotlightView? = null
+    internal val spotlightPositions = mutableMapOf<StoreTab, String>()
     internal var showcaseResumed = false
     internal val referralPromotions by lazy {
         com.rekixo.ludopaws.feature.referrals.ReferralPromotionController(this,
             uiAvailable = { showcaseResumed && !cosmeticUpdateInProgress && !purchaseEligibilityInProgress && !rewardRequestInProgress && !(rewardedAdsWasCreated && rewardedAds.isBusy) && pendingAutoPurchaseProductId == null },
-            popupVisibility = { visible -> featuredPawsCard?.setActive(showcaseResumed && !visible) })
+            popupVisibility = { visible -> storeSpotlight?.setActive(showcaseResumed && !visible) })
+    }
+    private var storeOnline = false
+    private var storeRefreshInFlight = false
+    private val connectivity by lazy {
+        com.rekixo.ludopaws.ConnectivityMonitor(this) { connected -> runOnUiThread {
+            if (!storeStarted || isFinishing || isDestroyed) return@runOnUiThread
+            val changed = storeOnline != connected
+            storeOnline = connected
+            if (!connected && changed) {
+                checkoutGeneration++
+                storeRefreshInFlight = false
+                catalogRefreshInProgress = false
+                pendingAutoPurchaseProductId?.let { chosenProductId = it }
+                pendingAutoPurchaseProductId = null
+                clearPendingCheckout()
+                checkoutRetryNeeded = chosenProductId != null
+                if (rewardedAdsWasCreated) rewardedAds.cancelPendingShow()
+            }
+            if (connected && changed) refreshConnectedStore()
+            updateCheckoutStatus()
+            updateCatalogStatus()
+            renderStore()
+        } }
     }
     private var cosmeticUpdateInProgress = false
     private var cosmeticFeedback: Toast? = null
@@ -182,6 +206,7 @@ class StoreActivity :
         selectedTab = StoreTab.entries.firstOrNull { it.name == savedInstanceState?.getString("store_tab") }
             ?: requestedInitialTab() ?: StoreTab.GEMS
         StoreTab.entries.forEach { tab -> scrollPositions[tab] = savedInstanceState?.getInt("store_scroll_" + tab.name, 0)?.coerceAtLeast(0) ?: 0 }
+        StoreTab.entries.forEach { tab -> savedInstanceState?.getString("store_spotlight_" + tab.name)?.let { spotlightPositions[tab] = it } }
         chosenProductId = savedInstanceState?.getString("store_product")?.takeIf { StoreCatalog.find(it) != null }
         chosenProductOwner = savedInstanceState?.getString("store_product_owner")
         checkoutRetryNeeded = chosenProductId != null
@@ -199,6 +224,9 @@ class StoreActivity :
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
                 ?.takeIf { it == StoreCatalog.REMOVE_ADS }
             else null // Restoration preserves selection, never reopens checkout by itself.
+        storeCatalogRepository.cached().let { cached ->
+            if (cached.items.isNotEmpty()) StoreCosmeticCatalog.replaceRemoteCatalog(cached.items, cached.suppressedIds)
+        }
         renderStore()
     }
 
@@ -207,7 +235,7 @@ class StoreActivity :
         showcaseResumed = true
         renderStore()
         referralPromotions.resume()
-        featuredPawsCard?.setActive(true)
+        storeSpotlight?.setActive(true)
         if (rewardedAdsWasCreated) rewardedAds.onHostResumed()
         recoverPendingAdRewards()
         // Play approval/payment may finish while this Activity is only paused.
@@ -218,12 +246,17 @@ class StoreActivity :
     override fun onPause() {
         showcaseResumed = false
         referralPromotions.pause()
-        featuredPawsCard?.setActive(false)
+        storeSpotlight?.setActive(false)
         super.onPause()
     }
 
     internal fun showFeaturedCharacter(characterId: String) {
         featuredCharacterId = characterId
+        val selections = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this)
+        if (selections.isUnlocked(characterId)) {
+            selections.select(com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.STARTER_PACK_ID, characterId)
+        }
+        StoreCosmeticCatalog.characterUnlock(characterId)?.let { spotlightPositions[StoreTab.PAWS] = it.id }
         if (promotedCosmeticId != null) promotedCosmeticId = StoreCosmeticCatalog.characterUnlock(characterId)?.id
         selectedTab = StoreTab.PAWS
         renderStore()
@@ -233,6 +266,28 @@ class StoreActivity :
         super.onStart()
         storeStarted = true
         observedStorePrefs.registerOnSharedPreferenceChangeListener(walletChanged)
+        storeOnline = connectivity.isOnline()
+        connectivity.start()
+        if (storeOnline) refreshConnectedStore(allowRequestedCheckout = true)
+        else {
+            billingAvailable = false
+            billingProductCatalogLoaded = false
+            catalogRefreshFailed = true
+            updateCatalogStatus()
+            updateCheckoutStatus()
+            renderStore()
+        }
+    }
+
+    private fun refreshConnectedStore(allowRequestedCheckout: Boolean = false) {
+        if (!storeStarted || !storeOnline || storeRefreshInFlight) return
+        storeRefreshInFlight = true
+        if (!allowRequestedCheckout && pendingAutoPurchaseProductId != null) {
+            chosenProductId = pendingAutoPurchaseProductId
+            pendingAutoPurchaseProductId = null
+            checkoutRetryNeeded = true
+        }
+        com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
         billingAvailable = false
         billingProductCatalogLoaded = false
 
@@ -304,6 +359,7 @@ class StoreActivity :
 
             runOnUiThread {
                 if (!storeStarted || availabilityGeneration != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
+                storeRefreshInFlight = false
                 billingAvailable = available
                 recoverPendingAdRewards()
 
@@ -361,6 +417,8 @@ class StoreActivity :
         }
     }
     override fun onStop() {
+        connectivity.stop()
+        storeRefreshInFlight = false
         if (purchaseEligibilityInProgress || pendingCheckoutProductId != null) checkoutRetryNeeded = chosenProductId != null
         if (rewardedAdsWasCreated) rewardedAds.cancelPendingShow()
         rewardHandler.removeCallbacks(retryRewardRecovery)
@@ -378,6 +436,7 @@ class StoreActivity :
         outState.putString("store_tab", selectedTab.name)
         outState.putString("store_character", featuredCharacterId)
         outState.putString("store_promoted_item", promotedCosmeticId)
+        spotlightPositions.forEach { (tab, id) -> outState.putString("store_spotlight_" + tab.name, id) }
         outState.putString("store_product", chosenProductId)
         outState.putString("store_product_owner", chosenProductOwner)
         scrollPositions.forEach { (tab, position) -> outState.putInt("store_scroll_" + tab.name, position) }
@@ -385,7 +444,7 @@ class StoreActivity :
     }
 
     private fun refreshStoreCatalog() {
-        if (!storeStarted || catalogRefreshInProgress || isFinishing || isDestroyed) return
+        if (!storeStarted || !storeOnline || catalogRefreshInProgress || isFinishing || isDestroyed) return
         catalogRefreshInProgress = true
         catalogRefreshFailed = false
         updateCatalogStatus()
@@ -421,19 +480,20 @@ class StoreActivity :
     private fun updateCatalogStatus() {
         catalogStatusView?.apply {
             text = when {
+                !storeOnline -> "Offline catalog · Connect to refresh offers"
                 catalogRefreshInProgress -> "Refreshing store items…"
                 catalogRefreshFailed -> "Items could not refresh · Tap to retry"
                 else -> ""
             }
             visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
-            isEnabled = !catalogRefreshInProgress
+            isEnabled = storeOnline && !catalogRefreshInProgress
         }
     }
 
     private fun catalogStatusLabel(): TextView = TextView(this).apply {
         catalogStatusView = this
         textSize = 12f
-        setTextColor(0xFFEED9B7.toInt())
+        setTextColor(0xFF60452D.toInt())
         gravity = Gravity.CENTER
         minHeight = dp(48)
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
@@ -477,6 +537,15 @@ class StoreActivity :
     }
 
     internal fun requestPurchase(productId: String) {
+        if (StoreCatalog.find(productId) == null) return
+        if (!connectivity.isOnline()) {
+            chosenProductId = productId
+            chosenProductOwner = accountRepository.currentSession()?.accountId
+            checkoutRetryNeeded = true
+            updateCheckoutStatus()
+            showStoreMessage("You are offline. Connect, then retry this selected item.")
+            return
+        }
         if (!BuildConfig.LUDOPROOF_BILLING_ENABLED) {
             showStoreMessage("Purchases are unavailable in this build.")
             return
@@ -544,6 +613,7 @@ class StoreActivity :
 
     private fun updateCheckoutStatus() {
         checkoutStatusView?.text = when {
+            !storeOnline -> "Offline · Owned items available · Connect for purchases"
             pendingCheckoutProductId != null -> "Getting your Google Play price…"
             purchaseEligibilityInProgress -> "Connecting to Google Play…"
             checkoutRetryNeeded && chosenProductId != null -> "Retry selected item · " + StoreCatalog.find(chosenProductId.orEmpty())?.title.orEmpty()
@@ -554,7 +624,7 @@ class StoreActivity :
     private fun checkoutStatusLabel(): TextView = TextView(this).apply {
         checkoutStatusView = this
         textSize = 12f
-        setTextColor(0xFFEED9B7.toInt())
+        setTextColor(0xFF60452D.toInt())
         gravity = Gravity.CENTER
         setPadding(dp(8), dp(4), dp(8), dp(4))
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
@@ -596,6 +666,7 @@ class StoreActivity :
     internal fun requestRewardedAd(
         cosmeticId: String? = null,
     ) {
+        if (!connectivity.isOnline()) { showStoreMessage("Connect to the internet to watch an ad and verify its reward."); return }
         if (!BuildConfig.LUDOPROOF_ADS_ENABLED) {
             showStoreMessage("Rewarded ads are unavailable in this build.")
             return
@@ -835,7 +906,7 @@ class StoreActivity :
 
     private fun currentOfferMatches(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic): Boolean {
         val current = StoreCosmeticCatalog.find(cosmetic.id)
-        if (current == null || !current.contentAvailable || current != cosmetic) {
+        if (current == null || !current.contentAvailable || !current.purchaseAvailable || current != cosmetic) {
             showStoreMessage("This item changed or is unavailable. Refresh and select it again; nothing was spent.")
             refreshStoreCatalog()
             return false
@@ -844,12 +915,19 @@ class StoreActivity :
     }
 
     internal fun purchaseOrSelectCosmetic(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic) {
+        if (cosmetics.isOwned(cosmetic.id) && cosmetics.selectOwnedLocalCosmetic(cosmetic)) {
+            com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
+            renderStore()
+            showCosmeticFeedback("${cosmetic.title} selected")
+            return
+        }
         if (!currentOfferMatches(cosmetic)) return
         if (cosmeticUpdateInProgress) {
             showCosmeticFeedback("Saving selection…")
             return
         }
-        if (cosmetics.selectOfflineFreeCosmetic(cosmetic)) {
+        if (cosmetics.selectOwnedLocalCosmetic(cosmetic)) {
+            com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
             val refresh = refreshBoardSelection
             if (cosmetic.category == com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD && refresh != null) {
                 refresh()
@@ -1015,7 +1093,7 @@ class StoreActivity :
     private fun rewardStatusLabel(): TextView = TextView(this).apply {
         rewardStatusText = this
         textSize = 12f
-        setTextColor(0xFFEED9B7.toInt())
+        setTextColor(0xFF60452D.toInt())
         gravity = Gravity.CENTER
         minHeight = dp(48)
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
@@ -1191,7 +1269,7 @@ class StoreActivity :
 
     private fun renderStoreNow() {
         val signature = listOf(
-            selectedTab, featuredCharacterId, promotedCosmeticId, liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
+            selectedTab, storeOnline, featuredCharacterId, promotedCosmeticId, spotlightPositions.toMap(), liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
             cosmetics.ownedCosmeticIds(),
             com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.entries.map { cosmetics.selectedId(it) },
             com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.all.let { items ->
@@ -1207,8 +1285,8 @@ class StoreActivity :
         val previousScroll = scrollPositions[selectedTab] ?: 0
         renderedSignature = signature
         renderedTab = selectedTab
-        featuredPawsCard?.setActive(false)
-        featuredPawsCard = null
+        storeSpotlight?.setActive(false)
+        storeSpotlight = null
         refreshBoardSelection = null
         val renderStartedAt = android.os.SystemClock.elapsedRealtime()
 

@@ -20,7 +20,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.BuildConfig
-import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
@@ -46,7 +46,12 @@ internal class GamePawsPromotionView(
             for (index in 0 until childCount) {
                 val child = getChildAt(index)
                 (child.layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.CENTER
-                if (child !is FeaturedPawsPreview) child.measure(exact, exact)
+                if (!gameplay || child !is FeaturedPawsPreview) child.measure(exact, exact)
+                if (!gameplay && child === avatar) {
+                    // Cached portraits use anchor .62 and zoom 1. Match the
+                    // live preview's .70 anchor after scaling about the center.
+                    child.translationY = side * (.20f - .12f * child.scaleY)
+                }
             }
         }
         override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
@@ -66,7 +71,7 @@ internal class GamePawsPromotionView(
     private val refreshOwnedOffers = Runnable { refreshCandidates() }
     private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID ||
-            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" ||
+            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" || (key.startsWith("local_equipment_") && key.endsWith("_BOARD")) ||
             key.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX)) {
             removeCallbacks(refreshOwnedOffers)
             post(refreshOwnedOffers)
@@ -120,7 +125,7 @@ internal class GamePawsPromotionView(
         clipChildren = true
         clipToPadding = true
         setPadding(dp(4), dp(4), dp(4), dp(4))
-        background = if (gameplay) null else plywoodBackground(context, cornerRadiusDp = 12f)
+        background = if (gameplay) null else recessedPlywoodBackground(context, outerCornerRadiusDp = 20f)
         artwork.clipChildren = true
         artwork.addView(avatar, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         listOf(leftCopy, rightCopy).forEach { copy ->
@@ -217,7 +222,8 @@ internal class GamePawsPromotionView(
         } else {
             orientation = VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(12), dp(8), dp(12), dp(10))
+            setPadding(dp(12), dp(20), dp(12), dp(12))
+            leftCopy.setPadding(dp(2), 0, dp(2), dp(6))
             addView(leftCopy, LayoutParams(-1, -2))
             addView(artwork, LayoutParams(-1, 0, 1f))
             rightCopy.removeAllViews()
@@ -319,6 +325,7 @@ internal class GamePawsPromotionView(
         adProgress.visibility = if (adProgress.text.isBlank()) GONE else VISIBLE
         storeLabel.text = when {
             gameplay -> "View after match"
+            !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() || !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
             remaining > 0 && offer.cosmetic.gemPrice == 0 && BuildConfig.LUDOPROOF_ADS_ENABLED -> "Unlock with Ads ›"
             offer.cosmetic.gemPrice > 0 && remaining == 0 -> "View & Unlock ›"
             else -> "Unlock Options ›"
@@ -330,6 +337,13 @@ internal class GamePawsPromotionView(
         extraPreview = null
         avatar.visibility = if (offer.characterId != null) VISIBLE else GONE
         if (offer.characterId != null) {
+            if (!gameplay) {
+                val zoom = homeSpotlightPortraitZoom(offer.characterId)
+                avatar.scaleX = zoom
+                avatar.scaleY = zoom
+                val side = minOf(artwork.width, artwork.height)
+                avatar.translationY = side * (.20f - .12f * zoom)
+            }
             avatar.bind(characterId = offer.characterId, ringColor = 0xFF5BE0FF.toInt(),
                 highlighted = false, showCircularChrome = false)
             preview?.characterId = offer.characterId

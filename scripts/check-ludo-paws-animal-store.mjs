@@ -44,7 +44,7 @@ requireText(catalog, "CosmeticUnlockKind.GEMS", "Gem animal-pack progression is 
 requireText(catalog, "CosmeticUnlockKind.REWARDED_ADS", "Rewarded-ad animal-pack progression is missing.");
 requireText(catalog, "CosmeticUnlockKind.EVENT", "Event animal-pack progression is missing.");
 
-const availabilityGuard = inventory.indexOf("if (!cosmetic.contentAvailable)");
+const availabilityGuard = inventory.indexOf("if (!cosmetic.contentAvailable || !cosmetic.purchaseAvailable)");
 const gemDebit = inventory.indexOf("balance -");
 if (availabilityGuard < 0 || gemDebit < 0 || availabilityGuard > gemDebit) {
   throw new Error("Unavailable animal packs must be rejected before any gem debit can occur.");
@@ -55,8 +55,14 @@ requireText(inventory, "KEY_SELECTED_CHARACTER_PACK", "Selected character pack m
 requireText(preferences, "KEY_EVENT_ENTITLEMENTS", "Verified event entitlements must persist.");
 requireText(contentUi, "StoreTab.PAWS", "PAWS tab must route to animal-pack content.");
 requireText(pawsUi, "LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)", "Store must list shipped starter characters rather than coming-soon packs.");
-const featuredUi = read("android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/FeaturedPawsCard.kt");
-requireText(featuredUi, "offer?.contentAvailable == true", "Featured characters must require available content.");
+const featuredUi = read("android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreLockedSpotlightView.kt");
+requireText(featuredUi, "item.contentAvailable && !store.cosmetics.isOwned(item.id)", "Spotlights must show available, unowned content only.");
+for (const category of ["BOARD", "DICE", "CHARACTER_PACK"]) {
+  requireText(featuredUi, `CosmeticCategory.${category}`, `Locked ${category} products need a real preview.`);
+  requireText(contentUi, `CosmeticCategory.${category}`, `${category} Store tab needs the shared spotlight.`);
+}
+requireText(featuredUi, "show(1)", "Locked product spotlights must still advance automatically.");
+requireText(featuredUi, "postDelayed(cycle, 7000L)", "Locked product rotation interval must be preserved.");
 requireText(actions, "CONTENT_UNAVAILABLE", "Unavailable pack taps must be handled without spending value.");
 requireText(actions, "NEED_EVENT", "Event pack UX is missing.");
 

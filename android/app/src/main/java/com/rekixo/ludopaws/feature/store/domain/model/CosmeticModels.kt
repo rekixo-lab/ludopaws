@@ -34,6 +34,8 @@ data class StoreCosmetic(
     val unlockChannels: List<CosmeticUnlockKind> = emptyList(),
     val catalogVersion: Int = 0,
     val backendCategory: String? = null,
+    // Asset readiness is independent of whether a cached offer may spend value.
+    val purchaseAvailable: Boolean = true,
 )
 
 enum class CosmeticAcquireResult {

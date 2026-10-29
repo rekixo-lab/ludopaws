@@ -131,10 +131,26 @@ class ProfileActivity : Activity() {
         }
     }
 
+    private var profileStarted = false
+    private var accountStatusRefreshing = false
+    private var accountRefreshAgain = false
+    private var lastConnected: Boolean? = null
+    private val connectivity by lazy {
+        com.rekixo.ludopaws.ConnectivityMonitor(this) { online -> runOnUiThread {
+            if (!profileStarted || isFinishing || isDestroyed) return@runOnUiThread
+            val returned = lastConnected == false && online
+            lastConnected = online
+            if (returned) { if (accountStatusRefreshing) accountRefreshAgain = true else refreshAccountStatus() }
+            else if (!online) { accountStatus = "Offline · progress saved on this device"; renderProfile() }
+        } }
+    }
+    override fun onStart() { super.onStart(); profileStarted = true; connectivity.start() }
+    override fun onStop() { profileStarted = false; connectivity.stop(); super.onStop() }
+
     override fun onResume() {
         super.onResume()
         refreshPlayGamesSignIn()
-        refreshAccountStatus()
+        if (accountStatusRefreshing) accountRefreshAgain = true else refreshAccountStatus()
     }
 
     override fun onRestart() {
@@ -468,19 +484,26 @@ class ProfileActivity : Activity() {
     }
 
     private fun refreshAccountStatus() {
-        if (accountAuthInProgress) return
+        if (accountAuthInProgress || accountStatusRefreshing) return
+        if (!connectivity.isOnline()) {
+            accountStatus = "Offline · progress saved on this device"
+            renderProfile()
+            return
+        }
         if (BuildConfig.LUDOPAWS_FAMILY_MODE && accountRepository.currentSession() == null) {
             accountStatus = "Offline profile · online play creates a private game account"
             renderProfile()
             return
         }
+        accountStatusRefreshing = true
+        val expectedOwner = accountRepository.currentSession()?.accountId
         runAccountWork {
             try {
                 val session = accountRepository.ensureGuestSession()
                 val links = accountRepository.linkedIdentities()
                 val linked = links.optBoolean("googleLinked")
                 runOnUiThread {
-                    if (isFinishing || isDestroyed || accountAuthInProgress) return@runOnUiThread
+                    if (!profileStarted || isFinishing || isDestroyed || accountAuthInProgress || (expectedOwner != null && expectedOwner != accountRepository.currentSession()?.accountId)) return@runOnUiThread
                     accountGoogleLinked = linked
                     accountStatus = when {
                         accountRepository.requiresIdentityRecovery() ->
@@ -496,7 +519,13 @@ class ProfileActivity : Activity() {
                     accountStatus = "Account needs a connection"
                     renderProfile()
                 }
-            }
+            } finally { runOnUiThread {
+                accountStatusRefreshing = false
+                if (accountRefreshAgain && profileStarted && !isFinishing && !isDestroyed) {
+                    accountRefreshAgain = false
+                    refreshAccountStatus()
+                }
+            } }
         }
     }
 

@@ -23,7 +23,7 @@ import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 /** Exact selected item, above the catalog; displaying it never starts an ad/payment. */
-internal fun StoreActivity.promotedItemCard(item: StoreCosmetic): LinearLayout = LinearLayout(this).apply {
+internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolean = false): LinearLayout = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL
     gravity = Gravity.CENTER_HORIZONTAL
     setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -33,7 +33,16 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic): LinearLayout =
         setTextColor(0xFF422B1C.toInt())
         typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
     }
-    addView(label(item.title, 22f), LinearLayout.LayoutParams(-1, -2))
+    val horizontal = compact && resources.configuration.screenWidthDp >= 320 && resources.configuration.fontScale < 1.3f
+    val content = LinearLayout(context).apply {
+        orientation = if (horizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        gravity = Gravity.CENTER
+    }
+    val details = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        gravity = Gravity.CENTER_HORIZONTAL
+    }
+    if (compact) details.addView(label(item.title, 18f), LinearLayout.LayoutParams(-1, -2))
     val preview = when {
         !item.contentAvailable -> label("Preview unavailable", 14f)
         item.category == CosmeticCategory.BOARD && com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(item.id) != null -> FrameLayout(context).apply {
@@ -51,18 +60,25 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic): LinearLayout =
             else LudoPawsCharacterAvatarView(context).apply { bind(id, showCircularChrome = false) }
         }
     }
-    addView(preview, LinearLayout.LayoutParams(dp(150), dp(150)).apply { topMargin = dp(8); bottomMargin = dp(8) })
+    if (!compact) {
+        addView(label(item.title, 22f), LinearLayout.LayoutParams(-1, -2))
+    }
+    content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 100 else 150), dp(if (compact) 100 else 150)).apply {
+        topMargin = dp(8); bottomMargin = dp(8)
+        if (horizontal) marginEnd = dp(12)
+    })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
-    if (item.requiredAdViews > 0) addView(label("$done / ${item.requiredAdViews} verified ads completed", 14f))
-    if (item.gemPrice > 0) addView(label(CosmeticPriceLabels.gems(context, item.gemPrice), 16f))
+    if (item.requiredAdViews > 0) details.addView(label("$done / ${item.requiredAdViews} verified ads completed", 14f))
+    if (item.gemPrice > 0) details.addView(label(CosmeticPriceLabels.gems(context, item.gemPrice), 16f))
     if (item.unlockKind == CosmeticUnlockKind.PLAY_PRODUCT || CosmeticUnlockKind.PLAY_PRODUCT in item.unlockChannels)
-        addView(label("Google Play: ${cosmeticPlayPrice(item.id)}", 14f))
+        details.addView(label("Google Play: ${cosmeticPlayPrice(item.id)}", 14f))
     val adsOnlyUnavailable = item.requiredAdViews > done && item.gemPrice == 0 &&
         item.unlockChannels.size <= 1 && !BuildConfig.LUDOPROOF_ADS_ENABLED && !cosmetics.isOwned(item.id)
-    addView(Button(context).apply {
+    details.addView(Button(context).apply {
         text = when {
             !item.contentAvailable -> "Unavailable"
             cosmetics.isOwned(item.id) -> "Select item"
+            !item.purchaseAvailable || !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() -> "Connect to unlock"
             adsOnlyUnavailable -> "Ads unavailable"
             item.unlockChannels.size > 1 -> "Unlock options"
             item.requiredAdViews > done -> "Watch ad · ${item.requiredAdViews - done} remaining"
@@ -78,7 +94,9 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic): LinearLayout =
             else handleCosmeticTap(current)
         }
     }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
-    addView(Button(context).apply {
+    content.addView(details, if (horizontal) LinearLayout.LayoutParams(0, -2, 1f) else LinearLayout.LayoutParams(-1, -2))
+    addView(content, LinearLayout.LayoutParams(-1, -2))
+    if (!compact) addView(Button(context).apply {
         text = "Back to catalog"; isAllCaps = false
         setTextColor(0xFF422B1C.toInt())
         backgroundTintList = null

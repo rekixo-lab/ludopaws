@@ -222,14 +222,18 @@ class StoreCatalogParserTest {
         val parsed = StoreCatalogParser.parse(
             catalogResponse(
                 items = arrayOf(
-                    catalogItem("dice_heart", "DICE", "HEART", arrayOf("GEMS"), gemPrice = 100),
+                    catalogItem("dice_classic", "DICE", "CLASSIC", arrayOf("GEMS"), gemPrice = 100),
                 ),
             ),
         )
-        val stale = parsed.copy(items = parsed.items.map { it.copy(contentAvailable = false) }, stale = true)
+        val stale = parsed.asStale()
 
         assertTrue(stale.stale)
-        assertFalse(stale.items.single().contentAvailable)
+        assertTrue(stale.items.single().contentAvailable)
+        assertFalse(stale.items.single().purchaseAvailable)
+        assertTrue(parsed.items.single().purchaseAvailable)
+        assertEquals(parsed.items.single().id, stale.items.single().id)
+        assertEquals(parsed.items.single().gemPrice, stale.items.single().gemPrice)
     }
 
     private fun catalogResponse(
