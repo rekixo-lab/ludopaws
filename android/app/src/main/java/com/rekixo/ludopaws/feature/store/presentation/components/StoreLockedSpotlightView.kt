@@ -2,14 +2,10 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.animation.ValueAnimator
 import android.graphics.Rect
-import android.graphics.Typeface
-import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
-import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
-import android.widget.TextView
 import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
@@ -27,9 +23,6 @@ internal class StoreLockedSpotlightView(
     private val onFocused: (String) -> Unit,
 ) : LinearLayout(store) {
     private val body = FrameLayout(store)
-    private val position = TextView(store)
-    private val previous = navigation("‹", "Previous locked product", -1)
-    private val next = navigation("›", "Next locked product", 1)
     private var currentId = initialId
     private var active = false
     private val bounds = Rect()
@@ -44,19 +37,6 @@ internal class StoreLockedSpotlightView(
 
     init {
         orientation = VERTICAL
-        val controls = LinearLayout(store).apply {
-            gravity = Gravity.CENTER_VERTICAL
-            addView(previous, LayoutParams(dp(48), dp(48)))
-            addView(position.apply {
-                gravity = Gravity.CENTER
-                textSize = 12f
-                setTextColor(0xFF174F55.toInt())
-                typeface = Typeface.DEFAULT_BOLD
-                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-            }, LayoutParams(0, -2, 1f))
-            addView(next, LayoutParams(dp(48), dp(48)))
-        }
-        addView(controls, LayoutParams(-1, -2))
         addView(body, LayoutParams(-1, -2))
         show()
     }
@@ -81,26 +61,8 @@ internal class StoreLockedSpotlightView(
         val item = items[selected]
         currentId = item.id
         onFocused(item.id)
-        position.text = "LOCKED ${when (category) {
-            CosmeticCategory.BOARD -> "BOARDS"
-            CosmeticCategory.DICE -> "DICE"
-            else -> "PAWS"
-        }} · ${selected + 1}/${items.size}"
-        previous.isEnabled = items.size > 1
-        next.isEnabled = items.size > 1
         body.removeAllViews()
         body.addView(store.promotedItemCard(item, compact = true), FrameLayout.LayoutParams(-1, -2))
-    }
-
-    private fun navigation(label: String, description: String, step: Int) = Button(store).apply {
-        text = label
-        textSize = 24f
-        contentDescription = description
-        setTextColor(0xFF422B1C.toInt())
-        backgroundTintList = null
-        background = com.rekixo.ludopaws.core.ui.art.plywoodBackground(store, cornerRadiusDp = 24f)
-        setPadding(0, 0, 0, 0)
-        setOnClickListener { show(step); schedule() }
     }
 
     private fun schedule() {
@@ -116,5 +78,4 @@ internal class StoreLockedSpotlightView(
     }
     override fun onAttachedToWindow() { super.onAttachedToWindow(); schedule() }
     override fun onDetachedFromWindow() { removeCallbacks(cycle); super.onDetachedFromWindow() }
-    private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()
 }

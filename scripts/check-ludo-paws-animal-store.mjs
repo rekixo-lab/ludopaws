@@ -61,8 +61,8 @@ for (const category of ["BOARD", "DICE", "CHARACTER_PACK"]) {
   requireText(featuredUi, `CosmeticCategory.${category}`, `Locked ${category} products need a real preview.`);
   requireText(contentUi, `CosmeticCategory.${category}`, `${category} Store tab needs the shared spotlight.`);
 }
-requireText(featuredUi, 'navigation("‹", "Previous locked product", -1)', "Locked products need manual backward navigation.");
-requireText(featuredUi, 'navigation("›", "Next locked product", 1)', "Locked products need manual forward navigation.");
+requireText(featuredUi, "show(1)", "Locked product spotlights must still advance automatically.");
+requireText(featuredUi, "postDelayed(cycle, 7000L)", "Locked product rotation interval must be preserved.");
 requireText(actions, "CONTENT_UNAVAILABLE", "Unavailable pack taps must be handled without spending value.");
 requireText(actions, "NEED_EVENT", "Event pack UX is missing.");
 
