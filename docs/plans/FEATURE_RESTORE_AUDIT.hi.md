@@ -49,3 +49,7 @@ node scripts/android-local-testing.mjs configure
 Merge conflict markers, obsolete variant references, Home/Share/Store entry points, age-popup interaction, release fragment rule और critical lifecycle/storage paths का source review किया गया। चार edited JS files का non-executing syntax parse (`node --check`) और diff whitespace check किया गया; application/test suite नहीं चली। Imported runner/privacy test fixtures नई single-app requirement के अनुसार update हैं, executed नहीं हैं।
 
 APK build/install, unit/server/instrumentation tests, lint, real payment/ad request, backend deploy और Play release नहीं किए गए। Latest merged Kotlin source का compilation तथा real-device acceptance अभी बाकी है। सभी दस चरणों के बाद combined verification वाला user निर्णय बना है।
+
+## User build log के बाद correction
+
+User के build में चार Kotlin errors मिले: CosmeticInventoryStore में दो पुराने `developerDicePreviewAllowed` references और StoreActivity में duplicate `onResume` declarations। ये merge review में छूटे थे। Deleted preview helper की cleanup branches हटाई गईं; Store showcase/referral resume और billing purchase-refresh को एक ही lifecycle method में रखा गया। Main Activity files में duplicate lifecycle declarations और removed developer symbols का source scan किया; अन्य matches नहीं मिले। Diff whitespace check साफ है। इस correction पर agent ने नया build/lint/test run नहीं किया; user का अगला build compilation का प्रमाण देगा। RECORD_AUDIO remove-marker warning build failure का कारण नहीं था; family permission-removal directive रखा गया है।

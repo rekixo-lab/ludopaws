@@ -169,6 +169,9 @@ class StoreActivity :
         showcaseResumed = true
         referralPromotions.resume()
         featuredPawsCard?.setActive(true)
+        // Play approval/payment may finish while this Activity is only paused.
+        // Refresh owned purchases even when onStart is not called again.
+        if (billingWasCreated && billingAvailable) billing.refreshPurchases()
     }
 
     override fun onPause() {
@@ -331,13 +334,6 @@ class StoreActivity :
             }
         }
     }
-    override fun onResume() {
-        super.onResume()
-        // Play approval/payment may finish while this Activity is only paused.
-        // Refresh owned purchases even when onStart is not called again.
-        if (billingWasCreated && billingAvailable) billing.refreshPurchases()
-    }
-
     override fun onStop() {
         storeStarted = false
         checkoutGeneration += 1

@@ -68,17 +68,11 @@ class CosmeticInventoryStore(
         val current = StoreCosmeticCatalog.find(cosmetic.id) ?: return false
         if (current.category != cosmetic.category || !isShippedFreeCosmetic(current)) return false
         prefs.edit().putString("offline_selection_" + current.category.name, current.id).apply()
-        if (current.category == CosmeticCategory.DICE && developerDicePreviewAllowed()) {
-            prefs.edit().remove("developer_dice_preview").apply()
-        }
         return true
     }
 
     fun clearOfflineSelection(category: CosmeticCategory) {
         prefs.edit().remove("offline_selection_" + category.name).apply()
-        if (category == CosmeticCategory.DICE && developerDicePreviewAllowed()) {
-            prefs.edit().remove("developer_dice_preview").apply()
-        }
     }
 
     fun isOwned(
