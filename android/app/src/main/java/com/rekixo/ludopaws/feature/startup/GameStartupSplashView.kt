@@ -77,10 +77,10 @@ class GameStartupSplashView(
             scaleType = ImageView.ScaleType.FIT_CENTER
             contentDescription = "Ludo Paws game logo"
             adjustViewBounds = true
-            setPadding(dp(12), dp(18), dp(12), dp(18))
-        }, LayoutParams(dp(300), -1, Gravity.CENTER).apply {
-            // The surrounding center clips/constrains artwork on short windows.
-            width = minOf(dp(300), resources.displayMetrics.widthPixels - dp(48))
+            setPadding(dp(6), dp(9), dp(6), dp(9))
+        }, LayoutParams(dp(150), -1, Gravity.CENTER).apply {
+            // Halve both width and horizontal padding so visible artwork is half-size.
+            width = minOf(dp(300), resources.displayMetrics.widthPixels - dp(48)) / 2
         })
         column.addView(caption, LinearLayout.LayoutParams(-1, -2))
         column.addView(progress, LinearLayout.LayoutParams(-1, dp(24)).apply { topMargin = dp(12) })
@@ -139,7 +139,7 @@ class GameStartupSplashView(
 private class RoundedSplashLogo(activity: Activity) : ImageView(activity) {
     private val artworkBounds = RectF()
     private val roundedArtwork = Path()
-    private val radius = 26f * resources.displayMetrics.density
+    private val radius = 36f * resources.displayMetrics.density
 
     override fun onDraw(canvas: Canvas) {
         val art = drawable ?: return

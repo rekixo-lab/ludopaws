@@ -26,3 +26,7 @@ User ने square corners और bottom-touching track report किया औ�
 - Game splash का minimum 1000ms उसके वास्तविक first dispatchDraw के बाद शुरू होता है। Account/artwork पहले ready हों तब भी Home इस interval से पहले नहीं खुलता। Unknown work का existing 3000ms account grace और local watchdog/error/retry contract बरकरार है। Ready state का interval fake progress नहीं भरता।
 - Home पहले दिख चुका हो तो saved-state/process session branch native gate/custom splash delay bypass करती है। सामान्य foreground resume और दूसरे page से Back पर startup sequence नहीं दोहरती। Timer stop/destroy cleanup और resume re-evaluation हैं; retry को नया splash interval मिलता है।
 - Source recheck: first-frame gate, cached artwork, settled/slow/offline account, grace/watchdog, retry, Home restoration और lifecycle paths पढ़े; whitespace साफ। इस timing-only iteration में नया build/device recording या test suite नहीं चला है। पिछली device recording rounded-logo/spacing fix की है, इस नए timing की acceptance नहीं।
+
+## Logo size refinement
+
+User के नवीन निर्देश पर game-splash logo width और horizontal padding दोनों आधे किए (300dp container →150dp; 12dp horizontal inset →6dp)। Portrait में actual visible artwork 276dp→138dp है। Actual artwork clipping radius 26dp→36dp बढ़ा; bounds clamp बना है। Rekixo native branding, progress placement और one-second timing इस change में नहीं बदले। Source diff/whitespace recheck किया; नया build/device run/tests नहीं चलाए।
