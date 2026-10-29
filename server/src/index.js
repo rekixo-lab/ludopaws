@@ -557,14 +557,15 @@ export default {
             )
             ? "state"
             : "mutation";
-      // Authenticated gameplay is rate-limited inside its authoritative room.
-      // Joining and unauthenticated requests retain the public edge gate.
-      if (action === "join" || !/^Bearer\s+\S{1,256}$/i.test(authorization ?? "")) {
+      // Aggregate pre-auth traffic across rooms; Bearer syntax does not prove identity.
+      {
         await enforceRateLimit(
           env,
           request,
-          policyKey + ":" + matchId,
-          RATE_POLICIES[policyKey],
+          "match-aggregate:" + policyKey,
+          // Permit several legitimate seats behind one household/NAT while
+          // retaining the stricter authenticated per-player room limits.
+          RATE_POLICIES[policyKey] * (policyKey === "join" ? 1 : 8),
         );
       }
 

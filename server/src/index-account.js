@@ -456,6 +456,7 @@ export async function handleAccountRequest(request, env) {
         const response = await playerResponse(env, verified.accountId, "/wallet/reward-ad", {
           accountId: verified.accountId,
           transactionId: verified.transactionId,
+          requestId: verified.requestId,
           kind: verified.kind,
           cosmeticId: verified.cosmeticId,
           catalogCountry: requestCatalogCountry(request),

@@ -123,6 +123,8 @@ object GameMusicController {
 
     @Synchronized
     fun release() {
+        musicGeneration++
+        preparingPlayer = false
         mainHandler.removeCallbacks(
             restoreVolumeRunnable,
         )
@@ -176,27 +178,34 @@ object GameMusicController {
         }
     }
 
-    private fun ensurePlayer(
-        context: Context,
-    ) {
-        if (player != null) {
-            return
-        }
+    private var preparingPlayer = false
+    private var musicGeneration = 0L
+    private val musicPreparation = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsMusicPreparation").apply { isDaemon = true }
+    }
 
-        val authoredPlayer =
-            authoredBackgroundMusicPaths(context)
-                .firstNotNullOfOrNull { assetPath ->
-                    createAssetPlayer(context, assetPath)
+    private fun ensurePlayer(context: Context) {
+        if (player != null || preparingPlayer) return
+        preparingPlayer = true
+        val generation = musicGeneration
+        val app = context.applicationContext
+        musicPreparation.execute {
+            val prepared = runCatching {
+                val authored = authoredBackgroundMusicPaths(app).firstNotNullOfOrNull { createAssetPlayer(app, it) }
+                (authored ?: MediaPlayer.create(app, R.raw.ludoproof_theme))?.apply { isLooping = true }
+            }.getOrNull()
+            mainHandler.post {
+                synchronized(this) {
+                    if (generation != musicGeneration) {
+                        prepared?.release()
+                        return@synchronized
+                    }
+                    preparingPlayer = false
+                    player = prepared
+                    if (prepared != null) sync(app)
                 }
-        player =
-            (authoredPlayer ?: MediaPlayer.create(context, R.raw.ludoproof_theme))
-                ?.apply {
-                    isLooping = true
-                    setVolume(
-                        currentTargetVolume(),
-                        currentTargetVolume(),
-                    )
-                }
+            }
+        }
     }
 
     /**

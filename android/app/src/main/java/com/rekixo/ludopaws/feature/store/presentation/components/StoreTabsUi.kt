@@ -21,7 +21,7 @@ internal fun StoreActivity.storeTabs():
 
         StoreTab
             .entries
-            .filter { com.rekixo.ludopaws.BuildConfig.LUDOPROOF_BILLING_ENABLED || it != StoreTab.GEMS }
+            .filter { com.rekixo.ludopaws.BuildConfig.LUDOPROOF_BILLING_ENABLED || com.rekixo.ludopaws.BuildConfig.LUDOPROOF_ADS_ENABLED || it != StoreTab.GEMS }
             .forEach {
                     tab ->
                 val selected =

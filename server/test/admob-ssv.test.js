@@ -142,3 +142,17 @@ test("AdMob test signature wins over a colliding production key ID and never gra
     (error) => error.code === "SSV_TRANSACTION_INVALID",
   );
 });
+
+test("signed custom-data request ID is returned for exact reward correlation", async () => {
+  const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const spki = await crypto.subtle.exportKey("spki", pair.publicKey);
+  const fetchImpl = async () => Response.json({ keys: [{ keyId: 129, base64: base64(spki) }] });
+  const now = Date.now();
+  const requestId = "00000000-0000-4000-8000-000000000099";
+  const request = await signedRequest({ privateKey: pair.privateKey, keyId: 129,
+    accountId: "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7", adUnit: "1234567890",
+    customData: JSON.stringify({ kind: "gems", requestId }), timestamp: now,
+    transactionId: "a1b2c3d4e5f60718293a4b5c6d7e8f90" });
+  const result = await verifyAdMobSsvRequest(request, { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-1234567890123456/1234567890", LUDOPROOF_ADMOB_REWARD_ITEM: "gems" }, fetchImpl, now);
+  assert.equal(result.requestId, requestId);
+});

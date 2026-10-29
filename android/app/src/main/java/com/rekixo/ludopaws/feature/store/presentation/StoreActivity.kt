@@ -2,7 +2,6 @@ package com.rekixo.ludopaws.feature.store.presentation
 
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
@@ -10,6 +9,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.LudoProofApplication
@@ -30,6 +30,7 @@ import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.components.storeContent
 import com.rekixo.ludopaws.feature.store.presentation.components.storeHeader
 import com.rekixo.ludopaws.feature.store.presentation.components.pinnedRemoveAdsContent
+import com.rekixo.ludopaws.feature.store.presentation.components.rewardedAdCard
 import com.rekixo.ludopaws.feature.store.presentation.components.storeTabs
 import java.util.concurrent.Executors
 import org.json.JSONObject
@@ -53,6 +54,11 @@ class StoreActivity :
             > =
         emptyMap()
     private var purchaseEligibilityInProgress = false
+    private var rewardRequestInProgress = false
+    private var checkoutGeneration = 0
+    private var storeStarted = false
+    private var pendingCheckoutProductId: String? = null
+    private var pendingCheckoutAccountId: String? = null
     private var billingAvailable = false
     private var billingProductCatalogLoaded = false
     private var pendingAutoPurchaseProductId: String? = null
@@ -132,7 +138,7 @@ class StoreActivity :
         selectedTab =
             requestedInitialTab()
                 ?: StoreTab.GEMS
-        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
+        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && !BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
             intent
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
@@ -142,6 +148,7 @@ class StoreActivity :
 
     override fun onStart() {
         super.onStart()
+        storeStarted = true
         if (BuildConfig.DEBUG && BuildConfig.LUDOPAWS_TEST_ADS) rewardedAds.prepare()
         billingAvailable = false
         billingProductCatalogLoaded = false
@@ -287,6 +294,21 @@ class StoreActivity :
             }
         }
     }
+    override fun onResume() {
+        super.onResume()
+        // Play approval/payment may finish while this Activity is only paused.
+        // Refresh owned purchases even when onStart is not called again.
+        if (billingWasCreated && billingAvailable) billing.refreshPurchases()
+    }
+
+    override fun onStop() {
+        storeStarted = false
+        checkoutGeneration += 1
+        clearPendingCheckout()
+        rewardRequestInProgress = false
+        super.onStop()
+    }
+
     override fun onDestroy() {
         if (billingWasCreated) billing.close()
         if (rewardedAdsWasCreated) rewardedAds.close()
@@ -311,105 +333,102 @@ class StoreActivity :
         renderStore()
     }
 
-    internal fun requestPurchase(
-        productId: String,
-    ) {
-        if (
-            !BuildConfig
-                .LUDOPROOF_BILLING_ENABLED
-        ) {
-            showStoreMessage(
-                "Purchases are unavailable in this build.",
-            )
+    internal fun requestPurchase(productId: String) {
+        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED) {
+            showStoreMessage("Purchases are unavailable in this build.")
             return
         }
-        if (!billingAvailable) {
-            showStoreMessage(
-                "Google Play payments are currently unavailable.",
-            )
-            return
-        }
-        if (purchaseEligibilityInProgress || !canRenderStoreUi()) return
-        val expectedAccountId = accountRepository.currentSession()?.accountId ?: run {
-            showStoreMessage("Reconnect to your game account before purchasing.")
-            return
-        }
+        if (StoreCatalog.find(productId) == null || purchaseEligibilityInProgress || !storeStarted || !canRenderStoreUi()) return
+        pendingAutoPurchaseProductId = null
+        val expectedAccountId = accountRepository.currentSession()?.accountId
+        val generation = checkoutGeneration
         purchaseEligibilityInProgress = true
+        updateCheckoutStatus()
+        // Recheck availability on every explicit attempt: a failed Store bootstrap
+        // must not require navigating away after connectivity returns.
         billingExecutor.execute {
-            var googleLinked = false
-            var errorMessage: String? = null
             try {
-                check(accountRepository.ensureGuestSession().accountId == expectedAccountId) { "The active account changed. Please try again." }
-                val links = accountRepository.linkedIdentities()
-                check(links.optString("accountId") == expectedAccountId) { "The account response changed. Please try again." }
-                googleLinked = links.optBoolean("googleLinked", false)
+                val session = accountRepository.ensureGuestSession()
+                check(expectedAccountId == null || session.accountId == expectedAccountId) {
+                    "The active account changed. Please try again."
+                }
+                val status = accountRepository.storeStatus()
+                check(status.optBoolean("billingAvailable", false)) {
+                    "Google Play payments are currently unavailable. Please try again later."
+                }
+                runOnUiThread {
+                    if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
+                    if (!com.rekixo.ludopaws.feature.store.domain.PurchaseAccountSafety.canLaunch(
+                            session.accountId, accountRepository.currentSession()?.accountId)) {
+                        clearPendingCheckout()
+                        showStoreMessage("The active account changed. Please try again.")
+                        return@runOnUiThread
+                    }
+                    if (productId == StoreCatalog.REMOVE_ADS && wallet.adsRemoved()) {
+                        clearPendingCheckout()
+                        showStoreMessage("Remove Ads is already active for this account.")
+                        return@runOnUiThread
+                    }
+                    billingAvailable = true
+                    billingProductCatalogLoaded = false
+                    pendingCheckoutProductId = productId
+                    pendingCheckoutAccountId = session.accountId
+                    updateCheckoutStatus()
+                    billing.updateAccountId(session.billingAccountId)
+                    billing.connect()
+                }
             } catch (error: Exception) {
-                errorMessage = "Your saved account could not be checked. Reconnect and try again."
-            }
-            runOnUiThread {
-                purchaseEligibilityInProgress = false
-                if (!canRenderStoreUi()) return@runOnUiThread
-                val failure = errorMessage
-                if (failure != null) { showStoreMessage(failure); return@runOnUiThread }
-                if (accountRepository.currentSession()?.accountId != expectedAccountId) {
-                    showStoreMessage("The active account changed. Please try again.")
-                    return@runOnUiThread
+                runOnUiThread {
+                    if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
+                    clearPendingCheckout()
+                    showStoreMessage(error.message ?: "Could not connect to Google Play. Check your connection and try again.")
                 }
-                if (!googleLinked) {
-                    PlywoodAlertDialogBuilder(this)
-                        .setTitle("Save your account before purchasing")
-                        .setMessage("Save this game account to an eligible Google account so you can recover its wallet and purchases after reinstalling or changing phones. A parent or guardian can manage this. Playing and rewarded ads do not require Google sign-in.")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Save account") { _, _ ->
-                            startActivity(Intent(this, com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity::class.java)
-                                .putExtra("open_account_actions", true))
-                        }
-                        .show()
-                    return@runOnUiThread
-                }
-                confirmSavedAccountPurchase(productId, expectedAccountId)
             }
         }
     }
 
-    private fun confirmSavedAccountPurchase(productId: String, expectedAccountId: String) {
-        PlywoodAlertDialogBuilder(this)
-            .setTitle("Google Play purchase")
-            .setMessage("This purchase costs real money. Google Play will show the local price before payment. Children should ask a parent or guardian. No payment is made by opening this confirmation.")
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Continue to Google Play") { _, _ ->
-                if (canRenderStoreUi() && com.rekixo.ludopaws.feature.store.domain.PurchaseAccountSafety.canLaunch(
-                        expectedAccountId, accountRepository.currentSession()?.accountId, googleLinked = true)) {
-                    if (purchaseEligibilityInProgress) return@setPositiveButton
-                    purchaseEligibilityInProgress = true
-                    // A confirmation can remain open past token expiry. Refresh off the UI
-                    // thread, then recheck attribution before opening Google's payment sheet.
-                    billingExecutor.execute {
-                        try {
-                            val session = accountRepository.requireSession()
-                            check(session.accountId == expectedAccountId) { "The active account changed. Please try again." }
-                            runOnUiThread {
-                                purchaseEligibilityInProgress = false
-                                if (!canRenderStoreUi()) return@runOnUiThread
-                                if (accountRepository.currentSession()?.accountId != expectedAccountId) {
-                                    showStoreMessage("The active account changed. Please try again.")
-                                    return@runOnUiThread
-                                }
-                                billing.updateAccountId(session.billingAccountId)
-                                billing.launchPurchase(productId)
-                            }
-                        } catch (error: Exception) {
-                            runOnUiThread {
-                                purchaseEligibilityInProgress = false
-                                if (canRenderStoreUi()) showStoreMessage("Your account could not be refreshed. Reconnect and try again.")
-                            }
-                        }
-                    }
-                } else if (canRenderStoreUi()) {
-                    showStoreMessage("The active account changed. Please try again.")
-                }
-            }
-            .show()
+    private fun clearPendingCheckout() {
+        purchaseEligibilityInProgress = false
+        pendingCheckoutProductId = null
+        pendingCheckoutAccountId = null
+        updateCheckoutStatus()
+    }
+
+    private fun updateCheckoutStatus() {
+        checkoutStatusView?.text = when {
+            pendingCheckoutProductId != null -> "Getting your Google Play price…"
+            purchaseEligibilityInProgress -> "Connecting to Google Play…"
+            else -> "Pay securely with Google Play"
+        }
+    }
+
+    private fun checkoutStatusLabel(): TextView = TextView(this).apply {
+        checkoutStatusView = this
+        textSize = 12f
+        setTextColor(0xFFEED9B7.toInt())
+        gravity = Gravity.CENTER
+        setPadding(dp(8), dp(4), dp(8), dp(4))
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        updateCheckoutStatus()
+    }
+
+    private fun launchReadyCheckout() {
+        val productId = pendingCheckoutProductId ?: return
+        if (!storeStarted || !canRenderStoreUi() || !billingProductCatalogLoaded) return
+        val expectedAccountId = pendingCheckoutAccountId
+        clearPendingCheckout()
+        val currentSession = accountRepository.currentSession()
+        if (!com.rekixo.ludopaws.feature.store.domain.PurchaseAccountSafety.canLaunch(
+                expectedAccountId, currentSession?.accountId)) {
+            showStoreMessage("The active account changed. Please try again.")
+            return
+        }
+        // Google Play displays the price and handles payment authorization. Optional
+        // Google account backup and local age choices do not gate checkout.
+        // A late bootstrap callback may have changed the gateway binding. Pin it
+        // again in this same UI turn, immediately before opening Google's sheet.
+        billing.updateAccountId(requireNotNull(currentSession).billingAccountId)
+        billing.launchPurchase(productId)
     }
 
     internal fun requestRewardedAd(
@@ -427,21 +446,11 @@ class StoreActivity :
             showStoreMessage("Rewarded ads are unavailable in this build.")
             return
         }
-        if (!rewardedAdsStatusLoaded) {
-            val message = if (rewardedAdsStatusError != null) {
-                "The reward service could not be reached. Check your connection and try again."
-            } else {
-                "Connecting to the reward service. Please try again in a moment."
-            }
-            showStoreMessage(message)
-            return
-        }
-        if (!rewardedAdsEnabledByServer) {
-            showStoreMessage("Rewarded ads are currently unavailable from the service. Please try again later.")
-            return
-        }
-
-        val customData = JSONObject()
+        if (rewardRequestInProgress || !storeStarted || !canRenderStoreUi()) return
+        rewardRequestInProgress = true
+        val generation = checkoutGeneration
+        val rewardRequestId = java.util.UUID.randomUUID().toString()
+        val customData = JSONObject().put("requestId", rewardRequestId)
             .put("kind", if (cosmeticId == null) "gems" else "cosmetic")
             .apply {
                 if (cosmeticId != null) put("cosmeticId", cosmeticId)
@@ -454,9 +463,17 @@ class StoreActivity :
         // thread; a slow/expired session must not throw NetworkOnMainThreadException.
         rewardedAdRequestExecutor.execute {
             try {
+                val status = accountRepository.storeStatus()
+                check(status.optBoolean("rewardedAdsAvailable", false)) {
+                    "Rewarded ads are currently unavailable from the service. Please try again later."
+                }
                 val session = accountRepository.ensureGuestSession()
                 runOnUiThread {
-                    if (!canRenderStoreUi()) return@runOnUiThread
+                    if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
+                    rewardRequestInProgress = false
+                    rewardedAdsStatusLoaded = true
+                    rewardedAdsStatusError = null
+                    rewardedAdsEnabledByServer = true
                     val latest = accountRepository.currentSession()
                     if (latest == null || latest.accountId != session.accountId) {
                         showStoreMessage("The signed-in account changed. Reopen the store and try again.")
@@ -468,6 +485,7 @@ class StoreActivity :
                     ) {
                         refreshWalletAfterRewardedAd(
                             accountId = session.accountId,
+                            rewardRequestId = rewardRequestId,
                             initialBalance = initialBalance,
                             cosmeticId = cosmeticId,
                             initialProgress = initialProgress,
@@ -477,9 +495,10 @@ class StoreActivity :
             } catch (error: Exception) {
                 Log.w(TAG, "Rewarded-ad account preparation failed: ${safeErrorSummary(error)}", error)
                 runOnUiThread {
-                    if (!canRenderStoreUi()) return@runOnUiThread
+                    if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
+                    rewardRequestInProgress = false
                     showStoreMessage(
-                        (error as? com.rekixo.ludopaws.feature.account.data.AccountApiException)?.message
+                        error.message
                             ?: "Your account could not be connected to the reward service. Check your connection and try again.",
                     )
                 }
@@ -507,6 +526,7 @@ class StoreActivity :
                 products
             billingProductCatalogLoaded = true
             renderStore()
+            launchReadyCheckout()
             launchPendingAutoPurchaseIfReady()
         }
     }
@@ -751,6 +771,7 @@ class StoreActivity :
 
     private fun refreshWalletAfterRewardedAd(
         accountId: String,
+        rewardRequestId: String,
         initialBalance: Int,
         cosmeticId: String?,
         initialProgress: Int,
@@ -764,14 +785,8 @@ class StoreActivity :
                     if (session.accountId != accountId) break
                     val candidate = accountRepository.wallet()
                     latest = candidate
-                    val currentBalance = candidate.optInt("balance", 0)
-                    val progress = candidate.optJSONObject("rewardedAdProgress")
-                        ?.optInt(cosmeticId ?: "", 0) ?: 0
-                    changed = if (cosmeticId == null) {
-                        currentBalance > initialBalance
-                    } else {
-                        progress > initialProgress
-                    }
+                    val receipts = candidate.optJSONArray("creditedAdRequestIds")
+                    changed = receipts != null && (0 until receipts.length()).any { receipts.optString(it) == rewardRequestId }
                     if (changed) break
                 } catch (error: Exception) {
                     Log.w(TAG, "Waiting for server-verified ad reward", error)
@@ -821,6 +836,7 @@ class StoreActivity :
     ) {
         runOnUiThread {
             if (!canRenderStoreUi()) return@runOnUiThread
+            clearPendingCheckout()
             Toast.makeText(
                 this,
                 message.ifBlank { "Google Play payments are unavailable." },
@@ -884,8 +900,46 @@ class StoreActivity :
         }
     }
 
+    private var checkoutStatusView: TextView? = null
+    private var stableStorePage: LinearLayout? = null
+    private var stableStoreHeader: LinearLayout? = null
+    private var stableStoreCatalog: FrameLayout? = null
+    private var stableStoreScroll: ScrollView? = null
+    private var renderedStoreTab: StoreTab? = null
+    private var renderedCatalogKey: String? = null
+    private val storeScrollPositions = mutableMapOf<StoreTab, Int>()
+
     internal fun renderStore() {
         if (!canRenderStoreUi()) return
+
+        val inventoryKey = getSharedPreferences(com.rekixo.ludopaws.feature.store.data.local.StorePreferences.PREFS_NAME, MODE_PRIVATE)
+            .all.toSortedMap().toString()
+        val contentKey = listOf(selectedTab, StoreCosmeticCatalog.all.hashCode(), inventoryKey,
+            liveProducts.toString(), billingAvailable, adsEnabledForBuild).joinToString("|")
+        stableStorePage?.let {
+            val scroll = requireNotNull(stableStoreScroll)
+            renderedStoreTab?.let { tab -> storeScrollPositions[tab] = scroll.scrollY }
+            val header = requireNotNull(stableStoreHeader)
+            header.removeAllViews()
+            header.addView(storeHeader())
+            header.addView(storeTabs(), LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(14) })
+            if (selectedTab == StoreTab.GEMS) {
+                if (BuildConfig.LUDOPROOF_BILLING_ENABLED) header.addView(pinnedRemoveAdsContent())
+                else if (BuildConfig.LUDOPROOF_ADS_ENABLED) header.addView(rewardedAdCard())
+            }
+            if (BuildConfig.LUDOPROOF_BILLING_ENABLED) header.addView(checkoutStatusLabel())
+            if (renderedCatalogKey != contentKey) {
+                val catalog = requireNotNull(stableStoreCatalog)
+                val width = catalog.getChildAt(0)?.layoutParams?.width ?: -1
+                catalog.removeAllViews()
+                catalog.addView(storeContent(), FrameLayout.LayoutParams(width, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+                val y = storeScrollPositions[selectedTab] ?: 0
+                scroll.post { if (renderedCatalogKey == contentKey) scroll.scrollTo(0, y) }
+            }
+            renderedStoreTab = selectedTab
+            renderedCatalogKey = contentKey
+            return
+        }
 
         val (root, host) =
             LudoProofTheme.arcadeRoot(
@@ -968,6 +1022,12 @@ class StoreActivity :
             )
         }
 
+        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
+            fixedHeader.addView(rewardedAdCard())
+        }
+
+        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) fixedHeader.addView(checkoutStatusLabel())
+
         val scroll =
             ScrollView(this).apply {
                 isFillViewport = true
@@ -1009,6 +1069,12 @@ class StoreActivity :
             ),
         )
 
+        stableStorePage = page
+        stableStoreHeader = fixedHeader
+        stableStoreCatalog = scrollContentHost
+        stableStoreScroll = scroll
+        renderedStoreTab = selectedTab
+        renderedCatalogKey = contentKey
         setContentView(root)
     }
 

@@ -41,6 +41,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             isDither = true
         }
 
+    private val portraitBounds = RectF(0f, 0f, 100f, 100f)
     private var characterId: String =
         LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
     private var ringColor: Int =
@@ -149,7 +150,7 @@ class LudoPawsCharacterAvatarView @JvmOverloads constructor(
             canvas.drawBitmap(
                 portrait,
                 null,
-                RectF(0f, 0f, 100f, 100f),
+                portraitBounds,
                 portraitPaint,
             )
         } else {

@@ -1,0 +1,22 @@
+{
+  "phase": 1,
+  "result": "specification_complete",
+  "runtime_implementation": "pending_phases_2_to_4",
+  "checks": {
+    "acceptance_scenarios": 16,
+    "scenario_ids_unique": true,
+    "core_states_present": true,
+    "canonical_plan_link_exists": true,
+    "git_diff_whitespace_check": "passed",
+    "kotlin_source_changes_since_prior_validation": 0
+  },
+  "branding": {
+    "repository": "rekixo-lab/rekixo-site",
+    "commit": "5e52ab17d0d6d8b4975e567cf2dc6b43adae096a",
+    "path": "public/rekixo-logo-static.svg",
+    "viewBox": "0 0 1737 402",
+    "svg_read": true
+  },
+  "runtime_tests_run_this_phase": false,
+  "code_or_live_price_changes_this_phase": false
+}

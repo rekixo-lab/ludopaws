@@ -13,6 +13,8 @@ import java.time.LocalDate
 
 class ProfileStore(
     context: Context,
+    private val fixedAccountId: String? = null,
+    private val pinAccountScope: Boolean = false,
 ) {
     private val appContext = context.applicationContext
     private val prefs =
@@ -25,8 +27,12 @@ class ProfileStore(
      * Pins the legacy local profile to the currently active guest/account before account switching.
      * Old stats are never silently copied into a different restored account.
      */
-    @Synchronized
     fun ensureCurrentAccountScope(): Boolean {
+        if (fixedAccountId != null || pinAccountScope) return false
+        synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
         val accountId = AccountSessionStore(appContext).load()?.accountId ?: return false
         val targetKey = PROFILE_JSON_PREFIX + accountId
         val editor = prefs.edit()
@@ -37,18 +43,28 @@ class ProfileStore(
         editor.putBoolean(KEY_LEGACY_PROFILE_MIGRATED, true)
         check(editor.commit()) { "Profile account scope could not be saved safely" }
         return true
+
+        } finally { operationStorageKey = priorKey }
+        }
     }
 
-    @Synchronized
     fun clearForAccountDeletion(accountId: String) {
+        synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
         require(accountId.matches(Regex("^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$", RegexOption.IGNORE_CASE)))
         check(
             prefs.edit()
+                .putStringSet("deleted_profile_accounts", prefs.getStringSet("deleted_profile_accounts", emptySet()).orEmpty() + accountId)
                 .remove(PROFILE_JSON_PREFIX + accountId)
                 .remove(KEY_PROFILE_JSON)
                 .remove(KEY_QUARANTINED_PROFILE_JSON)
                 .commit(),
         ) { "Local profile data could not be cleared after account deletion." }
+
+        } finally { operationStorageKey = priorKey }
+        }
     }
 
     /**
@@ -56,8 +72,11 @@ class ProfileStore(
      * device/session. If an old account is still active, pin its local profile to that account;
      * otherwise preserve the old profile in quarantine and mark migration complete.
      */
-    @Synchronized
     fun prepareForAccountRestore(): Boolean {
+        synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
         val accountId = AccountSessionStore(appContext).load()?.accountId
         val migrated = prefs.getBoolean(KEY_LEGACY_PROFILE_MIGRATED, false)
         val legacy = prefs.getString(KEY_PROFILE_JSON, null)
@@ -74,22 +93,30 @@ class ProfileStore(
             .remove(KEY_PROFILE_JSON)
         check(editor.commit()) { "Legacy profile could not be isolated before account restore" }
         return true
+
+        } finally { operationStorageKey = priorKey }
+        }
     }
 
+    private var operationStorageKey: String? = null
     private fun profileStorageKey(): String {
-        val accountId = AccountSessionStore(appContext).load()?.accountId
+        operationStorageKey?.let { return it }
+        if (pinAccountScope) return fixedAccountId?.let { PROFILE_JSON_PREFIX + it } ?: KEY_PROFILE_JSON
+        val accountId = fixedAccountId ?: AccountSessionStore(appContext).load()?.accountId
         return accountId?.let { PROFILE_JSON_PREFIX + it } ?: KEY_PROFILE_JSON
     }
 
     fun snapshot():
         ProfileSnapshot =
-        load()
-            .toSnapshot()
+        synchronized(PROFILE_LOCK) { load().toSnapshot() }
 
-    @Synchronized
     fun updateDisplayName(
         value: String,
     ): ProfileSnapshot {
+        synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
         val normalized =
             value
                 .trim()
@@ -113,15 +140,22 @@ class ProfileStore(
         )
         return state
             .toSnapshot()
+
+        } finally { operationStorageKey = priorKey }
+        }
     }
 
-    @Synchronized
     fun recordCompletedMatch(
         matchId: String,
         mode: ProfileGameMode,
         source: ProfileMatchSource,
         won: Boolean,
     ): Boolean {
+        synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
+        if (fixedAccountId != null && fixedAccountId in prefs.getStringSet("deleted_profile_accounts", emptySet()).orEmpty()) return false
         if (
             matchId.isBlank()
         ) {
@@ -240,12 +274,18 @@ class ProfileStore(
             state,
         )
         return true
+
+        } finally { operationStorageKey = priorKey }
+        }
     }
 
-    @Synchronized
     fun addPurchase(
         productId: String,
     ): Boolean {
+        synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
         val normalized =
             productId
                 .trim()
@@ -270,13 +310,16 @@ class ProfileStore(
             state,
         )
         return true
+
+        } finally { operationStorageKey = priorKey }
+        }
     }
 
     private fun load():
         MutableProfileState {
         var storageKey = profileStorageKey()
         var raw = prefs.getString(storageKey, null)
-        if (raw == null && storageKey != KEY_PROFILE_JSON &&
+        if (raw == null && fixedAccountId == null && !pinAccountScope && storageKey != KEY_PROFILE_JSON &&
             !prefs.getBoolean(KEY_LEGACY_PROFILE_MIGRATED, false)
         ) {
             ensureCurrentAccountScope()
@@ -499,7 +542,7 @@ class ProfileStore(
 
         val storageKey = profileStorageKey()
         val editor = prefs.edit().putString(storageKey, json.toString())
-        if (storageKey != KEY_PROFILE_JSON) {
+        if (storageKey != KEY_PROFILE_JSON && fixedAccountId == null && !pinAccountScope) {
             editor.putBoolean(KEY_LEGACY_PROFILE_MIGRATED, true)
         }
         check(editor.commit()) {
@@ -615,6 +658,8 @@ class ProfileStore(
     }
 
     private companion object {
+        private val PROFILE_LOCK = Any()
+
         const val PREFS_NAME =
             "ludoproof_profile"
         const val KEY_PROFILE_JSON =

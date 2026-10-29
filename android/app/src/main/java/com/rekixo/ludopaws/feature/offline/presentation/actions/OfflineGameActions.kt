@@ -14,7 +14,7 @@ import com.rekixo.ludopaws.ui.offline.gameplay.renderGame
 
 internal fun OfflineGameActivity.rollOffline() {
     val control = diceHost ?: return
-    if (!control.isEnabled) return
+    if (!control.isEnabled || !offlineActionsAllowed || offlineRollInFlight) return
 
     val activeId = engine.activePlayerId()
     if (engine.isComputerPlayer(activeId)) return
@@ -33,10 +33,9 @@ internal fun OfflineGameActivity.rollOffline() {
 
     handler.postDelayed(
         {
+            if (!offlineActionsAllowed) return@postDelayed
             val previous = session.snapshot()
-            runCatching {
-                session.roll()
-            }.onSuccess { state ->
+            prepareOfflineRoll().onSuccess { state ->
                 OfflineLudoPawsFeedbackDispatcher.committed(
                     context = this,
                     previous = previous,
@@ -61,7 +60,7 @@ internal fun OfflineGameActivity.rollOffline() {
 internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
     state: MatchSnapshot,
 ) {
-    if (!isComputerMode || state.status != "ACTIVE") {
+    if (!offlineActionsAllowed || offlineRollInFlight || !isComputerMode || state.status != "ACTIVE") {
         computerActionRevision = null
         return
     }
@@ -91,7 +90,8 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
         showStatus(active.displayName + " is rolling…")
         handler.postDelayed(
             {
-                val latest = session.snapshot()
+                if (!offlineActionsAllowed) return@postDelayed
+            val latest = session.snapshot()
                 val latestActive =
                     latest?.players?.getOrNull(latest.turnSeat)
                 if (
@@ -103,9 +103,7 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
                     return@postDelayed
                 }
 
-                runCatching {
-                    session.roll()
-                }.onSuccess { next ->
+                prepareOfflineRoll().onSuccess { next ->
                     OfflineLudoPawsFeedbackDispatcher.committed(
                         context = this,
                         previous = latest,
@@ -143,6 +141,7 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
     showStatus(active.displayName + " is choosing a move…")
     handler.postDelayed(
         {
+            if (!offlineActionsAllowed) return@postDelayed
             val latest = session.snapshot()
             val latestActive =
                 latest?.players?.getOrNull(latest.turnSeat)
@@ -261,4 +260,29 @@ internal fun OfflineGameActivity.showStatus(
     value: String,
 ) {
     statusText?.text = value
+}
+
+/** Derive and verify on one worker; commit only to the still-current foreground generation. */
+internal class OfflineRollCompletion {
+    var success: (MatchSnapshot) -> Unit = {}
+    var failure: (Throwable) -> Unit = {}
+    fun onSuccess(action: (MatchSnapshot) -> Unit) = apply { success = action }
+    fun onFailure(action: (Throwable) -> Unit) = apply { failure = action }
+}
+
+internal fun OfflineGameActivity.prepareOfflineRoll(): OfflineRollCompletion {
+    val completion = OfflineRollCompletion()
+    val generation = offlineGeneration
+    val work = runCatching { engine.prepareRoll() }
+    offlineRollInFlight = true
+    offlineRollExecutor.execute {
+        val prepared = work.mapCatching { it.invoke() }
+        handler.post {
+            if (generation != offlineGeneration || !offlineActionsAllowed) return@post
+            offlineRollInFlight = false
+            prepared.mapCatching { engine.applyPreparedRoll(it) }
+                .onSuccess(completion.success).onFailure(completion.failure)
+        }
+    }
+    return completion
 }

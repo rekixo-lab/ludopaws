@@ -166,5 +166,8 @@ object OfflineLudoV3Binding {
             "openingRollRequiresAllTokensInYard" to true,
             "openingRollCountsTowardConsecutiveSixes" to false,
             "singleLegalMovePolicy" to "AUTO_MOVE",
-        )
+        ).let { rules ->
+            if (rulesetId == OfflineLudoV6Binding.RULESET_ID) rules + ("receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW)
+            else rules
+        }
 }

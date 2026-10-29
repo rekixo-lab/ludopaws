@@ -417,6 +417,7 @@ class DiceView @JvmOverloads constructor(
         )
     }
 
+    private val renderFrame = DiceRenderFrame(1, false, false, false, 0f, false)
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val size =
@@ -450,9 +451,13 @@ class DiceView @JvmOverloads constructor(
             rendererKey = definition.rendererKey
         }
         val palette = dicePalette()
-        val rect = renderer.draw(canvas, size, palette,
-            DiceRenderFrame(face, rolling, settling, attentionPulsing, borderPulse,
-                turnDeadlineElapsedRealtimeMillis != null))
+        renderFrame.face = face
+        renderFrame.rolling = rolling
+        renderFrame.settling = settling
+        renderFrame.attentionPulsing = attentionPulsing
+        renderFrame.borderPulse = borderPulse
+        renderFrame.hasTurnDeadline = turnDeadlineElapsedRealtimeMillis != null
+        val rect = renderer.draw(canvas, size, palette, renderFrame)
         drawTurnCountdown(canvas, rect, size, palette.borderColor)
 
         canvas.restoreToCount(saveCount)

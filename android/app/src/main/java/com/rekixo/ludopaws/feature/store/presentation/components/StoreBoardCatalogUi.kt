@@ -21,49 +21,22 @@ private const val LOCKED_BOARD_TITLE = "LOCKED BOARD"
 internal fun StoreActivity.boardCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-
-        // Render the full catalog. Draft content stays non-clickable until its
-        // renderer/artwork gate is explicitly enabled in the catalog.
         val panels = StoreCosmeticCatalog.boards
-
-        // Use the same two-card row rhythm as Paws so every board preview gets more room.
-        panels.chunked(2).forEachIndexed { rowIndex, rowBoards ->
-            val row =
-                LinearLayout(this@boardCatalogContent).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.TOP
-                }
-
-            rowBoards.forEach { board ->
-                row.addView(
-                    boardPanel(board),
-                    LinearLayout.LayoutParams(
-                        0,
-                        dp(188),
-                        1f,
-                    ).apply {
+        val groups = panels.chunked(2)
+        addView(VirtualCatalogRows(this@boardCatalogContent, groups.size, dp(188), dp(10)) { index ->
+            LinearLayout(this@boardCatalogContent).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+                groups[index].forEach { item ->
+                    addView(boardPanel(item), LinearLayout.LayoutParams(0, dp(188), 1f).apply {
                         setMargins(dp(4), 0, dp(4), 0)
-                    },
-                )
+                    })
+                }
+                repeat(2 - groups[index].size) {
+                    addView(TextView(this@boardCatalogContent), LinearLayout.LayoutParams(0, dp(188), 1f))
+                }
             }
-
-            repeat(2 - rowBoards.size) {
-                row.addView(
-                    TextView(this@boardCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(188), 1f),
-                )
-            }
-
-            addView(
-                row,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply {
-                    if (rowIndex > 0) topMargin = dp(10)
-                },
-            )
-        }
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
     }
 
 private fun StoreActivity.boardPanel(

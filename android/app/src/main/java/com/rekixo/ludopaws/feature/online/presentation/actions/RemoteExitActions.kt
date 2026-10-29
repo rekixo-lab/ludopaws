@@ -57,6 +57,7 @@ internal fun MainActivity.abandonRemoteSessionState(): Boolean {
                     playerId = abandonedPlayerId,
                     playerToken = abandonedPlayerToken,
                     ranked = gameMode.ranked,
+                    ownerAccountId = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this).load()?.accountId,
                 ),
             )
         } catch (error: Exception) {
@@ -209,8 +210,8 @@ private fun recordConfirmedResult(
     operation: PendingRemoteForfeit,
     winnerPlayerId: String?,
 ) {
-    if (operation.ranked) {
-        ProfileStore(context)
+    if (operation.ranked && operation.ownerAccountId != null) {
+        ProfileStore(context, operation.ownerAccountId)
             .recordCompletedMatch(
                 matchId = operation.matchId,
                 mode = ProfileGameMode.CLASSIC,

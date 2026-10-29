@@ -4,6 +4,7 @@ import { PlayerAccount } from "../src/player-account.js";
 
 class FakeAccountSql {
   constructor() {
+    this.adReceipts = new Map();
     this.accountMeta = new Map();
     this.deletedAccounts = new Map();
     this.deletionClaims = new Map();
@@ -18,6 +19,10 @@ class FakeAccountSql {
 
   exec(statement, ...params) {
     const sql = String(statement).replace(/\s+/g, " ").trim();
+    if (sql.startsWith("SELECT request_id FROM ad_reward_receipts")) return [...this.adReceipts.keys()].map(request_id => ({ request_id }));
+    if (sql.startsWith("INSERT OR IGNORE INTO ad_reward_receipts")) { this.adReceipts.set(params[0], params[1]); return { rowsWritten: 1 }; }
+    if (sql.startsWith("DELETE FROM ad_reward_receipts WHERE")) { while (this.adReceipts.size > 100) this.adReceipts.delete(this.adReceipts.keys().next().value); return { rowsWritten: 0 }; }
+    if (sql === "DELETE FROM ad_reward_receipts") { this.adReceipts.clear(); return { rowsWritten: 1 }; }
     if (sql.startsWith("INSERT OR IGNORE INTO wallet_revision")) return { rowsWritten: 0 };
     if (sql.startsWith("SELECT revision FROM wallet_revision")) return [{ revision: 0 }];
     if (/^(CREATE TABLE|CREATE INDEX|CREATE TRIGGER)/i.test(sql)) return { rowsWritten: 0 };
@@ -749,4 +754,19 @@ test("only Classic dice are granted; Coming Soon dice cannot consume gems or ads
   }
   assert.equal(sql.wallet.get(accountId).balance, 1000);
   assert.equal(sql.walletTransactions.size, 0);
+});
+
+test("wallet confirms only the signed ad request receipt and preserves it across transaction replay", async () => {
+  const { account } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const created = await (await post(account, "/session/create", { accountId, displayName: "Tester" })).json();
+  const requestId = "00000000-0000-4000-8000-000000000099";
+  const event = { accountId, transactionId: "a1b2c3d4e5f60718293a4b5c6d7e8f90", kind: "gems", requestId };
+  const first = await (await post(account, "/wallet/reward-ad", event)).json();
+  assert.deepEqual(first.wallet.creditedAdRequestIds, [requestId]);
+  assert.equal(first.wallet.balance, 5);
+  const replay = await (await post(account, "/wallet/reward-ad", event)).json();
+  assert.deepEqual(replay.wallet.creditedAdRequestIds, [requestId]);
+  assert.equal(replay.wallet.balance, 5);
+  await post(account, "/account/delete", { accountId, sessionId: created.sessionId, confirmation: "DELETE_MY_ACCOUNT" });
 });

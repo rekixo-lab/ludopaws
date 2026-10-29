@@ -134,6 +134,21 @@ assert.ok(pagesWorkflow.includes("PRICING_RELEASE_REVIEW_REQUIRED"), "Pages work
 
 console.log("One-time purchase policy contract passed: Android, server and public disclosures match.");
 
-assert.ok(storeActivity.includes('googleLinked = links.optBoolean("googleLinked", false)'), "new checkout must verify a recoverable account");
-assert.ok(storeActivity.includes('links.optString("accountId") == expectedAccountId'), "account-link response must belong to the requesting account");
-assert.ok(storeActivity.includes("PurchaseAccountSafety.canLaunch"), "checkout must reject an account switch after confirmation");
+assert.ok(!storeActivity.includes('accountRepository.linkedIdentities()'), "checkout must not require optional Google backup");
+assert.ok(storeActivity.includes("accountRepository.ensureGuestSession()"), "guest checkout must use a server account");
+assert.ok(storeActivity.includes("PurchaseAccountSafety.canLaunch"), "checkout must reject stale account attribution");
+assert.ok(!storeActivity.includes("confirmSavedAccountPurchase"), "explicit product selection must proceed to the Play payment sheet");
+
+const checkoutFlow = storeActivity.slice(storeActivity.indexOf("internal fun requestPurchase("), storeActivity.indexOf("internal fun requestRewardedAd("));
+assert.doesNotMatch(checkoutFlow, /FamilyAgeScreen|googleLinked|linkedIdentities|Save your account/, "optional identity and age choices must not gate guest checkout");
+assert.ok(checkoutFlow.includes("storeStatus()"), "a retry must recheck service availability");
+assert.ok(checkoutFlow.includes("generation != checkoutGeneration"), "a stopped Store must discard stale checkout work");
+for (const disclosure of [pricing, terms, privacy, inAppPolicy]) {
+  assert.ok(disclosure.includes("Guest and Google-linked game accounts can open Google Play checkout"), "guest checkout disclosures must match the app");
+  assert.ok(!disclosure.includes("Before starting a new Google Play purchase, save"), "Google backup must not be mandatory");
+}
+assert.ok(checkoutFlow.includes("billing.updateAccountId(requireNotNull(currentSession).billingAccountId)"), "checkout must pin the current billing binding immediately before Play launch");
+
+assert.ok(storeActivity.includes("override fun onResume()"), "returning from Play must refresh purchases even without onStart");
+assert.ok(storeActivity.includes("billing.refreshPurchases()"), "completed pending purchases must be queried on resume");
+assert.ok(storeActivity.includes("Connecting to Google Play…"), "checkout needs visible progress while connecting");

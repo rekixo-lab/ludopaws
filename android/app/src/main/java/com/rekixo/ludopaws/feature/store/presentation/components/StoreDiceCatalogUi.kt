@@ -22,48 +22,22 @@ private const val LOCKED_DICE_TITLE = "LOCKED DICE"
 internal fun StoreActivity.diceCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-
-        // Render every catalog item. Content availability controls previews; account ownership
-        // controls whether an item is equipped or presented as an unlock offer.
         val panels = StoreCosmeticCatalog.dice
-
-        panels.chunked(2).forEachIndexed { rowIndex, rowDice ->
-            val row =
-                LinearLayout(this@diceCatalogContent).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.TOP
-                }
-
-            rowDice.forEach { dice ->
-                row.addView(
-                    dicePanel(dice),
-                    LinearLayout.LayoutParams(
-                        0,
-                        dp(188),
-                        1f,
-                    ).apply {
+        val groups = panels.chunked(2)
+        addView(VirtualCatalogRows(this@diceCatalogContent, groups.size, dp(188), dp(10)) { index ->
+            LinearLayout(this@diceCatalogContent).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.TOP
+                groups[index].forEach { item ->
+                    addView(dicePanel(item), LinearLayout.LayoutParams(0, dp(188), 1f).apply {
                         setMargins(dp(4), 0, dp(4), 0)
-                    },
-                )
+                    })
+                }
+                repeat(2 - groups[index].size) {
+                    addView(TextView(this@diceCatalogContent), LinearLayout.LayoutParams(0, dp(188), 1f))
+                }
             }
-
-            repeat(2 - rowDice.size) {
-                row.addView(
-                    TextView(this@diceCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(188), 1f),
-                )
-            }
-
-            addView(
-                row,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply {
-                    if (rowIndex > 0) topMargin = dp(10)
-                },
-            )
-        }
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
     }
 
 private fun StoreActivity.dicePanel(

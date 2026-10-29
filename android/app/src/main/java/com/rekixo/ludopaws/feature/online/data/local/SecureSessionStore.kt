@@ -24,6 +24,7 @@ data class PendingRemoteForfeit(
     val playerId: String,
     val playerToken: String,
     val ranked: Boolean,
+    val ownerAccountId: String? = null,
 )
 
 class SecureSessionStore(
@@ -151,7 +152,7 @@ class SecureSessionStore(
         )
         val ciphertext =
             cipher.doFinal(
-                value.playerToken.toByteArray(Charsets.UTF_8),
+                JSONObject().put("token", value.playerToken).put("owner", value.ownerAccountId).toString().toByteArray(Charsets.UTF_8),
             )
         val entry =
             JSONObject()
@@ -207,13 +208,16 @@ class SecureSessionStore(
                 cipher.updateAAD(
                     pendingForfeitAad(matchId, playerId),
                 )
-                val token =
+                val plaintext =
                     cipher.doFinal(
                         Base64.decode(
                             entry.getString(KEY_TOKEN_CIPHERTEXT),
                             Base64.NO_WRAP,
                         ),
                     ).toString(Charsets.UTF_8)
+                val bound = if (plaintext.startsWith("{")) JSONObject(plaintext) else null
+                val token = bound?.getString("token") ?: plaintext
+                val owner = bound?.optString("owner")?.takeIf { it.isNotBlank() && it != "null" }
                 require(PLAYER_TOKEN.matches(token)) {
                     "Pending forfeit player token is invalid"
                 }
@@ -222,6 +226,7 @@ class SecureSessionStore(
                     playerId = playerId,
                     playerToken = token,
                     ranked = entry.getBoolean(KEY_RANKED),
+                    ownerAccountId = owner,
                 )
             }
 

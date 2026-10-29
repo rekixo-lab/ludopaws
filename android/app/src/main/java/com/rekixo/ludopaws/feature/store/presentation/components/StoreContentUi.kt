@@ -55,7 +55,7 @@ private fun StoreActivity.gemsContent():
             StoreCatalog
                 .products
                 .filter {
-                    !it.featured
+                    BuildConfig.LUDOPROOF_BILLING_ENABLED && !it.featured
                 }
 
         packs.chunked(
@@ -372,7 +372,7 @@ private fun StoreActivity.featuredRemoveAdsCard(
         )
     }
 
-private fun StoreActivity.rewardedAdCard():
+internal fun StoreActivity.rewardedAdCard():
     LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
@@ -561,7 +561,7 @@ private fun StoreActivity.storeSafetyNote():
     TextView =
     TextView(this).apply {
         text =
-            "Payments are handled by Google Play. Gems and entitlements are granted only after purchase verification."
+            "Payments are handled by Google Play; no Google account linking in this game is required. Gems and items are granted after verification. Guest purchases stay with this game account; optional account backup is in Profile."
         textSize =
             10f
         setTextColor(

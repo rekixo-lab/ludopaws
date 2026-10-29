@@ -131,7 +131,7 @@ export class MatchRoom extends SocialMatchRoom {
     if (state.status !== "ACTIVE") {
       const ttl = state.status === "FINISHED" ? FINISHED_IDLE_TTL_MS : ACTIVE_IDLE_TTL_MS;
       const updatedAt = Number(state.updatedAt ?? state.createdAt ?? Date.now());
-      await this.ctx.storage.setAlarm(updatedAt + ttl);
+      await this.ctx.storage.setAlarm(state.status === "FINISHED" && state.leaderboardRecordedAt == null ? Date.now() + 60_000 : updatedAt + ttl);
       return false;
     }
     if (state.pendingRoll?.status === "RESOLVED") {

@@ -55,8 +55,9 @@ for (const relative of expectedFiles) {
   found.set(relative, (source.match(/PlywoodAlertDialogBuilder\(/g) ?? []).length);
 }
 const count = [...found.values()].reduce((a, b) => a + b, 0);
-if (count < 29) {
-  throw new Error(`Plywood dialog gate: expected at least 29 migrated call sites including Friends menu, found ${count}`);
+// Guest checkout opens the native Play sheet; the backup and extra confirmation dialogs were removed.
+if (count < 28) {
+  throw new Error(`Plywood dialog gate: expected at least 28 migrated call sites including Friends menu, found ${count}`);
 }
 const friends = fs.readFileSync(path.join(appSource, "feature/friends/presentation/FriendsActivity.kt"), "utf8");
 insist(friends, 'setTitle("FRIEND OPTIONS")', "Friends custom options menu");
@@ -69,9 +70,9 @@ for (const marker of ['"Under 13"', '"18 or older"', '.setOnCancelListener { pen
   insist(age, marker, "age/privacy behavior");
 }
 const store = fs.readFileSync(path.join(appSource, "feature/store/presentation/StoreActivity.kt"), "utf8");
-for (const marker of ["billing.launchPurchase(productId)", "selectCosmetic(", "Continue to Google Play",
-                      "Save your account before purchasing"]) {
-  insist(store, marker, "purchase confirmation behavior");
+for (const marker of ["billing.launchPurchase(productId)", "selectCosmetic(", "launchReadyCheckout()",
+                      "PurchaseAccountSafety.canLaunch"]) {
+  insist(store, marker, "guest checkout behavior");
 }
 const profile = fs.readFileSync(path.join(appSource, "feature/profile/presentation/ProfileActivity.kt"), "utf8");
 for (const marker of ["Delete account and data?", "performAccountDeletion()",

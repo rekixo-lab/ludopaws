@@ -521,6 +521,7 @@ private fun OfflineGameActivity.schedulePresentationUnlock(
 
     handler.postDelayed(
         {
+            if (!offlineActionsAllowed) return@postDelayed
             val latest = session.snapshot() ?: return@postDelayed
             val stillSamePresentation =
                 latest.matchId == matchId &&
@@ -578,6 +579,7 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
     handler.postDelayed(
         {
             if (singleLegalMoveKey != eventKey) return@postDelayed
+            if (!offlineActionsAllowed) return@postDelayed
             val latest = session.snapshot()
             val latestPending = latest?.pendingRoll
             val latestOutcome = latestPending?.outcome

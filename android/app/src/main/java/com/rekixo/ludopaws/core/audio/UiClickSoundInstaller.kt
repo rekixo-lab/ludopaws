@@ -4,7 +4,6 @@ import android.app.Activity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.CompoundButton
 import android.widget.ImageButton
@@ -18,11 +17,12 @@ import java.util.WeakHashMap
  * Adds the authored UI click SFX to native and custom button-like controls
  * without replacing their existing click callbacks.
  *
- * A global-layout observer re-scans rebuilt/dynamically populated screens; each
- * control is hooked only once. Gameplay canvas views are intentionally excluded.
+ * Observe added subtrees instead of traversing the entire screen on each layout.
+ * Each control is hooked once; gameplay canvas views are excluded.
  */
 object UiClickSoundInstaller {
     private val hookedViews = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
+    private val scannedChildren = WeakHashMap<ViewGroup, List<View>>()
     private val observedRoots = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
 
     @Volatile
@@ -35,22 +35,17 @@ object UiClickSoundInstaller {
         val needsObserver = synchronized(observedRoots) {
             observedRoots.add(root)
         }
-        if (needsObserver) {
-            root.viewTreeObserver.addOnGlobalLayoutListener(
-                ViewTreeObserver.OnGlobalLayoutListener {
-                    scan(root)
-                },
-            )
-        }
-        root.post { scan(root) }
+        if (needsObserver) root.post { scan(root) }
     }
 
     private fun scan(view: View) {
         hookIfButtonLike(view)
-        if (view is ViewGroup) {
-            for (index in 0 until view.childCount) {
-                scan(view.getChildAt(index))
-            }
+        if (view is ViewGroup && scannedChildren.put(view, emptyList()) == null) {
+            view.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+                override fun onChildViewAdded(parent: View?, child: View?) { child?.let(::scan) }
+                override fun onChildViewRemoved(parent: View?, child: View?) = Unit
+            })
+            for (index in 0 until view.childCount) scan(view.getChildAt(index))
         }
     }
 

@@ -16,7 +16,46 @@ class LudoProofApplication :
     private lateinit var friendPresence:
         FriendPresenceController
     val accountRepository: AccountRepository by lazy { AccountRepository(this) }
+    val startupArtworkExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsStartupArtwork").apply { isDaemon = true }
+    }
+    val startupSession by lazy {
+        com.rekixo.ludopaws.feature.startup.StartupSessionCoordinator(
+            worker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+                Thread(task, "LudoPawsStartupAccount").apply { isDaemon = true }
+            },
+            dispatch = { action -> lifecycleHandler.post { action() } },
+            load = {
+                try {
+                    val session = accountRepository.ensureGuestSession()
+                    com.rekixo.ludopaws.feature.startup.StartupAccountSnapshot(
+                        when {
+                            session.identityRecoveryPending -> com.rekixo.ludopaws.feature.startup.StartupAccountState.RESTORE_REQUIRED
+                            session.guestRecoveryEligible -> com.rekixo.ludopaws.feature.startup.StartupAccountState.GUEST_READY
+                            else -> com.rekixo.ludopaws.feature.startup.StartupAccountState.SAVED_READY
+                        }, session.accountId,
+                    )
+                } catch (error: com.rekixo.ludopaws.feature.account.data.AccountApiException) {
+                    com.rekixo.ludopaws.feature.startup.StartupAccountSnapshot(
+                        if (error.code == "ACCOUNT_SESSION_REQUIRED" || error.code == "REFRESH_TOKEN_INVALID")
+                            com.rekixo.ludopaws.feature.startup.StartupAccountState.RESTORE_REQUIRED
+                        else com.rekixo.ludopaws.feature.startup.StartupAccountState.RETRY_REQUIRED,
+                    )
+                }
+            },
+            isCurrent = { result -> accountRepository.currentSession()?.accountId == result.accountId },
+        )
+    }
     private var resumedActivities = 0
+    private val lifecycleHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private var appForeground = false
+    private val backgroundTask = Runnable {
+        if (resumedActivities == 0 && appForeground) {
+            appForeground = false
+            if (!friendPresencePausedForAccountSwitch) friendPresence.stop()
+            GameMusicController.onAppBackground()
+        }
+    }
     @Volatile
     private var friendPresencePausedForAccountSwitch = false
 
@@ -30,8 +69,8 @@ class LudoProofApplication :
         CharacterSelectionStore(this).load()
         friendPresence =
             FriendPresenceController(this)
-        // Online entry creates a guest only when needed. Offline play does not
-        // bootstrap an account or initialize a third-party sign-in SDK.
+        // Home's bounded startup prepares the game account on a worker when online.
+        // This does not opt anyone into Google identity or advertising SDKs.
         registerActivityLifecycleCallbacks(this)
     }
 
@@ -44,8 +83,10 @@ class LudoProofApplication :
         // Apply the shared click SFX to this screen's interactive UI controls.
         UiClickSoundInstaller.install(activity)
 
+        lifecycleHandler.removeCallbacks(backgroundTask)
         resumedActivities += 1
-        if (resumedActivities == 1) {
+        if (!appForeground) {
+            appForeground = true
             if (
                 BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
                 !friendPresencePausedForAccountSwitch &&
@@ -64,11 +105,7 @@ class LudoProofApplication :
         resumedActivities =
             (resumedActivities - 1)
                 .coerceAtLeast(0)
-        if (resumedActivities == 0) {
-            if (!friendPresencePausedForAccountSwitch) friendPresence.stop()
-            GameMusicController
-                .onAppBackground()
-        }
+        if (resumedActivities == 0) lifecycleHandler.postDelayed(backgroundTask, 350L)
     }
 
     fun pauseFriendPresenceForAccountSwitch() {
