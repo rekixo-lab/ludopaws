@@ -65,7 +65,7 @@ class GameStartupSplashView(activity: Activity, retry: () -> Unit, exit: () -> U
         column.addView(status, LinearLayout.LayoutParams(-1, -2))
         val center = FrameLayout(context)
         column.addView(center, LinearLayout.LayoutParams(-1, 0, 1f))
-        center.addView(ImageView(context).apply {
+        center.addView(RoundedSplashLogo(activity).apply {
             // Use the actual game logo, never the Home hero/preparation bitmap.
             setImageResource(R.drawable.ic_ludo_paws)
             scaleType = ImageView.ScaleType.FIT_CENTER
@@ -88,13 +88,17 @@ class GameStartupSplashView(activity: Activity, retry: () -> Unit, exit: () -> U
         setPadding(dp(24), dp(24), dp(24), 0)
     }
 
-    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
-        super.onSizeChanged(w, h, oldw, oldh)
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        // Reserve the gap BEFORE measuring the weighted column. Updating a
+        // spacer from onSizeChanged happens during layout, after child measure,
+        // and can leave its initial zero height visible for the whole splash.
+        val h = MeasureSpec.getSize(heightMeasureSpec)
         // Approx. 1.5 physical inches above the bottom safe edge. Cap the gap
         // on landscape/split-screen windows to leave the logo and actions usable.
         val inches = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_IN, 1.5f, resources.displayMetrics).toInt()
         val gap = minOf(inches, ((h - paddingTop - paddingBottom).coerceAtLeast(0) * 0.35f).toInt())
-        clearance.layoutParams = (clearance.layoutParams as LinearLayout.LayoutParams).apply { height = gap }
+        clearance.layoutParams.height = gap
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
 
     fun update(account: StartupAccountSnapshot, localReady: Boolean) {
@@ -112,6 +116,31 @@ class GameStartupSplashView(activity: Activity, retry: () -> Unit, exit: () -> U
         caption.text = "Try again to load the game artwork."
         progress.visibility = View.GONE
         actions.visibility = View.VISIBLE
+    }
+}
+
+/** Clip the actual FIT_CENTER artwork, not the larger ImageView letterbox. */
+private class RoundedSplashLogo(activity: Activity) : ImageView(activity) {
+    private val artworkBounds = RectF()
+    private val roundedArtwork = Path()
+    private val radius = 26f * resources.displayMetrics.density
+
+    override fun onDraw(canvas: Canvas) {
+        val art = drawable ?: return
+        if (art.intrinsicWidth <= 0 || art.intrinsicHeight <= 0) {
+            super.onDraw(canvas)
+            return
+        }
+        artworkBounds.set(0f, 0f, art.intrinsicWidth.toFloat(), art.intrinsicHeight.toFloat())
+        imageMatrix.mapRect(artworkBounds)
+        artworkBounds.offset(paddingLeft.toFloat(), paddingTop.toFloat())
+        roundedArtwork.reset()
+        val corner = minOf(radius, artworkBounds.width() / 2f, artworkBounds.height() / 2f)
+        roundedArtwork.addRoundRect(artworkBounds, corner, corner, Path.Direction.CW)
+        val checkpoint = canvas.save()
+        canvas.clipPath(roundedArtwork)
+        super.onDraw(canvas)
+        canvas.restoreToCount(checkpoint)
     }
 }
 
