@@ -22,7 +22,7 @@ test("character identity wire contract stays backward compatible", () => {
 test("canonical 3D Ludo Paws character IDs are accepted and normalized", () => {
   assert.deepEqual(
     LUDO_PAWS_CHARACTER_IDS,
-    ["dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit"],
+    ["dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit", "panda"],
   );
   assert.equal(normalizeCharacterId(), "dog");
   assert.equal(normalizeCharacterId(null), "dog");

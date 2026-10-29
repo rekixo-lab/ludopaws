@@ -16,5 +16,6 @@ internal object GeneratedCharacterAudioProfiles {
         LudoPawsCharacterAudioProfile("elephant", "elephant", LudoPawsFootstepStyle.PAW, LudoPawsAudioCatalog.Sfx.MOVE_STEP_CAT),
         LudoPawsCharacterAudioProfile("horse", "horse", LudoPawsFootstepStyle.HOOF, LudoPawsAudioCatalog.Sfx.MOVE_STEP_GOAT),
         LudoPawsCharacterAudioProfile("rabbit", "rabbit", LudoPawsFootstepStyle.PAW, LudoPawsAudioCatalog.Sfx.MOVE_STEP_CAT),
+        LudoPawsCharacterAudioProfile("panda", null, LudoPawsFootstepStyle.PAW, LudoPawsAudioCatalog.Sfx.MOVE_STEP_CAT, 0.28f),
     ).associateBy { it.characterId }
 }
