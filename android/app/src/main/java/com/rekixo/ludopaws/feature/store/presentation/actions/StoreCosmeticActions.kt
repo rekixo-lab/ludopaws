@@ -22,6 +22,17 @@ internal fun StoreActivity.handleCosmeticTap(cosmetic: StoreCosmetic) {
         return
     }
 
+    if (cosmetics.selectOwnedLocalCosmetic(cosmetic)) {
+        com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
+        renderStore()
+        showStoreMessage("${cosmetic.title} selected on this device.")
+        return
+    }
+    if (!cosmetic.purchaseAvailable) {
+        showStoreMessage("Connect to refresh this offer before unlocking it. Your owned items remain available.")
+        return
+    }
+
     if (cosmetic.unlockChannels.size > 1) {
         purchaseOrSelectCosmetic(cosmetic)
         return

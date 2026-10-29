@@ -44,7 +44,7 @@ requireText(catalog, "CosmeticUnlockKind.GEMS", "Gem animal-pack progression is 
 requireText(catalog, "CosmeticUnlockKind.REWARDED_ADS", "Rewarded-ad animal-pack progression is missing.");
 requireText(catalog, "CosmeticUnlockKind.EVENT", "Event animal-pack progression is missing.");
 
-const availabilityGuard = inventory.indexOf("if (!cosmetic.contentAvailable)");
+const availabilityGuard = inventory.indexOf("if (!cosmetic.contentAvailable || !cosmetic.purchaseAvailable)");
 const gemDebit = inventory.indexOf("balance -");
 if (availabilityGuard < 0 || gemDebit < 0 || availabilityGuard > gemDebit) {
   throw new Error("Unavailable animal packs must be rejected before any gem debit can occur.");

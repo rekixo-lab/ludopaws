@@ -2,6 +2,8 @@
 
 Reviewed source: `ec3fe2ca`, branch `codex/ludopaws-next-updates`.
 
+**Follow-up:** source fixes for these findings are recorded in `2026-10-30-offline-online-stability-fixes.md`; this document preserves the original audit evidence.
+
 ## Evidence and limits
 
 This is a source-level flow/lifecycle audit with targeted executable policy tests. It is **not** a completed real-device network-toggle acceptance test and does not claim that every line of the project or every layout size has been exercised.

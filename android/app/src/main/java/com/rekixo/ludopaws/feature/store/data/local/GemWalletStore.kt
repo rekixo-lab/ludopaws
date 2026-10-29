@@ -129,7 +129,7 @@ class GemWalletStore(context: Context) {
                 .remove(StorePreferences.KEY_SELECTED_CHARACTER_PACK)
                 .remove(StorePreferences.KEY_LEGACY_WALLET_ARCHIVE)
                 .remove(StorePreferences.KEY_LEGACY_WALLET_NOTICE_SHOWN)
-            prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) }.forEach(editor::remove)
+            prefs.all.keys.filter { it.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX) || it.startsWith("local_equipment_${accountId}_") }.forEach(editor::remove)
             check(editor.commit()) { "Local wallet data could not be cleared after account deletion." }
         }
     }

@@ -22,6 +22,9 @@ fun Activity.openGameMode(
             .show()
         return
     }
+    if (mode.isRemote && !ConnectivityMonitor(this) { }.isOnline()) {
+        android.widget.Toast.makeText(this, "You are offline. Connect for online play, or choose Robot / Pass & Play.", android.widget.Toast.LENGTH_LONG).show()
+    }
     if (mode.isRemote && com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.showNoticeIfNeeded(this) {
             openGameMode(mode, resumeSavedMatch)
         }) return

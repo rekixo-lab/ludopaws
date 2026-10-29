@@ -15,7 +15,11 @@ data class StoreCatalogSnapshot(
     val suppressedIds: Set<String>,
     val fetchedAtMillis: Long,
     val stale: Boolean,
-)
+) {
+    fun asStale(): StoreCatalogSnapshot = copy(
+        items = items.map { it.copy(purchaseAvailable = false) }, stale = true,
+    )
+}
 
 object StoreCatalogParser {
     private val itemIdPattern = Regex("^[a-z0-9][a-z0-9_-]{2,63}$")
@@ -218,38 +222,22 @@ class StoreCatalogRepository(
                 .commit()) { "Store catalog cache could not be saved." }
             snapshot
         } catch (error: Exception) {
-            val cachedJson = prefs.getString(KEY_JSON, null)
-            if (cachedJson.isNullOrBlank()) {
-                return StoreCatalogSnapshot(
-                    catalogVersion = 0,
-                    items = emptyList(),
-                    suppressedIds = emptySet(),
-                    fetchedAtMillis = 0,
-                    stale = true,
-                )
-            }
-            runCatching {
-                val cachedAt = prefs.getLong(KEY_FETCHED_AT, 0)
-                val parsed = StoreCatalogParser.parse(JSONObject(cachedJson), cachedAt)
-                // A cache may contain a now archived, country-blocked, or expired item.
-                // Keep its label for offline discovery, but never make it actionable.
-                parsed.copy(
-                    items = parsed.items.map { it.copy(contentAvailable = false) },
-                    fetchedAtMillis = cachedAt,
-                    stale = true,
-                )
-            }.getOrElse {
-                prefs.edit().remove(KEY_JSON).remove(KEY_FETCHED_AT).apply()
-                StoreCatalogSnapshot(
-                    catalogVersion = 0,
-                    items = emptyList(),
-                    suppressedIds = emptySet(),
-                    fetchedAtMillis = 0,
-                    stale = true,
-                )
-            }
+            cached()
         }
     }
+
+    /** Display metadata must remain available even when session refresh fails. */
+    fun cached(): StoreCatalogSnapshot {
+        return runCatching {
+            val raw = prefs.getString(KEY_JSON, null) ?: return emptyCache()
+            val cachedAt = prefs.getLong(KEY_FETCHED_AT, 0)
+            StoreCatalogParser.parse(JSONObject(raw), cachedAt).let { parsed ->
+                parsed.asStale()
+            }
+        }.getOrElse { emptyCache() }
+    }
+
+    private fun emptyCache() = StoreCatalogSnapshot(0, emptyList(), emptySet(), 0, stale = true)
 
     companion object {
         private const val PREFS_NAME = "ludopaws_store_catalog_cache_v1"

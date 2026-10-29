@@ -102,6 +102,8 @@ internal class HomePromotionCarousel(
         updatePageState()
     }
 
+    fun refreshConnectivity() { promotion.refreshOffers() }
+
     fun setActive(value: Boolean) {
         active = value
         bundleGeneration++

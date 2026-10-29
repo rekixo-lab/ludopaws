@@ -27,7 +27,7 @@ class ArcadeBackdropView @JvmOverloads constructor(
         if (gameplayFinish && boardEnvironmentEnabled) applyGameplayBackdrop()
     }
     private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" ||
+        if (key == null || key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" || (key.startsWith("local_equipment_") && key.endsWith("_BOARD")) ||
             key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID) {
             removeCallbacks(refreshBackdrop)
             post(refreshBackdrop)

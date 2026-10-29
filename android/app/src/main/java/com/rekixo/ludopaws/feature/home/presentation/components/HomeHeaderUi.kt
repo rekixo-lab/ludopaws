@@ -74,10 +74,13 @@ internal fun HomeActivity.profileHud(): LinearLayout =
 
         connectivityText =
             TextView(this@profileHud).apply {
-                text = "● CHECKING"
-                visibility = View.GONE
+                text = "● OFFLINE · Robot and Pass & Play are available"
+                textSize = 11f
+                setTextColor(0xFF422B1C.toInt())
+                gravity = android.view.Gravity.CENTER
+                visibility = if (connectivityMonitor.isOnline()) View.GONE else View.VISIBLE
                 importantForAccessibility =
-                    View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    View.IMPORTANT_FOR_ACCESSIBILITY_YES
             }
         addView(connectivityText)
     }

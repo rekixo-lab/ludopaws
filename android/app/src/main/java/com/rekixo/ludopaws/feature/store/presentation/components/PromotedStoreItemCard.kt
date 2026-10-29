@@ -78,6 +78,7 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         text = when {
             !item.contentAvailable -> "Unavailable"
             cosmetics.isOwned(item.id) -> "Select item"
+            !item.purchaseAvailable || !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() -> "Connect to unlock"
             adsOnlyUnavailable -> "Ads unavailable"
             item.unlockChannels.size > 1 -> "Unlock options"
             item.requiredAdViews > done -> "Watch ad · ${item.requiredAdViews - done} remaining"

@@ -258,6 +258,76 @@ class AccountWalletSecurityInstrumentedTest {
         assertEquals(null, sessions.load())
     }
 
+    @Test fun offlineOwnedAppearanceCannotGrantOwnershipOrCrossAccounts() {
+        saveTestSession()
+        val inventory = CosmeticInventoryStore(context)
+        val item = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.dice.first {
+            it.contentAvailable && it.unlockKind != com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.FREE
+        }
+        assertFalse(inventory.selectOwnedLocalCosmetic(item))
+        val snapshot = JSONObject().put("accountId", ACCOUNT_ID).put("revision", 10)
+            .put("balance", 120).put("ownedCosmetics", org.json.JSONArray().put(item.id))
+            .put("selectedCosmetics", JSONObject())
+        assertTrue(inventory.applyServerSnapshot(snapshot, ACCOUNT_ID))
+        assertTrue(inventory.selectOwnedLocalCosmetic(item))
+        assertEquals(item.id, CosmeticInventoryStore(context).selectedId(item.category))
+        assertEquals(120, GemWalletStore(context).balance())
+        // An older acknowledgement cannot erase a newer selection.
+        inventory.confirmEquipment(ACCOUNT_ID, item.category, "another_item")
+        assertEquals(item.id, inventory.pendingEquipment(ACCOUNT_ID)[item.category])
+        val sessions = AccountSessionStore(context)
+        sessions.save(requireNotNull(sessions.load()).copy(accountId = UUID.randomUUID().toString()))
+        assertTrue(inventory.pendingEquipment(ACCOUNT_ID).isEmpty())
+        assertFalse(inventory.selectOwnedLocalCosmetic(item))
+        assertFalse(inventory.isOwned(item.id))
+    }
+
+    @Test fun teamCancellationRemainsDurableAndDoesNotCrossAccounts() {
+        saveTestSession()
+        val store = com.rekixo.ludopaws.feature.team.data.local.TeamMatchmakingStore(context)
+        store.clear()
+        try {
+            val ticket = com.rekixo.ludopaws.feature.team.data.local.TeamMatchmakingTicket(UUID.randomUUID().toString(), "Test", System.currentTimeMillis())
+            store.save(ticket)
+            store.requestCancellation()
+            store.bindOwner(ticket.requestId)
+            assertTrue(com.rekixo.ludopaws.feature.team.data.local.TeamMatchmakingStore(context).cancellationRequested())
+            assertEquals(ticket.requestId, store.load()?.requestId)
+            assertTrue(store.markMatched(ticket.requestId))
+            assertFalse(store.cancellationRequested())
+            assertTrue(com.rekixo.ludopaws.feature.team.data.local.TeamMatchmakingStore(context).awaitingAssignment())
+            val next = ticket.copy(requestId = UUID.randomUUID().toString())
+            store.save(next)
+            store.clearIfRequest(ticket.requestId)
+            assertEquals(next.requestId, store.load()?.requestId)
+            assertFalse(store.cancellationRequested())
+            assertFalse(store.awaitingAssignment())
+            assertFalse(store.markMatched(ticket.requestId))
+            val sessions = AccountSessionStore(context)
+            sessions.save(requireNotNull(sessions.load()).copy(accountId = UUID.randomUUID().toString()))
+            assertEquals(null, store.load())
+        } finally { store.clear() }
+    }
+
+    @Test fun backLeavesTeamScreenWithDurableUnconfirmedCancellation() {
+        saveTestSession()
+        val store = com.rekixo.ludopaws.feature.team.data.local.TeamMatchmakingStore(context)
+        store.clear()
+        val ticket = com.rekixo.ludopaws.feature.team.data.local.TeamMatchmakingTicket(UUID.randomUUID().toString(), "Test", System.currentTimeMillis())
+        store.save(ticket)
+        store.requestCancellation()
+        try {
+            androidx.test.core.app.ActivityScenario.launch(com.rekixo.ludopaws.feature.team.presentation.TeamUpActivity::class.java).use { scenario ->
+                scenario.onActivity { activity ->
+                    activity.onBackPressedDispatcher.onBackPressed()
+                    assertTrue("Back must not wait for the cancellation endpoint", activity.isFinishing)
+                    assertTrue(store.cancellationRequested())
+                    assertEquals(ticket.requestId, store.load()?.requestId)
+                }
+            }
+        } finally { store.clear() }
+    }
+
     private fun saveTestSession() {
         AccountSessionStore(context).save(
             AccountSession(

@@ -574,7 +574,8 @@ private fun selectSettingsCosmetic(
 ) {
     val app = activity.application as com.rekixo.ludopaws.LudoProofApplication
     val inventory = CosmeticInventoryStore(activity.applicationContext)
-    if (inventory.selectOfflineFreeCosmetic(cosmetic)) {
+    if (inventory.selectOwnedLocalCosmetic(cosmetic)) {
+        com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(activity)
         onApplied()
         return
     }

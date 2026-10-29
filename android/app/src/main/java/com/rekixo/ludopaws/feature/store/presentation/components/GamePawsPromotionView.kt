@@ -71,7 +71,7 @@ internal class GamePawsPromotionView(
     private val refreshOwnedOffers = Runnable { refreshCandidates() }
     private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID ||
-            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" ||
+            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" || (key.startsWith("local_equipment_") && key.endsWith("_BOARD")) ||
             key.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX)) {
             removeCallbacks(refreshOwnedOffers)
             post(refreshOwnedOffers)
@@ -325,6 +325,7 @@ internal class GamePawsPromotionView(
         adProgress.visibility = if (adProgress.text.isBlank()) GONE else VISIBLE
         storeLabel.text = when {
             gameplay -> "View after match"
+            !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() || !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
             remaining > 0 && offer.cosmetic.gemPrice == 0 && BuildConfig.LUDOPROOF_ADS_ENABLED -> "Unlock with Ads ›"
             offer.cosmetic.gemPrice > 0 && remaining == 0 -> "View & Unlock ›"
             else -> "Unlock Options ›"

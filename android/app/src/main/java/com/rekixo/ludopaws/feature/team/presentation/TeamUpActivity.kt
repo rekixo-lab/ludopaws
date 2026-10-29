@@ -77,7 +77,31 @@ class TeamUpActivity : ComponentActivity() {
 
     @Volatile
     private var requestInFlight = false
-    private var stopped = false
+    private var stopped = true
+    private val foregroundResults = com.rekixo.ludopaws.core.lifecycle.ForegroundResults()
+    private var online = false
+    private var nextPollAt = 0L
+    private var retryDelayMs = 2000L
+    private var connectionLabel: TextView? = null
+    private var connectionDot: View? = null
+    private val connectivity by lazy {
+        com.rekixo.ludopaws.ConnectivityMonitor(this) { connected -> handler.post {
+            if (stopped || isFinishing || isDestroyed) return@post
+            val returned = !online && connected
+            online = connected
+            connectionLabel?.text = if (connected) "ONLINE" else "OFFLINE"
+            connectionLabel?.setTextColor(if (connected) 0xFF62E9FF.toInt() else 0xFF60452D.toInt())
+            connectionDot?.visibility = if (connected) View.VISIBLE else View.INVISIBLE
+            updateButtons()
+            if (!connected) showStatus(if (ticketStore.load() == null) "Offline — connect to find a team, or play Robot / Pass & Play." else "Offline — your search is saved. You can leave this screen and reconnect later.")
+            else if (returned && !requestInFlight) {
+                nextPollAt = 0L; retryDelayMs = 2000L
+                if (ticketStore.cancellationRequested()) cancelSearch()
+                else if (restartingRestoredSearch) ticketStore.load()?.let(::restartRestoredSearch)
+                else if (ticketStore.load() != null) pollSearch()
+            }
+        } }
+    }
     private var validatingRestoredSearch = false
     private var restartingRestoredSearch = false
 
@@ -93,7 +117,7 @@ class TeamUpActivity : ComponentActivity() {
     private val pollRunnable =
         object : Runnable {
             override fun run() {
-                if (!stopped && !restartingRestoredSearch && ticketStore.load() != null) {
+                if (!stopped && online && (!restartingRestoredSearch || ticketStore.cancellationRequested()) && ticketStore.load() != null) {
                     pollSearch()
                     if (!validatingRestoredSearch) updateTimer()
                 }
@@ -107,7 +131,14 @@ class TeamUpActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (ticketStore.load() != null) cancelSearch(exitAfterCancellation = true) else finish()
+                if (ticketStore.load() != null) {
+                    runCatching { ticketStore.requestCancellation() }.onFailure {
+                        // The existing ticket remains durable; next fresh entry
+                        // also reconciles/cancels it before a new search.
+                        android.util.Log.w("TeamUp", "Cancellation flag will retry", it)
+                    }
+                }
+                finish()
             }
         })
         LudoProofTheme.configureWindow(this)
@@ -117,31 +148,43 @@ class TeamUpActivity : ComponentActivity() {
         // genuinely new Activity launch, cancel the old request before starting a
         // fresh search. Configuration/state restoration continues the active search.
         val restoredTicket = ticketStore.load()
-        val startFreshSearch = savedInstanceState == null && restoredTicket != null
+        val startFreshSearch = savedInstanceState == null && restoredTicket != null && !ticketStore.awaitingAssignment()
         validatingRestoredSearch = restoredTicket != null
         restartingRestoredSearch = startFreshSearch
         buildUi()
         renderSearchState()
-        if (startFreshSearch) {
-            restartRestoredSearch(requireNotNull(restoredTicket))
+        if (startFreshSearch && !ticketStore.cancellationRequested()) {
+            showStatus("Checking the previous search when connected…")
         }
     }
 
     override fun onStart() {
         super.onStart()
         stopped = false
+        online = connectivity.isOnline()
+        connectivity.start()
+        renderSearchState()
+        foregroundResults.start()
+        if (online && !requestInFlight) {
+            if (ticketStore.cancellationRequested()) cancelSearch()
+            else if (restartingRestoredSearch) ticketStore.load()?.let(::restartRestoredSearch)
+        }
         handler.removeCallbacks(pollRunnable)
         handler.post(pollRunnable)
     }
 
     override fun onStop() {
         stopped = true
+        foregroundResults.stop()
+        connectivity.stop()
         handler.removeCallbacks(pollRunnable)
         super.onStop()
     }
 
     override fun onDestroy() {
         stopped = true
+        foregroundResults.close()
+        connectivity.stop()
         handler.removeCallbacksAndMessages(null)
         executor.shutdownNow()
         super.onDestroy()
@@ -211,14 +254,15 @@ class TeamUpActivity : ComponentActivity() {
             background = null
             elevation = 0f
             addView(
-                LaserStatusDotView(this@TeamUpActivity),
+                LaserStatusDotView(this@TeamUpActivity).also { connectionDot = it; it.visibility = if (online) View.VISIBLE else View.INVISIBLE },
                 LinearLayout.LayoutParams(dp(10), dp(10)).apply {
                     marginEnd = dp(5)
                 },
             )
             addView(
                 TextView(this@TeamUpActivity).apply {
-                    text = "ONLINE"
+                    connectionLabel = this
+                    text = if (online) "ONLINE" else "OFFLINE"
                     LudoProofTheme.body(this, 10f, centered = true, bright = true)
                     setTextColor(0xFF62E9FF.toInt())
                     includeFontPadding = false
@@ -546,7 +590,14 @@ class TeamUpActivity : ComponentActivity() {
             addGameTopActions(
                 host = host,
                 context = this,
-                onBack = { if (ticketStore.load() != null) cancelSearch(exitAfterCancellation = true) else finish() },
+                onBack = { if (ticketStore.load() != null) {
+                    runCatching { ticketStore.requestCancellation() }.onFailure {
+                        // The existing ticket remains durable; next fresh entry
+                        // also reconciles/cancels it before a new search.
+                        android.util.Log.w("TeamUp", "Cancellation flag will retry", it)
+                    }
+                }
+                finish() },
                 onSettings = {
                     com.rekixo.ludopaws.ArcadeDialogs.showSettings(this)
                 },
@@ -735,6 +786,8 @@ class TeamUpActivity : ComponentActivity() {
         }
 
     private fun beginSearch() {
+        if (!online) { showStatus("Connect to the internet to find a team."); return }
+        if (ticketStore.cancellationRequested()) { cancelSearch(); return }
         if (requestInFlight) return
         ticketStore.load()?.let {
             renderSearchState()
@@ -774,6 +827,7 @@ class TeamUpActivity : ComponentActivity() {
         runRequest(
             action = {
                 val credential = ensureLeaderboardCredential()
+                ticketStore.bindOwner(ticket.requestId)
                 api.search(
                     profileToken = credential.profileToken,
                     displayName = ticket.displayName,
@@ -787,6 +841,7 @@ class TeamUpActivity : ComponentActivity() {
 
     private fun restartRestoredSearch(ticket: TeamMatchmakingTicket) {
         if (requestInFlight || executor.isShutdown || isFinishing || isDestroyed) return
+        if (runCatching { ticketStore.requestCancellation() }.isFailure) { showStatus("Could not save search recovery. Try Cancel again."); return }
         restartingRestoredSearch = true
         validatingRestoredSearch = true
         timerText.text = "SEARCH  00:00"
@@ -795,6 +850,7 @@ class TeamUpActivity : ComponentActivity() {
         runRequest(
             action = {
                 val credential = ensureLeaderboardCredential()
+                ticketStore.bindOwner(ticket.requestId)
                 api.cancel(
                     profileToken = credential.profileToken,
                     clientRequestId = ticket.requestId,
@@ -802,17 +858,20 @@ class TeamUpActivity : ComponentActivity() {
             },
             onSuccess = { response ->
                 if (response.optString("status") == "MATCHED") {
-                    // The previous search won the race with cancellation; retrieve
-                    // its authoritative assignment rather than abandoning a match.
+                    // Cancel responses contain no player token/state. Fetch the
+                    // authoritative assignment through status, never cancel again.
+                    ticketStore.markMatched(ticket.requestId)
                     restartingRestoredSearch = false
                     validatingRestoredSearch = true
                     showStatus("A team was found in the previous search • reconnecting…")
                     pollSearch()
-                } else {
-                    ticketStore.clear()
+                } else if (response.optString("status") in setOf("CANCELLED", "IDLE")) {
+                    ticketStore.clearIfRequest(ticket.requestId)
                     restartingRestoredSearch = false
                     validatingRestoredSearch = false
                     beginSearch()
+                } else {
+                    showStatus("Search cancellation is not confirmed yet. Your saved ticket is retained.")
                 }
             },
             onFailure = {
@@ -827,11 +886,14 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     private fun pollSearch() {
+        if (!online || stopped || SystemClock.elapsedRealtime() < nextPollAt) return
+        if (ticketStore.cancellationRequested()) { cancelSearch(); return }
         val ticket = ticketStore.load() ?: return
         runRequest(
             quietFailure = true,
             action = {
                 val credential = ensureLeaderboardCredential()
+                ticketStore.bindOwner(ticket.requestId)
                 api.status(
                     profileToken = credential.profileToken,
                     clientRequestId = ticket.requestId,
@@ -842,6 +904,16 @@ class TeamUpActivity : ComponentActivity() {
     }
 
     private fun cancelSearch(exitAfterCancellation: Boolean = false) {
+        if (ticketStore.load() != null && runCatching { ticketStore.requestCancellation() }.isFailure) {
+            showStatus("Could not save cancellation. You can leave; the saved search will be checked next time.")
+            if (exitAfterCancellation) finish()
+            return
+        }
+        if (!online || requestInFlight) {
+            showStatus("Cancellation saved. It will be checked when connected; you can leave now.")
+            if (exitAfterCancellation) finish()
+            return
+        }
         val ticket = ticketStore.load()
             ?: run {
                 renderSearchState()
@@ -850,6 +922,7 @@ class TeamUpActivity : ComponentActivity() {
         runRequest(
             action = {
                 val credential = ensureLeaderboardCredential()
+                ticketStore.bindOwner(ticket.requestId)
                 api.cancel(
                     profileToken = credential.profileToken,
                     clientRequestId = ticket.requestId,
@@ -866,14 +939,17 @@ class TeamUpActivity : ComponentActivity() {
                             "Match was found while cancelling. Opening it…"
                         },
                     )
+                    ticketStore.markMatched(ticket.requestId)
                     pollSearch()
-                } else {
+                } else if (response.optString("status") in setOf("CANCELLED", "IDLE")) {
                     restartingRestoredSearch = false
                     validatingRestoredSearch = false
-                    ticketStore.clear()
+                    ticketStore.clearIfRequest(ticket.requestId)
                     renderSearchState()
                     showStatus("Team search cancelled.")
                     if (exitAfterCancellation) finish()
+                } else {
+                    showStatus("Cancellation is not confirmed yet. You can leave; the saved ticket remains.")
                 }
             },
         )
@@ -932,7 +1008,7 @@ class TeamUpActivity : ComponentActivity() {
                 state != null &&
                 state.matchId == matchId &&
                 state.matchMode == "TEAM_UP" &&
-                state.status == "ACTIVE" &&
+                state.status in setOf("ACTIVE", "FINISHED") &&
                 state.targetPlayerCount == 4 &&
                 state.players.size == 4 &&
                 playerId.isNotBlank() &&
@@ -1009,7 +1085,8 @@ class TeamUpActivity : ComponentActivity() {
         quietFailure: Boolean = false,
         onFailure: ((Exception) -> Unit)? = null,
     ) {
-        if (requestInFlight || executor.isShutdown || isFinishing || isDestroyed) return
+        if (requestInFlight || !online || stopped || executor.isShutdown || isFinishing || isDestroyed) return
+        val owner = (application as LudoProofApplication).accountRepository.currentSession()?.accountId
         requestInFlight = true
         quickTeamButton.isEnabled = false
         if (::cancelButton.isInitialized) cancelButton.isEnabled = false
@@ -1021,21 +1098,25 @@ class TeamUpActivity : ComponentActivity() {
                     handler.post {
                         requestInFlight = false
                         if (isFinishing || isDestroyed) return@post
+                        retryDelayMs = 2000L
+                        nextPollAt = 0L
                         updateButtons()
-                        onSuccess(response)
+                        foregroundResults.deliver {
+                            if (!isFinishing && !isDestroyed && (owner == null || owner == (application as LudoProofApplication).accountRepository.currentSession()?.accountId)) onSuccess(response)
+                        }
                     }
                 } catch (error: Exception) {
                     handler.post {
                         requestInFlight = false
                         if (isFinishing || isDestroyed) return@post
+                        nextPollAt = SystemClock.elapsedRealtime() + retryDelayMs
+                        retryDelayMs = (retryDelayMs * 2).coerceAtMost(30000L)
                         updateButtons()
-                        if (onFailure != null) {
-                            onFailure(error)
-                        } else if (!quietFailure) {
-                            showStatus(
-                                "Team search error: " +
-                                    (error.message ?: "connection failed"),
-                            )
+                        foregroundResults.deliver {
+                            if (!isFinishing && !isDestroyed && (owner == null || owner == (application as LudoProofApplication).accountRepository.currentSession()?.accountId)) {
+                                if (onFailure != null) onFailure(error)
+                                else if (!quietFailure) showStatus("Team search error: " + (error.message ?: "connection failed"))
+                            }
                         }
                     }
                 }
@@ -1518,9 +1599,9 @@ class TeamUpActivity : ComponentActivity() {
 
     private fun updateButtons() {
         val searching = ticketStore.load() != null
-        quickTeamButton.isEnabled = !requestInFlight && !searching
+        quickTeamButton.isEnabled = online && !requestInFlight && !searching
         if (::cancelButton.isInitialized) {
-            cancelButton.isEnabled = !requestInFlight && searching
+            cancelButton.isEnabled = searching
         }
     }
 
