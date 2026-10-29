@@ -87,4 +87,4 @@ Rekixo native launch branding लागू; generator/source identity और bra
 
 ## चरण 3 का परिणाम
 
-Game preparation splash और automatic guest/session coordinator local source में लागू। 513 JVM tests (17 startup regressions), build तथा lint pass; 0 lint errors। Physical device connected नहीं था, इसलिए device visual/network acceptance pending है। Age/privacy popup और GOT IT removal चरण 4 में बाकी। Evidence: [startup report](../../audit-2026-10-29-startup-splash/README.hi.md)।
+Game preparation splash और backend guest/session coordinator के बाद user screenshots के अनुसार वास्तविक Google Play Games automatic platform connection जोड़ा गया है। दोनों identities अलग हैं। Privacy-permitted original-package build में SDK initialization और authentication check चलता है; manual Google-save आवश्यक नहीं। Unknown age में initialization phase-4 choice तक deferred रहता है। नई age choice के बाद automatic refresh hook है। Source और device/build instructions: [चरण 3 Play Games](PHASE3_PLAY_GAMES.hi.md)। Physical-device banner acceptance बाकी है। Age/privacy popup और GOT IT removal चरण 4 में बाकी हैं।

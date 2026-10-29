@@ -37,6 +37,7 @@ class HomeActivity : Activity() {
 
     private val startupHandler = Handler(Looper.getMainLooper())
     private val startupSession get() = (application as LudoProofApplication).startupSession
+    private val startupPlayGames get() = (application as LudoProofApplication).startupPlayGames
     private var splash: GameStartupSplashView? = null
     private var heroBitmap: Bitmap? = null
     private var localReady = false
@@ -51,10 +52,20 @@ class HomeActivity : Activity() {
     private var startupBanner: TextView? = null
     private val startupObserver: (StartupAccountSnapshot) -> Unit = { snapshot ->
         if (foreground && !isFinishing && !isDestroyed) {
-            if (!preparationFailed) splash?.update(snapshot, localReady)
+            updateSplash()
             updateStartupBanner(snapshot)
             maybeShowHome()
         }
+    }
+    private val playGamesObserver: (PlayGamesStartupState) -> Unit = {
+        if (foreground && !isFinishing && !isDestroyed) {
+            updateSplash()
+            maybeShowHome()
+        }
+    }
+
+    private fun updateSplash() {
+        if (!preparationFailed) splash?.update(startupSession.snapshot, localReady, startupPlayGames.status.state)
     }
     private val grace = Runnable { maybeShowHome() }
     private val watchdog = Runnable {
@@ -76,6 +87,7 @@ class HomeActivity : Activity() {
                 if (lastOnline != online) {
                     lastOnline = online
                     startupSession.refresh(StartupReadiness.canBootstrapAccount(online, remoteExitSaved))
+                    startupPlayGames.refresh(this)
                 }
                 if (::connectivityText.isInitialized) connectivityText.text = if (online) "● ONLINE" else "● OFFLINE"
                 updateStartupBanner(startupSession.snapshot)
@@ -99,6 +111,7 @@ class HomeActivity : Activity() {
             showPreparation()
             armStartupTimers()
             startupSession.refresh(StartupReadiness.canBootstrapAccount(connectivityMonitor.isOnline(), remoteExitSaved))
+            startupPlayGames.refresh(this)
         }, exit = { finish() }).also { setContentView(it) }
         val generation = ++preparationGeneration
         (application as LudoProofApplication).startupArtworkExecutor.execute {
@@ -114,7 +127,7 @@ class HomeActivity : Activity() {
                     startupHandler.removeCallbacks(watchdog)
                     if (foreground) {
                         splash?.artworkReady(bitmap)
-                        splash?.update(startupSession.snapshot, true)
+                        updateSplash()
                     }
                     maybeShowHome()
                 }
@@ -132,7 +145,8 @@ class HomeActivity : Activity() {
 
     private fun maybeShowHome() {
         if (!foreground || homeShown || preparationFailed || isFinishing || isDestroyed) return
-        if (StartupReadiness.canShowHome(localReady, startupSession.snapshot.settled, elapsedStartup())) showHome()
+        if (StartupReadiness.canShowHome(localReady,
+                startupSession.snapshot.settled && startupPlayGames.status.state.settled, elapsedStartup())) showHome()
     }
 
     private fun showHome() {
@@ -352,6 +366,7 @@ class HomeActivity : Activity() {
     override fun onResume() {
         super.onResume()
         resumed = true
+        startupPlayGames.refresh(this)
         if (homeShown) resumeHome()
     }
 
@@ -402,6 +417,8 @@ class HomeActivity : Activity() {
         super.onStart()
         foreground = true
         prepareHomeRemoteExit()
+        startupPlayGames.refresh(this)
+        startupPlayGames.status.subscribe(playGamesObserver)
         if (preparationFailed) splash?.showPreparationError()
         else heroBitmap?.let { splash?.artworkReady(it) }
         startupSession.subscribe(startupObserver)
@@ -415,6 +432,7 @@ class HomeActivity : Activity() {
     override fun onStop() {
         foreground = false
         startupSession.unsubscribe(startupObserver)
+        startupPlayGames.status.unsubscribe(playGamesObserver)
         startupHandler.removeCallbacks(grace)
         startupHandler.removeCallbacks(watchdog)
         connectivityMonitor.stop()
@@ -424,6 +442,7 @@ class HomeActivity : Activity() {
     override fun onDestroy() {
         preparationGeneration += 1
         startupSession.unsubscribe(startupObserver)
+        startupPlayGames.status.unsubscribe(playGamesObserver)
         startupHandler.removeCallbacksAndMessages(null)
         if (
             ::connectivityMonitor

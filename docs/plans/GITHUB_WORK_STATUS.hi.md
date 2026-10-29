@@ -6,7 +6,7 @@
 
 यूज़र का “guest login” से आशय **Google Play Games का automatic platform connection और Google का welcome banner** है। Backend guest/session creation इसे पूरा नहीं करता। पहले बनाए startup coordinator को Play Games connection का implementation या उसकी सफलता का प्रमाण नहीं मानना है।
 
-वर्तमान code में Application family-mode पर PlayGamesSdk initialization रोकता है। Profile का optional Google flow भी अलग age/opt-in gate रखता है। अगला startup काम इन paths को review करके वास्तविक PGS automatic authentication जोड़ना है। Banner Google SDK द्वारा नियंत्रित होगा; game स्वयं उसका नकली banner या बिना authentication connected status नहीं दिखाएगा। Missing profile, cancellation, offline और provider restrictions में Home उपयोग योग्य रहना चाहिए। Mixed-age policy और पहली बार age selection के साथ initialization timing स्पष्ट करनी बाकी है।
+चरण 3 में अब Application से privacy-permitted PGS initialization और splash/Home से automatic authentication status check जोड़ा गया है। Profile का status check पुराने manual opt-in flag पर निर्भर नहीं है। Banner Google SDK नियंत्रित करता है; game स्वयं उसका नकली banner या बिना authentication connected status नहीं दिखाता। Missing profile, offline और provider failure में Home उपयोग योग्य रहता है। Existing age boundary और नई installation में phase-4 popup की timing सहित पूरा विवरण: [चरण 3](PHASE3_PLAY_GAMES.hi.md)।
 
 आधिकारिक संदर्भ: https://developer.android.com/games/pgs/android/android-signin और https://developer.android.com/games/pgs/platform-authentication । PGS platform identity को game wallet/progress की primary identity न बनाएँ।
 
@@ -14,7 +14,7 @@
 
 - Rekixo launch branding का पहले का commit c01688a1 इसी branch पर है।
 - पहले के audit fixes, guest checkout draft, game preparation splash, tests और v11 planning अब इसी branch में समेटे जा रहे हैं। Payment draft की final acceptance और live issue की जाँच अंतिम payment phase में बाकी है।
-- नया age/privacy popup, पुराना GOT IT हटाना और वास्तविक automatic PGS startup अभी पूर्ण नहीं हैं। इन्हें पूरे हुए चरण न बताएं।
+- वास्तविक automatic PGS startup का implementation चरण 3 में है; physical-device banner acceptance अभी अलग बाकी है। नया age/privacy popup और पुराना GOT IT हटाना चरण 4 में बाकी हैं।
 
 ## पहले चलाए गए checks
 

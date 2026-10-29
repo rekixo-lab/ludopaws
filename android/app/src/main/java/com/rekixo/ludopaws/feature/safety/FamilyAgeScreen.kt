@@ -16,7 +16,8 @@ internal object FamilyAgeScreen {
         context.getSharedPreferences(STORE, Context.MODE_PRIVATE).contains(KEY)
 
     fun optionalGoogleAllowed(context: Context): Boolean =
-        context.getSharedPreferences(STORE, Context.MODE_PRIVATE).getInt(KEY, -1) == 3
+        runCatching { context.getSharedPreferences(STORE, Context.MODE_PRIVATE).getInt(KEY, -1) == 3 }
+            .getOrDefault(false)
 
     fun ensureChoice(activity: Activity, onComplete: () -> Unit) {
         if (hasChoice(activity)) { onComplete(); return }
@@ -35,6 +36,7 @@ internal object FamilyAgeScreen {
             })
             .setItems(bands) { _, which ->
                 activity.getSharedPreferences(STORE, Context.MODE_PRIVATE).edit().putInt(KEY, which).apply()
+                (activity.application as com.rekixo.ludopaws.LudoProofApplication).startupPlayGames.refresh(activity)
                 val callbacks = pending.remove(activity).orEmpty()
                 if (!activity.isFinishing && !activity.isDestroyed) callbacks.forEach { it() }
             }

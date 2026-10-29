@@ -3,7 +3,6 @@ package com.rekixo.ludopaws
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
-import com.google.android.gms.games.PlayGamesSdk
 import com.rekixo.ludopaws.core.audio.UiClickSoundInstaller
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.account.data.AccountRepository
@@ -16,6 +15,7 @@ class LudoProofApplication :
     private lateinit var friendPresence:
         FriendPresenceController
     val accountRepository: AccountRepository by lazy { AccountRepository(this) }
+    val startupPlayGames by lazy { com.rekixo.ludopaws.feature.startup.StartupPlayGames(this) }
     val startupArtworkExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
         Thread(task, "LudoPawsStartupArtwork").apply { isDaemon = true }
     }
@@ -61,9 +61,7 @@ class LudoProofApplication :
 
     override fun onCreate() {
         super.onCreate()
-        if (!BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
-            PlayGamesSdk.initialize(this)
-        }
+        startupPlayGames.initializeIfAllowed()
         // Prime the process-local cosmetic mirror before any remote create/join
         // request can be sent. Character selection remains presentation-only.
         CharacterSelectionStore(this).load()

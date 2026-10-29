@@ -53,8 +53,7 @@ class ProfileActivity : Activity() {
     internal var playGamesStatus = ""
         private set
     internal val isPlayGamesConfigured: Boolean
-        get() = BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED &&
-            BuildConfig.PLAY_GAMES_PROJECT_ID.toLongOrNull()?.let { it > 0 } == true
+        get() = (application as LudoProofApplication).startupPlayGames.configured
 
     internal val profileStore by lazy {
         ProfileStore(this)
@@ -776,9 +775,9 @@ class ProfileActivity : Activity() {
     }
 
     private fun refreshPlayGamesSignIn() {
-        // Never initialize an optional OAuth SDK on offline/profile startup or for children.
-        if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this) ||
-            !getSharedPreferences("play_games_opt_in", MODE_PRIVATE).getBoolean("enabled", false)) return
+        // Automatic platform authentication does not require the old manual opt-in.
+        // Preserve the neutral age boundary; Google-save is a separate flow.
+        if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this)) return
         if (isPlayGamesConfigured) com.google.android.gms.games.PlayGamesSdk.initialize(applicationContext)
 
         if (!isPlayGamesConfigured) {

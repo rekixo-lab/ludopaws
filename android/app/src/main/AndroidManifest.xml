@@ -33,6 +33,11 @@
         <meta-data
             android:name="com.google.android.gms.games.APP_ID"
             android:value="@string/game_services_project_id" />
+        <!-- Existing profiles authenticate automatically. Do not interrupt a new
+             player with profile creation; explicit Profile action can open it. -->
+        <meta-data
+            android:name="com.google.android.gms.games.SUPPRESS_GAME_PROFILE_CREATION"
+            android:value="true" />
         <activity
             android:name=".CharacterPreviewActivity"
             android:exported="false"
