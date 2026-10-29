@@ -139,7 +139,7 @@ internal class ReferralPromotionController(
                     textSize = 14f; typeface = Typeface.DEFAULT_BOLD
                     setTextColor(0xFF422B1C.toInt())
                 }, LinearLayout.LayoutParams(-1, -2))
-                addView(ReferralGemRewardView(activity, compact = true), LinearLayout.LayoutParams(-1, -2))
+                addView(ReferralGemRewardView(activity, compact = true, includeBundleItems = true), LinearLayout.LayoutParams(-1, -2))
                 addView(Button(activity).apply {
                     text = if (snapshot.optString("state") == "INVITE") "Invite a friend  ›" else "View progress  ›"
                     textSize = 14f; typeface = Typeface.DEFAULT_BOLD; isAllCaps = false
