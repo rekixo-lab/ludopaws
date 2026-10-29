@@ -46,3 +46,11 @@ User ने launch पर पूरे screen में existing game plywood �
 Android 12+ native OS splash केवल single solid window color लेता है; उसकी छोटी system launch screen के बाद in-app plywood frame आता है। पुराना 1000ms native pre-draw hold हटाया है, ताकि उसके अतिरिक्त एक और जानबूझकर hold न हो। Native icon/theme नहीं हटाए गए; unsupported textured native background का दावा नहीं। आधार: https://developer.android.com/develop/ui/views/launch/splash-screen ।
 
 Source recheck: native gate के obsolete callbacks/imports हटे; branding first draw→remove→game first draw→Home timer क्रम, cached readiness, hidden progress, error/retry और detach paths पढ़े। Whitespace साफ। नया APK build, device recording, lint/test suite इस iteration में नहीं चला।
+
+## Correction — plywood केवल game splash पर
+
+नवीन user correction पिछले launch-plywood निर्णय को supersede करती है। In-app plywood Rekixo branding phase और उसके callbacks/flags पूरी तरह हटाए; पहले वाला native Rekixo launch और bounded one-second native hold वापस हैं। Game splash में shared fullscreen plywood (zero rim/corners) है। Preparing title/caption को wood पर पढ़ने योग्य dark-brown colors दिया।
+
+Progress के पीछे existing `recessedPlywoodBackground` factory वाला static FrameLayout है। 44dp outer surface में 8dp inset; actual animated inner track 24dp ऊँचा है (पहले 20dp): लगभग 20% मोटा। Custom dark-blue base हटाया, इसलिए actual recessed wood पीछे दिखता है। Moving blue/cyan fill और ready shimmer बने हैं। Parent surface static रहने से animated child के हर frame में recessed texture दोबारा बनाना आवश्यक नहीं। Error पर पूरी progress surface hide होती है।
+
+Source recheck: no remaining in-app launch-branding flag/timer, native hold cleanup restored, shared surface imports/internal visibility, child layout params, contrasting text, error/retry, separate first-frame timers और unchanged logo/clearance/animation paths पढ़े। Whitespace साफ। Build/lint/tests/device run इस iteration में नहीं किया। चरण 9–10 pending और live prices अपरिवर्तित।

@@ -8,7 +8,6 @@ import android.graphics.Path
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.util.TypedValue
 import android.os.SystemClock
 import android.view.Gravity
@@ -23,40 +22,24 @@ import androidx.core.view.WindowInsetsCompat
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 
 /** Preparation UI only. It never initializes an identity/ad SDK or fabricates timed progress. */
 class GameStartupSplashView(
     activity: Activity,
     retry: () -> Unit,
     exit: () -> Unit,
-    showLaunchBranding: Boolean = false,
     private val firstFrame: () -> Unit = {},
 ) : FrameLayout(activity) {
     private var firstFrameReported = false
-    private var brandingVisible = showLaunchBranding
-    private var launchLogo: ImageView? = null
-    private lateinit var contentColumn: LinearLayout
-    private val gameBackground = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-        intArrayOf(0xFF102C61.toInt(), 0xFF071B43.toInt(), 0xFF030E28.toInt()))
-    private val finishBranding = Runnable {
-        if (isAttachedToWindow && brandingVisible) {
-            brandingVisible = false
-            launchLogo?.let { removeView(it) }
-            launchLogo = null
-            background = gameBackground
-            contentColumn.visibility = View.VISIBLE
-            firstFrameReported = false
-            invalidate()
-        }
-    }
     private fun dp(value: Int) = LudoProofTheme.dp(context, value)
     private val status = TextView(context).apply {
         text = "Preparing Ludo Paws…"
         textSize = 21f
         typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
         letterSpacing = 0.035f
-        setTextColor(0xFFFFE6A8.toInt())
-        setShadowLayer(dp(3).toFloat(), 0f, dp(1).toFloat(), 0x99000000.toInt())
+        setTextColor(0xFF422B1C.toInt())
+        setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0x66FFF1D7)
         gravity = Gravity.CENTER
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
     }
@@ -64,10 +47,15 @@ class GameStartupSplashView(
         text = "Preparing game artwork…"
         textSize = 13f
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        setTextColor(0xFFD4E6FF.toInt())
+        setTextColor(0xFF523B28.toInt())
         gravity = Gravity.CENTER
     }
     private val progress = PawLoadingTrack(activity)
+    private val progressFrame = FrameLayout(context).apply {
+        background = recessedPlywoodBackground(context, outerCornerRadiusDp = 18f)
+        setPadding(dp(8), dp(8), dp(8), dp(8))
+        addView(progress, LayoutParams(-1, -1))
+    }
     private val actions = LinearLayout(context).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
@@ -78,13 +66,11 @@ class GameStartupSplashView(
     private val clearance = View(context)
 
     init {
-        background = if (brandingVisible) plywoodBackground(context, cornerRadiusDp = 0f, rimThicknessDp = 0f) else gameBackground
+        background = plywoodBackground(context, cornerRadiusDp = 0f, rimThicknessDp = 0f)
         val column = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
         }
-        contentColumn = column
-        column.visibility = if (brandingVisible) View.INVISIBLE else View.VISIBLE
         addView(column, LayoutParams(-1, -1))
         column.addView(status, LinearLayout.LayoutParams(-1, -2))
         val center = FrameLayout(context)
@@ -101,16 +87,9 @@ class GameStartupSplashView(
             width = minOf(dp(300), resources.displayMetrics.widthPixels - dp(48)) / 2
         })
         column.addView(caption, LinearLayout.LayoutParams(-1, -2))
-        column.addView(progress, LinearLayout.LayoutParams(-1, dp(24)).apply { topMargin = dp(12) })
+        column.addView(progressFrame, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(12) })
         column.addView(actions, LinearLayout.LayoutParams(-1, -2))
         column.addView(clearance, LinearLayout.LayoutParams(1, 0))
-        if (brandingVisible) {
-            launchLogo = ImageView(context).apply {
-                setImageResource(R.drawable.ic_rekixo_launch)
-                scaleType = ImageView.ScaleType.FIT_CENTER
-                contentDescription = "Rekixo"
-            }.also { addView(it, LayoutParams(minOf(dp(330), resources.displayMetrics.widthPixels - dp(48)), dp(288), Gravity.CENTER)) }
-        }
         ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
             val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
             view.setPadding(safe.left + dp(24), safe.top + dp(24), safe.right + dp(24), safe.bottom)
@@ -123,19 +102,10 @@ class GameStartupSplashView(
         super.dispatchDraw(canvas)
         if (!firstFrameReported) {
             firstFrameReported = true
-            if (brandingVisible) {
-                // Android 12+ native splash only supports a solid background.
-                // Draw the shared full-screen wood in-app for one second,
-                // then begin the separate game-splash visibility interval.
-                postDelayed(finishBranding, 1_000L)
-            } else post { if (isAttachedToWindow) firstFrame() }
+            // Start its own visibility interval only after the native launch
+            // gate has allowed a real game-splash frame to be drawn.
+            post { if (isAttachedToWindow) firstFrame() }
         }
-    }
-
-    override fun onDetachedFromWindow() {
-        removeCallbacks(finishBranding)
-        if (brandingVisible) firstFrameReported = false
-        super.onDetachedFromWindow()
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -164,7 +134,7 @@ class GameStartupSplashView(
     fun showPreparationError() {
         status.text = "Couldn't prepare the game"
         caption.text = "Try again to load the game artwork."
-        progress.visibility = View.GONE
+        progressFrame.visibility = View.GONE
         actions.visibility = View.VISIBLE
     }
 }
@@ -253,8 +223,7 @@ private class PawLoadingTrack(activity: Activity) : View(activity) {
         val radius = track.height() / 2f
         paint.shader = null
         paint.style = Paint.Style.FILL
-        paint.color = 0xFF071126.toInt()
-        canvas.drawRoundRect(track, radius, radius, paint)
+        // Keep the shared recessed wood visible behind the moving fill.
         val checkpoint = canvas.save()
         canvas.clipPath(clip)
         val segment = track.width() * 0.38f
