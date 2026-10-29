@@ -234,6 +234,7 @@ internal class LudoPaws3DSceneRenderer {
         previewLife: LudoPaws3DLifeMotion? = null,
         previewZoom: Float = 1f,
         synchronizeGpu: Boolean = true,
+        verticalAnchor: Float = .62f,
     ) {
         if (program == 0) return
 
@@ -258,7 +259,7 @@ internal class LudoPaws3DSceneRenderer {
         val modelScale = size * 0.30f * previewZoom.coerceIn(.6f, 1.5f)
         prepareRoot(
             x = width * 0.5f,
-            y = height * 0.62f,
+            y = height * verticalAnchor.coerceIn(.5f, .75f),
             scale = modelScale,
             liftY = pose.liftY,
             bodyYawDegrees = pose.bodyYawDegrees,

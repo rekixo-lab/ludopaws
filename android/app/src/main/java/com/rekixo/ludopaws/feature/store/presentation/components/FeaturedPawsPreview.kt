@@ -169,7 +169,11 @@ internal class FeaturedPawsPreview(
                     val sampled = character.renderer.sample(motion, (phase % duration) / duration.toFloat(),
                         CharacterHopPlayback.ISOLATED)
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled) else sampled
-                    scene.drawPortrait(id, "BLUE", pose, life, previewZoom = .9f, synchronizeGpu = false)
+                    // Reserve headroom in the GL viewport itself: allowing
+                    // parent overflow cannot recover pixels clipped by GL.
+                    val zoom = if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 2.8f) .6f else .72f
+                    scene.drawPortrait(id, "BLUE", pose, life, previewZoom = zoom,
+                        synchronizeGpu = false, verticalAnchor = .69f)
                     check(window?.swap() == true) { "Showcase buffer swap failed" }
                     if (notifyReady) post {
                         if (session === this && active && characterId == id && !failed) onReady?.invoke()

@@ -68,11 +68,8 @@ internal class HomePromotionCarousel(
         clipToPadding = true
         pages.clipChildren = true
         pages.addView(hero, LayoutParams(-1, -1))
-        // The promotional carousel has one shared, lightweight animated galaxy.
-        // Remove only these two promo cards' old opaque backgrounds; gameplay
-        // promotions and full-size referral screens keep their own styling.
-        promotion.background = null
-        bundle.background = null
+        // Preserve each card's own game-themed surface. In particular the
+        // friendship card's dark text must stay on its plywood background.
         spotlight.addView(spaceBackground, LayoutParams(-1, -1))
         spotlight.addView(promotion, LayoutParams(-1, -1))
         spotlight.addView(bundle, LayoutParams(-1, -1))

@@ -14,10 +14,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
+import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
@@ -40,7 +42,7 @@ internal class GamePawsPromotionView(
         override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
     }
     private val name = TextView(context)
-    private val storeLabel = TextView(context)
+    private val storeLabel = Button(context)
     private val categoryLabel = TextView(context)
     private val priceLabel = TextView(context)
     private val leftCopy = LinearLayout(context)
@@ -179,6 +181,22 @@ internal class GamePawsPromotionView(
                     }
                 }
             }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(5) })
+            storeLabel.apply {
+                isAllCaps = false
+                backgroundTintList = null
+                minWidth = 0; minimumWidth = 0
+                if (!gameplay) {
+                    minHeight = dp(48)
+                    minimumHeight = dp(48)
+                    setPadding(dp(4), dp(6), dp(4), dp(6))
+                    setTextColor(Color.WHITE)
+                    background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
+                        cornerRadius = dp(14).toFloat()
+                    }
+                } else { minHeight = 0; minimumHeight = 0 }
+                setOnClickListener { this@GamePawsPromotionView.performClick() }
+            }
         }
         addView(leftCopy, LayoutParams(0, -2, 1f))
         addView(artwork, LayoutParams(dp(64), -1))
@@ -186,6 +204,11 @@ internal class GamePawsPromotionView(
         isClickable = true
         isFocusable = true
         AppFocusRing.apply(this, cornerRadiusDp = 12f)
+        if (!gameplay) {
+            name.setTextColor(0xFF422B1C.toInt())
+            priceLabel.setTextColor(0xFF422B1C.toInt())
+            categoryLabel.setTextColor(0xFF60452D.toInt())
+        }
         applyEnvironmentStyle()
         setOnClickListener {
             val offer = candidates.getOrNull(index) ?: return@setOnClickListener
@@ -247,6 +270,12 @@ internal class GamePawsPromotionView(
             offer.cosmetic.gemPrice > 0 -> CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice)
             offer.cosmetic.requiredAdViews > 0 -> "${offer.cosmetic.requiredAdViews} ADS"
             else -> "MAKE IT YOURS"
+        }
+        if (!gameplay) storeLabel.text = when {
+            offer.cosmetic.requiredAdViews > 0 && offer.cosmetic.gemPrice > 0 -> "Unlock in Shop ›"
+            offer.cosmetic.requiredAdViews > 0 -> if (BuildConfig.LUDOPROOF_ADS_ENABLED) "Watch Ad in Shop ›" else "View in Shop ›"
+            offer.cosmetic.gemPrice > 0 -> "Buy in Shop ›"
+            else -> "Unlock in Shop ›"
         }
         preview?.setActive(false)
         preview?.alpha = 0f
@@ -354,6 +383,8 @@ internal class GamePawsPromotionView(
         alpha = if (available) 1f else 0f
         isClickable = available
         isFocusable = available
+        storeLabel.isEnabled = available
+        storeLabel.isClickable = available
         importantForAccessibility = if (available) IMPORTANT_FOR_ACCESSIBILITY_AUTO else IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
     }
 

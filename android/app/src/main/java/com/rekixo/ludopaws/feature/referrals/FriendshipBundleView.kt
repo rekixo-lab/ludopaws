@@ -6,6 +6,8 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.Button
+import android.graphics.drawable.GradientDrawable
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.DiceView
@@ -79,7 +81,23 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
             }
             addView(ownership, LayoutParams(-1, -2).apply { topMargin = dp(5) })
         }
-        if (compact) addView(label("SEE BUNDLE  ›", 13f, true), LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        if (compact) addView(Button(context).apply {
+            text = "Invite a friend  ›"
+            contentDescription = "Invite a friend. View the friendship bundle and qualifying rules."
+            isAllCaps = false
+            textSize = 15f
+            typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+            setTextColor(0xFFFFFFFF.toInt())
+            backgroundTintList = null
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0xFFB0E56E.toInt())
+            }
+            minHeight = dp(48)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            setOnClickListener { this@FriendshipBundleView.performClick() }
+        }, LayoutParams(-1, dp(48)).apply { topMargin = dp(6) })
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "Friendship bundle: Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Invite a new friend. Reward only after verified play."
     }
