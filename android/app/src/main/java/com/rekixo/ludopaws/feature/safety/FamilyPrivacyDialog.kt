@@ -5,10 +5,10 @@ import android.app.DialogFragment
 import android.content.ActivityNotFoundException
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.StateListDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.text.SpannableString
@@ -18,12 +18,15 @@ import android.text.style.ClickableSpan
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoProofTheme
+import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.ui.dialogs.PRIVACY_POLICY_TEXT
 import com.rekixo.ludopaws.ui.dialogs.baseDialog
 
@@ -48,11 +51,7 @@ class FamilyPrivacyDialog : DialogFragment() {
         panel = LinearLayout(host).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(18), dp(20), dp(18))
-            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF08378F.toInt(), 0xFF031B50.toInt())).apply {
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(2), LudoProofTheme.GOLD)
-            }
+            background = plywoodBackground(host, cornerRadiusDp = 24f)
         }
         val scroll = object : ScrollView(host) {
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -74,7 +73,7 @@ class FamilyPrivacyDialog : DialogFragment() {
     private fun text(value: String, size: Float = 15f) = TextView(requireHost()).apply {
         text = value
         textSize = size
-        setTextColor(Color.WHITE)
+        setTextColor(0xFF422B1C.toInt())
         gravity = Gravity.CENTER
         setLineSpacing(0f, 1.12f)
     }
@@ -82,9 +81,20 @@ class FamilyPrivacyDialog : DialogFragment() {
     private fun action(value: String) = Button(requireHost()).apply {
         text = value
         isAllCaps = false
-        minHeight = dp(48)
+        minHeight = dp(56)
         setTextColor(Color.WHITE)
-        backgroundTintList = ColorStateList.valueOf(0xFF1758A4.toInt())
+        typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+        textSize = 20f
+        backgroundTintList = null
+        fun surface(colors: IntArray) = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, colors).apply {
+            cornerRadius = dp(28).toFloat()
+            setStroke(dp(2), 0xFF78B431.toInt())
+        }
+        background = StateListDrawable().apply {
+            addState(intArrayOf(-android.R.attr.state_enabled), surface(intArrayOf(0xFF8F9C77.toInt(), 0xFF66754F.toInt())))
+            addState(intArrayOf(android.R.attr.state_pressed), surface(intArrayOf(0xFF78C52F.toInt(), 0xFF338A12.toInt())))
+            addState(intArrayOf(), surface(intArrayOf(0xFFB2EE55.toInt(), 0xFF64C627.toInt(), 0xFF389B13.toInt())))
+        }
     }
 
     private fun row(view: View, top: Int = 12) {
@@ -117,30 +127,32 @@ class FamilyPrivacyDialog : DialogFragment() {
             return
         }
 
-        row(text("How old are you?", 24f).apply { setTypeface(typeface, Typeface.BOLD) }, 0)
-        val number = text(if (selectedAge == 0) "—" else selectedAge.toString(), 32f).apply {
+        row(text("How old are you?", 26f).apply {
+            typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+            setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0x66FFF1D7)
+        }, 0)
+        panel.addView(FrameLayout(requireHost()).apply {
+            addView(View(context).apply {
+                background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(0x00B77B24, 0xFFFFD66C.toInt(), 0x00B77B24))
+            }, FrameLayout.LayoutParams(-1, dp(2), Gravity.CENTER))
+            addView(text("◆", 16f).apply { setTextColor(0xFF91601D.toInt()) },
+                FrameLayout.LayoutParams(dp(28), -1, Gravity.CENTER))
+        }, LinearLayout.LayoutParams(-1, dp(16)).apply { topMargin = dp(4) })
+        val number = text(if (selectedAge == 0) "—" else selectedAge.toString(), 52f).apply {
             setTypeface(typeface, Typeface.BOLD)
             setPadding(dp(12), dp(10), dp(12), dp(10))
-            minHeight = dp(64)
-            minWidth = dp(112)
+            minHeight = dp(92)
+            minWidth = dp(156)
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-            background = GradientDrawable().apply {
-                setColor(0xFF041B48.toInt()); cornerRadius = dp(12).toFloat()
-                setStroke(dp(1), LudoProofTheme.GOLD)
-            }
+            background = recessedPlywoodBackground(requireHost(), outerCornerRadiusDp = 18f)
         }
         panel.addView(number, LinearLayout.LayoutParams(-2, -2).apply {
             gravity = Gravity.CENTER_HORIZONTAL; topMargin = dp(18)
         })
         row(text("Slide to select your age · 1–100", 13f))
         val next = action("Continue")
-        val slider = SeekBar(requireHost()).apply {
-            max = 100
-            progress = selectedAge
-            minHeight = dp(48)
-            progressTintList = ColorStateList.valueOf(0xFF68B5FF.toInt())
-            thumbTintList = ColorStateList.valueOf(LudoProofTheme.GOLD)
-        }
+        val slider = AgeSelectionSlider(requireHost()).apply { progress = selectedAge }
         fun updateSelection() {
             number.text = if (selectedAge == 0) "—" else selectedAge.toString()
             number.contentDescription = if (selectedAge == 0) "Age not selected" else "Age $selectedAge years"
@@ -189,7 +201,7 @@ class FamilyPrivacyDialog : DialogFragment() {
         row(text("", 12f).apply {
             text = footer
             movementMethod = LinkMovementMethod.getInstance()
-            setLinkTextColor(LudoProofTheme.GOLD)
+            setLinkTextColor(0xFF154E91.toInt())
             minHeight = dp(48)
         })
         updateSelection()
