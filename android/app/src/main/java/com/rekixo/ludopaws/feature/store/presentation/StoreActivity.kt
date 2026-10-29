@@ -65,6 +65,13 @@ class StoreActivity :
             StoreBillingProduct,
             > =
         emptyMap()
+    private var chosenProductId: String? = null
+    private var chosenProductOwner: String? = null
+    private var checkoutRetryNeeded = false
+    private val scrollPositions = mutableMapOf<StoreTab, Int>()
+    private var catalogRefreshInProgress = false
+    private var catalogRefreshFailed = false
+    private var catalogStatusView: TextView? = null
     private var purchaseEligibilityInProgress = false
     private var rewardRequestInProgress = false
     private var checkoutGeneration = 0
@@ -151,16 +158,20 @@ class StoreActivity :
             .configureWindow(
                 this,
             )
-        selectedTab =
-            requestedInitialTab()
-                ?: StoreTab.GEMS
-        featuredCharacterId = intent.getStringExtra(EXTRA_FEATURED_CHARACTER_ID)
+        selectedTab = StoreTab.entries.firstOrNull { it.name == savedInstanceState?.getString("store_tab") }
+            ?: requestedInitialTab() ?: StoreTab.GEMS
+        StoreTab.entries.forEach { tab -> scrollPositions[tab] = savedInstanceState?.getInt("store_scroll_" + tab.name, 0)?.coerceAtLeast(0) ?: 0 }
+        chosenProductId = savedInstanceState?.getString("store_product")?.takeIf { StoreCatalog.find(it) != null }
+        chosenProductOwner = savedInstanceState?.getString("store_product_owner")
+        checkoutRetryNeeded = chosenProductId != null
+        featuredCharacterId = (savedInstanceState?.getString("store_character") ?: intent.getStringExtra(EXTRA_FEATURED_CHARACTER_ID))
             ?.takeIf { com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.find(it) != null }
         if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && !BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) selectedTab = StoreTab.PAWS
         pendingAutoPurchaseProductId =
-            intent
+            if (savedInstanceState == null) intent
                 .getStringExtra(EXTRA_PURCHASE_PRODUCT_ID)
                 ?.takeIf { it == StoreCatalog.REMOVE_ADS }
+            else null // Restoration preserves selection, never reopens checkout by itself.
         renderStore()
     }
 
@@ -193,26 +204,8 @@ class StoreActivity :
         billingAvailable = false
         billingProductCatalogLoaded = false
 
-        // Refresh catalog off the UI thread. Stale cached offers are display-only and
-        // locked; all purchase/equip requests still go to the authoritative server.
-        catalogExecutor.execute {
-            try {
-                accountRepository.ensureGuestSession()
-                val snapshot = storeCatalogRepository.refresh()
-                StoreCosmeticCatalog.replaceRemoteCatalog(snapshot.items, snapshot.suppressedIds)
-                if (snapshot.stale) {
-                    Log.i(
-                        TAG,
-                        "Using stale locked catalog display data (version=${snapshot.catalogVersion}, itemCount=${snapshot.items.size}).",
-                    )
-                }
-                runOnUiThread {
-                    if (canRenderStoreUi()) renderStore()
-                }
-            } catch (error: Exception) {
-                Log.w(TAG, "Remote catalog refresh failed: ${safeErrorSummary(error)}")
-            }
-        }
+        val availabilityGeneration = checkoutGeneration
+        refreshStoreCatalog()
 
         rewardedAdsStatusLoaded = false
         rewardedAdsStatusError = null
@@ -236,7 +229,7 @@ class StoreActivity :
             }
 
             runOnUiThread {
-                if (!canRenderStoreUi()) return@runOnUiThread
+                if (!storeStarted || availabilityGeneration != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
                 rewardedAdsStatusLoaded = adsStatusLoaded
                 rewardedAdsStatusError = adsStatusError
                 rewardedAdsEnabledByServer = adsAvailable
@@ -278,7 +271,7 @@ class StoreActivity :
             }
 
             runOnUiThread {
-                if (!canRenderStoreUi()) return@runOnUiThread
+                if (!storeStarted || availabilityGeneration != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
                 billingAvailable = available
 
                 val requestedProduct = pendingAutoPurchaseProductId
@@ -335,11 +328,80 @@ class StoreActivity :
         }
     }
     override fun onStop() {
+        if (purchaseEligibilityInProgress || pendingCheckoutProductId != null) checkoutRetryNeeded = chosenProductId != null
         storeStarted = false
         checkoutGeneration += 1
+        catalogRefreshInProgress = false
         clearPendingCheckout()
         rewardRequestInProgress = false
         super.onStop()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        renderedTab?.let { tab -> scrollPositions[tab] = catalogScroll?.scrollY ?: scrollPositions[tab] ?: 0 }
+        outState.putString("store_tab", selectedTab.name)
+        outState.putString("store_character", featuredCharacterId)
+        outState.putString("store_product", chosenProductId)
+        outState.putString("store_product_owner", chosenProductOwner)
+        scrollPositions.forEach { (tab, position) -> outState.putInt("store_scroll_" + tab.name, position) }
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun refreshStoreCatalog() {
+        if (!storeStarted || catalogRefreshInProgress || isFinishing || isDestroyed) return
+        catalogRefreshInProgress = true
+        catalogRefreshFailed = false
+        updateCatalogStatus()
+        val generation = checkoutGeneration
+        catalogExecutor.execute {
+            try {
+                val owner = accountRepository.ensureGuestSession().accountId
+                val snapshot = storeCatalogRepository.refresh()
+                runOnUiThread {
+                    if (!storeStarted || generation != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
+                    catalogRefreshInProgress = false
+                    if (accountRepository.currentSession()?.accountId != owner) {
+                        catalogRefreshFailed = true
+                    } else {
+                        StoreCosmeticCatalog.replaceRemoteCatalog(snapshot.items, snapshot.suppressedIds)
+                        catalogRefreshFailed = snapshot.stale
+                    }
+                    updateCatalogStatus()
+                    renderStore()
+                }
+            } catch (error: Exception) {
+                Log.w(TAG, "Catalog refresh failed: ${safeErrorSummary(error)}")
+                runOnUiThread {
+                    if (!storeStarted || generation != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
+                    catalogRefreshInProgress = false
+                    catalogRefreshFailed = true
+                    updateCatalogStatus()
+                }
+            }
+        }
+    }
+
+    private fun updateCatalogStatus() {
+        catalogStatusView?.apply {
+            text = when {
+                catalogRefreshInProgress -> "Refreshing store items…"
+                catalogRefreshFailed -> "Items could not refresh · Tap to retry"
+                else -> ""
+            }
+            visibility = if (text.isNullOrBlank()) View.GONE else View.VISIBLE
+            isEnabled = !catalogRefreshInProgress
+        }
+    }
+
+    private fun catalogStatusLabel(): TextView = TextView(this).apply {
+        catalogStatusView = this
+        textSize = 12f
+        setTextColor(0xFFEED9B7.toInt())
+        gravity = Gravity.CENTER
+        minHeight = dp(48)
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        setOnClickListener { refreshStoreCatalog() }
+        updateCatalogStatus()
     }
 
     override fun onDestroy() {
@@ -360,6 +422,8 @@ class StoreActivity :
             selectedTab ==
             tab
         ) {
+            if (catalogRefreshFailed) refreshStoreCatalog()
+            if (billingWasCreated && billingAvailable) billing.connect()
             return
         }
         selectedTab =
@@ -373,6 +437,9 @@ class StoreActivity :
             return
         }
         if (StoreCatalog.find(productId) == null || purchaseEligibilityInProgress || !storeStarted || !canRenderStoreUi()) return
+        chosenProductId = productId
+        chosenProductOwner = accountRepository.currentSession()?.accountId
+        checkoutRetryNeeded = false
         pendingAutoPurchaseProductId = null
         val expectedAccountId = accountRepository.currentSession()?.accountId
         val generation = checkoutGeneration
@@ -405,6 +472,7 @@ class StoreActivity :
                     }
                     billingAvailable = true
                     billingProductCatalogLoaded = false
+                    chosenProductOwner = session.accountId
                     pendingCheckoutProductId = productId
                     pendingCheckoutAccountId = session.accountId
                     updateCheckoutStatus()
@@ -414,6 +482,7 @@ class StoreActivity :
             } catch (error: Exception) {
                 runOnUiThread {
                     if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
+                    checkoutRetryNeeded = true
                     clearPendingCheckout()
                     showStoreMessage(error.message ?: "Could not connect to Google Play. Check your connection and try again.")
                 }
@@ -432,6 +501,7 @@ class StoreActivity :
         checkoutStatusView?.text = when {
             pendingCheckoutProductId != null -> "Getting your Google Play price…"
             purchaseEligibilityInProgress -> "Connecting to Google Play…"
+            checkoutRetryNeeded && chosenProductId != null -> "Retry selected item · " + StoreCatalog.find(chosenProductId.orEmpty())?.title.orEmpty()
             else -> "Pay securely with Google Play"
         }
     }
@@ -443,6 +513,19 @@ class StoreActivity :
         gravity = Gravity.CENTER
         setPadding(dp(8), dp(4), dp(8), dp(4))
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        minHeight = dp(48)
+        setOnClickListener {
+            val product = chosenProductId ?: return@setOnClickListener
+            if (!checkoutRetryNeeded) return@setOnClickListener
+            val currentOwner = accountRepository.currentSession()?.accountId
+            if (chosenProductOwner != null && chosenProductOwner != currentOwner) {
+                chosenProductId = null
+                chosenProductOwner = null
+                checkoutRetryNeeded = false
+                updateCheckoutStatus()
+                showStoreMessage("The active account changed. Select the item again for this account.")
+            } else requestPurchase(product)
+        }
         updateCheckoutStatus()
     }
 
@@ -544,13 +627,18 @@ class StoreActivity :
     ) {
         runOnUiThread {
             if (
-                !canRenderStoreUi()
+                !storeStarted || !canRenderStoreUi()
             ) {
                 return@runOnUiThread
             }
-            liveProducts =
-                products
+            liveProducts = products
             billingProductCatalogLoaded = true
+            val waitingProduct = pendingCheckoutProductId
+            if (waitingProduct != null && products[waitingProduct] == null) {
+                checkoutRetryNeeded = true
+                clearPendingCheckout()
+                showStoreMessage("This product is unavailable for the current Play account or region. Tap the selected item retry to check again.")
+            }
             renderStore()
             launchReadyCheckout()
             launchPendingAutoPurchaseIfReady()
@@ -559,7 +647,7 @@ class StoreActivity :
 
     private fun launchPendingAutoPurchaseIfReady() {
         if (
-            !canRenderStoreUi() ||
+            !storeStarted || !canRenderStoreUi() ||
             !billingProductCatalogLoaded ||
             !BuildConfig.LUDOPROOF_BILLING_ENABLED ||
             !billingAvailable
@@ -586,12 +674,26 @@ class StoreActivity :
         accountId: String,
         onFinished: () -> Unit,
     ) {
+        runOnUiThread { clearChosenProductForDelivery(productId, accountId) }
         queuePurchaseVerification(
             productId = productId,
             purchaseToken = purchaseToken,
             accountId = accountId,
             onFinished = onFinished,
         )
+    }
+
+    private fun clearChosenProductForDelivery(productId: String, billingOwner: String? = null) {
+        if (chosenProductId != productId) return
+        val current = accountRepository.currentSession()
+        if (billingOwner != null && current?.billingAccountId != billingOwner) return
+        if (chosenProductOwner != null && current?.accountId != chosenProductOwner) return
+        // A provider-reported pending/completed purchase needs delivery recovery,
+        // not a second checkout request for the same selected item.
+        chosenProductId = null
+        chosenProductOwner = null
+        checkoutRetryNeeded = false
+        updateCheckoutStatus()
     }
 
     private fun queuePurchaseVerification(
@@ -679,7 +781,18 @@ class StoreActivity :
         return !response.optBoolean("replay", false)
     }
 
+    private fun currentOfferMatches(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic): Boolean {
+        val current = StoreCosmeticCatalog.find(cosmetic.id)
+        if (current == null || !current.contentAvailable || current != cosmetic) {
+            showStoreMessage("This item changed or is unavailable. Refresh and select it again; nothing was spent.")
+            refreshStoreCatalog()
+            return false
+        }
+        return true
+    }
+
     internal fun purchaseOrSelectCosmetic(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic) {
+        if (!currentOfferMatches(cosmetic)) return
         if (cosmeticUpdateInProgress) {
             showCosmeticFeedback("Saving selection…")
             return
@@ -772,7 +885,7 @@ class StoreActivity :
         cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
         unlockChannel: String?,
     ) {
-        if (cosmeticUpdateInProgress) return
+        if (cosmeticUpdateInProgress || !currentOfferMatches(cosmetic)) return
         if (unlockChannel == "PLAY_PRODUCT" || unlockChannel == "LEVEL" || unlockChannel == "EVENT") {
             showStoreMessage(
                 "This unlock method is not available yet. No Gems or entitlements were changed.",
@@ -898,6 +1011,7 @@ class StoreActivity :
         productId: String,
     ) {
         runOnUiThread {
+            clearChosenProductForDelivery(productId)
             if (
                 !canRenderStoreUi()
             ) {
@@ -913,7 +1027,8 @@ class StoreActivity :
         message: String,
     ) {
         runOnUiThread {
-            if (!canRenderStoreUi()) return@runOnUiThread
+            if (!storeStarted || !canRenderStoreUi()) return@runOnUiThread
+            checkoutRetryNeeded = chosenProductId != null
             clearPendingCheckout()
             Toast.makeText(
                 this,
@@ -1006,7 +1121,8 @@ class StoreActivity :
             rewardedAdsStatusError?.javaClass?.name,
         )
         if (renderedSignature == signature) return
-        val previousScroll = if (renderedTab == selectedTab) catalogScroll?.scrollY ?: 0 else 0
+        renderedTab?.let { tab -> scrollPositions[tab] = catalogScroll?.scrollY ?: scrollPositions[tab] ?: 0 }
+        val previousScroll = scrollPositions[selectedTab] ?: 0
         renderedSignature = signature
         renderedTab = selectedTab
         featuredPawsCard?.setActive(false)
@@ -1073,6 +1189,7 @@ class StoreActivity :
         )
 
         fixedHeader.addView(storeHeader())
+        fixedHeader.addView(catalogStatusLabel())
         fixedHeader.addView(
             storeTabs(),
             LinearLayout.LayoutParams(

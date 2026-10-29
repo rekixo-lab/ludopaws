@@ -60,9 +60,7 @@ internal fun StoreActivity.handleCosmeticTap(cosmetic: StoreCosmetic) {
                 )
             }
         }
-        CosmeticUnlockKind.PLAY_PRODUCT -> showStoreMessage(
-            "Direct Google Play purchases for individual cosmetics are not available yet.",
-        )
+        CosmeticUnlockKind.PLAY_PRODUCT -> purchaseOrSelectCosmetic(cosmetic)
         CosmeticUnlockKind.FREE,
         CosmeticUnlockKind.LEVEL,
         CosmeticUnlockKind.GEMS -> purchaseOrSelectCosmetic(cosmetic)
