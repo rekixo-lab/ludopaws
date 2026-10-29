@@ -23,6 +23,7 @@ import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
 import com.rekixo.ludopaws.launchPlayerScreen
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.feature.safety.FamilyAgeScreen
+import com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import org.json.JSONObject
 
@@ -101,7 +102,7 @@ class ReferralActivity : Activity() {
         content.addView(action, LinearLayout.LayoutParams(-1, -2))
         connect = secondaryButton("Set up invitation rewards (optional)") {
             FamilyAgeScreen.withOptionalGoogle(this) {
-                launchPlayerScreen(Intent(this, com.rekixo.ludopaws.ProfileActivity::class.java)
+                launchPlayerScreen(Intent(this, ProfileActivity::class.java)
                     .putExtra("open_account_actions", true))
             }
         }.apply { visibility = View.GONE }
