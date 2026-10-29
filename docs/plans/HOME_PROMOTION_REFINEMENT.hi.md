@@ -26,3 +26,11 @@ User workflow के अनुसार नया APK build, lint/test suite य
 नवीन user requirement केवल Store के तीन friendship entries पर लागू: वही box/header/Invite button रखते हुए row में bucket → Blossom Garden board → Rabbit portrait → Pearl Paw dice → fixed right-side FREE · 100 Gems label। Existing compact reward row में opt-in includeBundleItems flag जोड़ा; Home/page/popup अपनी existing composition रखते हैं। सभी चार artworks समान square slots में available width बाँटते हैं; row की 72dp baseline height और 17sp reward label बने हैं। दाईं text column 126dp है; qualifying caption “After verified play” है। Plus symbols नहीं जोड़े ताकि जगह artworks के लिए बचे। Board और chrome एक ही square में measure होते हैं, जिससे उनका origin/size अलग न हो। Rabbit existing actual-model portrait cache से आता है; नया placeholder/vector/live hop नहीं जोड़ा।
 
 Source recheck: तीनों Store sections का shared entry call, explicit art order, fixed right copy, equal-square child measure, board theme override, rabbit/dice IDs, CTA unchanged और opt-in default preservation जाँचे। Diff whitespace साफ। नया build/lint/tests/device run नहीं किया।
+
+## Store card three-tier revision
+
+नवीन layout request पर includeBundleItems Store variant अब vertical है: top full-width equal-square Board → Rabbit → Dice row (72dp height), फिर 72dp bucket + flexible reward-text row, फिर controller का existing Invite a friend/View progress button। Section-specific Friendship bundle heading, skin, button style और handlers untouched हैं। Home/popup/page के default bucket+text row में कोई परिवर्तन नहीं। Fixed 126dp label column हटने से bottom reward text को ज्यादा स्थान और top three artworks को पूर्ण card width मिलता है।
+
+User ने 300 Gems कहा, लेकिन current server/src/referral-config.js grant 100 है। Async clarification पूछा गया है कि 100 रखें या actual reward/text दोनों 300 करें। इस layout-only commit में संख्या 100 और live reward behavior सुरक्षित हैं; pending clarification को approval नहीं माना।
+
+Source recheck: two nested rows, three square slots and shared board/chrome origin, existing card button order, wrap-content height, default-variant preservation और amount consistency पढ़े। Whitespace साफ। Build/lint/tests/device run नहीं किया।

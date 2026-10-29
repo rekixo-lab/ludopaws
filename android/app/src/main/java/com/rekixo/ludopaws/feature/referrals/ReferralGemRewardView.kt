@@ -22,7 +22,7 @@ internal class ReferralGemRewardView(
 ) : LinearLayout(context) {
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     init {
-        orientation = HORIZONTAL
+        orientation = if (includeBundleItems) VERTICAL else HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
         val size = dp(if (compact) 72 else 104)
         val bucket = ImageView(context).apply {
@@ -49,9 +49,7 @@ internal class ReferralGemRewardView(
                     addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
                 }, LayoutParams(0, size, 1f))
             }
-            // Same-height artwork slots share the available width; keep the
-            // reward label fixed on the right rather than crowding it out.
-            slot(bucket)
+            // Full-width top tier: board, character, dice in equal squares.
             slot(FrameLayout(context).apply {
                 addView(LudoBoardView(context).apply {
                     setBoardThemeOverride("board_blossom_garden")
@@ -71,9 +69,14 @@ internal class ReferralGemRewardView(
                 setPlayerTeamColor(null)
                 contentDescription = "Pearl Paw dice"
             })
-            addView(art, LayoutParams(0, size, 1f))
-        } else addView(bucket, LayoutParams(size, size))
-        addView(LinearLayout(context).apply {
+            addView(art, LayoutParams(-1, size))
+        }
+        val rewardRow = if (includeBundleItems) LinearLayout(context).apply {
+            orientation = HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }.also { addView(it, LayoutParams(-1, -2)) } else this
+        rewardRow.addView(bucket, LayoutParams(size, size))
+        rewardRow.addView(LinearLayout(context).apply {
             orientation = VERTICAL
             setPadding(dp(8), 0, 0, 0)
             addView(TextView(context).apply {
@@ -95,7 +98,7 @@ internal class ReferralGemRewardView(
                 textSize = 12f
                 setTextColor(0xFF523B28.toInt())
             })
-        }, if (includeBundleItems) LayoutParams(dp(126), -2) else LayoutParams(0, -2, 1f))
-        contentDescription = (if (includeBundleItems) "Bucket, Blossom Garden board, Rabbit character, Pearl Paw dice. " else "") + "Free 100 Gems for you after a new invited friend completes a qualifying match. No reward for sharing alone."
+        }, LayoutParams(0, -2, 1f))
+        contentDescription = (if (includeBundleItems) "Blossom Garden board, Rabbit character, Pearl Paw dice. Gem bucket below. " else "") + "Free 100 Gems for you after a new invited friend completes a qualifying match. No reward for sharing alone."
     }
 }
