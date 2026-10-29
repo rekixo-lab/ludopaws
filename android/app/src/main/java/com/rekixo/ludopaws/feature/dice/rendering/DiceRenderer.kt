@@ -5,8 +5,8 @@ import android.graphics.RectF
 import com.rekixo.ludopaws.feature.dice.domain.DicePalette
 
 internal data class DiceRenderFrame(
-    val face: Int, val rolling: Boolean, val settling: Boolean,
-    val attentionPulsing: Boolean, val borderPulse: Float, val hasTurnDeadline: Boolean,
+    var face: Int, var rolling: Boolean, var settling: Boolean,
+    var attentionPulsing: Boolean, var borderPulse: Float, var hasTurnDeadline: Boolean,
 )
 
 /** Appearance receives a resolved face; it cannot select or alter the dice outcome. */

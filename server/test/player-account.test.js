@@ -627,3 +627,18 @@ test("simultaneous Friends claims cannot exceed the three-award daily cap", asyn
   assert.equal([...sql.walletTransactions.values()].filter(tx => tx.delta === 3).length, 3);
   assert.equal([...sql.walletTransactions.values()].filter(tx => tx.delta === 0).length, 5);
 });
+
+test("wallet confirms only the signed ad request receipt and preserves it across transaction replay", async () => {
+  const { account } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const created = await (await post(account, "/session/create", { accountId, displayName: "Tester" })).json();
+  const requestId = "00000000-0000-4000-8000-000000000099";
+  const event = { accountId, transactionId: "a1b2c3d4e5f60718293a4b5c6d7e8f90", kind: "gems", requestId };
+  const first = await (await post(account, "/wallet/reward-ad", event)).json();
+  assert.deepEqual(first.wallet.creditedAdRequestIds, [requestId]);
+  assert.equal(first.wallet.balance, 5);
+  const replay = await (await post(account, "/wallet/reward-ad", event)).json();
+  assert.deepEqual(replay.wallet.creditedAdRequestIds, [requestId]);
+  assert.equal(replay.wallet.balance, 5);
+  await post(account, "/account/delete", { accountId, sessionId: created.sessionId, confirmation: "DELETE_MY_ACCOUNT" });
+});

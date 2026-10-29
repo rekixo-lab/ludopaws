@@ -62,6 +62,8 @@ internal fun OfflineGameActivity.requestOfflineExit() {
         return
     }
 
+    offlineModalPaused = true
+    pauseOfflineActions()
     val dialog =
         baseDialog(this)
     dialog.setCanceledOnTouchOutside(
@@ -198,6 +200,8 @@ internal fun OfflineGameActivity.requestOfflineExit() {
             exitConfirmationDialog =
                 null
         }
+        offlineModalPaused = false
+        resumeOfflineActions()
     }
 
     exitConfirmationDialog =

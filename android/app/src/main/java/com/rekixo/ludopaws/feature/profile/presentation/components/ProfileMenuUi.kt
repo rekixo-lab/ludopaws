@@ -192,7 +192,7 @@ internal fun ProfileActivity.showProfileMenu(anchor: View) {
 
     addSection("ACCOUNT & DATA")
     addItem("Age and privacy", "Manage the age group stored on this device") {
-        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.show(this@showProfileMenu)
+        com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.show(this@showProfileMenu) { onPrivacyChoiceChanged() }
     }
     addItem(
         "Save / Restore Account",

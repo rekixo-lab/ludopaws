@@ -11,6 +11,7 @@ const keys = [
   "ADMOB_APP_ID", "ADMOB_REWARDED_AD_UNIT_ID", "ADMOB_INTERSTITIAL_AD_UNIT_ID",
   "LUDOPAWS_AD_SAFETY_REVIEW_APPROVED", "GOOGLE_PLAY_BILLING_ENABLED",
   "LUDOPAWS_VERSION_CODE", "LUDOPAWS_VERSION_NAME",
+  "LUDOPROOF_BILLING_ENABLED", "LUDOPROOF_ADS_ENABLED", "LUDOPROOF_INTERSTITIAL_ADS_ENABLED",
 ];
 
 function run(program, args, options = {}) {
@@ -98,12 +99,11 @@ export function main(argv = process.argv.slice(2), {
   if (!mode || mode === "--help") {
     console.log(`One build/install runner for VS Code and the terminal:
   node scripts/android-local-testing.mjs configure
-  node scripts/android-local-testing.mjs dev [--assemble] [--verify]
-  node scripts/android-local-testing.mjs preview [--assemble] [--verify]
+  node scripts/android-local-testing.mjs run [--assemble] [--verify]
 
-Ctrl+Shift+B runs the exact same dev command.
-dev: LudoPaws Test, original package, Billing/Google configured, Google TEST ADS ON.
-preview: separate .dev package; Billing/Google/Store Ads OFF.
+Ctrl+Shift+B runs the exact same main-app command.
+One original package, using the published production feature flags and ad IDs.
+No developer UI, alternate app, or demo-ad mode.
 --assemble: build only, without contacting a device.
 --verify: unit tests and debug lint before building; no release tasks or Play uploads.
 Set ANDROID_SERIAL when multiple phones/emulators are connected.
@@ -112,23 +112,25 @@ Requires Node.js, a Gradle-compatible JDK and Android SDK; gh login for configur
 Configuration: ${configPath}. configure refreshes public GitHub variables.
 Uses the checked-in Gradle wrapper on Windows, Linux and macOS.
 No uninstall, data clear or downgrade. Play/debug signing conflicts stop installation.
-Test ads do not grant real gems/unlocks; debug OAuth and license tester setup still apply.`);
+Debug OAuth/signing and Google Play license tester setup still apply; no payment or ad is submitted by this runner.`);
     return;
   }
-  if (!["configure", "dev", "preview"].includes(mode) || options.some(value => !["--assemble", "--verify"].includes(value)) ||
-      (mode === "configure" && options.length)) throw new Error("Invalid arguments; use --help. Use dev for full local testing.");
+  if (!["configure", "run"].includes(mode) || options.some(value => !["--assemble", "--verify"].includes(value)) ||
+      (mode === "configure" && options.length)) throw new Error("Invalid arguments; use --help. Use run for the main app.");
   if (mode === "configure") return configure(execute, configPath);
   const assembleOnly = options.includes("--assemble");
   const sdk = resolveSdk(environment, platform, projectRoot);
   const env = { ...environment, ANDROID_HOME: sdk, ANDROID_SDK_ROOT: sdk };
   const adb = path.join(sdk, "platform-tools", platform === "win32" ? "adb.exe" : "adb");
   const serial = assembleOnly ? null : selectDevice(execute(adb, ["devices"], { env }), environment.ANDROID_SERIAL);
-  const fullTesting = mode === "dev";
-  const packageName = fullTesting ? "com.rekixo.ludopaws" : "com.rekixo.ludopaws.dev";
+  const packageName = "com.rekixo.ludopaws";
   const installed = serial ? execute(adb, ["-s", serial, "shell", "dumpsys", "package", packageName], { env }) : "";
   const installedCode = installed.match(/\bversionCode=(\d+)\b/)?.[1];
-  const saved = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, "utf8"))
-    : fullTesting ? configure(execute, configPath) : {};
+  let saved = fs.existsSync(configPath) ? JSON.parse(fs.readFileSync(configPath, "utf8")) : {};
+  const featureKeys = ["LUDOPROOF_BILLING_ENABLED", "LUDOPROOF_ADS_ENABLED", "LUDOPROOF_INTERSTITIAL_ADS_ENABLED"];
+  if (featureKeys.some(key => saved[key] === undefined && environment[`ORG_GRADLE_PROJECT_${key}`] === undefined)) {
+    saved = configure(execute, configPath);
+  }
   const properties = Object.fromEntries(keys.filter(key => typeof saved[key] === "string").map(key => [key, saved[key]]));
   for (const key of keys) {
     const override = environment[`ORG_GRADLE_PROJECT_${key}`];
@@ -138,31 +140,23 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
   const validVersion = (value, minimum = 4) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && Number(value) >= minimum && Number(value) <= 2_100_000_000;
   if (requestedCode !== undefined && !validVersion(requestedCode)) throw new Error("LUDOPAWS_VERSION_CODE must be an integer between 4 and 2100000000.");
   if (installedCode !== undefined && !validVersion(installedCode, 1)) throw new Error("Installed versionCode could not be handled safely; no build or install was attempted.");
-  if (requestedCode !== undefined && Number(requestedCode) < Number(installedCode ?? 0)) {
+  if (environment.ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE !== undefined && requestedCode !== undefined && Number(requestedCode) < Number(installedCode ?? 0)) {
     throw new Error(`Requested local versionCode ${requestedCode} is older than installed ${installedCode}. Remove or increase ORG_GRADLE_PROJECT_LUDOPAWS_VERSION_CODE; no downgrade is attempted.`);
   }
   properties.LUDOPAWS_VERSION_CODE = String(Math.max(4, Number(requestedCode ?? 4), Number(installedCode ?? 0)));
   properties.LUDOPAWS_VERSION_NAME ||= `1.0.0-local.${properties.LUDOPAWS_VERSION_CODE}`;
   properties.LUDOPROOF_API_BASE_URL ||= "https://api.ludopaws.rekixo.com";
   properties.PLAY_GAMES_PROJECT_ID ||= "0";
-  properties.LUDOPAWS_QA_BUILD = "false";
-  properties.LUDOPAWS_DEV_BUILD = String(!fullTesting);
-  properties.LUDOPAWS_TEST_ADS = String(fullTesting);
-  properties.LUDOPROOF_BILLING_ENABLED = String(fullTesting);
-  properties.LUDOPROOF_ADS_ENABLED = String(fullTesting);
-  properties.LUDOPROOF_INTERSTITIAL_ADS_ENABLED = String(fullTesting);
-  delete properties.GOOGLE_PLAY_BILLING_ENABLED;
-  if (!fullTesting) {
-    properties.GOOGLE_SIGN_IN_WEB_CLIENT_ID = "";
-    properties.PLAY_GAMES_PROJECT_ID = "0";
-  } else {
-    if (!properties.GOOGLE_SIGN_IN_WEB_CLIENT_ID?.endsWith(".apps.googleusercontent.com") || !/^[1-9][0-9]*$/.test(properties.PLAY_GAMES_PROJECT_ID)) {
-      throw new Error("Google configuration is missing. Run configure, or provide the correct Google Web Client ID and Play Games project ID. Refusing to install a partly disabled build.");
+  for (const key of featureKeys) {
+    if (!["true", "false"].includes(properties[key])) {
+      throw new Error(`Missing or invalid public feature configuration ${key}. Run configure; refusing to silently hide features.`);
     }
-    properties.ADMOB_APP_ID = "ca-app-pub-3940256099942544~3347511713";
-    properties.ADMOB_REWARDED_AD_UNIT_ID = "ca-app-pub-3940256099942544/5224354917";
-    properties.ADMOB_INTERSTITIAL_AD_UNIT_ID = "ca-app-pub-3940256099942544/1033173712";
   }
+  delete properties.GOOGLE_PLAY_BILLING_ENABLED;
+  if (!properties.GOOGLE_SIGN_IN_WEB_CLIENT_ID?.endsWith(".apps.googleusercontent.com") || !/^[1-9][0-9]*$/.test(properties.PLAY_GAMES_PROJECT_ID)) {
+    throw new Error("Google configuration is missing. Run configure; debug signing must match the registered Android credential.");
+  }
+  console.log(`Main app configuration: Billing=${properties.LUDOPROOF_BILLING_ENABLED}, Rewarded ads=${properties.LUDOPROOF_ADS_ENABLED}, Interstitial ads=${properties.LUDOPROOF_INTERSTITIAL_ADS_ENABLED}.`);
   syncSdkProperty(projectRoot, sdk);
   const androidDir = path.join(projectRoot, "android");
   const gradleArgs = [
@@ -175,8 +169,7 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
   if (/installerPackageName=com\.android\.vending\b/.test(installed)) {
     console.log("Existing app was installed by Google Play. Matching versionCode does not make debug/Play signatures compatible; no uninstall or data clear will be attempted.");
   }
-  console.log(fullTesting ? "FULL TESTING: Billing/Google ON, Google TEST ADS ON; debug OAuth and Play license tester account required."
-    : "PREVIEW ONLY: separate package; Billing, Google and Store Ads OFF.");
+  console.log("Main app only; no developer UI or alternate package. Feature flags are printed above.");
   if (platform === "win32") {
     // No path/property interpolation into shell code; reuse the checked-in wrapper.
     execute("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command",
@@ -198,16 +191,17 @@ Test ads do not grant real gems/unlocks; debug OAuth and license tester setup st
     console.log(execute(adb, ["-s", serial, "install", "-r", apk], { env: selectedEnv }));
   } catch (error) {
     const guidance = /INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match/i.test(error.message)
-      ? "The installed app and local debug APK use different signing keys. A higher versionCode cannot fix this. Use a matching Play-distributed build, another test device, or node scripts/android-local-testing.mjs preview for separate visual testing (Billing/Google OFF)."
+      ? "The installed app and local debug APK use different signing keys. A higher versionCode cannot fix this. Use a matching Play-distributed build or a compatible signing key; this runner does not uninstall or clear data."
       : /INSTALL_FAILED_VERSION_DOWNGRADE/i.test(error.message)
         ? "The installed app may have updated after preflight. Run the command again to read its current versionCode."
         : "Check the Android install error above; a compatible device/build is required.";
     throw new Error(`${error.message}\nInstallation stopped. No app was uninstalled or downgraded. ${guidance}`);
   }
-  const launched = execute(adb, ["-s", serial, "shell", "am", "start", "-W", "-n", `${packageName}/com.rekixo.ludopaws.HomeActivity`], { env: selectedEnv });
+  execute(adb, ["-s", serial, "shell", "am", "force-stop", packageName], { env: selectedEnv });
+  const launched = execute(adb, ["-s", serial, "shell", "am", "start", "-W", "-a", "android.intent.action.MAIN", "-c", "android.intent.category.LAUNCHER", "-n", `${packageName}/com.rekixo.ludopaws.HomeActivity`], { env: selectedEnv });
   console.log(launched);
   if (/Error:|Error type \d|Status:\s*(?!ok\b)\S+/i.test(launched)) throw new Error("APK installed, but Android could not open HomeActivity. Check the launch output above.");
-  console.log(`Installed and opened ${fullTesting ? "LudoPaws Test" : "LudoPaws Preview"} on ${serial}.`);
+  console.log(`Installed and opened Ludo Paws on ${serial}.`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

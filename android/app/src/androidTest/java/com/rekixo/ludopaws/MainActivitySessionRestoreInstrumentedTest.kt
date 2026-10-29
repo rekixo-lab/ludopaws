@@ -27,10 +27,6 @@ class MainActivitySessionRestoreInstrumentedTest {
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         clearRemoteStores()
-        if (BuildConfig.LUDOPAWS_QA_BUILD) {
-            assertEquals("https://127.0.0.1", BuildConfig.LUDOPROOF_API_BASE_URL)
-            return
-        }
         setDeviceNetworkEnabled(false)
         assertTrue(
             "test requires an offline device so restored credentials cannot hit production",
@@ -41,10 +37,8 @@ class MainActivitySessionRestoreInstrumentedTest {
     @After
     fun tearDown() {
         clearRemoteStores()
-        if (!BuildConfig.LUDOPAWS_QA_BUILD) {
-            setDeviceNetworkEnabled(true)
-            waitForValidatedNetwork(expected = true)
-        }
+        setDeviceNetworkEnabled(true)
+        waitForValidatedNetwork(expected = true)
     }
 
     @Test
@@ -108,12 +102,10 @@ class MainActivitySessionRestoreInstrumentedTest {
         scenario: ActivityScenario<MainActivity>,
         expectedSession: PlayerSession,
     ) {
-        if (!BuildConfig.LUDOPAWS_QA_BUILD) {
-            assertTrue(
-                "the activity must observe the disabled emulator network before validating offline restore",
-                waitForActivityOnline(scenario, expected = false),
-            )
-        }
+        assertTrue(
+            "the activity must observe the disabled emulator network before validating offline restore",
+            waitForActivityOnline(scenario, expected = false),
+        )
 
         scenario.onActivity { activity ->
             assertEquals(expectedSession.matchId, activity.matchId)
@@ -128,7 +120,7 @@ class MainActivitySessionRestoreInstrumentedTest {
                 "ROLL DICE",
                 activity.rollButton.text.toString(),
             )
-            if (!BuildConfig.LUDOPAWS_QA_BUILD) assertFalse(
+            assertFalse(
                 "restoring saved online credentials while the emulator is offline must not mark the activity online",
                 activity.isOnline,
             )

@@ -182,6 +182,38 @@ class AccountWalletSecurityInstrumentedTest {
         cache.clear()
     }
 
+    @Test
+    fun cachedSessionCannotBypassUnsupportedStorageVersion() {
+        saveTestSession()
+        val sessions = AccountSessionStore(context)
+        assertEquals(ACCOUNT_ID, sessions.load()?.accountId)
+        context.getSharedPreferences("ludoproof_account_session_v1", Context.MODE_PRIVATE)
+            .edit().putInt("version", 99).commit()
+        assertEquals(null, sessions.load())
+        saveTestSession()
+        requireNotNull(sessions.load())
+        context.getSharedPreferences("ludoproof_account_session_v1", Context.MODE_PRIVATE)
+            .edit().putString("version", "invalid-type").commit()
+        assertEquals(null, sessions.load())
+    }
+
+    @Test
+    fun pinnedResultScopeDoesNotMigrateAnotherAccountsLegacyProfile() {
+        saveTestSession()
+        val prefs = context.getSharedPreferences("ludoproof_profile", Context.MODE_PRIVATE)
+        prefs.edit().clear().putString("profile_json_v1", JSONObject().put("displayName", "Legacy name").toString()).commit()
+        try {
+            val other = UUID.randomUUID().toString()
+            val recovery = com.rekixo.ludopaws.feature.profile.data.local.ProfileStore(context, other, pinAccountScope = true)
+            recovery.snapshot()
+            recovery.recordCompletedMatch("recovery-scope-test", com.rekixo.ludopaws.feature.profile.domain.model.ProfileGameMode.CLASSIC,
+                com.rekixo.ludopaws.feature.profile.domain.model.ProfileMatchSource.ONLINE, false)
+            assertFalse(prefs.contains("profile_json_v2_account_" + ACCOUNT_ID))
+            assertFalse(prefs.getBoolean("profile_legacy_scope_migrated", false))
+            assertTrue(prefs.contains("profile_json_v1"))
+        } finally { prefs.edit().clear().commit() }
+    }
+
     private fun pendingPurchase() = PendingStorePurchase(
         productId = "gems_300",
         purchaseToken = "secure-purchase-token-1234567890",

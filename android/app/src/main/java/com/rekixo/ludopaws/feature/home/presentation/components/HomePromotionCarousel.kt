@@ -5,6 +5,8 @@ import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
+import android.app.Activity
+import com.rekixo.ludopaws.launchPlayerScreen
 import android.graphics.Color
 import android.view.Gravity
 import android.view.MotionEvent
@@ -39,7 +41,7 @@ internal class HomePromotionCarousel(
     private val bundle = FriendshipBundleView(context, compact = true).apply {
         isClickable = true
         isFocusable = true
-        setOnClickListener { context.startActivity(Intent(context, ReferralActivity::class.java)) }
+        setOnClickListener { (context as? Activity)?.launchPlayerScreen(Intent(context, ReferralActivity::class.java)) }
     }
     private var bundleAvailable = false
     private var bundleShown = false
@@ -66,11 +68,8 @@ internal class HomePromotionCarousel(
         clipToPadding = true
         pages.clipChildren = true
         pages.addView(hero, LayoutParams(-1, -1))
-        // The promotional carousel has one shared, lightweight animated galaxy.
-        // Remove only these two promo cards' old opaque backgrounds; gameplay
-        // promotions and full-size referral screens keep their own styling.
-        promotion.background = null
-        bundle.background = null
+        // Preserve each card's own game-themed surface. In particular the
+        // friendship card's dark text must stay on its plywood background.
         spotlight.addView(spaceBackground, LayoutParams(-1, -1))
         spotlight.addView(promotion, LayoutParams(-1, -1))
         spotlight.addView(bundle, LayoutParams(-1, -1))

@@ -142,8 +142,9 @@ export class MatchRoom extends SocialMatchRoom {
       const updatedAt = Number(state.updatedAt ?? state.createdAt ?? Date.now());
       const referralAt = state.status === "FINISHED" ? await this.scheduleReferralRetry() : null;
       const gemAt = state.status === "FINISHED" ? await this.scheduleGemRetry() : null;
+      const leaderboardAt = state.status === "FINISHED" && state.leaderboardRecordedAt == null ? Date.now() + 60_000 : null;
       await this.ctx.storage.setAlarm(Math.min(updatedAt + ttl,
-        ...[referralAt, gemAt].filter(Number.isFinite)));
+        ...[referralAt, gemAt, leaderboardAt].filter(Number.isFinite)));
       return false;
     }
     if (state.pendingRoll?.status === "RESOLVED") {

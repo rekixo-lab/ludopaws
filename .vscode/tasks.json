@@ -7,7 +7,7 @@
       "command": "node",
       "args": [
         "${workspaceFolder}/scripts/android-local-testing.mjs",
-        "dev"
+        "run"
       ],
       "options": {
         "cwd": "${workspaceFolder}"

@@ -27,6 +27,38 @@ import com.rekixo.ludopaws.feature.offline.*
 
 class OfflineGameActivity : ComponentActivity() {
     internal val handler = Handler(Looper.getMainLooper())
+    internal val offlineRollExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    internal var offlineGeneration = 0L
+    internal var offlineRollInFlight = false
+    private var offlineForeground = false
+    internal var offlineModalPaused = false
+    internal val offlineActionsAllowed: Boolean get() = offlineForeground && !offlineModalPaused && !isFinishing && !isDestroyed
+
+    internal fun pauseOfflineActions() {
+        offlineGeneration++
+        handler.removeCallbacksAndMessages(null)
+        offlineRollInFlight = false
+        computerActionRevision = null
+        singleLegalMoveKey = null
+        diceView?.stopRolling()
+    }
+
+    internal fun resumeOfflineActions() {
+        if (offlineActionsAllowed && boardView != null) session.snapshot()?.let { renderGame(it) }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        offlineForeground = true
+        resumeOfflineActions()
+    }
+
+    override fun onStop() {
+        offlineForeground = false
+        pauseOfflineActions()
+        super.onStop()
+    }
+
     internal val feedbackLedger = LudoPawsFeedbackLedger()
 
     internal val gameMode:
@@ -192,6 +224,7 @@ class OfflineGameActivity : ComponentActivity() {
     }
 
     internal fun prepareOfflineUiTransition() {
+        pauseOfflineActions()
         boardView?.let { com.rekixo.ludopaws.ui.quickchat.clearQuickChatReactions(it) }
         handler.removeCallbacksAndMessages(null)
         turnHandoffDialog
@@ -268,6 +301,7 @@ class OfflineGameActivity : ComponentActivity() {
         postWinInterstitialAd?.close()
         postWinInterstitialAd = null
         prepareOfflineUiTransition()
+        offlineRollExecutor.shutdownNow()
         super.onDestroy()
     }
 

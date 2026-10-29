@@ -32,7 +32,7 @@ export function familyProjection(value, env) {
   if (Array.isArray(value)) return value.map(item => familyProjection(item, env));
   const identity = value.playerId ?? value.friendId ?? value.opponentFriendId ?? value.profileId ?? value.accountId;
   return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
-    /displayName$/i.test(key) ? familyPlayerName(identity) : familyProjection(item, env),
+    /displayName$/i.test(key) ? (identity == null && /^(?:Panda|Tiger|Koala|Otter|Rabbit|Fox|Bear|Cat) \d{4}$/.test(String(item)) ? item : familyPlayerName(identity)) : familyProjection(item, env),
   ]));
 }
 

@@ -5,21 +5,6 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
-val qaBuild = providers.gradleProperty("LUDOPAWS_QA_BUILD").orElse("false").get().toBooleanStrict()
-val devBuild = providers.gradleProperty("LUDOPAWS_DEV_BUILD").orElse("false").get().toBooleanStrict()
-val testAds = providers.gradleProperty("LUDOPAWS_TEST_ADS").orElse("false").get().toBooleanStrict()
-require(!testAds || (!qaBuild && !devBuild)) { "Full test ads require the original-package debug build." }
-require(!testAds || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
-    "Test ads are debug-only. Release tasks require LUDOPAWS_TEST_ADS=false."
-}
-require(!(qaBuild && devBuild)) { "Choose either isolated QA or developer preview mode." }
-require(!devBuild || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
-    "Developer preview mode is debug-only; release tasks require LUDOPAWS_DEV_BUILD=false."
-}
-require(!qaBuild || gradle.startParameter.taskNames.none { it.contains("release", ignoreCase = true) }) {
-    "QA isolation is for debug device tests only; release tasks require LUDOPAWS_QA_BUILD=false."
-}
-
 val ludoProofApiBaseUrl =
     providers.gradleProperty("LUDOPROOF_API_BASE_URL")
         .orElse("https://api.ludopaws.rekixo.com")
@@ -59,12 +44,6 @@ require(!(ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled) || adSafetyRev
     "Advertising cannot be enabled before explicit target-age, Families, privacy and consent review. " +
         "After approval set LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true."
 }
-require(!qaBuild || !(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
-    "Isolated QA builds cannot enable purchases or ads. Use the signed internal Play build."
-}
-require(!devBuild || !(ludoProofBillingEnabled || ludoProofAdsEnabled || ludoProofInterstitialAdsEnabled)) {
-    "The .dev package uses preview tools and demo ads only. Use integration debug for Play Billing."
-}
 val admobAppId =
     providers.gradleProperty("ADMOB_APP_ID")
         .orElse("ca-app-pub-9987799703505828~1411336271")
@@ -77,13 +56,6 @@ val admobInterstitialAdUnitId =
     providers.gradleProperty("ADMOB_INTERSTITIAL_AD_UNIT_ID")
         .orElse("")
         .get()
-if (testAds) {
-    require(admobAppId == "ca-app-pub-3940256099942544~3347511713" &&
-        admobRewardedAdUnitId == "ca-app-pub-3940256099942544/5224354917" &&
-        admobInterstitialAdUnitId == "ca-app-pub-3940256099942544/1033173712") {
-        "Debug test-ad mode must use only Google's demo app and ad unit IDs."
-    }
-}
 require(admobAppId.isNotBlank()) {
     "ADMOB_APP_ID must not be blank."
 }
@@ -98,7 +70,7 @@ if (ludoProofAdsEnabled) {
         "ADMOB_REWARDED_AD_UNIT_ID must be a valid production Ad Unit ID."
     }
     require(
-        testAds || (admobAppId != "ca-app-pub-3940256099942544~3347511713" &&
+        (admobAppId != "ca-app-pub-3940256099942544~3347511713" &&
             admobRewardedAdUnitId != "ca-app-pub-3940256099942544/5224354917"),
     ) {
         "Google sample AdMob IDs are not allowed when rewarded ads are enabled."
@@ -112,7 +84,7 @@ if (ludoProofInterstitialAdsEnabled) {
         "ADMOB_INTERSTITIAL_AD_UNIT_ID must be a valid AdMob interstitial unit ID."
     }
     require(
-        testAds || (admobAppId != "ca-app-pub-3940256099942544~3347511713" &&
+        (admobAppId != "ca-app-pub-3940256099942544~3347511713" &&
             admobInterstitialAdUnitId != "ca-app-pub-3940256099942544/1033173712"),
     ) {
         "Set your real AdMob app and interstitial IDs before enabling production interstitial ads."
@@ -198,8 +170,6 @@ android {
         // All players retain family communications; reviewed builds can use Play commerce.
         buildConfigField("boolean", "LUDOPAWS_CONNECTED_FEATURES_ENABLED", "true")
         buildConfigField("boolean", "LUDOPAWS_FAMILY_MODE", "true")
-        buildConfigField("boolean", "LUDOPAWS_QA_BUILD", qaBuild.toString())
-        buildConfigField("boolean", "LUDOPAWS_TEST_ADS", testAds.toString())
         buildConfigField(
             "boolean",
             "LUDOPROOF_BILLING_ENABLED",
@@ -257,21 +227,6 @@ android {
     buildTypes {
         getByName("debug") {
             isMinifyEnabled = false
-            if (testAds) {
-                resValue("string", "app_name", "LudoPaws Test")
-                versionNameSuffix = "-test"
-            }
-            if (devBuild) {
-                applicationIdSuffix = ".dev"
-                versionNameSuffix = "-dev"
-                resValue("string", "app_name", "LudoPaws Preview")
-                manifestPlaceholders["ADMOB_APP_ID"] = "ca-app-pub-3940256099942544~3347511713"
-            }
-            if (qaBuild) {
-                applicationIdSuffix = ".qa"
-                versionNameSuffix = "-qa"
-                buildConfigField("String", "LUDOPROOF_API_BASE_URL", "\"https://127.0.0.1\"")
-            }
         }
         getByName("release") {
             isMinifyEnabled = true
@@ -287,8 +242,6 @@ android {
             )
         }
     }
-
-    if (qaBuild) sourceSets.getByName("debug").res.srcDir("src/qa/res")
 
     buildFeatures {
         buildConfig = true
@@ -310,13 +263,6 @@ android {
         getByName("main") {
             assets.srcDir(generatedAudioAssetsDir)
         }
-    }
-}
-
-// Aggregate tasks must not accidentally package a release with demo ad configuration.
-androidComponents {
-    beforeVariants(selector().withBuildType("release")) { variant ->
-        if (testAds) variant.enable = false
     }
 }
 

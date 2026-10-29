@@ -88,6 +88,7 @@ export class PlayerAccount {
       sql.exec("CREATE INDEX IF NOT EXISTS idx_cosmetic_play_grants_item ON cosmetic_play_grants(cosmetic_id)");
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_pricing_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)");
       sql.exec("CREATE INDEX IF NOT EXISTS idx_wallet_tx_created ON wallet_transactions(created_at DESC)");
+      sql.exec("CREATE TABLE IF NOT EXISTS ad_reward_receipts (request_id TEXT PRIMARY KEY, credited_at INTEGER NOT NULL)");
       sql.exec("CREATE TABLE IF NOT EXISTS wallet_revision (id INTEGER PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL)");
       sql.exec("INSERT OR IGNORE INTO wallet_revision (id, revision) VALUES (1, 0)");
       for (const [table, operations] of [
@@ -215,6 +216,7 @@ export class PlayerAccount {
         accountId, deletedAt,
       );
       this.#profileSnapshot(accountId);
+      this.ctx.storage.sql.exec("DELETE FROM ad_reward_receipts");
       this.ctx.storage.sql.exec("DELETE FROM account_sessions");
       this.ctx.storage.sql.exec("DELETE FROM purchase_ledger_ownership");
       this.ctx.storage.sql.exec("DELETE FROM revoked_play_purchases");
@@ -544,6 +546,12 @@ export class PlayerAccount {
     }
   }
 
+  #recordAdReceipt(requestId) {
+    if (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/.test(requestId)) return;
+    this.ctx.storage.sql.exec("INSERT OR IGNORE INTO ad_reward_receipts (request_id, credited_at) VALUES (?, ?)", requestId, Date.now());
+    this.ctx.storage.sql.exec("DELETE FROM ad_reward_receipts WHERE request_id NOT IN (SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100)");
+  }
+
   async #grantAdReward(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId);
     this.#profileSnapshot(accountId);
@@ -555,6 +563,7 @@ export class PlayerAccount {
     const idempotencyKey = "admob:" + transactionHash;
     if (kind === "gems") {
       const result = this.#applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind: "REWARDED_AD_GEMS", delta: 5, sourceRefHash: transactionHash, removeAds: false });
+      this.#recordAdReceipt(body.requestId);
       return json(200, { ok: true, ...result, wallet: this.#walletSnapshot(accountId) });
     }
     if (kind === "cosmetic") {
@@ -591,6 +600,7 @@ export class PlayerAccount {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
         }
       });
+      this.#recordAdReceipt(body.requestId);
       return json(200, { ok: true, replay, wallet: this.#walletSnapshot(accountId) });
     }
     throw httpError(400, "AD_REWARD_INVALID", "reward type is not supported");
@@ -845,6 +855,7 @@ export class PlayerAccount {
       ownedCosmetics,
       selectedCosmetics,
       rewardedAdProgress,
+      creditedAdRequestIds: [...this.ctx.storage.sql.exec("SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100")].map(row => String(row.request_id)),
     };
   }
 }

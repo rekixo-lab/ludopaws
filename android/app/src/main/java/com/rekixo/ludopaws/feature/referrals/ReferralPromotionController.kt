@@ -10,6 +10,9 @@ import android.os.Looper
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.TextView
+import android.widget.LinearLayout
+import android.widget.Button
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import android.widget.Toast
 import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.LudoProofApplication
@@ -95,7 +98,7 @@ internal class ReferralPromotionController(
                     ReferralPopupSession.current.automaticShown)) return@fetch
             popupVisibility(true)
             try {
-                popup = showReferralBundlePopup(activity, snapshot.optString("state"), snapshot.optBoolean("googleLinked"), inventory.ownedCosmeticIds()) { deferred ->
+                popup = showReferralBundlePopup(activity, snapshot.optString("state"), inventory.ownedCosmeticIds()) { deferred ->
                     popup = null
                     if (deferred && resumed && currentAccount() == account) preferences.edit().putLong(key + "dismissed", System.currentTimeMillis()).apply()
                     popupVisibility(false)
@@ -126,17 +129,32 @@ internal class ReferralPromotionController(
             if (!host.isAttachedToWindow) return@fetch
             host.removeAllViews()
             if (snapshot == null || !eligible(snapshot) || cosmeticId in inventory.ownedCosmeticIds()) { host.visibility = View.GONE; return@fetch }
-            val title = when (cosmeticId) { "character_rabbit" -> "Rabbit"; "board_blossom_garden" -> "Blossom Garden"; else -> "Pearl Paw Dice" }
-            val button = TextView(activity).apply {
-                text = if (snapshot.optString("state") == "INVITE") "$title · Get through friendship  ›" else "Friendship bundle · View progress  ›"
-                textSize = 12f; typeface = Typeface.DEFAULT_BOLD; setTextColor(0xFF194437.toInt())
-                gravity = android.view.Gravity.CENTER; minHeight = dp(48)
-                setPadding(dp(10), dp(8), dp(10), dp(8)); isClickable = true; isFocusable = true
-                background = android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x33000000),
-                    GradientDrawable().apply { setColor(0xFFD6EFCB.toInt()); cornerRadius = dp(14).toFloat() }, null)
-                setOnClickListener { requestPopup(automatic = false) }
+            val card = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(12), dp(8), dp(12), dp(10))
+                background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 16f)
+                addView(TextView(activity).apply {
+                    text = "Claim Your Friendship Bundle"
+                    textSize = 17f
+                    typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(dp(4), dp(10), dp(4), dp(10))
+                    setTextColor(0xFF174F55.toInt())
+                    setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0x66FFF4DE)
+                    isAccessibilityHeading = true
+                }, LinearLayout.LayoutParams(-1, -2))
+                addView(ReferralGemRewardView(activity, compact = true, includeBundleItems = true), LinearLayout.LayoutParams(-1, -2))
+                addView(Button(activity).apply {
+                    text = if (snapshot.optString("state") == "INVITE") "Invite a friend  ›" else "View progress  ›"
+                    textSize = 14f; typeface = Typeface.DEFAULT_BOLD; isAllCaps = false
+                    minHeight = dp(48); backgroundTintList = null
+                    setTextColor(0xFFFFFFFF.toInt())
+                    background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply { cornerRadius = dp(16).toFloat() }
+                    setOnClickListener { requestPopup(automatic = false) }
+                }, LinearLayout.LayoutParams(-1, -2))
             }
-            host.addView(button, FrameLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+            host.addView(card, FrameLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
             host.visibility = View.VISIBLE
         }
     }

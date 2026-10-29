@@ -198,13 +198,14 @@ class AccountRepository(context: Context) {
             JSONObject().put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName)),
             session.accessToken,
         ).getJSONObject("profile")
-        updateCachedDisplayName(profile)
+        updateCachedDisplayName(profile, session.accountId, session.sessionId)
         return profile
     }
 
     @Synchronized
-    private fun updateCachedDisplayName(profile: JSONObject) {
+    private fun updateCachedDisplayName(profile: JSONObject, expectedAccountId: String, expectedSessionId: String) {
         val current = sessions.load() ?: return
+        if (current.accountId != expectedAccountId || current.sessionId != expectedSessionId) return
         val name = profile.optString("displayName").trim().take(24)
         if (name.isBlank() || current.displayName == name) return
         sessions.save(current.copy(displayName = name))
@@ -349,6 +350,7 @@ class AccountRepository(context: Context) {
         promotionPrefs.edit().also { editor ->
             promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
         }.commit()
+        runCatching { com.rekixo.ludopaws.feature.store.data.ads.PendingAdRewardStore(appContext).removeAccount(session.accountId) }
         sessions.clear()
         return response
     }

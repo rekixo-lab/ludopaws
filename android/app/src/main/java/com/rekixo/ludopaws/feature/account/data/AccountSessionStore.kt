@@ -31,9 +31,12 @@ class AccountSessionStore(context: Context) {
 
     @Synchronized
     fun load(): AccountSession? {
+        return try {
         val ivText = prefs.getString(KEY_IV, null) ?: return null
         val cipherText = prefs.getString(KEY_CIPHERTEXT, null) ?: return null
-        return try {
+        val cacheKey = ivText + ":" + cipherText + ":" + prefs.getInt(KEY_VERSION, 0) + ":" +
+            prefs.getString(KEY_ACCOUNT_MODE, null) + ":" + prefs.getString(KEY_IDENTITY_RECOVERY_PENDING_ACCOUNT_ID, null)
+        synchronized(sessionCacheLock) { if (cachedRecord == cacheKey) return cachedSession }
             require(prefs.getInt(KEY_VERSION, 0) == 1)
             val cipher = Cipher.getInstance(TRANSFORMATION)
             cipher.init(
@@ -73,6 +76,7 @@ class AccountSessionStore(context: Context) {
             require(OPAQUE_BILLING_ID.matches(value.billingAccountId))
             require(value.accessToken.split(".").size == 3)
             require(REFRESH_TOKEN.matches(value.refreshToken))
+            synchronized(sessionCacheLock) { cachedRecord = cacheKey; cachedSession = value }
             value
         } catch (_: Exception) {
             clearSession()
@@ -127,6 +131,7 @@ class AccountSessionStore(context: Context) {
 
     @Synchronized
     fun clearSession() {
+        synchronized(sessionCacheLock) { cachedRecord = null; cachedSession = null }
         check(
             prefs.edit()
                 .remove(KEY_IV)
@@ -251,6 +256,10 @@ class AccountSessionStore(context: Context) {
     }
 
     private companion object {
+        private val sessionCacheLock = Any()
+        private var cachedRecord: String? = null
+        private var cachedSession: AccountSession? = null
+
         const val PREFS_NAME = "ludoproof_account_session_v1"
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val KEY_ALIAS = "ludoproof_account_session_key_v1"

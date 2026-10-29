@@ -29,21 +29,7 @@ class GemClusterView(
             color = 0x68C5FFFF
         }
 
-    override fun onDraw(canvas: Canvas) {
-        super.onDraw(canvas)
-        val side = min(width, height).toFloat()
-        if (side <= 0f) return
-
-        val gemSize = when (gemCount.coerceIn(1, 5)) {
-            1 -> side * 0.70f
-            2 -> side * 0.61f
-            3 -> side * 0.52f
-            4 -> side * 0.46f
-            else -> side * 0.42f
-        }
-        val centerX = width / 2f
-        val centerY = height / 2f
-        val placements =
+    private val placements =
             when (gemCount.coerceIn(1, 5)) {
                 1 -> listOf(GemPlacement(0f, 0f, 1f))
                 2 -> listOf(
@@ -69,6 +55,33 @@ class GemClusterView(
                     GemPlacement(0.12f, 0.20f, 0.70f),
                 )
             }
+
+
+    private var raster: android.graphics.Bitmap? = null
+    private val rasterPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        raster = if (w > 0 && h > 0) android.graphics.Bitmap.createBitmap(w, h, android.graphics.Bitmap.Config.ARGB_8888).also {
+            drawCluster(Canvas(it))
+        } else null
+    }
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        raster?.let { canvas.drawBitmap(it, 0f, 0f, rasterPaint) }
+    }
+    private fun drawCluster(canvas: Canvas) {
+        val side = min(width, height).toFloat()
+        if (side <= 0f) return
+
+        val gemSize = when (gemCount.coerceIn(1, 5)) {
+            1 -> side * 0.70f
+            2 -> side * 0.61f
+            3 -> side * 0.52f
+            4 -> side * 0.46f
+            else -> side * 0.42f
+        }
+        val centerX = width / 2f
+        val centerY = height / 2f
 
         placements.forEach { placement ->
             drawGem(

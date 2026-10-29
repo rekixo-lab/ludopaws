@@ -217,6 +217,7 @@ internal fun MainActivity.updateControls(
     turnText.visibility = if (waiting) View.VISIBLE else View.GONE
     val finishingPresentation = SystemClock.uptimeMillis() < onlineGameplayActionBlockedUntilMillis
     resultPanel.visibility = if (finished && !finishingPresentation) View.VISIBLE else View.GONE
+    if (finished && !finishingPresentation) com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.showWhenFinished(this)
     boardFrame.visibility = if (active || finished) View.VISIBLE else View.GONE
     actionPanel.visibility = View.VISIBLE
     if (waiting) {

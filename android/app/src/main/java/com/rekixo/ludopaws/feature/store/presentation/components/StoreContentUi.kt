@@ -51,6 +51,9 @@ internal fun StoreActivity.storeContent(): LinearLayout {
     }
     return LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
+        promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(it) }
+            ?.takeIf { com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.tabFor(it) == selectedTab }
+            ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }) }
         bundleItem?.let { addView(referralPromotions.storeEntry(it), LinearLayout.LayoutParams(-1, -2)) }
         addView(catalog, LinearLayout.LayoutParams(-1, -2))
     }
@@ -383,14 +386,14 @@ private fun StoreActivity.featuredRemoveAdsCard(
         )
     }
 
-private fun StoreActivity.rewardedAdCard():
+internal fun StoreActivity.rewardedAdCard():
     LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
-        contentDescription = if (BuildConfig.LUDOPAWS_TEST_ADS) "Show Google test ad; no real wallet reward" else "Watch ad to earn 5 gems"
+        contentDescription = "Watch ad to earn 5 gems"
         setPadding(dp(7), 0, dp(7), 0)
         background =
             LudoProofTheme.rounded(
@@ -407,7 +410,7 @@ private fun StoreActivity.rewardedAdCard():
 
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = if (BuildConfig.LUDOPAWS_TEST_ADS) "" else "5"
+                text = "5"
                 textSize = 12f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
@@ -417,7 +420,6 @@ private fun StoreActivity.rewardedAdCard():
         addView(
             GemClusterView(this@rewardedAdCard).apply {
                 contentDescription = "Gems"
-                visibility = if (BuildConfig.LUDOPAWS_TEST_ADS) android.view.View.GONE else android.view.View.VISIBLE
             },
             LinearLayout.LayoutParams(
                 dp(18),
@@ -429,7 +431,7 @@ private fun StoreActivity.rewardedAdCard():
         )
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = if (BuildConfig.LUDOPAWS_TEST_ADS) "TEST AD" else "WATCH AD"
+                text = "WATCH AD"
                 textSize = 10.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
@@ -572,7 +574,7 @@ private fun StoreActivity.storeSafetyNote():
     TextView =
     TextView(this).apply {
         text =
-            "Payments are handled by Google Play. Gems and entitlements are granted only after purchase verification."
+            "Payments are handled by Google Play; no Google account linking in this game is required. Gems and items are granted after verification. Guest purchases stay with this game account; optional account backup is in Profile."
         textSize =
             10f
         setTextColor(

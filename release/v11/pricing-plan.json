@@ -1,0 +1,67 @@
+{
+  "schemaVersion": 1,
+  "packageName": "com.rekixo.ludopaws",
+  "release": "v11",
+  "status": "STAGED_NOT_APPLIED",
+  "applyTiming": "WITH_FINAL_V11_RELEASE",
+  "referenceCurrency": "USD",
+  "otherProducts": "UNCHANGED",
+  "products": [
+    {
+      "productId": "remove_ads",
+      "label": "Remove Ads + 5 bonus Gems",
+      "gemAmount": 5,
+      "targetUsdCents": 100,
+      "consumable": false,
+      "removeAds": true
+    },
+    {
+      "productId": "gems_300",
+      "label": "Starter",
+      "gemAmount": 300,
+      "targetUsdCents": 50,
+      "consumable": true,
+      "removeAds": false
+    },
+    {
+      "productId": "gems_1500",
+      "label": "Value",
+      "gemAmount": 1200,
+      "targetUsdCents": 150,
+      "consumable": true,
+      "removeAds": false
+    },
+    {
+      "productId": "gems_3500",
+      "label": "Popular",
+      "gemAmount": 3000,
+      "targetUsdCents": 250,
+      "consumable": true,
+      "removeAds": false
+    },
+    {
+      "productId": "gems_20000",
+      "label": "7500 Gems",
+      "gemAmount": 7500,
+      "targetUsdCents": 500,
+      "consumable": true,
+      "removeAds": false
+    },
+    {
+      "productId": "gems_40000",
+      "label": "16000 Gems",
+      "gemAmount": 16000,
+      "targetUsdCents": 1000,
+      "consumable": true,
+      "removeAds": false
+    },
+    {
+      "productId": "gems_200000",
+      "label": "Best Value",
+      "gemAmount": 35000,
+      "targetUsdCents": 2000,
+      "consumable": true,
+      "removeAds": false
+    }
+  ]
+}

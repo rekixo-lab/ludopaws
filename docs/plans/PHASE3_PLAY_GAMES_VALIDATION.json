@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-29",
+  "branch": "codex/rekixo-launch-branding",
+  "build": "BUILD SUCCESSFUL in 5m 35s",
+  "tasks": ["testDebugUnitTest", "lintDebug", "compileDebugAndroidTestKotlin", "assembleDebug"],
+  "unitTests": {"tests": 523, "failures": 0, "errors": 0, "skipped": 0, "newPgsTests": 10},
+  "lint": {"errors": 0, "fatal": 0, "warnings": 469},
+  "contractGates": {"passed": 27, "total": 27},
+  "securityFilesInspected": 448,
+  "mergedManifestChecks": "original package; PGS early provider removed; profile creation suppressed; project ID verified",
+  "applicationId": "com.rekixo.ludopaws",
+  "versionCode": 10,
+  "versionName": "1.0.0-phase3-play-games",
+  "playGamesProjectId": "314526321614",
+  "apkSha256": "0a2fdd2aeff3dc39b5af4f72cabf6fcd23e1d5e55733a8156bf9177ed43214fb",
+  "instrumentationExecution": "not run; sources compiled",
+  "physicalDevice": "adb devices empty; native banner not device-verified",
+  "firstInstallUnknownAge": "PGS deferred until permitted neutral age choice; numeric popup is phase 4",
+  "billingEnabled": false,
+  "adsEnabled": false,
+  "deployment": "none"
+}

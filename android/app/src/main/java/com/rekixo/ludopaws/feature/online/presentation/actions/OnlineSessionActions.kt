@@ -133,7 +133,7 @@ internal fun MainActivity.runNetwork(
                     }
                     mainHandler.post {
                         if (
-                            !canRenderUi() ||
+                            !canRenderUi() || !screenStarted ||
                             (expectedSessionMatchId != null && matchId != expectedSessionMatchId)
                         ) {
                             onComplete()
@@ -160,7 +160,7 @@ internal fun MainActivity.runNetwork(
                     }
                     mainHandler.post {
                         if (
-                            !canRenderUi() ||
+                            !canRenderUi() || !screenStarted ||
                             (expectedSessionMatchId != null && matchId != expectedSessionMatchId)
                         ) {
                             onComplete()

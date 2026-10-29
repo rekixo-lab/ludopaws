@@ -90,7 +90,7 @@ node scripts/check-ludo-paws-pawn-rendering.mjs
 node scripts/check-ludo-paws-animation-fx.mjs
 ```
 
-Build the QA variant and run the unit suite with `LUDOPAWS_QA_BUILD=true`.
+Use the single main application package for final device acceptance; there is no separate QA variant. Run the combined unit/build checks after the full implementation sequence.
 The existing portrait and dice visibility instrumentation tests exercise real
 GLES portraits and Canvas drawing on a connected device. Compilation alone
 cannot verify driver behavior or the visual quality of new art.

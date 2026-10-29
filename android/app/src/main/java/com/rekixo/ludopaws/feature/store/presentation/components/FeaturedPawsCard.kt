@@ -1,7 +1,6 @@
 package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.Rect
 import android.text.TextUtils
@@ -104,19 +103,19 @@ internal class FeaturedPawsCard(
         copy.addView(eyebrow.apply {
             text = if (detail) "MEET THIS PAW" else "PAWS SPOTLIGHT"
             textSize = 9f
-            setTextColor(0xFFFFDC79.toInt())
+            setTextColor(0xFF174F55.toInt())
             setTypeface(Typeface.DEFAULT_BOLD)
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
         })
         name.textSize = if (detail) 18f else 16f
         name.setTypeface(Typeface.DEFAULT_BOLD)
-        name.setTextColor(Color.WHITE)
+        name.setTextColor(0xFF422B1C.toInt())
         name.maxLines = 1
         name.ellipsize = TextUtils.TruncateAt.END
         copy.addView(name)
         description.textSize = 11f
-        description.setTextColor(0xFFFFEDCA.toInt())
+        description.setTextColor(0xFF60452D.toInt())
         description.maxLines = 2
         copy.addView(description)
         LudoProofTheme.positive(action)

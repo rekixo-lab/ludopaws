@@ -1,20 +1,20 @@
 package com.rekixo.ludopaws.feature.referrals
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
+import android.widget.Button
+import android.graphics.drawable.GradientDrawable
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.LudoPawsBoardChromeView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
-import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsPreview
 
 internal class FriendshipBundleView(context: Context, private val compact: Boolean = false, private val ownedItems: Set<String> = emptySet()) : LinearLayout(context) {
@@ -43,12 +43,7 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         orientation = VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(12), dp(if (compact) 10 else 16), dp(12), dp(if (compact) 10 else 14))
-        background = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            if (compact) intArrayOf(0xFF183F44.toInt(), 0xFF325B55.toInt(), 0xFF26384E.toInt())
-            else intArrayOf(0xFF28584B.toInt(), 0xFF1D403E.toInt(), 0xFF1B3542.toInt())).apply {
-            cornerRadius = dp(24).toFloat()
-            setStroke(dp(1), if (compact) 0xFFE7CE99.toInt() else 0x557DAD8C)
-        }
+        background = recessedPlywoodBackground(context, outerCornerRadiusDp = 24f)
         addView(label(if (compact) "FRIENDSHIP BUNDLE" else "YOUR FRIENDSHIP BUNDLE", if (compact) 16f else 11f, true).apply {
             if (!compact) letterSpacing = 0.12f
         }, LayoutParams(-1, -2))
@@ -75,10 +70,7 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         art.addView(rabbit, LayoutParams(0, -1, 1.3f))
         art.addView(dice, LayoutParams(0, dp(if (compact) 76 else 84), 1f))
         addView(art, if (compact) LayoutParams(-1, 0, 1f) else LayoutParams(-1, dp(132)))
-        addView(label("+ ", 18f, true).apply {
-            text = android.text.SpannableStringBuilder("+ ").append(CosmeticPriceLabels.gems(context, 100, " Gems"))
-            contentDescription = "Plus 100 Gems"
-        }, LayoutParams(-1, -2))
+        addView(ReferralGemRewardView(context, compact), LayoutParams(-1, -2))
         addView(label(if (compact) "100 Gems + missing bundle items · Invite & play" else "Board  ·  Rabbit  ·  Dice", if (compact) 11f else 12f).apply {
             if (!compact) setPadding(0, dp(5), 0, 0)
         }, LayoutParams(-1, -2))
@@ -89,7 +81,23 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
             }
             addView(ownership, LayoutParams(-1, -2).apply { topMargin = dp(5) })
         }
-        if (compact) addView(label("SEE BUNDLE  ›", 13f, true), LayoutParams(-1, -2).apply { topMargin = dp(4) })
+        if (compact) addView(Button(context).apply {
+            text = "Invite a friend  ›"
+            contentDescription = "Invite a friend. View the friendship bundle and qualifying rules."
+            isAllCaps = false
+            textSize = 15f
+            typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+            setTextColor(0xFFFFFFFF.toInt())
+            backgroundTintList = null
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0xFFB0E56E.toInt())
+            }
+            minHeight = dp(48)
+            setPadding(dp(10), dp(4), dp(10), dp(4))
+            setOnClickListener { this@FriendshipBundleView.performClick() }
+        }, LayoutParams(-1, dp(48)).apply { topMargin = dp(6) })
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
         contentDescription = "Friendship bundle: Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Invite a new friend. Reward only after verified play."
     }
@@ -98,7 +106,7 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         text = value
         textSize = size
         gravity = Gravity.CENTER
-        setTextColor(if (bold) 0xFFFFE8B7.toInt() else Color.WHITE)
+        setTextColor(if (bold) 0xFF422B1C.toInt() else 0xFF60452D.toInt())
         if (bold) typeface = Typeface.DEFAULT_BOLD
         includeFontPadding = false
         if (compact) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }

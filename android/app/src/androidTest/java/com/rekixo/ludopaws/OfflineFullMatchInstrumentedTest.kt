@@ -3,6 +3,7 @@ package com.rekixo.ludopaws
 import android.content.Intent
 import androidx.test.core.app.ActivityScenario
 import com.rekixo.ludopaws.ui.offline.gameplay.showGame
+import com.rekixo.ludopaws.ui.offline.common.requestOfflineExit
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -17,6 +18,42 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class OfflineFullMatchInstrumentedTest {
+    @Test
+    fun cancellingExitRestoresOfflineActions() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val instrumentation = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation()
+        val running = java.util.concurrent.atomic.AtomicReference<OfflineGameActivity>()
+        val actionsRestored = java.util.concurrent.atomic.AtomicBoolean()
+        ActivityScenario.launch<OfflineGameActivity>(Intent(context, OfflineGameActivity::class.java)
+            .putExtra(GameModeIntent.EXTRA_GAME_MODE, GameMode.PASS_AND_PLAY.wireValue)).use { scenario ->
+            try {
+                scenario.onActivity { activity ->
+                    running.set(activity)
+                    activity.session.clear()
+                    activity.showGame(activity.session.start(2, "RED"))
+                    activity.requestOfflineExit()
+                    assertTrue(activity.offlineModalPaused)
+                    requireNotNull(activity.exitConfirmationDialog).dismiss()
+                }
+                // Dialog posts OnDismissListener onto main. Inspect on the next
+                // queue turn, after that callback, without waiting for an
+                // animated board to leave the entire queue idle.
+                instrumentation.runOnMainSync {
+                    val activity = requireNotNull(running.get())
+                    actionsRestored.set(!activity.offlineModalPaused && activity.offlineActionsAllowed)
+                }
+                assertTrue("dismissing exit must restore offline controls", actionsRestored.get())
+            } finally {
+                instrumentation.runOnMainSync {
+                    running.get()?.let { activity ->
+                        activity.session.clear()
+                        activity.finish()
+                    }
+                }
+            }
+        }
+    }
+
     @Test
     fun normalOfflineLaunchRecreationReturnsToTheActiveBoard() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -92,16 +129,23 @@ class OfflineFullMatchInstrumentedTest {
     }
 
     @Test
-    fun newMatchesUseV5AndUnversionedSavesKeepTheirOriginalV3Contract() {
+    fun newMatchesUseV6AndOlderSavesKeepTheirOriginalContracts() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val engine = OfflineGameEngine(context, GameMode.PASS_AND_PLAY)
         engine.clear()
         try {
-            assertEquals(OfflineLudoV5Binding.RULESET_ID,
+            assertEquals(OfflineLudoV6Binding.RULESET_ID,
                 engine.start(playerCount = 2, preferredColor = "RED").rulesetId)
             flushCheckpointWrites()
             val prefs = context.getSharedPreferences("ludoproof_offline_game", Context.MODE_PRIVATE)
             val saved = JSONObject(requireNotNull(prefs.getString("state", null)))
+            saved.put("rulesetId", OfflineLudoV5Binding.RULESET_ID)
+            prefs.edit().putString("state", saved.toString()).commit()
+            forgetProcessCheckpoint()
+            val v5 = OfflineGameEngine(context, GameMode.PASS_AND_PLAY)
+            assertEquals(OfflineLudoV5Binding.RULESET_ID, v5.snapshot()?.rulesetId)
+            assertEquals(OfflineLudoV5Binding.RULESET_ID, v5.roll().rulesetId)
+            flushCheckpointWrites()
             saved.remove("rulesetId")
             prefs.edit().putString("state", saved.toString()).commit()
             forgetProcessCheckpoint()

@@ -1,2 +1,5 @@
-# LudoProof currently relies only on Android/JDK classes and org.json.
-# Keep this file explicit so release shrinking is intentional and reviewable.
+# Android's FragmentManager restores this popup by class name and public no-arg
+# constructor after process death. Preserve that reflection entry in release.
+-keep class com.rekixo.ludopaws.feature.safety.FamilyPrivacyDialog {
+    public <init>();
+}

@@ -325,7 +325,7 @@ test("non-Friends matches cannot activate private voice signaling", async () => 
   assert.notEqual(sender.attachment.voiceJoined, true);
 });
 
-test("router sends authenticated gameplay directly to room and retains gate for public joins", async () => {
+test("router rate-limits aggregate gameplay traffic before entering rooms", async () => {
   const calls = [];
   let gateCalls = 0;
   const env = {
@@ -347,12 +347,12 @@ test("router sends authenticated gameplay directly to room and retains gate for 
     }), env);
     assert.equal(response.status, 200);
   }
-  assert.equal(gateCalls, 0);
+  assert.equal(gateCalls, 4);
   assert.deepEqual(calls.map((call) => call.path), ["/state", "/events", "/roll", "/move"]);
   await worker.fetch(new Request("https://api.test/api/matches/LPABCDEFGH/join", {
     method: "POST", headers: { "content-type": "application/json" }, body: "{}",
   }), env);
-  assert.equal(gateCalls, 1);
+  assert.equal(gateCalls, 5);
 });
 
 test("new rooms receive a location hint from the creating request", async () => {

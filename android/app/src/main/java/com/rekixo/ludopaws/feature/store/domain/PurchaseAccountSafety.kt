@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.feature.store.domain
 
-/** Checkout requires a recoverable account and must not use a stale account-switch result. */
+/** Guest and saved accounts can purchase; a stale account must never authorize checkout. */
 internal object PurchaseAccountSafety {
-    fun canLaunch(expectedAccountId: String?, currentAccountId: String?, googleLinked: Boolean): Boolean =
-        !expectedAccountId.isNullOrBlank() && expectedAccountId == currentAccountId && googleLinked
+    fun canLaunch(expectedAccountId: String?, currentAccountId: String?): Boolean =
+        !expectedAccountId.isNullOrBlank() && expectedAccountId == currentAccountId
 }

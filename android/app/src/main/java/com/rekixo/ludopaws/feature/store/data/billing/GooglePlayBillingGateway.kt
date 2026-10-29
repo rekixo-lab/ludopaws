@@ -34,6 +34,7 @@ class GooglePlayBillingGateway(
     @Volatile
     private var closed =
         false
+    private var connecting = false
     private val processingPurchaseTokens =
         ConcurrentHashMap.newKeySet<String>()
 
@@ -89,6 +90,8 @@ class GooglePlayBillingGateway(
             return
         }
 
+        if (connecting) return
+        connecting = true
         billingClient
             .startConnection(
                 object :
@@ -97,6 +100,7 @@ class GooglePlayBillingGateway(
                         billingResult:
                             BillingResult,
                     ) {
+                        connecting = false
                         if (
                             closed
                         ) {
@@ -124,6 +128,7 @@ class GooglePlayBillingGateway(
                     }
 
                     override fun onBillingServiceDisconnected() {
+                        connecting = false
                         if (
                             closed
                         ) {
@@ -136,6 +141,11 @@ class GooglePlayBillingGateway(
                     }
                 },
             )
+    }
+
+    fun refreshPurchases() {
+        if (closed || !enabled) return
+        if (billingClient.isReady) queryExistingPurchases() else connect()
     }
 
     fun launchPurchase(

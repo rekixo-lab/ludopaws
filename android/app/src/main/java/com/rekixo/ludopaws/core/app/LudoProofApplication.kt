@@ -3,7 +3,6 @@ package com.rekixo.ludopaws
 import android.app.Activity
 import android.app.Application
 import android.os.Bundle
-import com.google.android.gms.games.PlayGamesSdk
 import com.rekixo.ludopaws.core.audio.UiClickSoundInstaller
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.account.data.AccountRepository
@@ -16,6 +15,40 @@ class LudoProofApplication :
     private lateinit var friendPresence:
         FriendPresenceController
     val accountRepository: AccountRepository by lazy { AccountRepository(this) }
+    val startupPlayGames by lazy { com.rekixo.ludopaws.feature.startup.StartupPlayGames(this) }
+    // One bounded Home asset, reused across the privacy/PGS host recreation.
+    var startupArtwork: android.graphics.Bitmap? = null
+        internal set
+    val startupArtworkExecutor = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+        Thread(task, "LudoPawsStartupArtwork").apply { isDaemon = true }
+    }
+    val startupSession by lazy {
+        com.rekixo.ludopaws.feature.startup.StartupSessionCoordinator(
+            worker = java.util.concurrent.Executors.newSingleThreadExecutor { task ->
+                Thread(task, "LudoPawsStartupAccount").apply { isDaemon = true }
+            },
+            dispatch = { action -> lifecycleHandler.post { action() } },
+            load = {
+                try {
+                    val session = accountRepository.ensureGuestSession()
+                    com.rekixo.ludopaws.feature.startup.StartupAccountSnapshot(
+                        when {
+                            session.identityRecoveryPending -> com.rekixo.ludopaws.feature.startup.StartupAccountState.RESTORE_REQUIRED
+                            session.guestRecoveryEligible -> com.rekixo.ludopaws.feature.startup.StartupAccountState.GUEST_READY
+                            else -> com.rekixo.ludopaws.feature.startup.StartupAccountState.SAVED_READY
+                        }, session.accountId,
+                    )
+                } catch (error: com.rekixo.ludopaws.feature.account.data.AccountApiException) {
+                    com.rekixo.ludopaws.feature.startup.StartupAccountSnapshot(
+                        if (error.code == "ACCOUNT_SESSION_REQUIRED" || error.code == "REFRESH_TOKEN_INVALID")
+                            com.rekixo.ludopaws.feature.startup.StartupAccountState.RESTORE_REQUIRED
+                        else com.rekixo.ludopaws.feature.startup.StartupAccountState.RETRY_REQUIRED,
+                    )
+                }
+            },
+            isCurrent = { result -> accountRepository.currentSession()?.accountId == result.accountId },
+        )
+    }
     private val visibility = ActivityVisibilityPolicy()
     private val lifecycleHandler = android.os.Handler(android.os.Looper.getMainLooper())
     private val enterBackground = Runnable {
@@ -29,9 +62,6 @@ class LudoProofApplication :
 
     override fun onCreate() {
         super.onCreate()
-        if (!BuildConfig.LUDOPAWS_FAMILY_MODE && BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
-            PlayGamesSdk.initialize(this)
-        }
         // Prime the process-local cosmetic mirror before any remote create/join
         // request can be sent. Character selection remains presentation-only.
         CharacterSelectionStore(this).load()
@@ -50,6 +80,7 @@ class LudoProofApplication :
         ImmersiveGameWindow.restore(activity)
         // Apply the shared click SFX to this screen's interactive UI controls.
         UiClickSoundInstaller.install(activity)
+        PlayerNavigation.resumed(activity)
 
     }
 
@@ -117,5 +148,5 @@ class LudoProofApplication :
 
     override fun onActivityDestroyed(
         activity: Activity,
-    ) = Unit
+    ) { PlayerNavigation.destroyed(activity) }
 }

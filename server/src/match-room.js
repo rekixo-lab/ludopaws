@@ -166,6 +166,14 @@ export class MatchRoom {
         return;
       }
 
+      if (state.status === "FINISHED" && state.leaderboardRecordedAt == null) {
+        state = await this.#recordFinishedMatchIfNeeded(state);
+        if (state.leaderboardRecordedAt == null) {
+          await this.#setAlarm(Date.now() + 60_000);
+          return;
+        }
+      }
+
       const expiresAt =
         Number(state.updatedAt ?? state.createdAt ?? 0) +
         this.#idleTtl(state);
@@ -264,6 +272,7 @@ export class MatchRoom {
 
   #nextAlarmAt(state, idleExpiresAt) {
     const deadlines = [idleExpiresAt];
+    if (state.status === "FINISHED" && state.leaderboardRecordedAt == null) deadlines.push(Date.now() + 60_000);
     const revealDeadline = state.pendingRoll?.revealDeadlineAt;
     if (Number.isSafeInteger(revealDeadline)) deadlines.push(revealDeadline);
     const turnDeadline =
@@ -1297,6 +1306,7 @@ export class MatchRoom {
         );
 
       if (!response.ok) {
+        await this.#setAlarm(Date.now() + 60_000);
         return state;
       }
 
@@ -1307,6 +1317,7 @@ export class MatchRoom {
       await this.#persist(next);
       return next;
     } catch {
+      await this.#setAlarm(Date.now() + 60_000);
       return state;
     }
   }

@@ -45,7 +45,7 @@ fun Activity.openGameMode(
                 OfflineGameActivity::class.java
         }
 
-    startActivity(
+    launchPlayerScreen(
         Intent(
             this,
             target,

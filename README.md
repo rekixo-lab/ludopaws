@@ -2,7 +2,7 @@
 
 > **Current status and release boundaries:** see [CURRENT_STATUS.md](docs/CURRENT_STATUS.md). The dated record confirms publisher-approved referral activation on 27 October 2026; older OFF/pending sections are historical. The last verified Play candidate was rc10 internal, while rc9 was in production review. Do not infer current public availability or change that in-review submission. Multiplayer and fixed quick-chat are supported; free-text chat and voice are disabled. Provider configuration, exact-version validation and publisher/legal responsibility remain separate.
 
-Audit fixes and their validation requirements are tracked in [AUDIT_HARDENING.md](docs/AUDIT_HARDENING.md). Local development uses the single [Android runner](scripts/android-local-testing.mjs); backend tests use Node 22, selected by `.node-version`.
+Audit fixes and their validation requirements are tracked in [AUDIT_HARDENING.md](docs/AUDIT_HARDENING.md). Local development uses the single [main-app Android runner](scripts/android-local-testing.mjs); backend tests use Node 22, selected by `.node-version`.
 
 **Publisher / parent brand:** Rekixo (`https://rekixo.com`)
 
@@ -97,6 +97,10 @@ The current API URL compiled into the app is:
 ```text
 https://api.ludopaws.rekixo.com
 ```
+
+## Local receipt-window compatibility
+
+New Computer and Pass & Play matches use the local-only `ludoproof-standard-v6` ruleset. It keeps the existing gameplay and frozen EntroNex v4 derivation, while explicitly binding a 100-receipt history window into the ruleset digest. Existing v3/v5 saves retain their original ruleset and derivation; their history is not silently truncated in memory. Online rulesets are unchanged. Offline proof generation and verification run on a worker; applying the result requires the same match revision and foreground lifecycle generation.
 
 ## Offline v4 engine
 
@@ -284,7 +288,7 @@ The signed Android release workflow reads these repository Variables: `GOOGLE_SI
 
 ## Google Play Billing
 
-Digital gems and Remove Ads purchases use the native Google Play Billing Library. A client purchase callback only produces a pending transaction; the Worker verifies it through the Google Play Developer API, checks the obfuscated account ID, and reserves/redeems the purchase token through a Durable Object ledger. Only after verification does the per-account wallet transaction grant gems or set Remove Ads. Pending purchase tokens are encrypted with Android Keystore AES-GCM in private, backup-disabled app storage for retry; older plaintext recovery records are migrated in place. The canonical balance and inventory are held by the server and can be restored on another device after the same Google-linked account is restored.
+Digital gems and Remove Ads purchases use the native Google Play Billing Library. Guest accounts can open checkout directly; optional Google backup and local age/privacy selections do not gate purchases. The payment sheet handles payment authorization. A client purchase callback only produces a pending transaction; the Worker verifies it through the Google Play Developer API, checks the obfuscated account ID, and reserves/redeems the purchase token through a Durable Object ledger. Only after verification does the per-account wallet transaction grant gems or set Remove Ads. Pending purchase tokens are encrypted with Android Keystore AES-GCM in private, backup-disabled app storage for retry; older plaintext recovery records are migrated in place. The canonical balance and inventory are held by the server and can be restored on another device after the same Google-linked account is restored.
 
 The checkout intentionally stays disabled until both Play Console products and the verification service are ready. Before enabling it:
 
@@ -320,7 +324,7 @@ Before enabling ads:
 
 1. Register `com.rekixo.ludopaws` in AdMob and create a rewarded ad unit. Add the real App ID and rewarded ad-unit ID above (these IDs are not secrets).
 2. Publish the applicable privacy/consent messages in the AdMob Privacy & messaging settings. Verify the UMP consent and privacy-options flow in the internal test track.
-3. The family edition rejects ads enablement even in debug builds. A future reviewed SDK-integration build is required before testing ad providers; keep all current ads flags false.
+3. FAMILY_V1 keeps advertising disabled. FAMILY_V2 permits reviewed advertising only with LUDOPAWS_AD_SAFETY_REVIEW_APPROVED=true and matching Android/Worker configuration; use the release-status document for the current integration acceptance gates.
 4. Only enable production ads with your real IDs and `LUDOPROOF_ADS_USE_TEST_IDS=false`; the build rejects enabling ads with the default sample IDs in this mode.
 5. In the AdMob rewarded ad unit's server-side verification/reward settings, set the reward amount to **5** and reward item to **gems**. In Cloudflare, set `LUDOPROOF_ADMOB_SSV_ENABLED=true`, `LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID` to the exact real rewarded ad unit, and `LUDOPROOF_ADMOB_REWARD_ITEM=gems`. Keep SSV disabled until the public HTTPS callback `https://api.ludopaws.rekixo.com/api/admob/ssv` is configured in AdMob and an end-to-end test confirms that signed callbacks reach the matching account. The Worker independently requires amount `5`, item `gems`, the expected ad unit, a recent timestamp, and a valid AdMob signature before crediting anything.
 

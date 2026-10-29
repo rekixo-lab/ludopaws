@@ -1,4 +1,4 @@
-import { isFamilyMode } from "./family-safety.js";
+import { familyPlayerName, isFamilyMode } from "./family-safety.js";
 import {
   deriveLeaderboardIdentity,
   httpError,
@@ -551,7 +551,7 @@ export class LeaderboardRoom {
       rows.map((row, index) => ({
         rank: index + 1,
         displayName:
-          String(row.display_name),
+          isFamilyMode(this.env) ? familyPlayerName(row.profile_id) : String(row.display_name),
         games:
           Number(row.games),
         wins:
@@ -606,7 +606,7 @@ export class LeaderboardRoom {
           rank:
             Number(row.rank),
           displayName:
-            String(row.display_name),
+            isFamilyMode(this.env) ? familyPlayerName(viewerId) : String(row.display_name),
           games:
             Number(row.games),
           wins:

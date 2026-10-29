@@ -132,7 +132,7 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     }
   }
 
-  return { accountId, transactionId, kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
+  return { accountId, transactionId, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
 }
 
 async function getKeys(fetchImpl, nowMs, refresh, keyUrl = KEY_URL) {

@@ -424,7 +424,7 @@ class MainActivity : ComponentActivity() {
 
                 if (!online) {
                     showStatus(
-                        "Offline — last online state stays visible. Verified rolls and moves resume when internet returns.",
+                        "Connection lost — server turn timers continue and your turn may expire. Reconnect to check the latest result.",
                     )
                 } else if (
                     changed &&

@@ -29,6 +29,7 @@ class OfflineGameEngine(
     private val computerMode: Boolean
         get() = mode == GameMode.COMPUTER
 
+    private val profileContext = context.applicationContext
     private val profileStore =
         ProfileStore(context.applicationContext)
 
@@ -45,7 +46,22 @@ class OfflineGameEngine(
 
     fun hasSavedGame(): Boolean = state != null
 
-    fun snapshot(): MatchSnapshot? = state?.toSnapshot()
+    fun snapshot(): MatchSnapshot? {
+        state?.takeIf { it.status == "FINISHED" }?.let { current ->
+            checkpointWriter.execute { reconcileFinishedResult(current) }
+        }
+        return state?.toSnapshot()
+    }
+
+    private fun reconcileFinishedResult(current: LocalState) {
+        if (!current.profileOwnerKnown || current.status != "FINISHED") return
+        runCatching {
+            com.rekixo.ludopaws.feature.offline.data.local.OfflineResultRecovery.record(
+                profileContext, current.matchId, current.profileOwnerAccountId,
+                current.winnerPlayerId == current.players.firstOrNull()?.playerId, computerMode,
+            )
+        }.onFailure { android.util.Log.w("OfflineSave", "Match statistics remain pending", it) }
+    }
 
     fun lastRandomnessAudit(): OfflineRandomnessAudit? = state?.lastAudit
 
@@ -109,6 +125,8 @@ class OfflineGameEngine(
 
         state =
             LocalState(
+                profileOwnerKnown = true,
+                profileOwnerAccountId = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(profileContext).load()?.accountId,
                 matchId = "offline-${UUID.randomUUID()}",
                 status = "ACTIVE",
                 players = players,
@@ -132,12 +150,17 @@ class OfflineGameEngine(
         return requireNotNull(snapshot())
     }
 
-    fun roll(): MatchSnapshot {
-        val current = requireActiveState()
+    internal data class PreparedRoll(val matchId: String, val revision: Int, val result: LocalV4Result, val audit: OfflineRandomnessAudit)
+
+    fun roll(): MatchSnapshot = applyPreparedRoll(prepareRoll().invoke())
+
+    internal fun prepareRoll(): () -> PreparedRoll {
+        val current = requireActiveState().frozenCopy()
         check(current.pendingOutcome == null) {
             "Move a highlighted token before rolling again"
         }
 
+        return {
         val seat = current.turnSeat
         val event = current.eventIndex
         val player = current.players[seat]
@@ -145,7 +168,7 @@ class OfflineGameEngine(
         val result =
             OfflineLudoV3Binding.deriveRoll(
                 rulesetId = current.rulesetId,
-                opponentStackCapture = if (current.rulesetId == OfflineLudoV5Binding.RULESET_ID)
+                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID))
                     OfflineLudoV5Binding.OPPONENT_STACK_CAPTURE else "CAPTURE_ALL_ON_UNSAFE_CELL",
                 matchId = current.matchId,
                 status = current.status,
@@ -194,6 +217,18 @@ class OfflineGameEngine(
             "Local EntroNex v4 audit verification failed"
         }
 
+        PreparedRoll(current.matchId, current.revision, result, audit)
+        }
+    }
+
+    internal fun applyPreparedRoll(prepared: PreparedRoll): MatchSnapshot {
+        val current = requireActiveState()
+        check(current.matchId == prepared.matchId && current.revision == prepared.revision && current.pendingOutcome == null) { "Offline roll was superseded" }
+        val seat = current.turnSeat
+        val event = current.eventIndex
+        val player = current.players[seat]
+        val result = prepared.result
+        val audit = prepared.audit
         val randomOutcome = result.outcome
         val openingRollApplied =
             LudoTurnAutomationPolicy.shouldGuaranteeOpeningSix(
@@ -375,21 +410,6 @@ class OfflineGameEngine(
                 current.revision += 1
                 persist()
                 com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(current.matchId)
-                runCatching {
-                    profileStore.recordCompletedMatch(
-                        matchId = current.matchId,
-                        mode = ProfileGameMode.CLASSIC,
-                        source =
-                            if (computerMode) {
-                                ProfileMatchSource.COMPUTER
-                            } else {
-                                ProfileMatchSource.LOCAL
-                            },
-                        won =
-                            current.winnerPlayerId ==
-                                current.players.firstOrNull()?.playerId,
-                    )
-                }
                 return current.toSnapshot()
             }
 
@@ -533,9 +553,14 @@ class OfflineGameEngine(
     )
 
     private fun persist() {
-        val current = state?.frozenCopy() ?: return
+        val active = state ?: return
+        if (active.rulesetId == OfflineLudoV6Binding.RULESET_ID && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
+            active.history.subList(0, active.history.size - OfflineLudoV6Binding.HISTORY_WINDOW).clear()
+        }
+        val current = active.frozenCopy()
         synchronized(checkpoints) {
             checkpoints[mode] = current
+            if (current.status == "FINISHED") checkpointWriter.execute { reconcileFinishedResult(current) }
             checkpointWrites.submit(mode) {
                 runCatching { writeCheckpoint(current) }
                     .onFailure { android.util.Log.e("OfflineSave", "Could not serialize checkpoint", it) }
@@ -546,6 +571,8 @@ class OfflineGameEngine(
     private fun writeCheckpoint(current: LocalState) {
         val json =
             JSONObject()
+                .put("profileOwnerKnown", current.profileOwnerKnown)
+                .put("profileOwnerAccountId", current.profileOwnerAccountId)
                 .put("rulesetId", current.rulesetId)
                 .put("matchId", current.matchId)
                 .put("status", current.status)
@@ -771,6 +798,8 @@ class OfflineGameEngine(
                         .toMutableList()
 
             LocalState(
+                profileOwnerKnown = json.optBoolean("profileOwnerKnown", false),
+                profileOwnerAccountId = json.nullableString("profileOwnerAccountId"),
                 rulesetId = json.optString("rulesetId", OfflineLudoV3Binding.RULESET_ID),
                 matchId =
                     json.optString("matchId")
@@ -827,7 +856,7 @@ class OfflineGameEngine(
     }
 
     private fun validateRestoredState(restored: LocalState) {
-        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID))
+        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID))
 
         check(restored.players.size in 2..4) {
             "Offline save has an invalid player count"
@@ -1052,7 +1081,9 @@ class OfflineGameEngine(
     }
 
     private data class LocalState(
-        val rulesetId: String = OfflineLudoV5Binding.RULESET_ID,
+        val profileOwnerKnown: Boolean = false,
+        val profileOwnerAccountId: String? = null,
+        val rulesetId: String = OfflineLudoV6Binding.RULESET_ID,
         val matchId: String,
         var status: String,
         val players: MutableList<LocalPlayer>,

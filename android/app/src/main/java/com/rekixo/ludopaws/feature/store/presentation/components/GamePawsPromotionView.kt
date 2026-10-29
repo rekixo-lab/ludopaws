@@ -14,10 +14,12 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
+import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
@@ -37,14 +39,25 @@ internal class GamePawsPromotionView(
     private data class Offer(val cosmetic: StoreCosmetic, val title: String, val characterId: String? = null)
     private val avatar = LudoPawsCharacterAvatarView(context)
     private val artwork = object : FrameLayout(context) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+            val side = minOf(measuredWidth, measuredHeight)
+            val exact = MeasureSpec.makeMeasureSpec(side, MeasureSpec.EXACTLY)
+            for (index in 0 until childCount) {
+                val child = getChildAt(index)
+                (child.layoutParams as? FrameLayout.LayoutParams)?.gravity = Gravity.CENTER
+                if (child !is FeaturedPawsPreview) child.measure(exact, exact)
+            }
+        }
         override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
     }
     private val name = TextView(context)
-    private val storeLabel = TextView(context)
+    private val storeLabel = Button(context)
     private val categoryLabel = TextView(context)
     private val priceLabel = TextView(context)
     private val leftCopy = LinearLayout(context)
     private val rightCopy = LinearLayout(context)
+    private val adProgress = TextView(context)
     private var environmentBoardId: String? = null
     private var candidates = emptyList<Offer>()
     val hasLockedOffers: Boolean get() = candidates.isNotEmpty()
@@ -53,7 +66,8 @@ internal class GamePawsPromotionView(
     private val refreshOwnedOffers = Runnable { refreshCandidates() }
     private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID ||
-            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD") {
+            key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" ||
+            key.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX)) {
             removeCallbacks(refreshOwnedOffers)
             post(refreshOwnedOffers)
         }
@@ -82,7 +96,7 @@ internal class GamePawsPromotionView(
             val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             if (preview == null && manager.deviceConfigurationInfo.reqGlEsVersion >= 0x30000) {
                 try {
-                    preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L, playful = true).also { live ->
+                    preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L, playful = true, prominent = !gameplay).also { live ->
                         live.characterId = candidates[index].characterId ?: "dog"
                         live.alpha = 0f
                         live.onReady = { live.alpha = 1f; avatar.visibility = INVISIBLE }
@@ -108,7 +122,7 @@ internal class GamePawsPromotionView(
         setPadding(dp(4), dp(4), dp(4), dp(4))
         background = if (gameplay) null else plywoodBackground(context, cornerRadiusDp = 12f)
         artwork.clipChildren = true
-        artwork.addView(avatar, FrameLayout.LayoutParams(-1, -1))
+        artwork.addView(avatar, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         listOf(leftCopy, rightCopy).forEach { copy ->
             copy.orientation = VERTICAL
             copy.gravity = Gravity.CENTER
@@ -179,13 +193,57 @@ internal class GamePawsPromotionView(
                     }
                 }
             }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(5) })
+            storeLabel.apply {
+                isAllCaps = false
+                backgroundTintList = null
+                minWidth = 0; minimumWidth = 0
+                if (!gameplay) {
+                    minHeight = dp(48)
+                    minimumHeight = dp(48)
+                    setPadding(dp(4), dp(6), dp(4), dp(6))
+                    setTextColor(Color.WHITE)
+                    background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
+                        cornerRadius = dp(14).toFloat()
+                    }
+                } else { minHeight = 0; minimumHeight = 0 }
+                setOnClickListener { this@GamePawsPromotionView.performClick() }
+            }
         }
-        addView(leftCopy, LayoutParams(0, -2, 1f))
-        addView(artwork, LayoutParams(dp(64), -1))
-        addView(rightCopy, LayoutParams(0, -2, 1f))
+        if (gameplay) {
+            addView(leftCopy, LayoutParams(0, -2, 1f))
+            addView(artwork, LayoutParams(dp(64), -1))
+            addView(rightCopy, LayoutParams(0, -2, 1f))
+        } else {
+            orientation = VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(12), dp(8), dp(12), dp(10))
+            addView(leftCopy, LayoutParams(-1, -2))
+            addView(artwork, LayoutParams(-1, 0, 1f))
+            rightCopy.removeAllViews()
+            rightCopy.orientation = HORIZONTAL
+            rightCopy.gravity = Gravity.CENTER_VERTICAL
+            val offerCopy = LinearLayout(context).apply {
+                orientation = VERTICAL
+                addView(priceLabel, LayoutParams(-1, -2))
+                addView(adProgress.apply {
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTextColor(0xFF60452D.toInt())
+                }, LayoutParams(-1, -2))
+            }
+            rightCopy.addView(offerCopy, LayoutParams(0, -2, 1f))
+            rightCopy.addView(storeLabel, LayoutParams(dp(142), -2).apply { marginStart = dp(8) })
+            addView(rightCopy, LayoutParams(-1, -2))
+        }
         isClickable = true
         isFocusable = true
         AppFocusRing.apply(this, cornerRadiusDp = 12f)
+        if (!gameplay) {
+            name.setTextColor(0xFF422B1C.toInt())
+            priceLabel.setTextColor(0xFF422B1C.toInt())
+            categoryLabel.setTextColor(0xFF60452D.toInt())
+        }
         applyEnvironmentStyle()
         setOnClickListener {
             val offer = candidates.getOrNull(index) ?: return@setOnClickListener
@@ -198,12 +256,13 @@ internal class GamePawsPromotionView(
                     CosmeticCategory.BOARD -> "BOARD"
                     CosmeticCategory.DICE -> "DICE"
                     else -> "PAWS"
-                }, offer.characterId)
+                }, offer.cosmetic.id)
                 return@setOnClickListener
             }
+            com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.save(context, offer.cosmetic.id)
+            storeLabel.text = "Saved ✓"
             notice?.cancel()
-            notice = Toast.makeText(context,
-                "Explore ${offer.title} in Store after your match.",
+            notice = Toast.makeText(context, "${offer.title} saved. We’ll offer its details after the match.",
                 Toast.LENGTH_SHORT).also { it.show() }
         }
     }
@@ -233,20 +292,36 @@ internal class GamePawsPromotionView(
 
     private fun bindCharacter() {
         val offer = candidates.getOrNull(index) ?: return
-        name.text = offer.title
+        name.text = if (gameplay) offer.title else "Unlock ${offer.title}"
         categoryLabel.text = if (!gameplay) {
-            if (offer.characterId != null) "MEET" else "DISCOVER"
+            when (offer.cosmetic.category) {
+                CosmeticCategory.BOARD -> "BOARD SPOTLIGHT"
+                CosmeticCategory.DICE -> "DICE SPOTLIGHT"
+                else -> "CHARACTER SPOTLIGHT"
+            }
         } else when (offer.cosmetic.category) {
             CosmeticCategory.BOARD -> "BOARD PICK"
             CosmeticCategory.DICE -> "DICE PICK"
             else -> "PAWS PICK"
         }
+        val done = CosmeticInventoryStore(context).rewardedAdProgress(offer.cosmetic.id)
+            .coerceAtMost(offer.cosmetic.requiredAdViews)
+        val remaining = (offer.cosmetic.requiredAdViews - done).coerceAtLeast(0)
         priceLabel.text = when {
-            offer.cosmetic.gemPrice > 0 && offer.cosmetic.requiredAdViews > 0 ->
-                CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice, "\nor ${offer.cosmetic.requiredAdViews} ADS")
+            offer.cosmetic.gemPrice > 0 && remaining > 0 ->
+                CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice, " or ads")
             offer.cosmetic.gemPrice > 0 -> CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice)
-            offer.cosmetic.requiredAdViews > 0 -> "${offer.cosmetic.requiredAdViews} ADS"
-            else -> "MAKE IT YOURS"
+            offer.cosmetic.requiredAdViews > 0 -> "$done / ${offer.cosmetic.requiredAdViews} ads completed"
+            else -> "View unlock options"
+        }
+        adProgress.text = if (offer.cosmetic.requiredAdViews > 0 && offer.cosmetic.gemPrice > 0)
+            "$done / ${offer.cosmetic.requiredAdViews} ads completed" else ""
+        adProgress.visibility = if (adProgress.text.isBlank()) GONE else VISIBLE
+        storeLabel.text = when {
+            gameplay -> "View after match"
+            remaining > 0 && offer.cosmetic.gemPrice == 0 && BuildConfig.LUDOPROOF_ADS_ENABLED -> "Unlock with Ads ›"
+            offer.cosmetic.gemPrice > 0 && remaining == 0 -> "View & Unlock ›"
+            else -> "Unlock Options ›"
         }
         preview?.setActive(false)
         preview?.alpha = 0f
@@ -279,7 +354,7 @@ internal class GamePawsPromotionView(
                 view.isClickable = false
                 view.isFocusable = false
                 view.importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-                artwork.addView(view, FrameLayout.LayoutParams(-1, -1))
+                artwork.addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
             }
         }
         contentDescription = "${offer.title}. ${if (gameplay) "Available in Store after your match" else "Explore in Store"}."
@@ -322,9 +397,10 @@ internal class GamePawsPromotionView(
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val availableWidth = MeasureSpec.getSize(widthMeasureSpec)
         val availableHeight = MeasureSpec.getSize(heightMeasureSpec)
-        val portraitSize = minOf(availableHeight - dp(8), (availableWidth * .46f).toInt()).coerceAtLeast(dp(40))
-        if (artwork.layoutParams.width != portraitSize || artwork.layoutParams.height != portraitSize) {
-            artwork.layoutParams = LayoutParams(portraitSize, portraitSize)
+        if (gameplay) {
+            val portraitSize = minOf(availableHeight - dp(8), (availableWidth * .36f).toInt()).coerceAtLeast(dp(40))
+            if (artwork.layoutParams.width != portraitSize || artwork.layoutParams.height != portraitSize)
+                artwork.layoutParams = LayoutParams(portraitSize, portraitSize)
         }
         if (gameplay) {
             val roomy = availableWidth >= dp(300) && availableHeight >= dp(96)
@@ -337,12 +413,12 @@ internal class GamePawsPromotionView(
             categoryLabel.textSize = if (roomy) 9f else 7f
             priceLabel.textSize = if (roomy) 13f else 9f
             categoryLabel.visibility = if (availableHeight >= dp(76)) VISIBLE else GONE
-            storeLabel.visibility = if (availableHeight >= dp(76)) VISIBLE else GONE
+            storeLabel.visibility = VISIBLE
         } else {
-            name.textSize = if (availableWidth >= dp(300)) 16f else if (availableHeight >= dp(96)) 11f else 9f
-            storeLabel.textSize = if (availableWidth >= dp(300)) 12f else 9f
-            categoryLabel.textSize = if (availableWidth >= dp(300)) 10f else 8f
-            priceLabel.textSize = if (availableWidth >= dp(300)) 13f else 9f
+            name.textSize = 20f
+            storeLabel.textSize = 14f
+            categoryLabel.textSize = 10f
+            priceLabel.textSize = 13f
         }
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
     }
@@ -354,6 +430,8 @@ internal class GamePawsPromotionView(
         alpha = if (available) 1f else 0f
         isClickable = available
         isFocusable = available
+        storeLabel.isEnabled = available
+        storeLabel.isClickable = available
         importantForAccessibility = if (available) IMPORTANT_FOR_ACCESSIBILITY_AUTO else IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
     }
 

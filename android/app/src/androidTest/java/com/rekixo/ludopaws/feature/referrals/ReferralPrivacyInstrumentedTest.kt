@@ -29,11 +29,11 @@ class ReferralPrivacyInstrumentedTest {
 
     @Before fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        check(BuildConfig.LUDOPAWS_QA_BUILD && context.packageName.endsWith(".qa"))
+        check(BuildConfig.LUDOPROOF_API_BASE_URL == "https://127.0.0.1" && context.packageName == "com.rekixo.ludopaws")
         check(BuildConfig.LUDOPROOF_API_BASE_URL == "https://127.0.0.1")
         preferences = context.getSharedPreferences("friendship_attribution", Context.MODE_PRIVATE)
         preferences.edit().clear().commit()
-        context.getSharedPreferences("family_privacy_v1", Context.MODE_PRIVATE).edit().putInt("age_band", 3).commit()
+        context.getSharedPreferences("family_privacy_v1", Context.MODE_PRIVATE).edit().putInt("entry_policy_version", 1).putInt("age_band", 3).commit()
         accountId = UUID.randomUUID().toString()
         sessions = AccountSessionStore(context)
         sessions.save(AccountSession(accountId, UUID.randomUUID().toString(), "qa.header.signature", "lpr_" + "A".repeat(43), "b".repeat(64),
@@ -69,7 +69,7 @@ class ReferralPrivacyInstrumentedTest {
     }
 
     @Test fun restrictedPrivacyHidesTheBundleBeforeAnyNetworkResponse() {
-        context.getSharedPreferences("family_privacy_v1", Context.MODE_PRIVATE).edit().putInt("age_band", 0).commit()
+        context.getSharedPreferences("family_privacy_v1", Context.MODE_PRIVATE).edit().putInt("entry_policy_version", 1).putInt("age_band", 0).commit()
         ActivityScenario.launch(ReferralActivity::class.java).use { scenario ->
             scenario.onActivity { activity ->
                 val views = descendants(activity.window.decorView)
@@ -77,8 +77,10 @@ class ReferralPrivacyInstrumentedTest {
                 // Consent now opens on demand; the compact page must not
                 // silently create or preselect a consent checkbox.
                 assertTrue(views.filterIsInstance<CheckBox>().isEmpty())
-                val ordinaryShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share without rewards") }
+                val ordinaryShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share Ludo Paws") }
                 assertTrue(ordinaryShare.isEnabled)
+                val storeLinkShare = views.filterIsInstance<Button>().single { it.text.toString().startsWith("Share Play Store link") }
+                assertTrue(storeLinkShare.isEnabled)
                 views.filterIsInstance<Button>().single { it.text.toString() == "Got an invite?" }.performClick()
                 val dialogField = ReferralActivity::class.java.getDeclaredField("invitationDialog").apply { isAccessible = true }
                 val dialog = dialogField.get(activity) as android.app.Dialog

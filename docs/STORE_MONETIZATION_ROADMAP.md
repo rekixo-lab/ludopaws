@@ -1,5 +1,8 @@
 # Ludo Paws — Configurable Store & Monetization Roadmap
 
+> **29 October 2026 sequencing update:** The current user-requested sequence is [Version 11 implementation sequence](plans/V11_IMPLEMENTATION_SEQUENCE.hi.md). Startup/onboarding, neutral age/privacy UI, automatic guest sessions, navigation, catalog and ad UX come first. Purchase-plan redesign is pending user decisions; payment implementation and transaction validation come last, followed by one combined v11 test candidate. Historical phase/status notes below are not current production status or authorization to deploy.
+
+
 Status: Phase 2 catalog API and initial Phase 4 Android discovery/cache integration are implemented on feat/ludopaws-production-readiness. The Worker is not production-deployed, the catalog starts empty, and no dynamic asset bundle is uploaded. This roadmap does not enable billing, rewarded ads, or production deployment.
 
 ## Objective
