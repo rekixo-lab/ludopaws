@@ -3,7 +3,7 @@ package com.rekixo.ludopaws.feature.characters.content.monkey
 import com.rekixo.ludopaws.feature.characters.domain.model.*
 
 object MonkeyDefinition {
-    internal const val MODEL_SIZE_MULTIPLIER = 1.20f
+    internal const val MODEL_SIZE_MULTIPLIER = 1.26f
 
     val content = CharacterDefinition(
         character = AnimalCharacter(
