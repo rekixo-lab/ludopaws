@@ -18,7 +18,11 @@ export function parseCharacterAudioProfiles(source) {
   }));
 }
 
+// Match runtime import compatibility without modifying the author's actual file.
+const normalizeVocalFilename = name => name.replace(/\.wav\.wav$/i, '.wav');
+
 export function validateVocalFilename(fileName, voiceOwner) {
+  fileName = normalizeVocalFilename(fileName);
   const prefix = `lp_vocal_${voiceOwner}_`;
   if (!fileName.startsWith(prefix)) return false;
   const cueAndVariant = fileName.slice(prefix.length);
@@ -81,7 +85,7 @@ export function inspectAudio(root = process.cwd()) {
         errors.push(`Unrecognized voice cue filename: ${entry.name}/${name}`);
         continue;
       }
-      const cue = name.slice(`lp_vocal_${entry.name}_`.length)
+      const cue = normalizeVocalFilename(name).slice(`lp_vocal_${entry.name}_`.length)
         .replace(/_\d{2}(?: \(\d+\))?\.(wav|ogg)$/i, '');
       recorded[entry.name].files += 1;
       recorded[entry.name].cues.add(cue);

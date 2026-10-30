@@ -20,6 +20,9 @@ test('recorded names preserve Windows numbered duplicate suffixes', () => {
   assert.equal(validateVocalFilename('lp_vocal_cat_home_lane_02.ogg', 'cat'), true);
   assert.equal(validateVocalFilename('lp_vocal_cat_unregistered_02.wav', 'cat'), false);
   assert.equal(validateVocalFilename('lp_vocal_pig_home_01.wav', 'goat'), false);
+  assert.equal(validateVocalFilename('lp_vocal_horse_idle_01.wav.wav', 'horse'), true);
+  assert.equal(validateVocalFilename('lp_vocal_monkey_idle_01.wav.wav', 'monkey'), true);
+  assert.equal(validateVocalFilename('lp_vocal_monkey_unknown_01.wav.wav', 'monkey'), false);
 });
 
 test('authored-only and shared-fallback characters accept their own recording folders', () => {
@@ -41,9 +44,11 @@ test('authored-only and shared-fallback characters accept their own recording fo
     // Filename inspection only; fixtures are temporary, not real or shipped audio.
     write('audio/sfx/voices/donkey/lp_vocal_donkey_six_01.wav', 'filename fixture');
     write('audio/sfx/voices/goat_lumi/lp_vocal_goat_lumi_home_02.ogg', 'filename fixture');
+    write('audio/sfx/voices/donkey/lp_vocal_donkey_idle_01.wav.wav', 'filename fixture');
     const report = inspectAudio(tmp);
     assert.deepEqual(report.errors, []);
-    assert.equal(report.voiceCoverage.donkey.files, 1);
+    assert.equal(report.voiceCoverage.donkey.files, 2);
+    assert.ok(report.voiceCoverage.donkey.cues.includes('idle'));
     assert.equal(report.voiceCoverage.goat_lumi.files, 1);
     assert.deepEqual(report.silentCharacterIds, []);
     assert.deepEqual(report.authoredOnlyCharacterIds, ['donkey']);

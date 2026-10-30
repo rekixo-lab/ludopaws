@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { parseCharacterAudioProfiles } from './ludopaws-content-audio-tools.mjs';
 
 const requiredSources = [
   'android/app/src/main/java/com/rekixo/ludopaws/core/audio/LudoPawsAudioCatalog.kt',
@@ -323,6 +324,16 @@ const authoredAudioFiles = [
 const catalogSfxPaths = [
   ...audioCatalog.matchAll(/["'](audio\/sfx\/(?:gameplay|ui)\/[^"']+\.(?:wav|ogg))["']/gi),
 ].map(match => match[1]);
+// Later registered species construct their own three step paths at runtime.
+// Validate those registered slots as well as the original static catalog paths.
+const registeredProfiles = parseCharacterAudioProfiles(fs.readFileSync(
+  'android/app/src/main/java/com/rekixo/ludopaws/feature/characters/domain/audio/GeneratedCharacterAudioProfiles.kt', 'utf8',
+));
+for (const { id } of registeredProfiles) {
+  for (let take = 1; take <= 3; take += 1) {
+    catalogSfxPaths.push(`audio/sfx/gameplay/movement/step/${id}/lp_sfx_step_${id}_${String(take).padStart(2, '0')}.wav`);
+  }
+}
 
 const normalizeRepoPath = file => file.split(path.sep).join('/');
 
@@ -332,7 +343,9 @@ function catalogResolvesAsset(actualPath, expectedPath) {
   if (path.posix.dirname(actual) !== path.posix.dirname(expected)) return false;
 
   const expectedName = path.posix.basename(expected);
-  const actualName = path.posix.basename(actual);
+  const actualName = path.posix.basename(actual)
+    .replace(/Lumi Goat/gi, 'goat_lumi')
+    .replace(/\.wav\.wav$/i, '.wav');
   if (actualName.toLowerCase() === expectedName.toLowerCase()) return true;
 
   const extension = path.posix.extname(expectedName);
