@@ -56,15 +56,24 @@ internal object CatFaceRenderer {
         }
     }
     private fun CharacterDrawContext.eye(parent: FloatArray,side: Float) {
-        val x=side*.16f
-        val open=life?.blink ?: 1f
-        val gx=(life?.gazeX ?: 0f)*.45f
-        val gy=(life?.gazeY ?: 0f)*.45f
+        val open=(life?.blink ?: 1f).coerceIn(0f,1f)
+        val gx=((life?.gazeX ?: 0f)*.32f).coerceIn(-.012f,.012f)
+        val gy=((life?.gazeY ?: 0f)*.32f).coerceIn(-.009f,.009f)*open
+        val eyeRig=rigTransforms[5]
+        System.arraycopy(parent,0,eyeRig,0,16)
+        Matrix.translateM(eyeRig,0,side*.16f,1.015f,.224f)
+        // Follow the skull's curved surface instead of floating a flat socket in front.
+        Matrix.rotateM(eyeRig,0,side*33f,0f,1f,0f)
+        Matrix.rotateM(eyeRig,0,-side*9f,0f,0f,1f)
         surface=CharacterSurface.CAT_COAT
-        drawPart(parent,x,1.015f,.247f,.088f,.092f,.029f,CAT_STRIPE_DARK,rotateZ=-side*9f)
+        // Fur-colored lids cover the eye during a blink; no permanent dark eye hole.
+        drawPart(eyeRig,0f,0f,0f,.088f,.094f,.024f,CAT_TABBY_FUR)
+        if(open<=.04f) return
         surface=CharacterSurface.EYE
-        drawPart(parent,x,1.015f,.270f,.077f,.085f*open,.022f,CAT_EYE_GREEN,rotateZ=-side*9f)
-        drawPart(parent,x+gx,1.015f+gy*open,.290f,.050f,.064f*open,.010f,CAT_PUPIL_DARK)
-        if(open>.3f) drawPart(parent,x+gx-.017f,1.043f+gy,.302f,.013f,.016f*open,.005f,WHITE)
+        drawPart(eyeRig,0f,0f,.020f,.074f,.080f*open,.018f,CAT_EYE_GREEN)
+        // A feline slit leaves the green iris readable, rather than a hollow black socket.
+        drawPart(eyeRig,gx,gy,.036f,.020f,.059f*open,.008f,CAT_PUPIL_DARK)
+        if(open>.3f) drawPart(eyeRig,gx-.013f,gy+.026f*open,.045f,
+            .010f,.013f*open,.004f,WHITE)
     }
 }
