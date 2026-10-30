@@ -33,29 +33,18 @@ internal object LudoPawsAudioAssetPlayer {
         volume: Float,
         playbackRate: Float,
         priority: Int = 5,
+        fallbackResourceNames: List<String> = emptyList(),
+        allowFallback: Boolean = true,
     ) {
         val orderedNames =
             rotate(
                 values = rawResourceNames,
                 startIndex = variantIndex,
-            )
+            ) + rotate(fallbackResourceNames, variantIndex)
         // Prefer character-specific audio placed in the repository audio tree.
         // The named raw resources remain the compatibility fallback.
         val vocalAssetPaths =
-            orderedNames.flatMap { resourceName ->
-                val characterId =
-                    LudoPawsCharacterAudioProfiles.supportedVoiceAssetIds
-                        .filter { resourceName.startsWith("lp_vocal_${it}_") }
-                        .maxByOrNull(String::length)
-                if (characterId == null) {
-                    emptyList()
-                } else {
-                    listOf(
-                        "audio/sfx/voices/$characterId/$resourceName.wav",
-                        "audio/sfx/voices/$characterId/$resourceName.ogg",
-                    )
-                }
-            }
+            LudoPawsCharacterAudioProfiles.vocalAssetPaths(orderedNames)
         val authoredVocalPath =
             availableAssetPaths(context, vocalAssetPaths).firstOrNull()
         if (
@@ -70,6 +59,9 @@ internal object LudoPawsAudioAssetPlayer {
         ) {
             return
         }
+
+        // Authored-only characters must not fall through to another animal's voice.
+        if (!allowFallback) return
 
         val packagedFallback =
             packagedFallbackResourceName(fallback)
@@ -103,6 +95,11 @@ internal object LudoPawsAudioAssetPlayer {
             playbackRate = playbackRate,
         )
     }
+
+    fun hasAuthoredVocal(context: Context, characterId: String, names: List<String>): Boolean =
+        availableAssetPaths(context, names.flatMap {
+            listOf("audio/sfx/voices/$characterId/$it.wav", "audio/sfx/voices/$characterId/$it.ogg")
+        }).isNotEmpty()
 
     /**
      * Prewarms the same authored/raw SFX resolution chain used by playSfx.
@@ -297,7 +294,15 @@ internal object LudoPawsAudioAssetPlayer {
             runCatching {
                 assets.list(directory)
                     .orEmpty()
-                    .filter(filenamePattern::matches)
+                    .filter { actualName ->
+                        // Preserve the author's downloads verbatim, including repeated extensions
+                        // and the display-name spelling used for Lumi's footstep recording.
+                        val normalized = actualName.replace("Lumi Goat", "goat_lumi", ignoreCase = true)
+                        val singleExtension = if (normalized.endsWith(".wav.wav", ignoreCase = true)) {
+                            normalized.dropLast(4)
+                        } else normalized
+                        filenamePattern.matches(singleExtension)
+                    }
                     .sortedWith(
                         compareBy<String>({ duplicateFilenameIndex(it) }, { it }),
                     )

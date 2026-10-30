@@ -59,13 +59,15 @@ class LudoPawsVoicePlayer(
 
             val voiceAssetOwner =
                 LudoPawsCharacterAudioProfiles.all[character.id]?.voiceAssetOwnerId
-                    ?: return@forEach
             val plan =
                 LudoPawsReactionAudioProfile.plan(
-                    characterId = voiceAssetOwner,
+                    characterId = character.id,
                     species = character.species,
                     reaction = reaction,
                 ) ?: return@forEach
+            if (voiceAssetOwner == null && !LudoPawsAudioAssetPlayer.hasAuthoredVocal(
+                    appContext, character.id, plan.rawResourceNames,
+                )) return@forEach
             val reactionKey =
                 reaction.reactionKey.ifBlank {
                     "${reaction.matchId}:${reaction.eventIndex}:${reaction.playerId}:${reaction.voiceCue.wireName}"
@@ -107,6 +109,8 @@ class LudoPawsVoicePlayer(
                     volume = plan.volume,
                     playbackRate = plan.playbackRate,
                     priority = soundPriority(reaction),
+                    fallbackResourceNames = LudoPawsCharacterAudioProfiles.fallbackVocalNames(character.id, reaction.voiceCue),
+                    allowFallback = voiceAssetOwner != null,
                 )
             }
         }

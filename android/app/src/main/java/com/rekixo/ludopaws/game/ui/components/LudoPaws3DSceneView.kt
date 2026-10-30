@@ -49,6 +49,7 @@ internal data class LudoPaws3DSceneState(
     val pendingPreviewEventIndex: Int? = null,
     val activeReactions: Map<LudoPaws3DPawnKey, LudoPaws3DActiveReaction> = emptyMap(),
     val homeEntries: Map<String, LudoPawsHomeEntry> = emptyMap(),
+    val reducedMotion: Boolean = false,
 )
 
 /**
@@ -218,6 +219,9 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         val previousState = sceneState
         val previousSnapshot = authoritativeSnapshot
+        if (state?.status == "FINISHED" && previousSnapshot?.status == "ACTIVE" && previousSnapshot.matchId == state.matchId) {
+            com.rekixo.ludopaws.feature.store.data.ads.AdBreakSession.completed(state.matchId)
+        }
         val previewEventIndex = previousState.pendingPreviewEventIndex
         val previewMotion = previousState.forwardMotion.takeIf { previewEventIndex != null }
         val sameMatch =
@@ -432,6 +436,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         sceneState =
             LudoPaws3DSceneState(
                 snapshot = state,
+                reducedMotion = settings.reducedMotion,
                 stoneRoadOverlayEnabled = previousState.stoneRoadOverlayEnabled,
                 classicRoadReliefEnabled = previousState.classicRoadReliefEnabled,
                 monsoonEffectsEnabled = previousState.monsoonEffectsEnabled,
@@ -488,12 +493,15 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                         player = player,
                         reaction = reaction,
                     )
-                val duration =
-                    LudoPaws3DReactionMotion.durationMillis(
-                        characterId = characterId,
-                        cue = reaction.animationCue,
-                    )
                 targets.forEach { tokenIndex ->
+                    val variation = LudoPawsPawnReactionVariation.choose(
+                        reaction.animationCue, tokenIndex,
+                        reaction.reactionKey.hashCode() xor reaction.eventIndex,
+                        group = targets.size > 1,
+                    )
+                    val duration = (LudoPaws3DReactionMotion.durationMillis(
+                        characterId, variation.cue,
+                    ) * variation.durationScale).toLong().coerceAtLeast(1L)
                     val key =
                         LudoPaws3DPawnKey(
                             playerId = player.playerId,
@@ -526,18 +534,38 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                             }
                         next[key] =
                             LudoPaws3DActiveReaction(
-                                cue = reaction.animationCue,
+                                cue = variation.cue,
                                 startedAtMillis =
                                     captureStart
                                         ?: attackerContact
-                                        ?: now,
+                                        ?: (now + variation.delayMillis),
                                 durationMillis = duration,
                                 priority = reaction.priority,
+                                variant = variation.variant,
+                                moment = reaction.momentType,
                             )
                     }
                 }
             }
 
+        // One quiet bystander, never the actor/victim and never an extra voice.
+        val principal = reactions.firstOrNull { it.momentType in setOf(
+            com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType.CAPTURE_MADE,
+            com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType.HOME_REACHED,
+            com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType.SAFE_REACHED,
+        ) }
+        if (principal != null && !settingsStore.snapshot().reducedMotion) {
+            val actors = reactions.map { it.playerId }.toSet()
+            val bystander = snapshot.players.firstOrNull { it.playerId !in actors && it.tokens.any { p -> p != 57 } }
+            bystander?.let { player ->
+                val token = player.tokens.indexOfFirst { it != 57 }
+                val key = LudoPaws3DPawnKey(player.playerId, token)
+                if (next[key] == null && current.forwardMotion?.let { it.playerId == key.playerId && it.tokenIndex == key.tokenIndex } != true) {
+                    val contact = next.entries.firstOrNull { it.key.playerId == principal.playerId }?.value?.startedAtMillis ?: now
+                    next[key] = LudoPaws3DActiveReaction(AnimationCue.IDLE, maxOf(now, contact) + 140L, 750L, 1, observer = true)
+                }
+            }
+        }
         sceneState = current.copy(activeReactions = next)
     }
 

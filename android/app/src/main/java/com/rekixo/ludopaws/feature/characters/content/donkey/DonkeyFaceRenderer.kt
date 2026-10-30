@@ -18,7 +18,7 @@ internal object DonkeyFaceRenderer {
             val t=life?.timeSeconds ?: 0f
             val flick=if(life!=null) sin(t*8f+side)*max(0f,sin(t*.65f+side)).pow(12)*6f else 0f
             Matrix.translateM(ear,0,side*.20f,1.14f,-.045f)
-            Matrix.rotateM(ear,0,-side*(13f-pose.primaryAppendageDegrees*.50f+flick),0f,0f,1f)
+            Matrix.rotateM(ear,0,-side*(13f-pose.primaryAppendageDegrees*.50f+flick+(if(side<0f) 24f else -8f)*pose.gestureWeight),0f,0f,1f)
             Matrix.rotateM(ear,0,side*5f+flick*.45f-pose.neckPitchDegrees*.45f,1f,0f,0f)
             surface=CharacterSurface.SOFT_FUR
             donkeyMesh(ear,DonkeyGeometry.ear,DONKEY_EAR_RIM)

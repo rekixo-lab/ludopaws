@@ -16,7 +16,7 @@ class DonkeyRegistrationTest {
         assertEquals("donkey",CharacterRegistry.resolve("donkey").id)
         assertEquals(listOf("donkey","goat","duck","cat"),StarterPawsAssignmentPolicy.select(
             4,listOf("dog","goat","duck","cat"),0,"donkey",false))
-        assertEquals(11,LudoPawsCharacterCatalog.charactersForPack("starter_paws").size)
+        assertEquals(13,LudoPawsCharacterCatalog.charactersForPack("starter_paws").size)
     }
     @Test fun removedLionMigratesToDonkey() {
         assertEquals("donkey",LudoPawsCharacterCatalog.canonicalCharacterId("lion"))

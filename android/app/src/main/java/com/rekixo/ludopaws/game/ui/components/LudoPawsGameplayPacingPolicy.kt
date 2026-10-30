@@ -169,7 +169,7 @@ object LudoPawsGameplayPacingPolicy {
 
         if (includeHomeEntry && LudoPawsHomeEntryPolicy.newlyComplete(previous, current)) {
             return forwardAnimationDurationMillis(speed, forward?.visualSteps ?: 1) +
-                LudoPawsHomeEntryPolicy.DURATION_MS
+                LudoPawsHomeEntryPolicy.INTERACTION_HOLD_MS
         }
         return forwardDuration +
             captureDuration +

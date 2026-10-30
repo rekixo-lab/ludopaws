@@ -48,17 +48,26 @@ class OfflineGameEngine(
 
     fun snapshot(): MatchSnapshot? {
         state?.takeIf { it.status == "FINISHED" }?.let { current ->
-            checkpointWriter.execute { reconcileFinishedResult(current) }
+            enqueueFinishedResult(current)
         }
         return state?.toSnapshot()
     }
 
-    private fun reconcileFinishedResult(current: LocalState) {
+    private fun enqueueFinishedResult(current: LocalState) {
+        // Capture before enqueueing: a rematch can replace the active setup while the writer waits.
+        val characterIds = com.rekixo.ludopaws.feature.offline.data.local.OfflineCharacterSetupStore(profileContext)
+            .loadActive()?.takeIf { it.playerCount == current.players.size && it.mode == mode }
+            ?.characterIds?.let { if (computerMode) it.take(1) else it }?.toList().orEmpty()
+        checkpointWriter.execute { reconcileFinishedResult(current, characterIds) }
+    }
+
+    private fun reconcileFinishedResult(current: LocalState, characterIds: List<String>) {
         if (!current.profileOwnerKnown || current.status != "FINISHED") return
         runCatching {
             com.rekixo.ludopaws.feature.offline.data.local.OfflineResultRecovery.record(
                 profileContext, current.matchId, current.profileOwnerAccountId,
                 current.winnerPlayerId == current.players.firstOrNull()?.playerId, computerMode,
+                characterIds = characterIds,
             )
         }.onFailure { android.util.Log.w("OfflineSave", "Match statistics remain pending", it) }
     }
@@ -560,7 +569,7 @@ class OfflineGameEngine(
         val current = active.frozenCopy()
         synchronized(checkpoints) {
             checkpoints[mode] = current
-            if (current.status == "FINISHED") checkpointWriter.execute { reconcileFinishedResult(current) }
+            if (current.status == "FINISHED") enqueueFinishedResult(current)
             checkpointWrites.submit(mode) {
                 runCatching { writeCheckpoint(current) }
                     .onFailure { android.util.Log.e("OfflineSave", "Could not serialize checkpoint", it) }

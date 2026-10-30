@@ -19,10 +19,30 @@ class LudoPawsCharacterAudioProfilesTest {
     }
 
     @Test
-    fun donkeyRemainsSilentAndLumiUsesGoatVoiceAssets() {
+    fun donkeyHasNoFallbackAndLumiKeepsGoatFallbackWhileAcceptingOwnRecordings() {
         assertNull(LudoPawsCharacterAudioProfiles.all.getValue("donkey").voiceAssetOwnerId)
         assertEquals("goat", LudoPawsCharacterAudioProfiles.all.getValue("goat_lumi").voiceAssetOwnerId)
-        assertFalse("donkey" in LudoPawsCharacterAudioProfiles.supportedVoiceAssetIds)
+        assertTrue("donkey" in LudoPawsCharacterAudioProfiles.supportedVoiceAssetIds)
+        assertEquals(CharacterDefinitions.all.map { it.character.id }.toSet(), LudoPawsCharacterAudioProfiles.supportedVoiceAssetIds)
+        assertTrue(LudoPawsCharacterAudioProfiles.fallbackVocalNames("donkey", com.rekixo.ludopaws.feature.characters.domain.model.VoiceCue.SIX).isEmpty())
+        assertEquals(listOf("lp_vocal_goat_six_01", "lp_vocal_goat_six_02"),
+            LudoPawsCharacterAudioProfiles.fallbackVocalNames("goat_lumi", com.rekixo.ludopaws.feature.characters.domain.model.VoiceCue.SIX))
+    }
+
+    @Test
+    fun allThirteenOwnVoiceFoldersResolveAndLumiDoesNotResolveToGoatsFolder() {
+        for (id in LudoPawsCharacterAudioProfiles.all.keys) {
+            val definition = CharacterDefinitions.all.single { it.character.id == id }
+            assertTrue(id, definition.voiceSet.supportedCues.containsAll(
+                com.rekixo.ludopaws.feature.characters.domain.model.VoiceCue.entries))
+            val names = listOf("lp_vocal_${id}_six_01", "lp_vocal_${id}_six_02")
+            val paths = LudoPawsCharacterAudioProfiles.vocalAssetPaths(names)
+            assertEquals(listOf(
+                "audio/sfx/voices/$id/${names[0]}.wav", "audio/sfx/voices/$id/${names[0]}.ogg",
+                "audio/sfx/voices/$id/${names[1]}.wav", "audio/sfx/voices/$id/${names[1]}.ogg",
+            ), paths)
+        }
+        assertTrue(LudoPawsCharacterAudioProfiles.vocalAssetPaths(listOf("lp_vocal_unknown_six_01")).isEmpty())
     }
 
     @Test

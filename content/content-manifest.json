@@ -133,6 +133,32 @@
         "footstepStyle": "PAW",
         "footstepFallback": "MOVE_STEP_CAT"
       }
+    },
+    {
+      "id": "panda",
+      "folder": "panda",
+      "definition": "PandaDefinition",
+      "renderer": "PandaRenderer",
+      "avatar": "PandaAvatarRenderer",
+      "audio": {
+        "voiceOwner": null,
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_CAT",
+        "volume": 0.28
+      }
+    },
+    {
+      "id": "monkey",
+      "folder": "monkey",
+      "definition": "MonkeyDefinition",
+      "renderer": "MonkeyRenderer",
+      "avatar": "MonkeyAvatarRenderer",
+      "audio": {
+        "voiceOwner": null,
+        "footstepStyle": "PAW",
+        "footstepFallback": "MOVE_STEP_CAT",
+        "volume": 0.28
+      }
     }
   ],
   "boards": [

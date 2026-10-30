@@ -131,6 +131,10 @@ internal fun MainActivity.applyResponse(
         }
     }
     if (state.status == "FINISHED") {
+        if (source == OnlineStateSource.AUTHORITATIVE) runCatching {
+            ProfileStore(this).recordCharacterMatch(state.matchId,
+                state.players.firstOrNull { it.playerId == playerId }?.characterId?.let(::listOf).orEmpty())
+        }
         stopFriendsVoice("Voice ended with the match.")
         realtimeClient.disconnect()
         realtimeConnected = false
@@ -148,6 +152,7 @@ internal fun MainActivity.applyResponse(
                 mode = ProfileGameMode.CLASSIC,
                 source = ProfileMatchSource.ONLINE,
                 won = state.winnerPlayerId == playerId,
+                characterIds = state.players.firstOrNull { it.playerId == playerId }?.characterId?.let(::listOf).orEmpty(),
             )
         }
     }
@@ -320,6 +325,8 @@ internal fun MainActivity.updateTurnBanner(
                     if (reward != null && reward > 0) append("\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit")
                 }
             }
+            resultSubtitleText.append("\n" + com.rekixo.ludopaws.feature.profile.presentation.MatchProgressSummary.text(
+                this, state.matchId, state.winnerPlayerId == playerId, rankedXp = gameMode.ranked))
         }
 
         else -> {

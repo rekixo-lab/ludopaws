@@ -18,7 +18,11 @@ export function parseCharacterAudioProfiles(source) {
   }));
 }
 
+// Match runtime import compatibility without modifying the author's actual file.
+const normalizeVocalFilename = name => name.replace(/\.wav\.wav$/i, '.wav');
+
 export function validateVocalFilename(fileName, voiceOwner) {
+  fileName = normalizeVocalFilename(fileName);
   const prefix = `lp_vocal_${voiceOwner}_`;
   if (!fileName.startsWith(prefix)) return false;
   const cueAndVariant = fileName.slice(prefix.length);
@@ -59,7 +63,8 @@ export function inspectAudio(root = process.cwd()) {
   for (const id of ids) {
     if (!registeredFolders.includes(id)) errors.push(`Missing character content folder for audio profile: ${id}`);
   }
-  const voiceOwners = new Set(profiles.map(x => x.voiceOwner).filter(Boolean));
+  // All shipped IDs accept authored overrides; voiceOwner is only their fallback.
+  const voiceOwners = new Set(ids);
   for (const profile of profiles) {
     if (profile.voiceOwner && !uniqueIds.has(profile.voiceOwner)) {
       errors.push(`Unknown voice owner ${profile.voiceOwner} for ${profile.id}`);
@@ -80,7 +85,7 @@ export function inspectAudio(root = process.cwd()) {
         errors.push(`Unrecognized voice cue filename: ${entry.name}/${name}`);
         continue;
       }
-      const cue = name.slice(`lp_vocal_${entry.name}_`.length)
+      const cue = normalizeVocalFilename(name).slice(`lp_vocal_${entry.name}_`.length)
         .replace(/_\d{2}(?: \(\d+\))?\.(wav|ogg)$/i, '');
       recorded[entry.name].files += 1;
       recorded[entry.name].cues.add(cue);
@@ -89,7 +94,8 @@ export function inspectAudio(root = process.cwd()) {
   return {
     errors,
     characters: profiles.length,
-    silentCharacterIds: profiles.filter(x => x.voiceOwner === null).map(x => x.id),
+    silentCharacterIds: profiles.filter(x => x.voiceOwner === null && recorded[x.id].files === 0).map(x => x.id),
+    authoredOnlyCharacterIds: profiles.filter(x => x.voiceOwner === null).map(x => x.id),
     voiceCoverage: Object.fromEntries(Object.entries(recorded).map(([id, coverage]) => [
       id, { files: coverage.files, cues: [...coverage.cues].sort(), missingOptionalCues: [...CHARACTER_CUES].filter(c => !coverage.cues.has(c)) },
     ])),
@@ -141,7 +147,7 @@ function main(args) {
   if (command === 'report') {
     console.log(JSON.stringify(report, null, 2));
   } else {
-    console.log(`Validated ${report.characters} character audio profiles and ${Object.keys(report.voiceCoverage).length} recorded voice owners.`);
+    console.log(`Validated ${report.characters} character audio profiles and ${Object.keys(report.voiceCoverage).length} supported voice folders.`);
   }
   if (report.errors.length) {
     throw new Error('Audio content validation failed:\n' + report.errors.join('\n'));

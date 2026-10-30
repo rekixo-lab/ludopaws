@@ -10,6 +10,8 @@ import com.rekixo.ludopaws.feature.safety.PlayAgeSignalsObserver
 fun Activity.openGameMode(
     mode: GameMode,
     resumeSavedMatch: Boolean = false,
+    beforeLaunch: (() -> Boolean)? = null,
+    onLaunched: (() -> Unit)? = null,
 ) {
     if (mode.isRemote && !BuildConfig.LUDOPAWS_CONNECTED_FEATURES_ENABLED) {
         PlywoodAlertDialogBuilder(this)
@@ -17,7 +19,7 @@ fun Activity.openGameMode(
             .setMessage(PlayAgeSignalsObserver.offlineExplanation())
             .setNegativeButton("CLOSE", null)
             .setPositiveButton("PLAY OFFLINE") { _, _ ->
-                openGameMode(GameMode.COMPUTER)
+                openGameMode(GameMode.COMPUTER, beforeLaunch = beforeLaunch, onLaunched = onLaunched)
             }
             .show()
         return
@@ -26,7 +28,7 @@ fun Activity.openGameMode(
         android.widget.Toast.makeText(this, "You are offline. Connect for online play, or choose Robot / Pass & Play.", android.widget.Toast.LENGTH_LONG).show()
     }
     if (mode.isRemote && com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.showNoticeIfNeeded(this) {
-            openGameMode(mode, resumeSavedMatch)
+            openGameMode(mode, resumeSavedMatch, beforeLaunch, onLaunched)
         }) return
     val target =
         when (
@@ -48,7 +50,8 @@ fun Activity.openGameMode(
                 OfflineGameActivity::class.java
         }
 
-    launchPlayerScreen(
+    if (beforeLaunch?.invoke() == false) return
+    val launched = launchPlayerScreen(
         Intent(
             this,
             target,
@@ -62,4 +65,5 @@ fun Activity.openGameMode(
                 resumeSavedMatch,
             ),
     )
+    if (launched) onLaunched?.invoke()
 }

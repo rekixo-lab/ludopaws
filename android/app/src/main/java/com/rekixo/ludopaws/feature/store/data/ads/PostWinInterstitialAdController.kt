@@ -76,7 +76,7 @@ internal class PostWinInterstitialAdController(
      */
     fun isReady(): Boolean =
         enabled && !closed && !showConsumed && !showing &&
-            consentInformation.canRequestAds() && interstitialAd != null
+            consentInformation.canRequestAds() && interstitialAd != null && AdBreakSession.canShow()
 
     fun showIfReady(
         onAdDismissed: () -> Unit,
@@ -84,6 +84,7 @@ internal class PostWinInterstitialAdController(
     ): Boolean {
         if (!enabled || closed || showConsumed || showing || !consentInformation.canRequestAds()) return false
         val ad = interstitialAd ?: return false
+        if (!AdBreakSession.reserve()) return false
 
         interstitialAd = null
         showConsumed = true
@@ -94,6 +95,7 @@ internal class PostWinInterstitialAdController(
             if (completed) return
             com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
             completed = true
+            AdBreakSession.release()
             showing = false
             showConsumed = false
             if (wasDismissed) onAdDismissed() else onFailedToShow()
@@ -104,6 +106,7 @@ internal class PostWinInterstitialAdController(
 
         ad.fullScreenContentCallback =
             object : FullScreenContentCallback() {
+                override fun onAdShowedFullScreenContent() { AdBreakSession.shown() }
                 override fun onAdDismissedFullScreenContent() {
                     finishOnce(wasDismissed = true)
                 }

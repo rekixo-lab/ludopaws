@@ -34,6 +34,7 @@ data class ProfileSnapshot(
     val rush: ProfileModeStats = ProfileModeStats(),
     val snakeLadder: ProfileModeStats = ProfileModeStats(),
     val purchasedProducts: List<String> = emptyList(),
+    val characterMatches: Map<String, Int> = emptyMap(),
 )
 
 data class ProfileLevelProgress(

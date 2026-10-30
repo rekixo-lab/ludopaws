@@ -110,6 +110,31 @@ class ProfileStore(
         ProfileSnapshot =
         synchronized(PROFILE_LOCK) { load().toSnapshot() }
 
+    fun hasRecordedMatch(matchId: String): Boolean = synchronized(PROFILE_LOCK) { matchId in load().recordedMatchIds }
+
+    fun recordCharacterMatch(matchId: String, characterIds: List<String>): Boolean = synchronized(PROFILE_LOCK) {
+        val priorKey = operationStorageKey
+        operationStorageKey = profileStorageKey()
+        try {
+            if (matchId.isBlank() || (fixedAccountId != null && fixedAccountId in prefs.getStringSet("deleted_profile_accounts", emptySet()).orEmpty())) return false
+            val state = load()
+            if (!awardCharacterMatch(state, matchId, characterIds)) return false
+            save(state)
+            true
+        } finally { operationStorageKey = priorKey }
+    }
+
+    private fun awardCharacterMatch(state: MutableProfileState, matchId: String, ids: List<String>): Boolean {
+        val canonical = ids.mapNotNull { id ->
+            com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.character(id)?.id
+        }.distinct()
+        if (canonical.isEmpty() || matchId in state.characterMatchIds) return false
+        state.characterMatchIds.add(matchId)
+        while (state.characterMatchIds.size > MAX_RECORDED_MATCHES) state.characterMatchIds.remove(state.characterMatchIds.first())
+        canonical.forEach { id -> state.characterMatches[id] = ((state.characterMatches[id] ?: 0) + 1).coerceAtMost(1_000_000) }
+        return true
+    }
+
     fun updateDisplayName(
         value: String,
     ): ProfileSnapshot {
@@ -150,6 +175,7 @@ class ProfileStore(
         mode: ProfileGameMode,
         source: ProfileMatchSource,
         won: Boolean,
+        characterIds: List<String> = emptyList(),
     ): Boolean {
         synchronized(PROFILE_LOCK) {
         val priorKey = operationStorageKey
@@ -190,6 +216,7 @@ class ProfileStore(
 
         state.totalGames +=
             1
+        awardCharacterMatch(state, matchId, characterIds)
         if (won) {
             state.totalWins +=
                 1
@@ -339,6 +366,12 @@ class ProfileStore(
                 )
 
             MutableProfileState(
+                characterMatches = json.optJSONObject("characterMatches")?.let { counts ->
+                    counts.keys().asSequence().filter { id ->
+                        com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.character(id) != null
+                    }.associateWith { counts.optInt(it).coerceIn(0, 1_000_000) }.toMutableMap()
+                } ?: mutableMapOf(),
+                characterMatchIds = json.optJSONArray("characterMatchIds").toLinkedStringSet(),
                 displayName =
                     json.optString(
                         "displayName",
@@ -477,6 +510,8 @@ class ProfileStore(
 
         val json =
             JSONObject()
+                .put("characterMatches", JSONObject(state.characterMatches.toMap()))
+                .put("characterMatchIds", JSONArray(state.characterMatchIds.toList()))
                 .put(
                     "displayName",
                     state.displayName,
@@ -587,6 +622,8 @@ class ProfileStore(
         )
 
     private data class MutableProfileState(
+        val characterMatches: MutableMap<String, Int> = mutableMapOf(),
+        val characterMatchIds: LinkedHashSet<String> = linkedSetOf(),
         var displayName: String = "Guest User",
         var totalGames: Int = 0,
         var totalWins: Int = 0,
@@ -619,6 +656,7 @@ class ProfileStore(
         fun toSnapshot():
             ProfileSnapshot =
             ProfileSnapshot(
+                characterMatches = characterMatches.toMap(),
                 displayName =
                     displayName,
                 totalGames =

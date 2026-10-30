@@ -203,7 +203,9 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
         context = this,
         onBack = { requestOfflineExit() },
         centerContent = if (state.status == "ACTIVE") {
-            com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionView(this).apply {
+            com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionView(this).also {
+                gameplayPawsPromotion = it
+            }.apply {
                 protect(listOfNotNull(topPlayerRail, bottomPlayerRail, boardView))
             }
         } else null,
@@ -347,7 +349,6 @@ internal fun OfflineGameActivity.offlineResultPanel(): FrameLayout =
                 )
                 gravity = Gravity.CENTER
                 includeFontPadding = false
-                maxLines = 7
                 setShadowLayer(
                     dp(5).toFloat(),
                     0f,
@@ -358,14 +359,19 @@ internal fun OfflineGameActivity.offlineResultPanel(): FrameLayout =
             }
 
         addView(
-            resultTitleText,
+            android.widget.ScrollView(this@offlineResultPanel).apply {
+                isFillViewport = true
+                addView(resultTitleText, FrameLayout.LayoutParams(-1, -2))
+            },
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.MATCH_PARENT,
                 Gravity.CENTER,
             ).apply {
                 leftMargin = dp(18)
                 rightMargin = dp(18)
+                topMargin = dp(12)
+                bottomMargin = dp(12)
             },
         )
     }

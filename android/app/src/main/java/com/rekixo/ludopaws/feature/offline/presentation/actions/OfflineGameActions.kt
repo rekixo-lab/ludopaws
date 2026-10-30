@@ -23,6 +23,7 @@ internal fun OfflineGameActivity.rollOffline() {
     control.alpha = .58f
     GameSoundFeedback.roll(this)
     diceView?.startRolling()
+    gameplayPawsPromotion?.quietFor(1_500L)
     showStatus("Rolling locally…")
 
     val delay =
@@ -87,6 +88,7 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
     if (state.pendingRoll == null) {
         GameSoundFeedback.roll(this)
         diceView?.startRolling()
+        gameplayPawsPromotion?.quietFor(1_500L)
         showStatus(active.displayName + " is rolling…")
         handler.postDelayed(
             {

@@ -51,6 +51,8 @@ internal class GamePawsPromotionView(
                     // Cached portraits use anchor .62 and zoom 1. Match the
                     // live preview's .70 anchor after scaling about the center.
                     child.translationY = side * (.20f - .12f * child.scaleY)
+                } else if (gameplay && child === avatar) {
+                    child.translationY = side * (.19f - .12f * child.scaleY)
                 }
             }
         }
@@ -81,6 +83,18 @@ internal class GamePawsPromotionView(
     private var preview: FeaturedPawsPreview? = null
     private var extraPreview: View? = null
     private var promotionActive = true
+    private var quietUntilMillis = 0L
+    private val resumeAfterQuiet = Runnable { updateMotion() }
+
+    fun quietFor(durationMillis: Long) {
+        if (durationMillis <= 0L) return
+        quietUntilMillis = maxOf(quietUntilMillis, android.os.SystemClock.uptimeMillis() + durationMillis)
+        removeCallbacks(resumeAfterQuiet)
+        removeCallbacks(cycle)
+        removeCallbacks(startPreview)
+        preview?.setActive(false)
+        postDelayed(resumeAfterQuiet, (quietUntilMillis - android.os.SystemClock.uptimeMillis()).coerceAtLeast(1L))
+    }
     private var notice: Toast? = null
     private var protectedViews = emptyList<View>()
     private var spaceAvailable = true
@@ -97,11 +111,13 @@ internal class GamePawsPromotionView(
         }
     }
     private val startPreview = Runnable {
-        if (canPresentPromotion() && candidates.getOrNull(index)?.characterId != null) {
+        if (canPresentPromotion() && animationsAllowed() && candidates.getOrNull(index)?.characterId != null) {
             val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             if (preview == null && manager.deviceConfigurationInfo.reqGlEsVersion >= 0x30000) {
                 try {
-                    preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L, playful = true, prominent = !gameplay).also { live ->
+                    preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L,
+                        playful = true, prominent = !gameplay,
+                        portraitZoomMultiplier = if (gameplay) 2f else 1f).also { live ->
                         live.characterId = candidates[index].characterId ?: "dog"
                         live.alpha = 0f
                         live.onReady = { live.alpha = 1f; avatar.visibility = INVISIBLE }
@@ -343,6 +359,12 @@ internal class GamePawsPromotionView(
                 avatar.scaleY = zoom
                 val side = minOf(artwork.width, artwork.height)
                 avatar.translationY = side * (.20f - .12f * zoom)
+            } else {
+                val zoom = compactSpotlightPortraitZoom(offer.characterId) * 2f
+                avatar.scaleX = zoom
+                avatar.scaleY = zoom
+                val side = minOf(artwork.width, artwork.height)
+                avatar.translationY = side * (.19f - .12f * zoom)
             }
             avatar.bind(characterId = offer.characterId, ringColor = 0xFF5BE0FF.toInt(),
                 highlighted = false, showCircularChrome = false)
@@ -482,9 +504,10 @@ internal class GamePawsPromotionView(
         if (previouslyAvailable != hasLockedOffers) onAvailabilityChanged?.invoke(hasLockedOffers)
     }
 
-    private fun canPresentPromotion(): Boolean = hasLockedOffers && promotionActive && spaceAvailable && isAttachedToWindow && isShown && windowVisibility == VISIBLE && hasWindowFocus()
+    private fun canPresentPromotion(): Boolean = android.os.SystemClock.uptimeMillis() >= quietUntilMillis && hasLockedOffers && promotionActive && spaceAvailable && isAttachedToWindow && isShown && windowVisibility == VISIBLE && hasWindowFocus()
 
-    private fun animationsAllowed(): Boolean = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled()
+    private fun animationsAllowed(): Boolean = !com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore(context).snapshot().reducedMotion &&
+        (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O || ValueAnimator.areAnimatorsEnabled())
 
     fun setActive(value: Boolean) {
         if (promotionActive == value) return
@@ -496,6 +519,12 @@ internal class GamePawsPromotionView(
         removeCallbacks(cycle)
         removeCallbacks(startPreview)
         preview?.setActive(false)
+        removeCallbacks(resumeAfterQuiet)
+        val quietRemaining = quietUntilMillis - android.os.SystemClock.uptimeMillis()
+        if (quietRemaining > 0L) {
+            if (isAttachedToWindow) postDelayed(resumeAfterQuiet, quietRemaining)
+            return
+        }
         if (!canPresentPromotion()) return
         if (candidates.getOrNull(index)?.characterId != null) postDelayed(startPreview, 250L)
         if (animationsAllowed()) postDelayed(cycle, if (gameplay) 12000L else 7000L)
@@ -525,6 +554,7 @@ internal class GamePawsPromotionView(
     }
 
     override fun onDetachedFromWindow() {
+        removeCallbacks(resumeAfterQuiet)
         inventoryPreferences.unregisterOnSharedPreferenceChangeListener(inventoryListener)
         removeCallbacks(refreshOwnedOffers)
         if (viewTreeObserver.isAlive) viewTreeObserver.removeOnPreDrawListener(spaceObserver)
@@ -567,4 +597,5 @@ internal class GamePawsPromotionSlot(context: Context, private val fallback: Vie
     }
 
     fun protect(views: List<View>) = promotion.protect(views)
+    fun quietFor(durationMillis: Long) = promotion.quietFor(durationMillis)
 }

@@ -13,9 +13,10 @@ internal object OfflineResultRecovery {
     private val retryWorker = Executors.newSingleThreadExecutor { work ->
         Thread(work, "LudoPawsLocalResults").apply { isDaemon = true }
     }
-    fun record(context: Context, matchId: String, owner: String?, won: Boolean, computer: Boolean) {
+    fun record(context: Context, matchId: String, owner: String?, won: Boolean, computer: Boolean, characterIds: List<String> = emptyList()) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val result = JSONObject().put("owner", owner).put("won", won).put("computer", computer)
+            .put("characters", org.json.JSONArray(characterIds))
         check(prefs.edit().putString(matchId, result.toString()).commit()) { "Could not save pending match statistics" }
         apply(context, matchId, result)
     }
@@ -35,6 +36,9 @@ internal object OfflineResultRecovery {
             matchId, ProfileGameMode.CLASSIC,
             if (result.getBoolean("computer")) ProfileMatchSource.COMPUTER else ProfileMatchSource.LOCAL,
             result.getBoolean("won"),
+            characterIds = result.optJSONArray("characters")?.let { ids ->
+                (0 until ids.length()).map { ids.optString(it) }
+            }.orEmpty(),
         )
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(matchId).commit())
     }

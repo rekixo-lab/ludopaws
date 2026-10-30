@@ -76,7 +76,8 @@ internal object HorseRenderer : CharacterRenderer {
             val rear = legIndex < 2
             val side = if (legIndex % 2 == 0) -1f else 1f
             val positionX = side * (if (rear) .27f else .235f)
-            DonkeyLegRig.solve(rear, side, pose.legSwingDegrees, pose.legTuckDegrees, rigScratch, pose.bodyCrouch)
+            val scrape = if (!rear && side < 0f) pose.gestureWeight else 0f
+            DonkeyLegRig.solve(rear, side, pose.legSwingDegrees + 9f * scrape * sin(pose.gesturePhase * PI.toFloat() * 2f), pose.legTuckDegrees + 8f * scrape, rigScratch, pose.bodyCrouch)
             val hipY = rigScratch[0]
             val hipZ = rigScratch[1]
             val kneeY = rigScratch[2]

@@ -27,6 +27,9 @@ internal data class LudoPaws3DActiveReaction(
     val startedAtMillis: Long,
     val durationMillis: Long,
     val priority: Int,
+    val variant: Int = 0,
+    val moment: com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType? = null,
+    val observer: Boolean = false,
 )
 
 /**

@@ -147,7 +147,7 @@ internal fun MainActivity.applyOnlineGameplayPacing(
         ).let { remaining ->
             // A late server confirmation must not skip the authoritative finish show.
             if (current.status == "FINISHED" && LudoPawsHomeEntryPolicy.newlyComplete(previous, current))
-                maxOf(remaining, LudoPawsHomeEntryPolicy.DURATION_MS) else remaining
+                maxOf(remaining, LudoPawsHomeEntryPolicy.INTERACTION_HOLD_MS) else remaining
         }
     onlineGameplayActionBlockedUntilMillis = maxOf(
         onlineGameplayActionBlockedUntilMillis,
