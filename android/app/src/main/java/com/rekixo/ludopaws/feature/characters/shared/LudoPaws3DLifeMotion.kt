@@ -25,10 +25,13 @@ internal class LudoPaws3DLifeMotion {
     private val primary = Spring()
     private val secondary = Spring()
     private val tertiary = Spring()
+    private val stance = Spring()
     private var frameDt = 1f / 60f
     fun followPrimary(target: Float) = primary.step(target, frameDt, 120f)
     fun followSecondary(target: Float) = secondary.step(target, frameDt, 72f)
     fun followTertiary(target: Float) = tertiary.step(target, frameDt, 90f)
+    // Separate from appendages: changing support from two paws to four takes time.
+    fun followStance(target: Float) = stance.step(target, frameDt, 24f).coerceIn(0f, 1f)
     private val gaze = Spring()
     private val gazeVertical = Spring()
     private var lastMillis = 0L

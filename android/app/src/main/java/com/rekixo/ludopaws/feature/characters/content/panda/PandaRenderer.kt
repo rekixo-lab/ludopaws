@@ -21,8 +21,9 @@ internal object PandaRenderer : CharacterRenderer {
         val arc = sin(stepTravelProgress(anatomy) * PI).toFloat().coerceAtLeast(0f)
         val pose = when (motion) {
             CharacterMotion.IDLE -> CharacterPose(
-                headTiltDegrees = 3f * wave, bodyRollDegrees = 1.5f * wave,
-                primaryAppendageDegrees = 4f * wave,
+                headTiltDegrees = 7f * wave, bodyRollDegrees = 2.5f * wave,
+                primaryAppendageDegrees = 17f * wave,
+                secondaryAppendageDegrees = 8f * wave,
             )
             CharacterMotion.HOP -> CharacterPose(
                 legTuckDegrees = 24f * arc, legSwingDegrees = -14f * arc,
@@ -42,33 +43,48 @@ internal object PandaRenderer : CharacterRenderer {
         val previousSurface = surface
         try {
             surface = CharacterSurface.SOFT_FUR
-            val torso = rigTransforms[0]
-            System.arraycopy(parent, 0, torso, 0, 16)
-            Matrix.translateM(torso, 0, 0f, -pose.bodyCrouch, 0f)
-            Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
-            Matrix.rotateM(torso, 0, pose.bodyRollDegrees, 0f, 0f, 1f)
+            // The life clock continues across short idle loops; posture never resets per loop.
+            // Its idle weight fades out on movement/reactions so the Panda stands to respond.
+            val q = life?.let { it.followStance(PandaPosture.allFours(it.timeSeconds, it.idleWeight)) } ?: 0f
+            val root = rigTransforms[0]
+            System.arraycopy(parent, 0, root, 0, 16)
+            Matrix.translateM(root, 0, 0f, -pose.bodyCrouch, 0f)
+            Matrix.rotateM(root, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
+            Matrix.rotateM(root, 0, pose.bodyRollDegrees * (1f - q), 0f, 0f, 1f)
+            val torso = rigTransforms[1]
+            System.arraycopy(root, 0, torso, 0, 16)
+            Matrix.translateM(torso, 0, 0f, -.16f * q, -.08f * q)
+            Matrix.rotateM(torso, 0, 65f * q, 1f, 0f, 0f)
             val breath = 1f + (life?.breath ?: 0f)
             // Broad shoulder band, white round belly and a small white tail.
             drawPart(torso, 0f, -.02f, 0f, .39f * breath, .46f, .31f * breath, PANDA_COAT)
             drawPart(torso, 0f, .26f, -.015f, .40f, .19f, .29f, PANDA_DARK)
             drawPart(torso, 0f, -.15f, -.32f, .12f, .12f, .12f, PANDA_COAT)
             for (side in -1..1 step 2) {
-                val arm = rigTransforms[1]
-                System.arraycopy(torso, 0, arm, 0, 16)
-                Matrix.translateM(arm, 0, side * .35f, .25f, 0f)
-                Matrix.rotateM(arm, 0, side * (10f + pose.primaryAppendageDegrees), 0f, 0f, 1f)
-                drawPart(arm, side * .045f, -.21f, .035f, .14f, .29f, .15f, PANDA_DARK)
-                val leg = rigTransforms[2]
+                val arm = rigTransforms[2]
+                System.arraycopy(root, 0, arm, 0, 16)
+                Matrix.translateM(arm, 0, side * .35f, .25f - .40f * q, .32f * q)
+                // Fold onto the front paws, then free the arms for an asymmetric greeting.
+                val waveArm = pose.primaryAppendageDegrees * (if (side == 1) 1f else .45f)
+                Matrix.rotateM(arm, 0, side * (10f + waveArm) * (1f - q), 0f, 0f, 1f)
+                Matrix.rotateM(arm, 0, pose.secondaryAppendageDegrees * (1f - q), 1f, 0f, 0f)
+                drawPart(arm, side * .045f * (1f - q), -.21f - .02f * q, .035f,
+                    .14f, .29f, .15f, PANDA_DARK)
+                drawPart(arm, 0f, -.43f - .04f * q, .065f + .065f * q,
+                    .16f, .10f, .19f, PANDA_DARK)
+                val leg = rigTransforms[3]
                 System.arraycopy(parent, 0, leg, 0, 16)
-                Matrix.translateM(leg, 0, side * .23f, -.35f, -.025f)
+                Matrix.translateM(leg, 0, side * .23f, -.35f, -.025f - .24f * q)
                 Matrix.rotateM(leg, 0, pose.legSwingDegrees, 1f, 0f, 0f)
                 val tuck = (pose.legTuckDegrees / 38f).coerceIn(0f, 1f)
                 drawPart(leg, 0f, -.13f + tuck * .10f, .02f, .18f, .23f, .18f, PANDA_DARK)
                 drawPart(leg, 0f, -.27f + tuck * .16f, .12f, .19f, .10f, .23f, PANDA_DARK)
                 drawPart(leg, 0f, -.27f + tuck * .16f, .324f, .10f, .052f, .015f, PANDA_PAD)
             }
-            val neck = rigTransforms[3]
-            System.arraycopy(torso, 0, neck, 0, 16)
+            val neck = rigTransforms[4]
+            System.arraycopy(root, 0, neck, 0, 16)
+            // Keep the face looking forward when the shoulders lower onto four paws.
+            Matrix.translateM(neck, 0, 0f, -.45f * q, .43f * q)
             Matrix.translateM(neck, 0, 0f, .36f, 0f)
             Matrix.rotateM(neck, 0, pose.neckPitchDegrees, 1f, 0f, 0f)
             Matrix.translateM(neck, 0, 0f, -.36f, 0f)
