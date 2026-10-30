@@ -125,7 +125,8 @@ internal object LumiGoatGeometry {
             val rings = points.asList().chunked(5).map {
                 Ring(it[0], it[1], it[2], it[3], it[4], if (tint == LumiTint.HOOF) .45f else 1f)
             }
-            add(Part(rig, tint, MeshLoft.build(rings, 24, subdivisions = 3), x, y, z, rx, rz, fur))
+            val rounded = roundAnatomy(rig, tint, rx, rings)
+            add(Part(rig, tint, MeshLoft.build(rounded, 24, subdivisions = 3), x, y, z, rx, rz, fur))
         }
         loft(LumiRig.BODY, LumiTint.FUR, -.015f, .51f, -.28f, 90f, 0f, 2300, floatArrayOf(
             -.58f,0.0392f,0.0672f,0f,0f, -.49f,0.2016f,0.2688f,0f,0f,
@@ -199,6 +200,45 @@ internal object LumiGoatGeometry {
                 -.014f,.004f,.003f,0f,0f, 0f,.016f,.008f,0f,0f, .014f,.005f,.003f,0f,0f))
         }
     }
+
+    /** Add volume in each part's own axes, before its rig rotation/short-leg transform.
+     * The face grows mostly behind the existing eyes/muzzle, preserving its front view.
+     * Decorative eye/mouth geometry keeps its original depth and attachment coordinates.
+     */
+    private fun roundAnatomy(rig: LumiRig, tint: LumiTint, rx: Float, rings: List<Ring>): List<Ring> =
+        rings.map { ring ->
+            when {
+                rig == LumiRig.HEAD && tint == LumiTint.FUR -> {
+                    val extraDepth = ring.radiusZ * .50f
+                    ring.copy(radiusZ = ring.radiusZ + extraDepth, centerZ = ring.centerZ - extraDepth)
+                }
+                (rig == LumiRig.EAR_LEFT || rig == LumiRig.EAR_RIGHT) && tint == LumiTint.FUR -> {
+                    val extraDepth = ring.radiusZ * 1.4f
+                    ring.copy(radiusZ = ring.radiusZ + extraDepth, centerZ = ring.centerZ - extraDepth)
+                }
+                rig == LumiRig.BODY && tint == LumiTint.FUR -> {
+                    if (rx == 90f) {
+                        // This loft's longitudinal axis becomes world Z, not world Y.
+                        ring.copy(y = ring.y * 1.12f)
+                    } else {
+                        val extraDepth = ring.radiusZ * .22f
+                        ring.copy(radiusZ = ring.radiusZ + extraDepth, centerZ = ring.centerZ - extraDepth)
+                    }
+                }
+                tint == LumiTint.HOOF -> {
+                    // Half-length leg scaling also flattened the hooves. Restore their
+                    // thickness upward from the same sole plane, keeping foot contact.
+                    val sole = rings.first().y
+                    ring.copy(y = sole + (ring.y - sole) * 1.7f)
+                }
+                (rig == LumiRig.FRONT_LEFT || rig == LumiRig.FRONT_RIGHT ||
+                    rig == LumiRig.REAR_LEFT || rig == LumiRig.REAR_RIGHT) && tint == LumiTint.FUR ->
+                    ring.copy(radiusZ = ring.radiusZ * 1.22f)
+                rig == LumiRig.TAIL && tint == LumiTint.FUR ->
+                    ring.copy(radiusZ = ring.radiusZ * 1.2f)
+                else -> ring
+            }
+        }
 
     val batches: Map<LumiRig, List<Batch>> by lazy {
         val buckets = linkedMapOf<Pair<LumiRig, LumiTint>, MutableList<MeshGeometry>>()
