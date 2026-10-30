@@ -57,6 +57,13 @@ internal object CharacterLivingBehavior {
             primaryAppendageDegrees = pose.primaryAppendageDegrees + profile.primary * wave * listen,
             secondaryAppendageDegrees = pose.secondaryAppendageDegrees + profile.secondary * wave * flourish,
             tertiaryAppendageDegrees = pose.tertiaryAppendageDegrees + profile.tertiary * wave * flourish,
+            gestureWeight = if (kind == 2) envelope else 0f,
+            gesturePhase = window,
+            bodyPitchDegrees = pose.bodyPitchDegrees + when (characterId) {
+                "dog" -> 13f * flourish
+                "duck" -> 5f * flourish
+                else -> 0f
+            },
         )
     }
 

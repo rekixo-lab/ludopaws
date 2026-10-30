@@ -152,6 +152,7 @@ class OfflineGameActivity : ComponentActivity() {
     internal var computerActionRevision: Int? = null
     internal var presentedDiceEventKey: String? = null
     internal var gameplayActionBlockedUntilMillis: Long = 0L
+    internal var gameplayPawsPromotion: com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionView? = null
     internal var exitConfirmationDialog: Dialog? = null
     internal var turnHandoffDialog: Dialog? = null
     internal var quickReactionView: View? = null

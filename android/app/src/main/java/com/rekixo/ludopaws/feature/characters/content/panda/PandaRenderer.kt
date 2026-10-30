@@ -46,13 +46,14 @@ internal object PandaRenderer : CharacterRenderer {
             // The life clock continues across short idle loops; posture never resets per loop.
             // Its idle weight fades out on movement/reactions so the Panda stands to respond.
             val q = life?.let { it.followStance(PandaPosture.allFours(it.timeSeconds, it.idleWeight)) } ?: 0f
+            val sit = pose.gestureWeight * (1f - q)
             val model = rigTransforms[6]
             System.arraycopy(parent, 0, model, 0, 16)
             val size = PandaDefinition.MODEL_SIZE_MULTIPLIER
             Matrix.scaleM(model, 0, size, size, size)
             val root = rigTransforms[0]
             System.arraycopy(model, 0, root, 0, 16)
-            Matrix.translateM(root, 0, 0f, -pose.bodyCrouch, 0f)
+            Matrix.translateM(root, 0, 0f, -pose.bodyCrouch - .18f * sit, 0f)
             Matrix.rotateM(root, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             Matrix.rotateM(root, 0, pose.bodyRollDegrees * (1f - q), 0f, 0f, 1f)
             val torso = rigTransforms[1]
@@ -69,7 +70,7 @@ internal object PandaRenderer : CharacterRenderer {
                 System.arraycopy(root, 0, arm, 0, 16)
                 Matrix.translateM(arm, 0, side * .35f, .25f - .40f * q, .32f * q)
                 // Fold onto the front paws, then free the arms for an asymmetric greeting.
-                val waveArm = pose.primaryAppendageDegrees * (if (side == 1) 1f else .45f)
+                val waveArm = pose.primaryAppendageDegrees * (if (side == 1) 1f else .45f) + sit * (24f + 9f * sin(pose.gesturePhase * PI.toFloat() * 6f))
                 Matrix.rotateM(arm, 0, side * (10f + waveArm) * (1f - q), 0f, 0f, 1f)
                 Matrix.rotateM(arm, 0, pose.secondaryAppendageDegrees * (1f - q), 1f, 0f, 0f)
                 drawPart(arm, side * .045f * (1f - q), -.21f - .02f * q, .035f,
@@ -78,7 +79,7 @@ internal object PandaRenderer : CharacterRenderer {
                     .16f, .10f, .19f, PANDA_DARK)
                 val leg = rigTransforms[3]
                 System.arraycopy(model, 0, leg, 0, 16)
-                Matrix.translateM(leg, 0, side * .23f, -.35f, -.025f - .24f * q)
+                Matrix.translateM(leg, 0, side * .23f, -.35f, -.025f - .24f * q + .14f * sit)
                 Matrix.rotateM(leg, 0, pose.legSwingDegrees, 1f, 0f, 0f)
                 val tuck = (pose.legTuckDegrees / 38f).coerceIn(0f, 1f)
                 drawPart(leg, 0f, -.13f + tuck * .10f, .02f, .18f, .23f, .18f, PANDA_DARK)

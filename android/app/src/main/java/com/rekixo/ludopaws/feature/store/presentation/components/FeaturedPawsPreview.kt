@@ -45,6 +45,7 @@ internal class FeaturedPawsPreview(
     private var needsFrame = true
     private var session: Session? = null
     private val visibleRect = Rect()
+    private val motionSettings = com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore(context)
     var onReady: (() -> Unit)? = null
     var onUnavailable: (() -> Unit)? = null
     private val ticker = object : Runnable {
@@ -173,6 +174,7 @@ internal class FeaturedPawsPreview(
                         CharacterMotion.HOP -> cycle - idleEnd
                         CharacterMotion.HOME -> cycle - hopEnd
                     }
+                    life.reducedMotion = motionSettings.snapshot().reducedMotion
                     life.update(10000L + clock, 37, motion == CharacterMotion.IDLE,
                         0f, 0f, LudoPaws3DReactionPose())
                     val sampled = character.renderer.sample(motion, (phase % duration) / duration.toFloat(),
@@ -182,7 +184,8 @@ internal class FeaturedPawsPreview(
                     // parent overflow cannot recover pixels clipped by GL.
                     val zoom = (if (prominent) homeSpotlightPortraitZoom(id)
                         else compactSpotlightPortraitZoom(id)) * portraitZoomMultiplier
-                    val framedPose = if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
+                    val framedPose = if (life.reducedMotion) com.rekixo.ludopaws.feature.characters.rendering.CharacterPose()
+                        else if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
                     scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,
                         synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f)
                     check(window?.swap() == true) { "Showcase buffer swap failed" }

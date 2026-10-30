@@ -57,7 +57,7 @@ internal object LumiGoatRenderer : CharacterRenderer {
                     LumiRig.EAR_LEFT, LumiRig.EAR_RIGHT -> {
                         val side = if (rig == LumiRig.EAR_LEFT) -1f else 1f
                         Matrix.translateM(transform, 0, side * .19f, 1.17f, .09f)
-                        Matrix.rotateM(transform, 0, side * pose.primaryAppendageDegrees * .45f, 0f, 0f, 1f)
+                        Matrix.rotateM(transform, 0, side * (pose.primaryAppendageDegrees * .45f + (if(side<0f) 16f else -5f)*pose.gestureWeight), 0f, 0f, 1f)
                         Matrix.translateM(transform, 0, -side * .19f, -1.17f, -.09f)
                     }
                     LumiRig.FRONT_LEFT, LumiRig.FRONT_RIGHT, LumiRig.REAR_LEFT, LumiRig.REAR_RIGHT -> {

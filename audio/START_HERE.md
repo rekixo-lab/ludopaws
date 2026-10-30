@@ -39,3 +39,7 @@
 - Voice या Sound setting off, cooldown, dedupe, probability, app background/audio focus की वजह से हर event पर voice सुनना जरूरी नहीं।
 - 13 × 14 = 182 first vocal takes; second takes optional हैं। पुराने चार characters की अच्छी recordings फिर से बनाने की जरूरत नहीं।
 - प्राइस और पब्लिश PENDING हैं।
+
+## नई character acting के लिए
+
+Paw wash, ear movement, tummy gesture, clap और bystander glance के लिए अलग voice files नहीं चाहिए। इन्हें जानबूझकर silent रखा है। ऊपर वाले 14 situation prompts और footsteps ही generate करें; sound हर छोटे movement पर नहीं बजेगा। Settings में Animal voices अलग से चुन सकते हैं; Sound master mute रहेगा।

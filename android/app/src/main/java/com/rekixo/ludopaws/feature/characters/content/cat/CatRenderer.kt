@@ -79,7 +79,9 @@ internal object CatRenderer : CharacterRenderer {
             CatLegRig.solve(rear, side, swing ?: pose.legSwingDegrees,
                 tuck ?: pose.legTuckDegrees, rigScratch, pose.bodyCrouch, tuck != null)
             val hy = rigScratch[0]; val hz = rigScratch[1]
-            val ay = rigScratch[4]; val az = rigScratch[5]
+            val wash = if (!rear && side < 0f) pose.gestureWeight else 0f
+            val ay = rigScratch[4] + wash * 1.12f
+            val az = rigScratch[5] + wash * .14f
             surface = CharacterSurface.CAT_COAT
             catBone(legRoot, CatGeometry.limb, x, hy, hz, ay, az,
                 if (rear) .10f else .078f, CAT_TABBY_FUR)

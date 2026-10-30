@@ -19,7 +19,8 @@ class CharacterLivingBehaviorTest {
                 val pose = CharacterLivingBehavior.blendIdle(base, id, i * .1f, 103, 1f)
                 assertEquals(base, pose.copy(headTiltDegrees = base.headTiltDegrees,
                     neckPitchDegrees = base.neckPitchDegrees, primaryAppendageDegrees = base.primaryAppendageDegrees,
-                    secondaryAppendageDegrees = base.secondaryAppendageDegrees, tertiaryAppendageDegrees = base.tertiaryAppendageDegrees))
+                    secondaryAppendageDegrees = base.secondaryAppendageDegrees, tertiaryAppendageDegrees = base.tertiaryAppendageDegrees,
+                    bodyPitchDegrees = base.bodyPitchDegrees, gestureWeight = base.gestureWeight, gesturePhase = base.gesturePhase))
                 assertTrue(listOf(pose.headTiltDegrees, pose.neckPitchDegrees, pose.primaryAppendageDegrees,
                     pose.secondaryAppendageDegrees, pose.tertiaryAppendageDegrees).all { it.isFinite() && kotlin.math.abs(it) <= 32f })
                 assertEquals(base, CharacterLivingBehavior.blendIdle(base, id, i * .1f, 103, 0f))

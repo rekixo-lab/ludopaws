@@ -240,6 +240,7 @@ internal fun MainActivity.rollVerifiedDice() {
         }
         onlineRollRequestInFlight = true
         diceView.startRolling()
+        gameplayPawsPromotion?.quietFor(1_500L)
         OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, state.randomEventIndex)
         GameSoundFeedback.roll(this, state.randomEventIndex)
         verificationText.text = "Rolling…"

@@ -42,6 +42,7 @@ import com.rekixo.ludopaws.feature.profile.presentation.components.profileIdenti
 import com.rekixo.ludopaws.feature.profile.presentation.components.profileModeStatsPanel
 import com.rekixo.ludopaws.feature.profile.presentation.components.profilePurchasesPanel
 import com.rekixo.ludopaws.feature.profile.presentation.components.profileTopBar
+import com.rekixo.ludopaws.feature.profile.presentation.components.profileMasteryPanel
 
 class ProfileActivity : Activity() {
     private var profileContent: LinearLayout? = null
@@ -170,9 +171,10 @@ class ProfileActivity : Activity() {
             content.removeViewAt(1)
             content.addView(profileIdentityPanel(profile), 1, sectionParams(10))
             if (renderedProfile != profile) {
-                repeat(3) { content.removeViewAt(2) }
+                while (content.childCount > 2) content.removeViewAt(2)
                 content.addView(profileModeStatsPanel(profile), sectionParams(12))
                 content.addView(profileBadgesPanel(profile), sectionParams(12))
+                content.addView(profileMasteryPanel(profile), sectionParams(12))
                 content.addView(profilePurchasesPanel(profile), sectionParams(12))
             }
             renderedProfile = profile
@@ -280,6 +282,7 @@ class ProfileActivity : Activity() {
             profileBadgesPanel(profile),
             sectionParams(12),
         )
+        content.addView(profileMasteryPanel(profile), sectionParams(12))
         content.addView(
             profilePurchasesPanel(profile),
             sectionParams(12),

@@ -96,7 +96,7 @@ internal object PigRenderer : CharacterRenderer {
             val ear = rigTransforms[4]
             System.arraycopy(parent, 0, ear, 0, 16)
             Matrix.translateM(ear, 0, side * .27f, 1.01f, .015f)
-            Matrix.rotateM(ear, 0, -side * (22f + pose.primaryAppendageDegrees), 0f, 0f, 1f)
+            Matrix.rotateM(ear, 0, -side * (22f + pose.primaryAppendageDegrees + side * 12f * pose.gestureWeight), 0f, 0f, 1f)
             drawGeometry(ear, PigGeometry.ear, 0f, 0f, 0f, side.toFloat(), 1f, 1f, PIG_PINK)
             drawGeometry(ear, PigGeometry.ear, 0f, .035f, .047f, side * .62f, .75f, .32f, PIG_BLUSH)
             surface = CharacterSurface.EYE
@@ -106,7 +106,7 @@ internal object PigRenderer : CharacterRenderer {
             drawPart(parent, side * .30f, .68f, .31f, .067f, .037f, .026f, PIG_BLUSH)
         }
         surface = CharacterSurface.NOSE
-        drawGeometry(parent, PigGeometry.snout, 0f, .70f, .30f, 1f, 1f, 1f, PIG_SNOUT, 90f)
+        drawGeometry(parent, PigGeometry.snout, .012f * pose.gestureWeight * sin(pose.gesturePhase * PI.toFloat() * 6f), .70f, .30f, 1f, 1f, 1f, PIG_SNOUT, 90f)
         for (side in -1..1 step 2) {
             drawPart(parent, side * .085f, .70f, .558f, .034f, .046f, .010f, PIG_HOOF, rotateZ = side * 12f)
         }

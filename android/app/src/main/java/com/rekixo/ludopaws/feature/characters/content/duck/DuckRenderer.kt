@@ -44,7 +44,7 @@ internal object DuckRenderer : CharacterRenderer {
             val neck = rigTransforms[2]
             System.arraycopy(torso,0,neck,0,16)
             Matrix.translateM(neck,0,0f,.43f,0f)
-            Matrix.rotateM(neck,0,pose.neckPitchDegrees,1f,0f,0f)
+            Matrix.rotateM(neck,0,pose.neckPitchDegrees+12f*pose.gestureWeight,1f,0f,0f)
             Matrix.translateM(neck,0,0f,-.43f,0f)
             duckMesh(neck,DuckGeometry.neck,DUCK_YELLOW)
             prepareHead(neck,.97f,pose.headTiltDegrees)
@@ -59,7 +59,7 @@ internal object DuckRenderer : CharacterRenderer {
         val wing = rigTransforms[3]
         System.arraycopy(parent,0,wing,0,16)
         Matrix.translateM(wing,0,side*.47f,.23f,-.03f)
-        Matrix.rotateM(wing,0,side*(15f+pose.primaryAppendageDegrees.coerceIn(-12f,80f)),0f,0f,1f)
+        Matrix.rotateM(wing,0,side*(15f+pose.primaryAppendageDegrees.coerceIn(-12f,80f)+pose.gestureWeight*(if(side<0f) 16f else 5f)),0f,0f,1f)
         Matrix.rotateM(wing,0,-8f,1f,0f,0f)
         surface=CharacterSurface.COAT
         duckMesh(wing,DuckGeometry.wing,DUCK_YELLOW,sx=side)

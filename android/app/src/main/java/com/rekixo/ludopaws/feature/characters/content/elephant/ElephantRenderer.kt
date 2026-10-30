@@ -113,7 +113,7 @@ internal object ElephantRenderer : CharacterRenderer {
         surface = CharacterSurface.MATTE
         val opening = ((life?.mouthOpen ?: 0f) + pose.jawOpen).coerceIn(0f, 1f)
         drawPart(parent, 0f, .49f, .34f, .13f, .012f + opening * .03f, .018f, ELEPHANT_SHADOW)
-        trunk(parent, pose.secondaryAppendageDegrees)
+        trunk(parent, pose.secondaryAppendageDegrees + 32f * pose.gestureWeight)
     }
 
     private fun CharacterDrawContext.trunk(parent: FloatArray, curl: Float) {

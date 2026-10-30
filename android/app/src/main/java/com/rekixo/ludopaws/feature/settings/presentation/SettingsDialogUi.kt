@@ -198,10 +198,6 @@ internal fun showSettingsDialog(
                         .setSoundEnabled(
                             enabled,
                         )
-                    settingsStore
-                        .setAnimalVoicesEnabled(
-                            enabled,
-                        )
                     isOn = enabled
                     contentDescription =
                         if (enabled) {
@@ -228,6 +224,25 @@ internal fun showSettingsDialog(
             ),
         )
 
+        panel.addView(settingsCompactRow(context, "Animal voices",
+            SettingsBooleanControl(context, settings.animalVoicesEnabled) { enabled ->
+                settingsStore.setAnimalVoicesEnabled(enabled)
+                settings = settingsStore.snapshot()
+                notifyChanged()
+            }))
+        panel.addView(settingsCompactRow(context, "Calm motion",
+            SettingsBooleanControl(context, settings.reducedMotion) { enabled ->
+                settingsStore.setReducedMotion(enabled)
+                settings = settingsStore.snapshot()
+                notifyChanged()
+            }))
+
+        panel.addView(settingsCompactRow(context, "Play hints",
+            SettingsBooleanControl(context, settings.playHintsEnabled) { enabled ->
+                settingsStore.setPlayHintsEnabled(enabled)
+                settings = settingsStore.snapshot()
+                notifyChanged()
+            }))
         val quickChatControl =
             SettingsBooleanControl(
                 context = context,

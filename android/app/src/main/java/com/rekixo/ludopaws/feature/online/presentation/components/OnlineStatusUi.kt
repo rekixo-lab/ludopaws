@@ -5,6 +5,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
+import com.rekixo.ludopaws.feature.online.abandonRemoteSessionState
 
 internal fun MainActivity.onlineMatchStatusPanel(): LinearLayout =
     LinearLayout(this).apply {
@@ -142,16 +143,40 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout =
                         )
                         gravity = Gravity.START
                         setPadding(0, dp(3), 0, 0)
-                        maxLines = 10
                     }
                 addView(resultSubtitleText)
             }
 
         addView(
-            copy,
+            android.widget.ScrollView(this@onlineResultPanel).apply {
+                isFillViewport = true
+                addView(copy, android.widget.ScrollView.LayoutParams(-1, -2))
+            },
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 height,
             ),
         )
+        val actions = LinearLayout(this@onlineResultPanel).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(4), dp(4), 0)
+        }
+        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+            text = if (gameMode == GameMode.FRIENDS) "INVITE AGAIN" else "PLAY AGAIN"
+            LudoProofTheme.positive(this)
+            setOnClickListener {
+                if (currentState?.status != "FINISHED" || !canSubmitOnlineGameplayAction()) return@setOnClickListener
+                val mode = gameMode
+                openGameMode(mode, resumeSavedMatch = false,
+                    beforeLaunch = { runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false) },
+                    onLaunched = { finish() })
+            }
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+            text = "HOME"
+            LudoProofTheme.secondary(this)
+            setOnClickListener { requestRemoteExitAfterWinInterstitial() }
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        addView(actions, FrameLayout.LayoutParams(-1, dp(56)).apply { topMargin = height })
     }

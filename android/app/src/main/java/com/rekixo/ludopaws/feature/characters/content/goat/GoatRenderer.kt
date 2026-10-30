@@ -74,7 +74,8 @@ internal object GoatRenderer : CharacterRenderer {
                 val x = side * (if (rear) .285f else .235f)
                 val pairTuck = if (rear) pose.rearLegTuckDegrees else pose.frontLegTuckDegrees
                 val pairSwing = if (rear) pose.rearLegSwingDegrees else pose.frontLegSwingDegrees
-                GoatLegRig.solve(rear, side.toFloat(), pairSwing ?: pose.legSwingDegrees,
+                val scrape = if (!rear && side < 0) pose.gestureWeight else 0f
+                GoatLegRig.solve(rear, side.toFloat(), (pairSwing ?: pose.legSwingDegrees) + 8f * scrape * kotlin.math.sin(pose.gesturePhase * kotlin.math.PI.toFloat() * 2f),
                     pairTuck ?: pose.legTuckDegrees, rigScratch, pose.bodyCrouch,
                     pairedStride = pairTuck != null)
                 val hy = rigScratch[0]; val hz = rigScratch[1]

@@ -45,6 +45,8 @@ data class GameSettings(
     val hapticsEnabled: Boolean = true,
     val quickChatEnabled: Boolean = true,
     val gameSpeed: GameSpeed = GameSpeed.NORMAL,
+    val reducedMotion: Boolean = false,
+    val playHintsEnabled: Boolean = true,
 )
 
 class GameSettingsStore(
@@ -59,6 +61,8 @@ class GameSettingsStore(
 
     fun snapshot(): GameSettings =
         GameSettings(
+            reducedMotion = prefs.getBoolean("reduced_motion", false),
+            playHintsEnabled = prefs.getBoolean("play_hints", true),
             musicEnabled =
                 prefs.getBoolean(
                     KEY_MUSIC,
@@ -107,6 +111,13 @@ class GameSettingsStore(
                 enabled,
             )
             .apply()
+    }
+
+    fun setReducedMotion(enabled: Boolean) {
+        prefs.edit().putBoolean("reduced_motion", enabled).apply()
+    }
+    fun setPlayHintsEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("play_hints", enabled).apply()
     }
 
     fun setSoundEnabled(

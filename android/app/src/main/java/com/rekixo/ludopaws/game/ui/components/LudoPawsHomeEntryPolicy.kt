@@ -18,6 +18,8 @@ internal object LudoPawsHomeEntryPolicy {
     const val CLOSE_START_MS = WALK_START_MS + 3 * STAGGER_MS + WALK_MS
     const val PLAQUE_START_MS = CLOSE_START_MS + 600L
     const val DURATION_MS = PLAQUE_START_MS + 1400L
+    // Door/walk/plaque animation may continue without blocking the next legal action.
+    const val INTERACTION_HOLD_MS = 900L
 
     fun complete(player: PlayerSnapshot): Boolean =
         player.tokens.size == 4 && player.tokens.all { it == LudoPathEncoding.HOME_POSITION }

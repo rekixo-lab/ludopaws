@@ -20,6 +20,7 @@ import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.MatchSnapshot
 import com.rekixo.ludopaws.OfflinePlayerLayout
 import com.rekixo.ludopaws.PlayerSnapshot
+import com.rekixo.ludopaws.renderFirstMatchCoach
 import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsFeedbackLedger
 import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsReactionEngine
 import com.rekixo.ludopaws.feature.online.domain.OnlineLudoPawsCharacterPolicy
@@ -69,6 +70,7 @@ internal object OnlineLudoPawsPresentation {
         activity.gameplayPawsPromotion?.apply {
             protect(listOf(host.topRail, host.board, host.bottomRail))
             setMatchActive(current.status == "ACTIVE")
+            quietFor((activity.onlineGameplayActionBlockedUntilMillis - android.os.SystemClock.uptimeMillis()).coerceAtLeast(0L))
         }
 
         ensureRailAlignmentObserver(activity, host)
@@ -95,6 +97,7 @@ internal object OnlineLudoPawsPresentation {
             perspectiveColor = localColor,
         )
         refreshVoiceControls(activity, current)
+        activity.renderFirstMatchCoach(current)
         dispatchFeedback(
             activity = activity,
             host = host,

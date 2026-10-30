@@ -53,7 +53,7 @@ internal object CockRenderer : CharacterRenderer {
             feet(parent, pose)
             surface = CharacterSurface.BODY_COAT
             val breath = 1f + (life?.breath ?: 0f)
-            drawGeometry(torso, CockGeometry.body, 0f, 0f, 0f, breath, 1f, breath, COCK_COAT)
+            drawGeometry(torso, CockGeometry.body, 0f, 0f, 0f, breath, 1f, breath * (1f + .07f * pose.gestureWeight), COCK_COAT)
             surface = CharacterSurface.COAT
             for (featherIndex in -2..2) {
                 val spread = featherIndex.toFloat()

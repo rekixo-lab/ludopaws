@@ -70,14 +70,15 @@ internal object MonkeyRenderer : CharacterRenderer {
                 Matrix.translateM(arm, 0, side * .255f, .22f, 0f)
                 val greeting = pose.primaryAppendageDegrees * if (side == 1) 1f else .45f
                 val scratchWeight = if (side == 1) scratch else 0f
-                val armAngle = (12f + greeting) * (1f - scratchWeight) + 155f * scratchWeight
+                val clap = pose.gestureWeight * (1f - scratchWeight)
+                val armAngle = ((12f + greeting) * (1f - scratchWeight) + 155f * scratchWeight) * (1f - clap) - 20f * clap
                 Matrix.rotateM(arm, 0, side * armAngle, 0f, 0f, 1f)
                 Matrix.rotateM(arm, 0, pose.secondaryAppendageDegrees, 1f, 0f, 0f)
                 drawPart(arm, side * .025f, -.19f, 0f, .09f, .24f, .09f, MONKEY_FUR)
                 val elbow = rigTransforms[2]
                 System.arraycopy(arm, 0, elbow, 0, 16)
                 Matrix.translateM(elbow, 0, side * .025f, -.36f, 0f)
-                Matrix.rotateM(elbow, 0, -18f - (if (side == 1) 55f * scratch else 0f), 1f, 0f, 0f)
+                Matrix.rotateM(elbow, 0, -18f - (if (side == 1) 55f * scratch else 0f) - 60f * clap, 1f, 0f, 0f)
                 drawPart(elbow, 0f, -.14f, 0f, .075f, .19f, .08f, MONKEY_FUR)
                 drawPart(elbow, 0f, -.32f, .02f, .105f, .09f, .075f, MONKEY_FACE)
                 drawPart(elbow, -side * .085f, -.28f, .04f, .038f, .065f, .04f, MONKEY_FACE)

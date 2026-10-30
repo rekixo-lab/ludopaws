@@ -47,6 +47,7 @@ internal class LudoPaws3DLifeMotion {
     var gazeX = 0f; private set
     var gazeY = 0f; private set
     private var behaviorSeed = 0
+    var reducedMotion = false
 
     fun idlePose(pose: CharacterPose, characterId: String? = null): CharacterPose {
         val faded = pose.copy(
@@ -70,11 +71,11 @@ internal class LudoPaws3DLifeMotion {
         lastMillis = now
         frameDt = dt
         behaviorSeed = seed
-        val t = (now % 3_600_000L) / 1000f + (seed and 65535) * .0137f
+        val t = if (reducedMotion) 0f else (now % 3_600_000L) / 1000f + (seed and 65535) * .0137f
         timeSeconds = t
         isIdle = idle
         // Landing must not enable a random mid-gesture head/body shake in one frame.
-        val idleTarget=if(idle) 1f else 0f
+        val idleTarget=if(idle && !reducedMotion) 1f else 0f
         val idleTau=if(idle) .25f else .08f
         idleWeight += (idleTarget-idleWeight)*(1f-exp(-dt/idleTau))
         breath = sin(t * 2.1f) * .010f + sin(t * 4.2f + .7f) * .002f

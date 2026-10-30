@@ -32,6 +32,8 @@ internal data class CharacterPose(
     val rearLegTuckDegrees: Float? = null,
     val frontLegSwingDegrees: Float? = null,
     val rearLegSwingDegrees: Float? = null,
+    val gestureWeight: Float = 0f,
+    val gesturePhase: Float = 0f,
 )
 
 internal interface CharacterRenderer {

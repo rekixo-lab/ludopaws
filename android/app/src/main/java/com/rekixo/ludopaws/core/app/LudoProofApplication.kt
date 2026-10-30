@@ -62,6 +62,7 @@ class LudoProofApplication :
 
     override fun onCreate() {
         super.onCreate()
+        com.rekixo.ludopaws.feature.store.data.ads.AdBreakSession.start()
         // Prime the process-local cosmetic mirror before any remote create/join
         // request can be sent. Character selection remains presentation-only.
         CharacterSelectionStore(this).load()

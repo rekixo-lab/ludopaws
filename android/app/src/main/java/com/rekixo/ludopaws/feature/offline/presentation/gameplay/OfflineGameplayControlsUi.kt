@@ -288,6 +288,7 @@ internal fun OfflineGameActivity.renderGame(
     state: MatchSnapshot,
     presentationDelayMillis: Long = 0L,
 ) {
+    infoText?.setOnClickListener(null)
     if (presentationDelayMillis > 0L) {
         gameplayActionBlockedUntilMillis =
             maxOf(
@@ -298,6 +299,7 @@ internal fun OfflineGameActivity.renderGame(
     val blockedRemainingMillis =
         (gameplayActionBlockedUntilMillis - SystemClock.uptimeMillis())
             .coerceAtLeast(0L)
+    gameplayPawsPromotion?.quietFor(blockedRemainingMillis)
 
     val active = state.players.getOrNull(state.turnSeat)
     if (state.status == "FINISHED") {
@@ -308,8 +310,10 @@ internal fun OfflineGameActivity.renderGame(
         val humanRank = engine.humanPlayerId()?.let { LudoPawsFinishPresentation.ranks(state)[it] }
         val title = if (isComputerMode) LudoPawsFinishPresentation.headline(humanRank) else "MATCH COMPLETE"
         val standings = LudoPawsFinishPresentation.standings(state)
-        val detail = if (isComputerMode && humanRank == 4)
-            "WELL PLAYED!\n$standings" else standings
+        val detail = (if (isComputerMode && humanRank == 4)
+            "WELL PLAYED!\n$standings" else standings) + "\n" +
+            com.rekixo.ludopaws.feature.profile.presentation.MatchProgressSummary.text(this,
+                state.matchId, state.winnerPlayerId == state.players.firstOrNull()?.playerId)
         resultTitleText.text = android.text.SpannableStringBuilder(title).apply {
             if (detail.isNotBlank()) {
                 append("\n\n")
@@ -458,6 +462,21 @@ internal fun OfflineGameActivity.renderGame(
             showStatus("Tap the dice beside the active character.")
     }
 
+    if (blockedRemainingMillis == 0L && !computerTurn && state.status == "ACTIVE") {
+        val profile = runCatching { com.rekixo.ludopaws.feature.profile.data.local.ProfileStore(this).snapshot() }.getOrNull()
+        FirstMatchCoachPolicy.hint(
+            firstMatch = profile != null && profile.totalGames == 0 && profile.characterMatches.isEmpty(),
+            enabled = GameSettingsStore(this).snapshot().playHintsEnabled,
+            active = true, localTurn = true, choices = pending?.legalTokenIndexes?.size,
+        )?.let { hint ->
+            showStatus("$hint · Tap to hide")
+            infoText?.setOnClickListener {
+                GameSettingsStore(this).setPlayHintsEnabled(false)
+                infoText?.setOnClickListener(null)
+                showStatus("Tap the dice or choose a glowing paw when it is your turn.")
+            }
+        }
+    }
     if (blockedRemainingMillis > 0L) {
         schedulePresentationUnlock(
             state = state,

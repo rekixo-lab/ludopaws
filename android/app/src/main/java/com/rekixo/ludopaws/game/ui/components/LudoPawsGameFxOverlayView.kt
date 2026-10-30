@@ -487,6 +487,7 @@ internal class LudoPawsGameFxOverlayView(
                 cell = cell,
                 perspectiveQuarterTurns = perspectiveColor?.let(OfflinePlayerLayout::rotationQuarterTurns) ?: 0,
             ) ?: return
+        if (settingsStore.snapshot().reducedMotion) return
         val plan =
             LudoPawsFxPolicy.plan(
                 cue = reaction.animationCue,
@@ -498,8 +499,8 @@ internal class LudoPawsGameFxOverlayView(
             cue = reaction.animationCue,
             cell = cell,
             progress = reactionProgress,
-            particleCount = plan.particleCount,
-            allowConfetti = plan.allowConfetti,
+            particleCount = if (settingsStore.snapshot().reducedMotion) 0 else plan.particleCount,
+            allowConfetti = plan.allowConfetti && !settingsStore.snapshot().reducedMotion,
         )
     }
 

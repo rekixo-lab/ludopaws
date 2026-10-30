@@ -101,7 +101,7 @@ internal object RabbitRenderer : CharacterRenderer {
             val ear = rigTransforms[3]
             System.arraycopy(parent, 0, ear, 0, 16)
             Matrix.translateM(ear, 0, side * .17f, 1.06f, -.015f)
-            Matrix.rotateM(ear, 0, -side * (9f + pose.primaryAppendageDegrees * .45f), 0f, 0f, 1f)
+            Matrix.rotateM(ear, 0, -side * (9f + pose.primaryAppendageDegrees * .45f + (if(side<0) 16f else -4f)*pose.gestureWeight), 0f, 0f, 1f)
             Matrix.rotateM(ear, 0, 7f + pose.primaryAppendageDegrees, 1f, 0f, 0f)
             drawGeometry(ear, RabbitGeometry.ear, 0f, 0f, 0f, side.toFloat(), 1f, 1f, RABBIT_CREAM)
             drawGeometry(ear, RabbitGeometry.ear, side * .006f, .07f, .052f,
@@ -116,7 +116,7 @@ internal object RabbitRenderer : CharacterRenderer {
                     .12f, .003f, .004f, RABBIT_WHISKER, rotateZ = side * whiskerIndex * 10f)
             }
         }
-        val sniff = sin((life?.timeSeconds ?: 0f) * 9f) * .006f * (life?.idleWeight ?: 0f)
+        val sniff = sin((life?.timeSeconds ?: 0f) * 9f) * (.006f + .009f * pose.gestureWeight) * (life?.idleWeight ?: 0f)
         surface = CharacterSurface.NOSE
         drawPart(parent, 0f, .675f + sniff, .389f, .044f, .030f, .023f, RABBIT_NOSE)
         val opening = ((life?.mouthOpen ?: 0f) + pose.jawOpen).coerceIn(0f, 1f)
