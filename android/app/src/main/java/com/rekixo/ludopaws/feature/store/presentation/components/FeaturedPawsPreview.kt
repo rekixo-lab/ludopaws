@@ -22,11 +22,15 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal fun homeSpotlightPortraitZoom(characterId: String): Float =
     (if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(characterId) >= 3.2f) .68f else .78f) * 1.25f
 
+internal fun compactSpotlightPortraitZoom(characterId: String): Float =
+    if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(characterId) >= 2.8f) .6f else .72f
+
 internal class FeaturedPawsPreview(
     context: Context,
     private val frameIntervalMillis: Long = 33L,
     private val playful: Boolean = false,
     private val prominent: Boolean = false,
+    private val portraitZoomMultiplier: Float = 1f,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
@@ -176,8 +180,8 @@ internal class FeaturedPawsPreview(
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled, id) else sampled
                     // Reserve headroom in the GL viewport itself: allowing
                     // parent overflow cannot recover pixels clipped by GL.
-                    val zoom = if (prominent) homeSpotlightPortraitZoom(id)
-                        else if (com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id) >= 2.8f) .6f else .72f
+                    val zoom = (if (prominent) homeSpotlightPortraitZoom(id)
+                        else compactSpotlightPortraitZoom(id)) * portraitZoomMultiplier
                     val framedPose = if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
                     scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,
                         synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f)

@@ -51,6 +51,8 @@ internal class GamePawsPromotionView(
                     // Cached portraits use anchor .62 and zoom 1. Match the
                     // live preview's .70 anchor after scaling about the center.
                     child.translationY = side * (.20f - .12f * child.scaleY)
+                } else if (gameplay && child === avatar) {
+                    child.translationY = side * (.19f - .12f * child.scaleY)
                 }
             }
         }
@@ -101,7 +103,9 @@ internal class GamePawsPromotionView(
             val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
             if (preview == null && manager.deviceConfigurationInfo.reqGlEsVersion >= 0x30000) {
                 try {
-                    preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L, playful = true, prominent = !gameplay).also { live ->
+                    preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L,
+                        playful = true, prominent = !gameplay,
+                        portraitZoomMultiplier = if (gameplay) 2f else 1f).also { live ->
                         live.characterId = candidates[index].characterId ?: "dog"
                         live.alpha = 0f
                         live.onReady = { live.alpha = 1f; avatar.visibility = INVISIBLE }
@@ -343,6 +347,12 @@ internal class GamePawsPromotionView(
                 avatar.scaleY = zoom
                 val side = minOf(artwork.width, artwork.height)
                 avatar.translationY = side * (.20f - .12f * zoom)
+            } else {
+                val zoom = compactSpotlightPortraitZoom(offer.characterId) * 2f
+                avatar.scaleX = zoom
+                avatar.scaleY = zoom
+                val side = minOf(artwork.width, artwork.height)
+                avatar.translationY = side * (.19f - .12f * zoom)
             }
             avatar.bind(characterId = offer.characterId, ringColor = 0xFF5BE0FF.toInt(),
                 highlighted = false, showCircularChrome = false)
