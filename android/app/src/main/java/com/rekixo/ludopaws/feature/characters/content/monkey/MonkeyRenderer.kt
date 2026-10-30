@@ -46,8 +46,12 @@ internal object MonkeyRenderer : CharacterRenderer {
         val oldSurface = surface
         try {
             surface = CharacterSurface.SOFT_FUR
+            val model = rigTransforms[6]
+            System.arraycopy(parent, 0, model, 0, 16)
+            val size = MonkeyDefinition.MODEL_SIZE_MULTIPLIER
+            Matrix.scaleM(model, 0, size, size, size)
             val root = rigTransforms[0]
-            System.arraycopy(parent, 0, root, 0, 16)
+            System.arraycopy(model, 0, root, 0, 16)
             Matrix.translateM(root, 0, 0f, -pose.bodyCrouch, 0f)
             Matrix.rotateM(root, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             Matrix.rotateM(root, 0, pose.bodyRollDegrees, 0f, 0f, 1f)
@@ -78,7 +82,7 @@ internal object MonkeyRenderer : CharacterRenderer {
                 drawPart(elbow, 0f, -.32f, .02f, .105f, .09f, .075f, MONKEY_FACE)
                 drawPart(elbow, -side * .085f, -.28f, .04f, .038f, .065f, .04f, MONKEY_FACE)
                 val leg = rigTransforms[3]
-                System.arraycopy(parent, 0, leg, 0, 16)
+                System.arraycopy(model, 0, leg, 0, 16)
                 Matrix.translateM(leg, 0, side * .16f, -.34f, -.025f)
                 Matrix.rotateM(leg, 0, pose.legSwingDegrees, 1f, 0f, 0f)
                 val tuck = (pose.legTuckDegrees / 38f).coerceIn(0f, 1f)
