@@ -294,7 +294,15 @@ internal object LudoPawsAudioAssetPlayer {
             runCatching {
                 assets.list(directory)
                     .orEmpty()
-                    .filter(filenamePattern::matches)
+                    .filter { actualName ->
+                        // Preserve the author's downloads verbatim, including repeated extensions
+                        // and the display-name spelling used for Lumi's footstep recording.
+                        val normalized = actualName.replace("Lumi Goat", "goat_lumi", ignoreCase = true)
+                        val singleExtension = if (normalized.endsWith(".wav.wav", ignoreCase = true)) {
+                            normalized.dropLast(4)
+                        } else normalized
+                        filenamePattern.matches(singleExtension)
+                    }
                     .sortedWith(
                         compareBy<String>({ duplicateFilenameIndex(it) }, { it }),
                     )
