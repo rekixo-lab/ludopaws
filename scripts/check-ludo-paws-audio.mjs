@@ -391,7 +391,11 @@ for (const file of authoredAudioFiles) {
     const hasId3Header = bytes.toString('ascii', 0, 3) === 'ID3';
     const hasMpegFrameSync =
       bytes.length >= 2 && bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0;
-    if (!hasId3Header && !hasMpegFrameSync) {
+    // Preserve the submitted music download's name. MediaPlayer detects its
+    // container from content; this author supplied PCM WAVE under an MP3 name.
+    const hasWaveContainer = file.startsWith('audio/music/') && bytes.length >= 44 &&
+      bytes.toString('ascii', 0, 4) === 'RIFF' && bytes.toString('ascii', 8, 12) === 'WAVE';
+    if (!hasId3Header && !hasMpegFrameSync && !hasWaveContainer) {
       throw new Error(`Invalid or truncated MP3 asset: ${file}`);
     }
   }
