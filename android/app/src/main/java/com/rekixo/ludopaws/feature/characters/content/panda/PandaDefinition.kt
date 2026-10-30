@@ -3,6 +3,8 @@ package com.rekixo.ludopaws.feature.characters.content.panda
 import com.rekixo.ludopaws.feature.characters.domain.model.*
 
 object PandaDefinition {
+    internal const val MODEL_SIZE_MULTIPLIER = 1.20f
+
     val content = CharacterDefinition(
         character = AnimalCharacter(
             id = "panda", displayName = "Panda", species = AnimalSpecies.PANDA,
@@ -14,7 +16,7 @@ object PandaDefinition {
         packId = "starter_paws", storeDisplayOrder = 12,
         reactions = PandaReactionMotion,
         idleDurationMillis = 3_200L, homeDurationMillis = 1_650L,
-        groundPivotY = -.72f,
+        groundPivotY = -.72f * MODEL_SIZE_MULTIPLIER,
         rootYOffsetPerRadius = .06f, footBaselinePerRadius = 1.02f,
     )
 }

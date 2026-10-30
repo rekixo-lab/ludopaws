@@ -46,8 +46,12 @@ internal object PandaRenderer : CharacterRenderer {
             // The life clock continues across short idle loops; posture never resets per loop.
             // Its idle weight fades out on movement/reactions so the Panda stands to respond.
             val q = life?.let { it.followStance(PandaPosture.allFours(it.timeSeconds, it.idleWeight)) } ?: 0f
+            val model = rigTransforms[6]
+            System.arraycopy(parent, 0, model, 0, 16)
+            val size = PandaDefinition.MODEL_SIZE_MULTIPLIER
+            Matrix.scaleM(model, 0, size, size, size)
             val root = rigTransforms[0]
-            System.arraycopy(parent, 0, root, 0, 16)
+            System.arraycopy(model, 0, root, 0, 16)
             Matrix.translateM(root, 0, 0f, -pose.bodyCrouch, 0f)
             Matrix.rotateM(root, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             Matrix.rotateM(root, 0, pose.bodyRollDegrees * (1f - q), 0f, 0f, 1f)
@@ -73,7 +77,7 @@ internal object PandaRenderer : CharacterRenderer {
                 drawPart(arm, 0f, -.43f - .04f * q, .065f + .065f * q,
                     .16f, .10f, .19f, PANDA_DARK)
                 val leg = rigTransforms[3]
-                System.arraycopy(parent, 0, leg, 0, 16)
+                System.arraycopy(model, 0, leg, 0, 16)
                 Matrix.translateM(leg, 0, side * .23f, -.35f, -.025f - .24f * q)
                 Matrix.rotateM(leg, 0, pose.legSwingDegrees, 1f, 0f, 0f)
                 val tuck = (pose.legTuckDegrees / 38f).coerceIn(0f, 1f)
