@@ -11,7 +11,7 @@ import org.junit.Test
 
 class CharacterHopDynamicsTest {
     @Test fun everyCharacterHasVisiblePlantedAnticipationAndContactCompression() {
-        assertEquals(setOf("dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit", "panda"), CharacterRegistry.all.map { it.id }.toSet())
+        assertEquals(setOf("dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit", "panda", "monkey"), CharacterRegistry.all.map { it.id }.toSet())
         for (character in CharacterRegistry.all) {
             val renderer = character.renderer
             val down = renderer.sample(CharacterMotion.HOP, .14f)

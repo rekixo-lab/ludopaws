@@ -15,5 +15,6 @@ internal object GeneratedCharacterDefinitions {
         com.rekixo.ludopaws.feature.characters.content.horse.HorseDefinition.content,
         com.rekixo.ludopaws.feature.characters.content.rabbit.RabbitDefinition.content,
         com.rekixo.ludopaws.feature.characters.content.panda.PandaDefinition.content,
+        com.rekixo.ludopaws.feature.characters.content.monkey.MonkeyDefinition.content,
     )
 }

@@ -15,5 +15,6 @@ internal object GeneratedCharacterEntries {
         RegisteredCharacter(com.rekixo.ludopaws.feature.characters.content.horse.HorseDefinition.content, com.rekixo.ludopaws.feature.characters.content.horse.HorseRenderer, com.rekixo.ludopaws.feature.characters.content.horse.HorseAvatarRenderer),
         RegisteredCharacter(com.rekixo.ludopaws.feature.characters.content.rabbit.RabbitDefinition.content, com.rekixo.ludopaws.feature.characters.content.rabbit.RabbitRenderer, com.rekixo.ludopaws.feature.characters.content.rabbit.RabbitAvatarRenderer),
         RegisteredCharacter(com.rekixo.ludopaws.feature.characters.content.panda.PandaDefinition.content, com.rekixo.ludopaws.feature.characters.content.panda.PandaRenderer, com.rekixo.ludopaws.feature.characters.content.panda.PandaAvatarRenderer),
+        RegisteredCharacter(com.rekixo.ludopaws.feature.characters.content.monkey.MonkeyDefinition.content, com.rekixo.ludopaws.feature.characters.content.monkey.MonkeyRenderer, com.rekixo.ludopaws.feature.characters.content.monkey.MonkeyAvatarRenderer),
     )
 }
