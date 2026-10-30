@@ -57,7 +57,7 @@ Optional _02.wav and _03.wav takes are rotated when present. Folders with no rea
 
 Use audio/sfx/voices/<character>/lp_vocal_<character>_<cue>_<variant>.wav or .ogg.
 
-Characters: dog, goat, duck, cat.
+Characters: dog, goat, duck, cat, donkey, goat_lumi, cock, pig, elephant, horse, rabbit, panda, monkey. Each own folder is supported; see `audio/START_HERE.md` for per-character prompts and filenames. Lumi retains Goat fallback, while Donkey/Panda/Monkey stay silent when their own recording is missing.
 
 Example files:
 - audio/sfx/voices/dog/lp_vocal_dog_capture_01.wav

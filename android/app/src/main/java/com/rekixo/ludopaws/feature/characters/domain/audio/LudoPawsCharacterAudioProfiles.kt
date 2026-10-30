@@ -42,7 +42,22 @@ object LudoPawsCharacterAudioProfiles {
 
     val all: Map<String, LudoPawsCharacterAudioProfile> = GeneratedCharacterAudioProfiles.all
 
-    val supportedVoiceAssetIds: Set<String> = all.values.mapNotNull { it.voiceAssetOwnerId }.toSet()
+    // Every shipped character accepts its own authored recordings. A nullable owner
+    // controls only the fallback when its own recording has not been supplied.
+    val supportedVoiceAssetIds: Set<String> = all.keys + all.values.mapNotNull { it.voiceAssetOwnerId }
+
+    fun fallbackVocalNames(characterId: String, cue: com.rekixo.ludopaws.feature.characters.domain.model.VoiceCue): List<String> {
+        val owner = all[characterId]?.voiceAssetOwnerId ?: return emptyList()
+        return if (owner == characterId) emptyList() else LudoPawsReactionAudioProfile.resourceNames(owner, cue)
+    }
+
+    fun vocalAssetPaths(resourceNames: List<String>): List<String> = resourceNames.flatMap { name ->
+        val owner = supportedVoiceAssetIds.filter { name.startsWith("lp_vocal_${it}_") }
+            .maxByOrNull(String::length)
+        if (owner == null) emptyList() else listOf(
+            "audio/sfx/voices/$owner/$name.wav", "audio/sfx/voices/$owner/$name.ogg",
+        )
+    }
 
     fun forCharacter(characterId: String?): LudoPawsCharacterAudioProfile =
         all[characterId] ?: all.getValue("dog")

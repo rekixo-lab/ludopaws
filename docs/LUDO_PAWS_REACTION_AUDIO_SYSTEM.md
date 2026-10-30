@@ -59,7 +59,7 @@ Examples:
 - `audio/sfx/voices/duck/lp_vocal_duck_home_01.wav`
 - `audio/sfx/voices/cat/lp_vocal_cat_frustrated_02.ogg`
 
-Current character IDs: `dog`, `goat`, `duck`, `cat`. Current vocal cue basenames: `six`, `yard_exit`, `capture`, `captured`, `safe`, `home_lane`, `home`, `frustrated`, `third_six`, `idle`, `nervous`, `proud`, `victory`, `defeat`. `silent` intentionally has no audio file.
+Current authored character IDs: `dog`, `goat`, `duck`, `cat`, `donkey`, `goat_lumi`, `cock`, `pig`, `elephant`, `horse`, `rabbit`, `panda`, `monkey`. See `audio/START_HERE.md` for ready paste folders and prompts. Current vocal cue basenames: `six`, `yard_exit`, `capture`, `captured`, `safe`, `home_lane`, `home`, `frustrated`, `third_six`, `idle`, `nervous`, `proud`, `victory`, `defeat`. `silent` intentionally has no audio file.
 
 Two variants (`01`, `02`) are currently requested by the reaction profile. The selected variant is deterministic per reaction key, so reconnect/re-render cannot randomly change the choice. If a root audio file is present, it is preferred. Existing `res/raw/lp_vocal_<character>_<cue>_<variant>` resources remain a compatibility fallback.
 

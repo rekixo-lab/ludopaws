@@ -41,14 +41,14 @@ Eligibility का मतलब हर बार सुनाई देने �
 {ANIMAL}, {CALL}, {DELIVERY}. One isolated natural animal vocal gesture, dry close recording, clean ending. No speech, music, background ambience or added impacts.
 ```
 
-नीचे सभी 126 combinations पहले से भर दिए हैं। Suggested first-take paths production filenames के लिए हैं; चार characters की voice activation अभी अलग काम है।
+नीचे सभी 126 combinations पहले से भर दिए हैं। सभी paste folders अब तैयार और wired हैं। हर character का local README `audio/sfx/voices/<id>/README.md` देखें; पूरी entry guide `audio/START_HERE.md` है।
 
-## Activation की वर्तमान स्थिति
+## Voice loading की वर्तमान स्थिति
 
-- Cock, Pig, Elephant, Horse, Rabbit: अपने ID वाले voice folders अभी wired हैं।
-- Lumi Goat: अभी `voiceOwner = goat` है। अलग Lumi voice के लिए `goat_lumi` owner की wiring करनी होगी; Lumi files को `goat` folder में डालकर सामान्य Goat की आवाज़ अनजाने में न बदलें।
-- Donkey, Panda, Monkey: अभी `voiceOwner = null` है। Files generate करके रख सकते हैं, लेकिन नई recordings चलाने से पहले manifest/audio owner, supported fallback/profile और checks जोड़ने होंगे।
-- इस दस्तावेज़ से कोई voice owner या runtime behavior नहीं बदला गया है।
+- सभी 13 characters के अपने voice folders recordings स्वीकार करते हैं।
+- Lumi Goat की अपनी `goat_lumi` recording पहले चलेगी; missing cue पर मौजूदा Goat fallback रहेगा।
+- Donkey, Panda और Monkey अपनी recording मिलने पर बोलेंगे; missing recording पर शांत रहेंगे। गलत animal fallback नहीं बजेगा।
+- हर voice folder के README में filenames और prompts हैं। Empty WAV placeholders नहीं बनाए गए हैं। Audio डालने के बाद rebuild/install जरूरी है।
 
 ## Donkey — `donkey`
 

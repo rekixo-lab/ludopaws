@@ -2,7 +2,7 @@
 
 The stable character, board, dice and purchase IDs remain unchanged. The audio
 system now has a registered profile for each shipped character, including a
-silent Donkey and Lumi Goat's shared Goat vocal identity.
+Donkey/Panda/Monkey with no automatic voice fallback and Lumi Goat's shared Goat fallback. All shipped characters now accept their own authored voice folders; see `audio/START_HERE.md`.
 
 ## Adding character recordings
 
