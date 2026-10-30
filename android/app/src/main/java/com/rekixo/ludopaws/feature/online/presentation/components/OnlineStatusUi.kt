@@ -150,7 +150,7 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout =
         addView(
             android.widget.ScrollView(this@onlineResultPanel).apply {
                 isFillViewport = true
-                addView(copy, android.widget.ScrollView.LayoutParams(-1, -2))
+                addView(copy, FrameLayout.LayoutParams(-1, -2))
             },
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,

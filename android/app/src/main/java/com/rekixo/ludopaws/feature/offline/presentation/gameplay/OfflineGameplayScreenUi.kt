@@ -361,7 +361,7 @@ internal fun OfflineGameActivity.offlineResultPanel(): FrameLayout =
         addView(
             android.widget.ScrollView(this@offlineResultPanel).apply {
                 isFillViewport = true
-                addView(resultTitleText, android.widget.ScrollView.LayoutParams(-1, -2))
+                addView(resultTitleText, FrameLayout.LayoutParams(-1, -2))
             },
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
