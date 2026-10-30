@@ -46,20 +46,30 @@ internal class LudoPaws3DLifeMotion {
     var shake = 0f; private set
     var gazeX = 0f; private set
     var gazeY = 0f; private set
+    private var behaviorSeed = 0
 
-    fun idlePose(pose: CharacterPose): CharacterPose = pose.copy(
-        bodyYawDegrees=pose.bodyYawDegrees*idleWeight,
-        headTiltDegrees=pose.headTiltDegrees*idleWeight,
-        bodyPitchDegrees=pose.bodyPitchDegrees*idleWeight,
-        bodyRollDegrees=pose.bodyRollDegrees*idleWeight,
-        neckPitchDegrees=pose.neckPitchDegrees*idleWeight,
-    )
+    fun idlePose(pose: CharacterPose, characterId: String? = null): CharacterPose {
+        val faded = pose.copy(
+            bodyYawDegrees = pose.bodyYawDegrees * idleWeight,
+            headTiltDegrees = pose.headTiltDegrees * idleWeight,
+            bodyPitchDegrees = pose.bodyPitchDegrees * idleWeight,
+            bodyRollDegrees = pose.bodyRollDegrees * idleWeight,
+            neckPitchDegrees = pose.neckPitchDegrees * idleWeight,
+            primaryAppendageDegrees = pose.primaryAppendageDegrees * idleWeight,
+            secondaryAppendageDegrees = pose.secondaryAppendageDegrees * idleWeight,
+            tertiaryAppendageDegrees = pose.tertiaryAppendageDegrees * idleWeight,
+        )
+        return if (characterId == null) faded else CharacterLivingBehavior.blendIdle(
+            faded, characterId, timeSeconds, behaviorSeed, idleWeight,
+        )
+    }
 
     fun update(now: Long, seed: Int, idle: Boolean, targetX: Float, targetY: Float,
                target: LudoPaws3DReactionPose): LudoPaws3DReactionPose {
         val dt = if (lastMillis == 0L) 1f / 60f else ((now - lastMillis) / 1000f).coerceIn(0f, .064f)
         lastMillis = now
         frameDt = dt
+        behaviorSeed = seed
         val t = (now % 3_600_000L) / 1000f + (seed and 65535) * .0137f
         timeSeconds = t
         isIdle = idle

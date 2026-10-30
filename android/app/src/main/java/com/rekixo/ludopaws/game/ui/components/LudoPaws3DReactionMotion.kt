@@ -27,6 +27,7 @@ internal data class LudoPaws3DActiveReaction(
     val startedAtMillis: Long,
     val durationMillis: Long,
     val priority: Int,
+    val variant: Int = 0,
 )
 
 /**

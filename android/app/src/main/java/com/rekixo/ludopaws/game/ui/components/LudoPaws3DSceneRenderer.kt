@@ -611,7 +611,7 @@ internal class LudoPaws3DSceneRenderer {
         }
         val reaction = living.update(nowMillis, pawn.seat * 397 + pawn.key.tokenIndex * 103,
             frame.kind == CharacterMotion.IDLE && state.activeReactions[pawn.key]?.let {
-                nowMillis < it.startedAtMillis + it.durationMillis
+                nowMillis >= it.startedAtMillis && nowMillis < it.startedAtMillis + it.durationMillis
             } != true,
             ((focus?.first ?: width * .5f) - pawn.x) / (width * .35f),
             (pawn.y - (focus?.second ?: height * .5f)) / (height * .35f), reactionTarget)
@@ -633,7 +633,7 @@ internal class LudoPaws3DSceneRenderer {
             )
 
         val sampled = pawn.character.renderer.sample(frame.kind, frame.progress, frame.hopPlayback)
-        val base = if(frame.kind == CharacterMotion.IDLE) living.idlePose(sampled) else sampled
+        val base = if(frame.kind == CharacterMotion.IDLE) living.idlePose(sampled, pawn.character.id) else sampled
         bodyStretch = base.bodyScaleY
         val pose = base.copy(
             liftY = base.liftY + reaction.liftY,
@@ -658,13 +658,17 @@ internal class LudoPaws3DSceneRenderer {
         val active =
             state.activeReactions[pawn.key]
                 ?: return LudoPaws3DReactionPose()
-        if (active.durationMillis <= 0L) return LudoPaws3DReactionPose()
+        if (active.durationMillis <= 0L || nowMillis < active.startedAtMillis) return LudoPaws3DReactionPose()
         val elapsed = (nowMillis - active.startedAtMillis).coerceAtLeast(0L)
         if (elapsed >= active.durationMillis) return LudoPaws3DReactionPose()
-        return LudoPaws3DReactionMotion.sample(
+        val progress = elapsed.toFloat() / active.durationMillis.toFloat()
+        val varied = LudoPawsPawnReactionVariation.pose(LudoPaws3DReactionMotion.sample(
             characterId = pawn.character.id,
             cue = active.cue,
-            progress = elapsed.toFloat() / active.durationMillis.toFloat(),
+            progress = progress,
+        ), progress, active.variant)
+        return com.rekixo.ludopaws.feature.characters.shared.CharacterLivingBehavior.accentReaction(
+            varied, pawn.character.id, active.cue, progress, active.variant,
         )
     }
 
@@ -743,7 +747,9 @@ internal class LudoPaws3DSceneRenderer {
     }
 
     private fun idleMotionFrame(pawn: RenderPawn, nowMillis: Long): MotionFrame {
-        val duration = pawn.character.definition.idleDurationMillis
+        val duration = com.rekixo.ludopaws.feature.characters.shared.CharacterLivingBehavior.idleDurationMillis(
+            pawn.character.definition.idleDurationMillis, pawn.seat * 4 + pawn.key.tokenIndex,
+        )
         val phaseOffset =
             ((pawn.seat * 4 + pawn.key.tokenIndex) * 173L) % duration
         return MotionFrame(

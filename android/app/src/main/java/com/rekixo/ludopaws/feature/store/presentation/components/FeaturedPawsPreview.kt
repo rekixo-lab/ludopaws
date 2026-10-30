@@ -173,7 +173,7 @@ internal class FeaturedPawsPreview(
                         0f, 0f, LudoPaws3DReactionPose())
                     val sampled = character.renderer.sample(motion, (phase % duration) / duration.toFloat(),
                         CharacterHopPlayback.ISOLATED)
-                    val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled) else sampled
+                    val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled, id) else sampled
                     // Reserve headroom in the GL viewport itself: allowing
                     // parent overflow cannot recover pixels clipped by GL.
                     val zoom = if (prominent) homeSpotlightPortraitZoom(id)

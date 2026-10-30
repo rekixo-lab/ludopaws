@@ -4,7 +4,7 @@ package com.rekixo.ludopaws.feature.characters.content.panda
 internal object PandaPosture {
     private fun ease(value: Float): Float {
         val t = value.coerceIn(0f, 1f)
-        return t * t * t * (t * (t * 6f - 15f) + 10f)
+        return (t * t * t * (t * (t * 6f - 15f) + 10f)).coerceIn(0f, 1f)
     }
 
     fun allFours(timeSeconds: Float, idleWeight: Float): Float {

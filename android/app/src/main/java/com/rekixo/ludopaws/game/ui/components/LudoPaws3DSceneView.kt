@@ -488,12 +488,15 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                         player = player,
                         reaction = reaction,
                     )
-                val duration =
-                    LudoPaws3DReactionMotion.durationMillis(
-                        characterId = characterId,
-                        cue = reaction.animationCue,
-                    )
                 targets.forEach { tokenIndex ->
+                    val variation = LudoPawsPawnReactionVariation.choose(
+                        reaction.animationCue, tokenIndex,
+                        reaction.reactionKey.hashCode() xor reaction.eventIndex,
+                        group = targets.size > 1,
+                    )
+                    val duration = (LudoPaws3DReactionMotion.durationMillis(
+                        characterId, variation.cue,
+                    ) * variation.durationScale).toLong().coerceAtLeast(1L)
                     val key =
                         LudoPaws3DPawnKey(
                             playerId = player.playerId,
@@ -526,13 +529,14 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                             }
                         next[key] =
                             LudoPaws3DActiveReaction(
-                                cue = reaction.animationCue,
+                                cue = variation.cue,
                                 startedAtMillis =
                                     captureStart
                                         ?: attackerContact
-                                        ?: now,
+                                        ?: (now + variation.delayMillis),
                                 durationMillis = duration,
                                 priority = reaction.priority,
+                                variant = variation.variant,
                             )
                     }
                 }
