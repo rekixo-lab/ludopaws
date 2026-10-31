@@ -47,8 +47,6 @@ jobs:
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}
       LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID }}
-      ADMOB_REWARDED_AD_UNIT_ID_V2: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID_V2 }}
-      LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: ${{ vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2 }}
       LUDOPROOF_ADMOB_REWARD_ITEM: ${{ vars.LUDOPROOF_ADMOB_REWARD_ITEM }}
       LUDOPROOF_WORKER_URL: https://api.ludopaws.rekixo.com
 
@@ -233,7 +231,7 @@ jobs:
             const androidBillingEnabled = process.env.LUDOPROOF_BILLING_ENABLED === "true";
             const expectedRewardedAds = process.env.LUDOPROOF_ADMOB_SSV_ENABLED === "true";
             const androidRewardedAds = process.env.LUDOPROOF_ADS_ENABLED === "true";
-            const expectedUpdatedAds = expectedRewardedAds && Boolean(process.env.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2);
+            const expectedUpdatedAds = expectedRewardedAds;
             if (
               body.billingAvailable !== expectedBilling ||
               androidBillingEnabled !== expectedBilling ||

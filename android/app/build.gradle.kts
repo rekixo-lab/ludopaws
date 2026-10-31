@@ -50,18 +50,11 @@ val admobAppId =
         .get()
 val admobRewardedAdUnitId =
     providers.gradleProperty("ADMOB_REWARDED_AD_UNIT_ID")
-        .orElse("ca-app-pub-9987799703505828/9430436252")
+        .orElse("ca-app-pub-9987799703505828/2670544646")
         .get()
-// The new 2-Gem reward uses a distinct AdMob unit. The legacy unit stays
-// embedded in old APKs for their existing advertised 5-Gem rewards.
-val admobRewardedAdUnitIdV2 =
-    providers.gradleProperty("ADMOB_REWARDED_AD_UNIT_ID_V2")
-        .orElse("")
-        .get()
-        .trim()
 val admobInterstitialAdUnitId =
     providers.gradleProperty("ADMOB_INTERSTITIAL_AD_UNIT_ID")
-        .orElse("")
+        .orElse("ca-app-pub-9987799703505828/9874247247")
         .get()
 require(admobAppId.isNotBlank()) {
     "ADMOB_APP_ID must not be blank."
@@ -70,12 +63,6 @@ require(admobRewardedAdUnitId.isNotBlank()) {
     "ADMOB_REWARDED_AD_UNIT_ID must not be blank."
 }
 if (ludoProofAdsEnabled) {
-    require(admobRewardedAdUnitIdV2.isNotBlank() &&
-        Regex("^ca-app-pub-[0-9]{16}/[0-9]{10}$").matches(admobRewardedAdUnitIdV2) &&
-        admobRewardedAdUnitIdV2 != admobRewardedAdUnitId &&
-        admobRewardedAdUnitIdV2 != "ca-app-pub-3940256099942544/5224354917") {
-        "ADMOB_REWARDED_AD_UNIT_ID_V2 must be a separate real AdMob rewarded unit configured for exactly 2 Gems."
-    }
     require(Regex("^ca-app-pub-[0-9]{16}~[0-9]{10}$").matches(admobAppId)) {
         "ADMOB_APP_ID must be a valid production AdMob App ID."
     }
@@ -202,11 +189,6 @@ android {
             "String",
             "ADMOB_REWARDED_AD_UNIT_ID",
             "\"${admobRewardedAdUnitId.replace("\\", "\\\\").replace("\"", "\\\"")}\"",
-        )
-        buildConfigField(
-            "String",
-            "ADMOB_REWARDED_AD_UNIT_ID_V2",
-            admobRewardedAdUnitIdV2.let { "\"" + it + "\"" },
         )
         buildConfigField(
             "String",
