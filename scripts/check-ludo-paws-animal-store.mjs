@@ -63,7 +63,7 @@ requireText(contentUi, "StoreTab.PAWS", "PAWS tab must route to animal-pack cont
 requireText(pawsUi, "LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)", "Store must list shipped starter characters rather than coming-soon packs.");
 requireText(boardCatalogUi, "val panels = StoreCosmeticCatalog.boards", "All boards must remain listed, including Coming Soon.");
 requireText(diceCatalogUi, "val panels = StoreCosmeticCatalog.dice", "All dice must remain listed, including Coming Soon.");
-if (/StoreCosmeticCatalog\\.(boards|dice)\\.filter\\s*\\{\\s*it\\.contentAvailable/.test(boardCatalogUi + diceCatalogUi)) {
+if (/StoreCosmeticCatalog\.(boards|dice)\.filter\s*\{\s*it\.contentAvailable/.test(boardCatalogUi + diceCatalogUi)) {
   throw new Error("Coming Soon boards or dice must not be hidden from the Store.");
 }
 requireText(pawsUi, "UPCOMING PAW PACKS", "Future Paw packs must remain visible.");
