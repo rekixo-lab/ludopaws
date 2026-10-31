@@ -1006,13 +1006,15 @@ export async function rateLimitSignedAdMobCallback(env, request, verifiedAccount
       !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(verifiedAccountId)) {
     throw httpError(400, "SSV_ACCOUNT_INVALID", "signed reward account is invalid");
   }
-  return rateLimit(env, request, "admob:ssv:" + verifiedAccountId.toLowerCase(), 120);
+  return rateLimit(env, request, "admob:ssv", 120, verifiedAccountId.toLowerCase());
 }
 
-async function rateLimit(env, request, scope, limit) {
+async function rateLimit(env, request, scope, limit, verifiedSubject = null) {
   if (!env?.LUDOPROOF_API_GATE) throw httpError(503, "RATE_LIMITER_NOT_CONFIGURED", "API rate limiter is not configured");
-  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
-  const key = await sha256Hex("ludoproof:api-rate:v1:" + scope + ":" + ip);
+  // Anonymous API traffic remains IP-scoped. A cryptographically signed
+  // callback uses its verified player ID instead of Google's shared IP.
+  const subject = verifiedSubject ?? request.headers.get("cf-connecting-ip") ?? "unknown";
+  const key = await sha256Hex("ludoproof:api-rate:v1:" + scope + ":" + subject);
   const id = env.LUDOPROOF_API_GATE.idFromName(key);
   const target = env.LUDOPROOF_API_GATE.get(id);
   let response;
