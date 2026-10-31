@@ -521,13 +521,15 @@ export async function handleAccountRequest(request, env) {
         if (env?.LUDOPROOF_ADMOB_SSV_ENABLED !== "true" || !env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID) {
           throw httpError(503, "ADMOB_SSV_NOT_ENABLED", "server-verified ad rewards are not enabled");
         }
-        // The outer account-handler catch logs only safe SSV error code/status on failure.
-        await rateLimit(env, request, "admob:ssv", 120);
+        // Verify Google's ECDSA signature before assigning any player-specific
+        // rate limit. A single shared Google callback IP must never exhaust one
+        // global bucket for unrelated players in 177 supported countries.
         const verified = await verifyAdMobSsvRequest(request, env);
         // AdMob console URL verification must succeed without granting production value.
         if (verified.isTest === true) {
           return json(200, { ok: true, verified: true, test: true, rewardGranted: false });
         }
+        await rateLimitSignedAdMobCallback(env, request, verified.accountId);
         const response = await playerResponse(env, verified.accountId, "/wallet/reward-ad", {
           accountId: verified.accountId,
           transactionId: verified.transactionId,
@@ -992,6 +994,19 @@ async function parseInternalResponse(response, fallbackCode) {
     throw httpError(response.status, value?.error ?? fallbackCode, value?.message ?? "account request failed");
   }
   return value;
+}
+
+/**
+ * Invoked only after AdMob's signed user_id has been cryptographically verified.
+ * Keeps unrelated players isolated even when Google delivers SSV from a shared IP.
+ * Failed signatures are never allowed to select rate-limit keys.
+ */
+export async function rateLimitSignedAdMobCallback(env, request, verifiedAccountId) {
+  if (typeof verifiedAccountId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(verifiedAccountId)) {
+    throw httpError(400, "SSV_ACCOUNT_INVALID", "signed reward account is invalid");
+  }
+  return rateLimit(env, request, "admob:ssv:" + verifiedAccountId.toLowerCase(), 120);
 }
 
 async function rateLimit(env, request, scope, limit) {
