@@ -120,6 +120,12 @@ assert.doesNotMatch(playerAccount, /CREATE TABLE IF NOT EXISTS paws_plus_subscri
 assert.ok(privacy.includes('href="./pricing.html">Pricing and in-app purchase policy</a>'), "online privacy policy must link to pricing policy");
 assert.ok(privacy.includes("Updated app versions award two Gems"), "online privacy policy must disclose the verified rewarded-ad grant");
 assert.ok(inAppPolicy.includes("updated app versions grant two Gems"), "in-app privacy copy must disclose the same verified rewarded-ad grant");
+assert.ok(storeActivity.includes("BuildConfig.ADMOB_REWARDED_AD_UNIT_ID_V2"), "updated Android must use the separate 2-Gem AdMob unit");
+assert.ok(storeActivity.includes('rewardedAdsV2Available'), "updated Android must require explicit new-unit server readiness");
+assert.ok(storeActivity.includes("StoreCatalog.REWARDED_AD_GEMS"), "updated ad earning labels must derive from the shared 2-Gem amount");
+assert.doesNotMatch(storeActivity, /rewardedAdsDailyLimit|You have reached today's .*rewarded ads|earn 5 Gems per verified ad/, "updated Android must have no daily rewarded-ad quota or stale 5-Gem promise");
+assert.ok(storeContent.includes("StoreCatalog.REWARDED_AD_GEMS"), "rewarded ad card must display the 2-Gem amount");
+assert.ok(androidBuildConfig.includes('ADMOB_REWARDED_AD_UNIT_ID_V2'), "updated signed app must embed a separately configured AdMob rewarded unit");
 assert.ok(inAppPolicy.includes("https://ludopaws.rekixo.com/pricing.html"), "in-app policy must link to pricing policy");
 assert.ok(inAppPolicy.includes("https://ludopaws.rekixo.com/terms-of-service.html"), "in-app policy must link to Terms of Service");
 assert.ok(pagesWorkflow.includes("cp docs/pricing.html site/pricing.html"), "Pages workflow must publish the pricing policy");
