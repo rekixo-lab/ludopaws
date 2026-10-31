@@ -42,8 +42,10 @@ jobs:
       LUDOPROOF_ADMOB_REWARD_ITEM: ${{ vars.LUDOPROOF_ADMOB_REWARD_ITEM }}
       ADMOB_APP_ID: ${{ vars.ADMOB_APP_ID }}
       ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID }}
+      ADMOB_REWARDED_AD_UNIT_ID_V2: ${{ vars.ADMOB_REWARDED_AD_UNIT_ID_V2 }}
       ADMOB_INTERSTITIAL_AD_UNIT_ID: ${{ vars.ADMOB_INTERSTITIAL_AD_UNIT_ID }}
       LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: ${{ vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID }}
+      LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: ${{ vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2 }}
       PLAY_GAMES_PROJECT_ID: ${{ vars.PLAY_GAMES_PROJECT_ID }}
 
     steps:
@@ -167,6 +169,13 @@ jobs:
               echo "Android and Worker AdMob rewarded-unit IDs must match." >&2
               exit 2
             fi
+            if [ -z "$ADMOB_REWARDED_AD_UNIT_ID_V2" ] ||
+               [ "$ADMOB_REWARDED_AD_UNIT_ID_V2" != "$LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2" ] ||
+               [ "$ADMOB_REWARDED_AD_UNIT_ID_V2" = "$ADMOB_REWARDED_AD_UNIT_ID" ] ||
+               ! printf '%s' "$ADMOB_REWARDED_AD_UNIT_ID_V2" | grep -Eq '^ca-app-pub-[0-9]{16}/[0-9]{10}$'; then
+              echo "Signed release requires a separate matching 2-Gem AdMob unit in both v2 GitHub variables." >&2
+              exit 2
+            fi
             if [ "$LUDOPROOF_ADMOB_REWARD_ITEM" != "gems" ]; then
               echo 'LUDOPROOF_ADMOB_REWARD_ITEM must be gems.' >&2
               exit 2
@@ -232,7 +241,8 @@ jobs:
             const status = JSON.parse(process.argv[1]);
             const billing = process.argv[2] === "true";
             const ads = process.argv[3] === "true";
-            if (status.billingAvailable !== billing || status.rewardedAdsAvailable !== ads) {
+            if (status.billingAvailable !== billing || status.rewardedAdsAvailable !== ads ||
+                status.rewardedAdsV2Available !== ads) {
               console.error("Worker store-status flags do not match the signed Android build configuration.");
               process.exit(2);
             }
@@ -241,6 +251,7 @@ jobs:
 
           APP_ID="$ADMOB_APP_ID"
           REWARDED_ID="$ADMOB_REWARDED_AD_UNIT_ID"
+          REWARDED_ID_V2="$ADMOB_REWARDED_AD_UNIT_ID_V2"
           INTERSTITIAL_ID="$ADMOB_INTERSTITIAL_AD_UNIT_ID"
           PLAY_GAMES_ID="$PLAY_GAMES_PROJECT_ID"
           [ -n "$APP_ID" ] || APP_ID="ca-app-pub-3940256099942544~3347511713"
@@ -268,6 +279,7 @@ jobs:
             printf 'ORG_GRADLE_PROJECT_LUDOPROOF_INTERSTITIAL_ADS_ENABLED=%s\n' "$INTERSTITIAL_ADS"
             printf 'ORG_GRADLE_PROJECT_ADMOB_APP_ID=%s\n' "$APP_ID"
             printf 'ORG_GRADLE_PROJECT_ADMOB_REWARDED_AD_UNIT_ID=%s\n' "$REWARDED_ID"
+            printf 'ORG_GRADLE_PROJECT_ADMOB_REWARDED_AD_UNIT_ID_V2=%s\n' "$REWARDED_ID_V2"
             printf 'ORG_GRADLE_PROJECT_ADMOB_INTERSTITIAL_AD_UNIT_ID=%s\n' "$INTERSTITIAL_ID"
             printf 'ORG_GRADLE_PROJECT_GOOGLE_SIGN_IN_WEB_CLIENT_ID=%s\n' "$GOOGLE_SIGN_IN_WEB_CLIENT_ID"
             printf 'ORG_GRADLE_PROJECT_PLAY_GAMES_PROJECT_ID=%s\n' "$PLAY_GAMES_ID"

@@ -59,10 +59,23 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   }
   const rewardItem = String(environment.LUDOPROOF_ADMOB_REWARD_ITEM ?? "gems").trim() || "gems";
   if (rewardItem !== "gems") {
-    throw new Error('LUDOPROOF_ADMOB_REWARD_ITEM must be "gems"; the Worker only grants the configured five-gem reward.');
+    throw new Error('LUDOPROOF_ADMOB_REWARD_ITEM must be "gems"; the Worker requires a 5-Gem legacy unit and optionally a separate 2-Gem unit.');
   }
   const androidRewardedAdUnitId = String(environment.ADMOB_REWARDED_AD_UNIT_ID ?? "").trim();
+  const rewardedAdUnitV2 = String(environment.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2 ?? "").trim();
+  const androidRewardedAdUnitV2 = String(environment.ADMOB_REWARDED_AD_UNIT_ID_V2 ?? "").trim();
   const androidAppId = String(environment.ADMOB_APP_ID ?? "").trim();
+  // The optional v2 rollout is atomic: both build-side and server-side IDs
+  // must match the same distinct real AdMob unit. Old 5-Gem clients remain live
+  // while the new AdMob placement is being provisioned.
+  if (rewardedAdUnitV2 || androidRewardedAdUnitV2) {
+    if (!ADMOB_REWARDED_UNIT.test(rewardedAdUnitV2) ||
+        rewardedAdUnitV2 !== androidRewardedAdUnitV2 ||
+        rewardedAdUnitV2 === rewardedAdUnitId ||
+        rewardedAdUnitV2 === "ca-app-pub-3940256099942544/5224354917") {
+      throw new Error("Updated 2-Gem AdMob unit must be real, distinct from legacy and match ADMOB_REWARDED_AD_UNIT_ID_V2 and LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2.");
+    }
+  }
   if (androidRewardedAdUnitId && !ADMOB_REWARDED_UNIT.test(androidRewardedAdUnitId)) {
     throw new Error("ADMOB_REWARDED_AD_UNIT_ID must be a real AdMob rewarded-unit ID.");
   }
@@ -104,6 +117,8 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   else delete vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL;
   if (rewardedAdUnitId) vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID = rewardedAdUnitId;
   else delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID;
+  if (rewardedAdUnitV2) vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2 = rewardedAdUnitV2;
+  else delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2;
 
   // Emit a public, non-secret deployment identity so signed releases and
   // smoke tests cannot silently validate an older Cloudflare Worker.

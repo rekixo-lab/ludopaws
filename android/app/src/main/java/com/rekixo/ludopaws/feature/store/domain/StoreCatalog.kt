@@ -5,6 +5,8 @@ import com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind
 
 object StoreCatalog {
     private const val PRICE_UNAVAILABLE = "Price unavailable"
+    /** Reward promised by the new AdMob unit. Existing APKs keep their old 5-Gem unit. */
+    const val REWARDED_AD_GEMS = 2
 
     const val REMOVE_ADS =
         "remove_ads"

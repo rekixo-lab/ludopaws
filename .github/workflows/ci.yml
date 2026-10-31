@@ -85,6 +85,8 @@ jobs:
       ORG_GRADLE_PROJECT_LUDOPROOF_BILLING_ENABLED: "true"
       ORG_GRADLE_PROJECT_LUDOPROOF_ADS_ENABLED: "true"
       ORG_GRADLE_PROJECT_LUDOPROOF_INTERSTITIAL_ADS_ENABLED: "true"
+      # Synthetic CI-only rewarded unit ID; never use this in a signed release.
+      ORG_GRADLE_PROJECT_ADMOB_REWARDED_AD_UNIT_ID_V2: ca-app-pub-0000000000000000/0000000002
       ORG_GRADLE_PROJECT_LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true"
       ORG_GRADLE_PROJECT_ADMOB_INTERSTITIAL_AD_UNIT_ID: ca-app-pub-9987799703505828/5052207546
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
@@ -252,9 +254,10 @@ jobs:
   android-instrumentation:
     # Opt in to the full isolated emulator suite for an exact main release
     # candidate by including [run-instrumentation] in the merge commit message.
+    # Allow an explicitly marked same-repository PR to run emulator tests before merge.
     # Default main pushes and regular PRs keep the faster CI. No production
     # accounts, paid purchases or physical devices are involved.
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[run-instrumentation]')) || (github.event_name == 'push' && github.ref == 'refs/heads/codex/audit-hardening') }}
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[run-instrumentation]')) || (github.event_name == 'pull_request' && github.event.pull_request.draft == false && github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, '[run-instrumentation]')) || (github.event_name == 'push' && github.ref == 'refs/heads/codex/audit-hardening') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

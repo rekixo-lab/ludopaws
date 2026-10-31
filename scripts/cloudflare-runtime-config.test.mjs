@@ -94,6 +94,34 @@ test("Reviewed family V2 enables matching ads and validates reward settings", ()
   );
 });
 
+test("staged 2-Gem ad unit must match both v2 configuration variables and preserve legacy unit", () => {
+  const config = { ...valid,
+    LUDOPROOF_ADMOB_SSV_ENABLED: "true", LUDOPROOF_ADS_ENABLED: "true",
+    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: adUnit, ADMOB_REWARDED_AD_UNIT_ID: adUnit,
+    ADMOB_APP_ID: "ca-app-pub-1234567890123456~1234567890",
+    LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true",
+  };
+  const original = buildCloudflareRuntimeVars({}, config);
+  assert.equal(original.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID, adUnit);
+  assert.equal("LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2" in original, false,
+    "legacy deploy must remain safe before the new AdMob unit exists");
+  const v2 = "ca-app-pub-1234567890123456/0000000002";
+  const prepared = buildCloudflareRuntimeVars({}, { ...config,
+    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: v2, ADMOB_REWARDED_AD_UNIT_ID_V2: v2,
+  });
+  assert.equal(prepared.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID, adUnit);
+  assert.equal(prepared.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2, v2);
+  assert.equal("LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2" in
+    buildCloudflareRuntimeVars(prepared, config), false,
+    "removing both vars clears the newer live unit rather than leaving stale settings");
+  for (const supplied of [
+    { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: v2 },
+    { ADMOB_REWARDED_AD_UNIT_ID_V2: v2 },
+    { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: v2, ADMOB_REWARDED_AD_UNIT_ID_V2: adUnit },
+    { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: adUnit, ADMOB_REWARDED_AD_UNIT_ID_V2: adUnit },
+  ]) assert.throws(() => buildCloudflareRuntimeVars({}, { ...config, ...supplied }), /Updated 2-Gem AdMob unit/);
+});
+
 test("Worker and Android store flags must match before deployment", () => {
   assert.throws(
     () => buildCloudflareRuntimeVars({}, { ...valid, GOOGLE_PLAY_BILLING_ENABLED: "true" }),

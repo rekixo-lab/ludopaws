@@ -164,13 +164,14 @@ class StoreActivity :
         get() = accountRepository.currentSession()?.billingAccountId.orEmpty()
     internal val adsEnabledForBuild: Boolean
         get() =
-            rewardedAdsEnabledByServer && BuildConfig.LUDOPROOF_ADS_ENABLED
+            rewardedAdsEnabledByServer && BuildConfig.LUDOPROOF_ADS_ENABLED &&
+                BuildConfig.ADMOB_REWARDED_AD_UNIT_ID_V2.isNotBlank()
     private val rewardedAds by lazy {
         rewardedAdsWasCreated = true
         RewardedAdsController(
             activity = this,
             enabled = { adsEnabledForBuild },
-            adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
+            adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID_V2,
             // A modal loading message steals window focus and can prevent the
             // queued ad from opening until an unnecessary second tap.
             onMessage = ::showCosmeticFeedback,
@@ -317,7 +318,7 @@ class StoreActivity :
             try {
                 statusResponse = accountRepository.storeStatus()
                 adsAvailable = BuildConfig.LUDOPROOF_ADS_ENABLED &&
-                    statusResponse.optBoolean("rewardedAdsAvailable", false)
+                    statusResponse.optBoolean("rewardedAdsV2Available", false)
                 adsStatusLoaded = true
             } catch (error: Exception) {
                 adsStatusError = error
@@ -696,7 +697,7 @@ class StoreActivity :
         rewardedAdRequestExecutor.execute {
             try {
                 val status = accountRepository.storeStatus()
-                check(status.optBoolean("rewardedAdsAvailable", false)) {
+                check(status.optBoolean("rewardedAdsV2Available", false)) {
                     "Rewarded ads are currently unavailable from the service. Please try again later."
                 }
                 val session = accountRepository.ensureGuestSession()
@@ -704,18 +705,9 @@ class StoreActivity :
                 check(rewardWallet.optString("accountId") == session.accountId) {
                     "Your account changed. Reopen the store before watching an ad."
                 }
-                val dayStartUtc = System.currentTimeMillis() / 86_400_000L * 86_400_000L
-                val creditedIds = rewardWallet.optJSONArray("creditedAdRequestIds")
-                val knownCredits = (0 until (creditedIds?.length() ?: 0))
-                    .mapNotNull { creditedIds?.optString(it) }.toSet()
-                val waitingForVerification = pendingAdRewards.forAccount(session.accountId).count {
-                    it.createdAt >= dayStartUtc && !it.abandoned && it.requestId !in knownCredits
-                }
-                val used = rewardWallet.optInt("rewardedAdsToday", 0) + waitingForVerification
-                val limit = rewardWallet.optInt("rewardedAdsDailyLimit", 10)
-                check(used < limit) {
-                    "You have reached today's $limit rewarded ads. More ads are available after 00:00 UTC. You can still earn Gems by playing."
-                }
+                // No daily quota for updated 2-Gem rewards. Verify the account
+                // wallet and preserve pending signed-reward recovery without
+                // blocking a player based on the number of ads already viewed.
                 runOnUiThread {
                     if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
                     rewardRequestInProgress = false
@@ -968,7 +960,7 @@ class StoreActivity :
             val adsForGems = adsEnabledForBuild &&
                 com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS in channels &&
                 cosmetic.gemPrice > wallet.balance()
-            val adsNeeded = ((cosmetic.gemPrice - wallet.balance()).coerceAtLeast(0) + 4) / 5
+            val adsNeeded = ((cosmetic.gemPrice - wallet.balance()).coerceAtLeast(0) + StoreCatalog.REWARDED_AD_GEMS - 1) / StoreCatalog.REWARDED_AD_GEMS
             val labels = channels.map { channel ->
                 when (channel) {
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.FREE ->
@@ -990,7 +982,7 @@ class StoreActivity :
                         } ?: "Google Play · price unavailable"
                 }
             }
-            val options = labels + if (adsForGems) listOf("Watch ad · +5 Gems · $adsNeeded to afford") else emptyList()
+            val options = labels + if (adsForGems) listOf("Watch ad · +${StoreCatalog.REWARDED_AD_GEMS} Gems · $adsNeeded to afford") else emptyList()
             PlywoodAlertDialogBuilder(this)
                 .setTitle("Unlock ${cosmetic.title}")
                 .setItems(options.toTypedArray()) { _, index ->
@@ -1035,11 +1027,11 @@ class StoreActivity :
             com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS) {
             val deficit = cosmetic.gemPrice - wallet.balance()
             if (deficit > 0 && adsEnabledForBuild) {
-                val adsNeeded = (deficit + 4) / 5
+                val adsNeeded = (deficit + StoreCatalog.REWARDED_AD_GEMS - 1) / StoreCatalog.REWARDED_AD_GEMS
                 PlywoodAlertDialogBuilder(this)
                     .setTitle("Earn Gems for ${cosmetic.title}")
-                    .setMessage("Need $deficit more Gems. You can earn 5 Gems per verified ad (about $adsNeeded ads), or buy a Gems pack in the Store.")
-                    .setPositiveButton("Watch ad (+5 Gems)") { _, _ -> requestRewardedAd() }
+                    .setMessage("Need $deficit more Gems. You can earn ${StoreCatalog.REWARDED_AD_GEMS} Gems per verified ad (about $adsNeeded ads), or buy a Gems pack in the Store.")
+                    .setPositiveButton("Watch ad (+${StoreCatalog.REWARDED_AD_GEMS} Gems)") { _, _ -> requestRewardedAd() }
                     .setNegativeButton("Cancel", null).show()
                 return
             }

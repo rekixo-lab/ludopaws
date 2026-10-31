@@ -257,7 +257,7 @@ requireText(
   "the user-initiated rewarded-ad flow must remain available.",
 );
 if (rewardedAdsController.includes("adsRemoved")) {
-  failures.push("RewardedAdsController.kt: Remove Ads must not suppress the user-requested +5 Gems rewarded ad.");
+  failures.push("RewardedAdsController.kt: Remove Ads must not suppress the user-requested 2-Gem rewarded ad.");
 }
 requireText(
   "StoreActivity.kt",

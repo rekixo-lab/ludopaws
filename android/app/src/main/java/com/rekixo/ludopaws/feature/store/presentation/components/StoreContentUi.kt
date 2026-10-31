@@ -409,7 +409,7 @@ internal fun StoreActivity.rewardedAdCard():
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
-        contentDescription = "Watch ad to earn 5 gems"
+        contentDescription = "Watch ad to earn 2 gems"
         setPadding(dp(7), 0, dp(7), 0)
         background =
             LudoProofTheme.rounded(
@@ -426,7 +426,7 @@ internal fun StoreActivity.rewardedAdCard():
 
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = "5"
+                text = com.rekixo.ludopaws.feature.store.domain.StoreCatalog.REWARDED_AD_GEMS.toString()
                 textSize = 12f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)

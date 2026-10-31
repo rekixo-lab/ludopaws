@@ -43,14 +43,19 @@ prices; purchases must be verified server-side before grants.
 
 ## In-game catalog economy
 
-Every server-verified AdMob rewarded ad grants **5 Gems**. Ten verified ad
-views per UTC day is the target user-visible preflight limit in the new app;
-**any already-completed signed SSV must still be credited**, even if its
-postback arrives after the app stops allowing more ads that day. Full
-server-side reservation enforcement is a future hardening task.
+The updated APK grants **2 Gems per server-verified rewarded ad**, with
+**no app-imposed daily viewing cap**. Existing installed APKs continue using
+the legacy 5-Gem ad unit and may keep their old 10/day preflight until updated.
+Never change the original AdMob unit's reward from 5 to 2: the old APK promises
+5. Each AdMob unit must sign its exact configured amount and the server must
+match the signed unit to 5 (legacy) or 2 (updated). Cosmetic-targeted ads
+continue granting one valid pre-existing unlock-progress step as well as
+the unit's correct Gems; do not reset anyone's historic ad progress.
+A verified delayed SSV must still be credited and token replays are idempotent.
+No unlimited ad supply or AdMob policy exemption is implied.
 
 - Dog, Cat, Goat, Duck remain free.
-- Panda and Monkey cost 150 Gems (30 ads from a zero-Gem wallet) or a Play SKU.
+- Panda and Monkey cost 150 Gems (75 updated 2-Gem ads from a zero-Gem wallet) or a Play SKU.
   Previous accounts retain their former free ownership via migration v2.
 - Lumi Goat: 50 Gems or legacy 10 verified cosmetic-targeted ads.
 - Donkey: 75 Gems or legacy 15 verified cosmetic-targeted ads.
@@ -82,8 +87,9 @@ server-side reservation enforcement is a future hardening task.
    keep their previously free entitlements on account re-open.
 5. Test direct Panda/Monkey SKU purchase only **after** creating those IDs in
    Console, and verify their purchase/restore/refund ledger.
-6. Validate rewarded-ad callbacks, 5 Gem grants, 10/day preflight behavior,
-   ad completion/recovery and historical cosmetic-targeted ad progress.
+6. Validate separate 5-Gem legacy and 2-Gem updated AdMob callbacks, the
+   updated no-daily-cap flow, safe delayed/replayed SSV, AdMob consent and
+   historic cosmetic-targeted ad progress on Play-installed devices.
 7. Check family-safe ads, neutral age screen, privacy consent,
    user-visible prices, and availability in all target territories.
 8. Require green Android/server CI and Cloudflare deploy health before
