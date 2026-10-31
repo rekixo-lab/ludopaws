@@ -41,7 +41,9 @@ object StoreCosmeticCatalog {
     }
 
     fun characterUnlock(characterId: String): StoreCosmetic? =
-        characterUnlocks.firstOrNull { it.id == "character_$characterId" }
+        // Look up the merged catalog so a published authoritative offer is not
+        // accidentally compared against stale built-in Panda/Monkey pricing.
+        characterPacks.firstOrNull { it.id == "character_$characterId" }
 
     private val builtInAvatars =
         listOf(
