@@ -186,6 +186,110 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
 });
 
 
+test("verified Gem-pack delivery is idempotent; a refund reverses Gems once and blocks replay", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Gem Buyer" })).json();
+  const details = {
+    accountId, sessionId: session.sessionId, productId: "gems_1500",
+    purchaseTokenHash: "a".repeat(64), purchaseLedgerId: "b".repeat(64),
+  };
+  const first = await post(account, "/wallet/play-purchase", details);
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).wallet.balance, 1_200);
+  const replay = await post(account, "/wallet/play-purchase", details);
+  assert.equal(replay.status, 200);
+  assert.equal((await replay.json()).wallet.balance, 1_200);
+  assert.equal(sql.walletTransactions.size, 1);
+
+  const refund = await post(account, "/wallet/play-revoke", {
+    accountId, purchaseLedgerId: details.purchaseLedgerId,
+  });
+  assert.equal(refund.status, 200);
+  const restored = await (await post(account, "/wallet/get", {
+    accountId, sessionId: session.sessionId,
+  })).json();
+  assert.equal(restored.wallet.balance, 0);
+  assert.equal(sql.walletTransactions.size, 2);
+  const repeatedRefund = await post(account, "/wallet/play-revoke", {
+    accountId, purchaseLedgerId: details.purchaseLedgerId,
+  });
+  assert.equal((await repeatedRefund.json()).replay, true);
+  assert.equal(sql.walletTransactions.size, 2);
+  const retry = await post(account, "/wallet/play-purchase", details);
+  assert.equal(retry.status, 409);
+  assert.equal((await retry.json()).error, "PLAY_PURCHASE_REVOKED");
+});
+
+test("Remove Ads refund removes entitlement and the five bonus Gems without affecting independent rewards", async () => {
+  const { account } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Ad Buyer" })).json();
+  const adCredit = await post(account, "/wallet/reward-ad", {
+    accountId, kind: "gems", transactionId: "1".repeat(32),
+  });
+  assert.equal(adCredit.status, 200);
+  assert.equal((await adCredit.json()).wallet.balance, 5);
+  const purchase = {
+    accountId, sessionId: session.sessionId, productId: "remove_ads",
+    purchaseTokenHash: "c".repeat(64), purchaseLedgerId: "d".repeat(64),
+  };
+  const granted = await post(account, "/wallet/play-purchase", purchase);
+  assert.equal(granted.status, 200);
+  const active = (await granted.json()).wallet;
+  assert.equal(active.adsRemoved, true);
+  assert.equal(active.balance, 10);
+  assert.equal((await post(account, "/wallet/play-revoke", {
+    accountId, purchaseLedgerId: purchase.purchaseLedgerId,
+  })).status, 200);
+  const revoked = (await (await post(account, "/wallet/get", {
+    accountId, sessionId: session.sessionId,
+  })).json()).wallet;
+  assert.equal(revoked.adsRemoved, false);
+  assert.equal(revoked.balance, 5);
+  const retry = await post(account, "/wallet/play-purchase", purchase);
+  assert.equal(retry.status, 409);
+  assert.equal((await retry.json()).error, "PLAY_PURCHASE_REVOKED");
+});
+
+test("refunding a direct-Panda Play purchase revokes only Play ownership, never verified legacy ownership", async () => {
+  for (const legacyOwner of [false, true]) {
+    const { account, sql } = makeAccount();
+    const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+    const session = await (await post(account, "/session/create", {
+      accountId, displayName: "Panda Buyer",
+    })).json();
+    if (legacyOwner) {
+      sql.exec(
+        "INSERT INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)",
+        "character_panda", Date.now(),
+      );
+    }
+    const purchase = {
+      accountId, sessionId: session.sessionId, productId: "character_panda",
+      purchaseTokenHash: "e".repeat(64), purchaseLedgerId: "f".repeat(64),
+    };
+    const grant = await post(account, "/wallet/play-purchase", purchase);
+    assert.equal(grant.status, 200);
+    const grantedWallet = (await grant.json()).wallet;
+    assert.equal(grantedWallet.balance, 0, "a paid cosmetic must never grant cash-equivalent Gems");
+    assert.ok(grantedWallet.ownedCosmetics.includes("character_panda"));
+    const refund = await post(account, "/wallet/play-revoke", {
+      accountId, purchaseLedgerId: purchase.purchaseLedgerId,
+    });
+    assert.equal(refund.status, 200);
+    const after = (await (await post(account, "/wallet/get", {
+      accountId, sessionId: session.sessionId,
+    })).json()).wallet;
+    assert.equal(after.ownedCosmetics.includes("character_panda"), legacyOwner);
+    if (!legacyOwner) assert.notEqual(after.selectedCosmetics.CHARACTER_PACK, "character_panda");
+    else assert.equal(sql.ownedCosmetics.get("character_panda").source, "LEGACY_FREE");
+    const retry = await post(account, "/wallet/play-purchase", purchase);
+    assert.equal(retry.status, 409);
+    assert.equal((await retry.json()).error, "PLAY_PURCHASE_REVOKED");
+  }
+});
+
 test("content-ready cosmetic purchases do not require client-only level progression", async () => {
   const { account, sql } = makeAccount();
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
