@@ -8,13 +8,13 @@ object ChessBoardDefinition {
     val content = BoardDefinition(
         offer = cosmetic(
                 id = "board_chess",
-                title = "LOCKED BOARD",
+                title = "CHESS",
                 category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
+                unlockKind = CosmeticUnlockKind.GEMS,
                 previewSymbol = "",
                 previewPrimary = 0xFFF7F4EC.toInt(),
                 previewSecondary = 0xFFF7F4EC.toInt(),
-                ads = 5,
+                gems = 50,
                 contentAvailable = false,
             ),
         surfaceColor = 0xFFF1E3C4.toInt(),
