@@ -29,6 +29,12 @@ const pawsUi = read(
 const actions = read(
   "android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/actions/StoreCosmeticActions.kt",
 );
+const boardCatalogUi = read(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreBoardCatalogUi.kt",
+);
+const diceCatalogUi = read(
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreDiceCatalogUi.kt",
+);
 const tests = read(
   "android/app/src/test/java/com/rekixo/ludopaws/feature/store/domain/CharacterPackStoreCatalogTest.kt",
 );
@@ -55,6 +61,13 @@ requireText(inventory, "KEY_SELECTED_CHARACTER_PACK", "Selected character pack m
 requireText(preferences, "KEY_EVENT_ENTITLEMENTS", "Verified event entitlements must persist.");
 requireText(contentUi, "StoreTab.PAWS", "PAWS tab must route to animal-pack content.");
 requireText(pawsUi, "LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)", "Store must list shipped starter characters rather than coming-soon packs.");
+requireText(boardCatalogUi, "val panels = StoreCosmeticCatalog.boards", "All boards must remain listed, including Coming Soon.");
+requireText(diceCatalogUi, "val panels = StoreCosmeticCatalog.dice", "All dice must remain listed, including Coming Soon.");
+if (/StoreCosmeticCatalog\\.(boards|dice)\\.filter\\s*\\{\\s*it\\.contentAvailable/.test(boardCatalogUi + diceCatalogUi)) {
+  throw new Error("Coming Soon boards or dice must not be hidden from the Store.");
+}
+requireText(pawsUi, "UPCOMING PAW PACKS", "Future Paw packs must remain visible.");
+requireText(pawsUi, "StoreCosmeticCatalog.avatars", "Avatar offers must remain visible.");
 const featuredUi = read("android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreLockedSpotlightView.kt");
 requireText(featuredUi, "item.contentAvailable && !store.cosmetics.isOwned(item.id)", "Spotlights must show available, unowned content only.");
 for (const category of ["BOARD", "DICE", "CHARACTER_PACK"]) {
