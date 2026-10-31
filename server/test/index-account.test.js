@@ -439,8 +439,10 @@ test("store status requires credentials, purchase ledger, and account bindings b
 
 
 
-test("AdMob SSV rate limiting runs before signature/key verification", async () => {
+test("unsigned AdMob callbacks fail validation without consuming a legitimate player's quota", async () => {
   const env = {
+    // Even a fully exhausted bucket must not be consulted before the callback
+    // has passed Google's signature verification.
     LUDOPROOF_API_GATE: makeRateGate(false),
     LUDOPROOF_ADMOB_SSV_ENABLED: "true",
     LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-123/456",
@@ -449,9 +451,9 @@ test("AdMob SSV rate limiting runs before signature/key verification", async () 
     new Request("https://api.example.test/api/admob/ssv?invalid=signature"),
     env,
   );
-  assert.equal(response.status, 429);
-  assert.equal((await response.json()).error, "RATE_LIMITED");
-  assert.equal(response.headers.get("retry-after"), "60");
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "SSV_SIGNATURE_MISSING");
+  assert.equal(response.headers.get("retry-after"), null);
 });
 
 
