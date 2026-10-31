@@ -535,6 +535,7 @@ export async function handleAccountRequest(request, env) {
           transactionId: verified.transactionId,
           requestId: verified.requestId,
           kind: verified.kind,
+          gemAmount: verified.gemAmount,
           cosmeticId: verified.cosmeticId,
           catalogCountry: requestCatalogCountry(request),
         });
@@ -645,11 +646,15 @@ export async function handleAccountRequest(request, env) {
         const adsReady = capabilities.advertising && env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
           Boolean(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID) &&
           (env?.LUDOPROOF_ADMOB_REWARD_ITEM == null || env.LUDOPROOF_ADMOB_REWARD_ITEM === "gems");
+        const rewardedAdsV2Available = adsReady &&
+          Boolean(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2) &&
+          env.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2 !== env.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID;
         return json(200, {
           ok: true,
           billingAvailable: billingReady,
           billingChecks,
           rewardedAdsAvailable: adsReady,
+          rewardedAdsV2Available,
         });
       }
 
