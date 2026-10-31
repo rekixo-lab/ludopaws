@@ -11,9 +11,15 @@ class CharacterSelectionStore(
 
     fun isUnlocked(characterId: String): Boolean {
         val canonical = LudoPawsCharacterCatalog.canonicalCharacterId(characterId) ?: return false
-        val offer = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(canonical)
-            ?: return LudoPawsCharacterCatalog.character(canonical) != null
-        return com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(appContext).isOwned(offer.id)
+        val protectedId = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
+            .characterEntitlementId(canonical)
+        return if (protectedId != null) {
+            // Even a hidden/archived paid Paw requires a server-owned entitlement.
+            com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(appContext)
+                .isOwned(protectedId)
+        } else {
+            LudoPawsCharacterCatalog.character(canonical) != null
+        }
     }
 
     fun unlockedCharacterIds(): Set<String> =

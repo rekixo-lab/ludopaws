@@ -113,8 +113,10 @@ private fun StoreActivity.pawsCharacterCard(
     ownedIds: Set<String>,
 ): LinearLayout =
     LinearLayout(this).apply {
-        val unlock = StoreCosmeticCatalog.characterUnlock(character.id)
+        val availableOffer = StoreCosmeticCatalog.characterUnlock(character.id)
+        val unlock = availableOffer ?: StoreCosmeticCatalog.findBuiltIn("character_${character.id}")
         val owned = unlock == null || unlock.id in ownedIds
+        val offerUnavailable = availableOffer == null && unlock != null && !owned
         val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
@@ -137,6 +139,7 @@ private fun StoreActivity.pawsCharacterCard(
         isFocusable = true
         contentDescription =
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
+            else if (offerUnavailable) "${character.displayName}, currently unavailable"
             else if (unlock != null && com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT in unlock.unlockChannels)
                 "${character.displayName}, ${unlock.gemPrice} Gems or Google Play purchase; earn 5 Gems per rewarded ad"
             else if (unlock != null) "${character.displayName}, ${unlock.gemPrice} Gems or $progress of ${unlock.requiredAdViews} rewarded ads"
@@ -182,6 +185,7 @@ private fun StoreActivity.pawsCharacterCard(
             TextView(this@pawsCharacterCard).apply {
                 text = when {
                     owned -> "🔓 UNLOCKED"
+                    offerUnavailable -> "🔒 UNAVAILABLE"
                     unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
                     else -> "🔒 ${unlock?.gemPrice ?: 0} Gems / $progress/${unlock?.requiredAdViews ?: 0} ADS"
                 }

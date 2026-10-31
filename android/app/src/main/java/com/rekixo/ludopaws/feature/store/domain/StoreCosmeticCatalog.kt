@@ -41,9 +41,19 @@ object StoreCosmeticCatalog {
     }
 
     fun characterUnlock(characterId: String): StoreCosmetic? =
-        // Look up the merged catalog so a published authoritative offer is not
-        // accidentally compared against stale built-in Panda/Monkey pricing.
+        // A suppressed or archived offer is intentionally not for sale.
         characterPacks.firstOrNull { it.id == "character_$characterId" }
+
+    /**
+     * Character ownership is independent from whether the offer is currently
+     * published. If a paid Paw is archived, do not mistake a missing offer for
+     * a free Starter Paw. Previously owned entitlements still work.
+     */
+    fun characterEntitlementId(characterId: String): String? =
+        characterUnlock(characterId)?.id
+            ?: findBuiltIn("character_$characterId")
+                ?.takeIf { it.category == CosmeticCategory.CHARACTER_PACK }
+                ?.id
 
     private val builtInAvatars =
         listOf(
