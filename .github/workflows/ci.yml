@@ -250,10 +250,11 @@ jobs:
           retention-days: 3
 
   android-instrumentation:
-    # The audit candidate runs the complete isolated suite on push so its
-    # GitHub Actions checks satisfy main protection. Other branches opt in
-    # manually; physical devices and production accounts are never used.
-    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation) || (github.event_name == 'push' && github.ref == 'refs/heads/codex/audit-hardening') }}
+    # Opt in to the full isolated emulator suite for an exact main release
+    # candidate by including [run-instrumentation] in the merge commit message.
+    # Default main pushes and regular PRs keep the faster CI. No production
+    # accounts, paid purchases or physical devices are involved.
+    if: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_android_instrumentation) || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[run-instrumentation]')) || (github.event_name == 'push' && github.ref == 'refs/heads/codex/audit-hardening') }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
