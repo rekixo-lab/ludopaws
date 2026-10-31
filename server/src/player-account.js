@@ -567,12 +567,17 @@ export class PlayerAccount {
     this.#profileSnapshot(accountId);
     const transactionId = String(body?.transactionId ?? ""), kind = String(body?.kind ?? "");
     const cosmeticId = body?.cosmeticId == null ? null : String(body.cosmeticId);
+    // Only this internal PlayerAccount binding receives the amount resolved
+    // from Google's signed ad_unit + reward_amount. Missing means legacy v1
+    // so old internal callers and previously shown ads retain the 5-Gem grant.
+    const gemAmount = body?.gemAmount == null ? 5 : body.gemAmount;
+    if (gemAmount !== 2 && gemAmount !== 5) throw httpError(400, "AD_REWARD_INVALID", "reward amount is invalid");
     if (!/^[A-Fa-f0-9]{16,128}$/.test(transactionId)) throw httpError(400, "AD_REWARD_INVALID", "reward transaction is invalid");
     const transactionHash = await sha256Hex("ludoproof:admob-transaction:v1:" + transactionId);
-    const payloadHash = await sha256Hex(JSON.stringify({ kind, cosmeticId, transactionId }));
+    const payloadHash = await sha256Hex(JSON.stringify({ kind, cosmeticId, transactionId, ...(gemAmount !== 5 ? { gemAmount } : {}) }));
     const idempotencyKey = "admob:" + transactionHash;
     if (kind === "gems") {
-      const result = this.#applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind: "REWARDED_AD_GEMS", delta: 5, sourceRefHash: transactionHash, removeAds: false });
+      const result = this.#applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind: "REWARDED_AD_GEMS", delta: gemAmount, sourceRefHash: transactionHash, removeAds: false });
       this.#recordAdReceipt(body.requestId);
       return json(200, { ok: true, ...result, wallet: this.#walletSnapshot(accountId) });
     }
@@ -595,9 +600,9 @@ export class PlayerAccount {
         const walletRows = [...this.ctx.storage.sql.exec("SELECT balance FROM wallet WHERE account_id = ? LIMIT 1", accountId)];
         if (!walletRows.length) throw httpError(404, "WALLET_NOT_FOUND", "wallet was not found");
         const balance = Number(walletRows[0].balance);
-        // The configured AdMob unit promises 5 gems. Cosmetic-targeted views also earn
-        // their requested progress, but must not suppress the ad unit's declared reward.
-        const nextBalance = balance + 5;
+        // Cosmetic-targeted views retain legacy progress, but the Gem grant
+        // always matches the separate signed 5-Gem or 2-Gem ad unit.
+        const nextBalance = balance + gemAmount;
         if (!Number.isSafeInteger(nextBalance) || nextBalance < 0 || nextBalance > MAX_BALANCE) {
           throw httpError(409, "WALLET_BALANCE_LIMIT", "wallet balance cannot safely be updated");
         }
@@ -605,7 +610,7 @@ export class PlayerAccount {
         const next = Math.min(cosmetic.ads, current + 1), now = Date.now();
         this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", nextBalance, now, accountId);
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_ad_progress (cosmetic_id, progress, updated_at) VALUES (?, ?, ?) ON CONFLICT(cosmetic_id) DO UPDATE SET progress = excluded.progress, updated_at = excluded.updated_at", cosmeticId, next, now);
-        this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", 5, nextBalance, transactionHash, now);
+        this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", gemAmount, nextBalance, transactionHash, now);
         if (next >= cosmetic.ads && ["character_goat_lumi", "character_donkey", "dice_pearl_paw"].includes(cosmeticId)) {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
         }
@@ -872,8 +877,9 @@ export class PlayerAccount {
       selectedCosmetics,
       rewardedAdProgress,
       creditedAdRequestIds: [...this.ctx.storage.sql.exec("SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100")].map(row => String(row.request_id)),
-      // UTC-based quota for the new Android preflight. Signed SSV callbacks are
-      // always honored after an ad was shown, even if delivered late.
+      // Legacy Android builds still use this optional 10/day preflight field.
+      // The updated 2-Gem app does not read or enforce any daily ad cap.
+      // Signed SSV callbacks are always credited, including delayed callbacks.
       rewardedAdsToday: Number([...this.ctx.storage.sql.exec(
         "SELECT COUNT(*) AS n FROM wallet_transactions WHERE kind IN ('REWARDED_AD_GEMS', 'REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS') AND created_at >= ?",
         Math.floor(Date.now() / 86_400_000) * 86_400_000,
