@@ -189,9 +189,8 @@ class StoreCosmeticCatalogTest {
             StoreCosmeticCatalog
                 .all
                 .filter {
-                    it.unlockKind ==
-                        CosmeticUnlockKind
-                            .REWARDED_ADS
+                    it.unlockKind == CosmeticUnlockKind.REWARDED_ADS ||
+                        CosmeticUnlockKind.REWARDED_ADS in it.unlockChannels
                 }
 
         assertTrue(
