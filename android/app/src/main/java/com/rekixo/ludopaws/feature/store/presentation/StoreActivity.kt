@@ -1388,7 +1388,7 @@ class StoreActivity :
             )
         }
 
-        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
+        if (BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
             offerContent.addView(rewardedAdCard())
         }
 

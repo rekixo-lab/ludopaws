@@ -117,7 +117,7 @@ private fun StoreActivity.pawsCharacterCard(
         isFocusable = true
         contentDescription =
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
-            else if ((unlock?.unlockChannels?.size ?: 0) > 1) "${character.displayName}, 300 Gems or Google Play purchase"
+            else if ((unlock?.unlockChannels?.size ?: 0) > 1) "${character.displayName}, ${unlock?.gemPrice ?: 0} Gems or Google Play purchase; earn 5 Gems per rewarded ad"
             else "${character.displayName}, locked, $progress of ${unlock?.requiredAdViews} rewarded ads"
 
         addView(
@@ -161,7 +161,7 @@ private fun StoreActivity.pawsCharacterCard(
                 text = when {
                     owned -> "🔓 UNLOCKED"
                     unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> "🔒 $progress/${unlock?.requiredAdViews} ADS"
+                    else -> "🔒 ${unlock?.gemPrice ?: 0} Gems / $progress/${unlock?.requiredAdViews ?: 0} ADS"
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
