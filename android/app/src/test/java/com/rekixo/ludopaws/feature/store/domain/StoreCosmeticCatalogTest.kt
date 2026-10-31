@@ -151,6 +151,25 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
+    fun archivedPaidPawsNeverBecomeFreeAndKeepStableEntitlementIds() {
+        try {
+            StoreCosmeticCatalog.replaceRemoteCatalog(
+                emptyList(),
+                setOf("character_panda", "character_monkey", "character_rabbit", "character_donkey"),
+            )
+            for (id in listOf("panda", "monkey", "rabbit", "donkey")) {
+                assertEquals(null, StoreCosmeticCatalog.characterUnlock(id))
+                assertEquals("character_$id", StoreCosmeticCatalog.characterEntitlementId(id))
+            }
+            for (id in listOf("dog", "cat", "goat", "duck")) {
+                assertEquals(null, StoreCosmeticCatalog.characterEntitlementId(id))
+            }
+        } finally {
+            StoreCosmeticCatalog.clearRemoteCatalog()
+        }
+    }
+
+    @Test
     fun starterPawsHasSixReservedFuturePacksThatRemainLocked() {
         val futurePacks =
             StoreCosmeticCatalog.characterPacks.filter {

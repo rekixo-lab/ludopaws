@@ -262,7 +262,13 @@ class StoreActivity :
         selectedTab = StoreTab.PAWS
         renderStore()
         // Locked Paws must open the same verified checkout as boards/dice.
-        if (unlock != null && !cosmetics.isOwned(unlock.id)) purchaseOrSelectCosmetic(unlock)
+        if (unlock != null && !cosmetics.isOwned(unlock.id)) {
+            purchaseOrSelectCosmetic(unlock)
+        } else if (unlock == null &&
+            StoreCosmeticCatalog.findBuiltIn("character_$characterId") != null &&
+            !selections.isUnlocked(characterId)) {
+            showStoreMessage("This Paw is temporarily unavailable. Existing verified ownership is preserved.")
+        }
     }
 
     override fun onStart() {
