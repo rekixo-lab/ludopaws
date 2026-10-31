@@ -2,6 +2,8 @@ const KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json";
 const TEST_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys-test.json";
 const keyCache = new WeakMap();
 const MAX_KEY_TTL_MS = 24 * 60 * 60 * 1000;
+export const LEGACY_REWARDED_AD_GEMS = 5;
+export const UPDATED_REWARDED_AD_GEMS = 2;
 
 export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, nowMs = Date.now()) {
   const url = new URL(request.url);
@@ -45,7 +47,7 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     throw ssvError(400, "SSV_ACCOUNT_INVALID", "reward account is invalid");
   }
   const configuredRewardItem = String(env?.LUDOPROOF_ADMOB_REWARD_ITEM ?? "gems");
-  if (configuredRewardItem !== "gems" || rewardAmount !== "5" || rewardItem !== "gems") {
+  if (configuredRewardItem !== "gems" || !["2", "5"].includes(rewardAmount) || rewardItem !== "gems") {
     // These values are non-sensitive; omit the account identifier and callback payload.
     console.warn("admob-ssv-rejected", {
       code: "SSV_REWARD_INVALID",
@@ -121,18 +123,29 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     throw ssvError(400, "SSV_TRANSACTION_INVALID", "reward transaction ID is invalid");
   }
 
+  let gemAmount = LEGACY_REWARDED_AD_GEMS;
   if (!isTest) {
-    const configuredAdUnit = String(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID ?? "").trim();
-    // AdMob sends the numeric ad unit identifier, while the SDK setting includes
-    // the publisher prefix. Only production-signed callbacks reach the wallet.
-    const configuredAdUnitId = configuredAdUnit.split("/").at(-1);
-    if (!configuredAdUnit || ![configuredAdUnit, configuredAdUnitId].includes(adUnit)) {
-      console.warn("admob-ssv-rejected", { code: "SSV_AD_UNIT_INVALID", receivedAdUnit: adUnit, configuredAdUnitId });
+    // Keep the originally published 5-Gem ad unit alive for old installed apps.
+    // The updated app uses a different ad unit configured to promise 2 Gems.
+    // Signed Google ad_unit and reward_amount must both match; custom_data is
+    // never trusted to select a higher payout.
+    const legacy = String(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID ?? "").trim();
+    const updated = String(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2 ?? "").trim();
+    if (updated && legacy === updated) {
+      throw ssvError(503, "SSV_AD_UNIT_CONFIGURATION_INVALID", "reward ad units are not configured safely");
+    }
+    const matches = (unit) => unit && [unit, unit.split("/").at(-1)].includes(adUnit);
+    if (matches(legacy)) gemAmount = LEGACY_REWARDED_AD_GEMS;
+    else if (matches(updated)) gemAmount = UPDATED_REWARDED_AD_GEMS;
+    else {
       throw ssvError(403, "SSV_AD_UNIT_INVALID", "reward callback came from an unexpected ad unit");
+    }
+    if (Number(rewardAmount) !== gemAmount) {
+      throw ssvError(403, "SSV_REWARD_INVALID", "reward amount did not match the signed ad unit");
     }
   }
 
-  return { accountId, transactionId, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
+  return { accountId, transactionId, gemAmount, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
 }
 
 async function getKeys(fetchImpl, nowMs, refresh, keyUrl = KEY_URL) {
