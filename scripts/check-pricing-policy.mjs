@@ -118,8 +118,8 @@ assert.match(playerAccount, /DROP TABLE IF EXISTS paws_plus_subscriptions/, "bac
 assert.doesNotMatch(playerAccount, /CREATE TABLE IF NOT EXISTS paws_plus_subscriptions/, "backend must not recreate the retired entitlement table");
 
 assert.ok(privacy.includes('href="./pricing.html">Pricing and in-app purchase policy</a>'), "online privacy policy must link to pricing policy");
-assert.ok(privacy.includes("configured reward is five Gems"), "online privacy policy must disclose the verified rewarded-ad grant");
-assert.ok(inAppPolicy.includes("configured reward is five Gems"), "in-app privacy copy must disclose the same verified rewarded-ad grant");
+assert.ok(privacy.includes("Updated app versions award two Gems"), "online privacy policy must disclose the verified rewarded-ad grant");
+assert.ok(inAppPolicy.includes("updated app versions grant two Gems"), "in-app privacy copy must disclose the same verified rewarded-ad grant");
 assert.ok(inAppPolicy.includes("https://ludopaws.rekixo.com/pricing.html"), "in-app policy must link to pricing policy");
 assert.ok(inAppPolicy.includes("https://ludopaws.rekixo.com/terms-of-service.html"), "in-app policy must link to Terms of Service");
 assert.ok(pagesWorkflow.includes("cp docs/pricing.html site/pricing.html"), "Pages workflow must publish the pricing policy");
