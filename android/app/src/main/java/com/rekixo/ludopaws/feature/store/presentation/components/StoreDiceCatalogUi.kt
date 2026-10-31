@@ -23,7 +23,7 @@ internal fun StoreActivity.diceCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        val panels = StoreCosmeticCatalog.dice.filter { it.contentAvailable }
+        val panels = StoreCosmeticCatalog.dice // Keep all Coming Soon dice visible, never purchasable.
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.DICE)
 
@@ -105,7 +105,7 @@ private fun StoreActivity.dicePanel(
 
         addView(
             TextView(this@dicePanel).apply {
-                text = if (locked) LOCKED_DICE_TITLE else dice.title
+                text = dice.title
                 textSize = 14.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
