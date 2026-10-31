@@ -165,13 +165,13 @@ class StoreActivity :
     internal val adsEnabledForBuild: Boolean
         get() =
             rewardedAdsEnabledByServer && BuildConfig.LUDOPROOF_ADS_ENABLED &&
-                BuildConfig.ADMOB_REWARDED_AD_UNIT_ID_V2.isNotBlank()
+                BuildConfig.ADMOB_REWARDED_AD_UNIT_ID.isNotBlank()
     private val rewardedAds by lazy {
         rewardedAdsWasCreated = true
         RewardedAdsController(
             activity = this,
             enabled = { adsEnabledForBuild },
-            adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID_V2,
+            adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID,
             // A modal loading message steals window focus and can prevent the
             // queued ad from opening until an unnecessary second tap.
             onMessage = ::showCosmeticFeedback,

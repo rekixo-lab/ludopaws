@@ -389,27 +389,20 @@ test("store status disables rewarded ads when configured reward item is not gems
   assert.equal(status.rewardedAdsAvailable, false);
 });
 
-test("store status stages the new 2-Gem unit without interrupting installed legacy clients", async () => {
+test("store status reports single 2-Gem readiness through backward-compatible v2 flag", async () => {
   const request = new Request("https://api.example.test/api/store/status");
   const config = {
     LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V2",
     LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true",
     LUDOPROOF_ADMOB_SSV_ENABLED: "true",
-    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-1234567890123456/0000000005",
+    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-1234567890123456/0000000002",
   };
-  const old = await (await accountWorker.fetch(request, config)).json();
-  assert.equal(old.rewardedAdsV2Available, false);
-  // New apps must never fall back to the old 5-Gem unit when v2 isn't ready.
-  assert.equal(old.rewardedAdsAvailable, true);
-  const updated = await (await accountWorker.fetch(request, {
-    ...config, LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: "ca-app-pub-1234567890123456/0000000002",
-  })).json();
-  assert.equal(updated.rewardedAdsAvailable, true);
-  assert.equal(updated.rewardedAdsV2Available, true);
-  const duplicated = await (await accountWorker.fetch(request, {
-    ...config, LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: config.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID,
-  })).json();
-  assert.equal(duplicated.rewardedAdsV2Available, false);
+  const active = await (await accountWorker.fetch(request, config)).json();
+  assert.equal(active.rewardedAdsAvailable, true);
+  assert.equal(active.rewardedAdsV2Available, true);
+  const disabled = await (await accountWorker.fetch(request, { ...config, LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "" })).json();
+  assert.equal(disabled.rewardedAdsAvailable, false);
+  assert.equal(disabled.rewardedAdsV2Available, false);
 });
 
 test("store status explains why Play Billing is disabled without returning secrets", async () => {
