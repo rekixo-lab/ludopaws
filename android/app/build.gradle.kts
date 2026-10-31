@@ -206,7 +206,7 @@ android {
         buildConfigField(
             "String",
             "ADMOB_REWARDED_AD_UNIT_ID_V2",
-            admobRewardedAdUnitIdV2.let { "\\"" + it + "\\"" },
+            admobRewardedAdUnitIdV2.let { "\"" + it + "\"" },
         )
         buildConfigField(
             "String",
