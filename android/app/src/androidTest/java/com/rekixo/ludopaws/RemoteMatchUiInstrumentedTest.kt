@@ -36,6 +36,10 @@ class RemoteMatchUiInstrumentedTest {
     fun teamUpPartnerHandoffUsesActingSeatAndNetworkLossDisablesActions() {
         launchTeamUp().use { scenario ->
             scenario.onActivity { activity ->
+                // An authoritative response must arrive while online. Applying it
+                // offline intentionally invalidates action authority, even if the
+                // UI is later toggled back online without a fresh server snapshot.
+                activity.isOnline = true
                 activity.applyResponse(
                     validTeamUpEnvelope(),
                     announce = false,
@@ -47,7 +51,6 @@ class RemoteMatchUiInstrumentedTest {
                 )
                 assertEquals(2, activity.currentState?.actingSeat)
 
-                activity.isOnline = true
                 activity.updateControls(requireNotNull(activity.currentState))
                 assertTrue(activity.rollButton.isEnabled)
                 assertTrue(activity.refreshButton.isEnabled)
@@ -56,6 +59,18 @@ class RemoteMatchUiInstrumentedTest {
                 activity.updateControls(requireNotNull(activity.currentState))
                 assertFalse(activity.rollButton.isEnabled)
                 assertFalse(activity.refreshButton.isEnabled)
+
+                // Reconnection alone must not reactivate a cached roll.
+                activity.isOnline = true
+                activity.updateControls(requireNotNull(activity.currentState))
+                assertFalse(activity.rollButton.isEnabled)
+
+                // Only a new valid authoritative revision re-enables the turn.
+                val refreshed = validTeamUpEnvelope()
+                refreshed.getJSONObject("state").put("revision", 8)
+                activity.applyResponse(refreshed, announce = false)
+                activity.updateControls(requireNotNull(activity.currentState))
+                assertTrue(activity.rollButton.isEnabled)
             }
         }
     }
