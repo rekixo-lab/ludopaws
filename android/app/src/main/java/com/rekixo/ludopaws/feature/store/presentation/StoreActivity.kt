@@ -697,7 +697,7 @@ class StoreActivity :
         rewardedAdRequestExecutor.execute {
             try {
                 val status = accountRepository.storeStatus()
-                check(status.optBoolean("rewardedAdsAvailable", false)) {
+                check(status.optBoolean("rewardedAdsV2Available", false)) {
                     "Rewarded ads are currently unavailable from the service. Please try again later."
                 }
                 val session = accountRepository.ensureGuestSession()
