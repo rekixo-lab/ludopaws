@@ -22,20 +22,28 @@ object StoreCosmeticCatalog {
     val characterUnlocks = listOf(
         cosmetic("character_goat_lumi", "LUMI GOAT", CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFF4E4CD.toInt(), 0xFF806249.toInt(),
-            ads = 10, characterPackId = "starter_paws"),
+            ads = 10, characterPackId = "starter_paws").copy(
+            unlockKind = CosmeticUnlockKind.GEMS, gemPrice = 50,
+            unlockChannels = listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS),
+        ),
         cosmetic("character_donkey", "DONKEY", CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFC7C6C3.toInt(), 0xFF555862.toInt(),
-            ads = 15, characterPackId = "starter_paws"),
+            ads = 15, characterPackId = "starter_paws").copy(
+            unlockKind = CosmeticUnlockKind.GEMS, gemPrice = 75,
+            unlockChannels = listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS),
+        ),
     ) + CosmeticPricing.paidCharacterIds.map { characterId ->
         CosmeticPricing.apply(cosmetic(
             "character_$characterId", characterId.uppercase(), CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.GEMS, "PAW", 0xFFD9C9A7.toInt(), 0xFF63513B.toInt(),
-            gems = 300, characterPackId = "starter_paws",
+            gems = if (characterId == "panda" || characterId == "monkey") 150 else 300, characterPackId = "starter_paws",
         ))
     }
 
     fun characterUnlock(characterId: String): StoreCosmetic? =
-        characterUnlocks.firstOrNull { it.id == "character_$characterId" }
+        // Look up the merged catalog so a published authoritative offer is not
+        // accidentally compared against stale built-in Panda/Monkey pricing.
+        characterPacks.firstOrNull { it.id == "character_$characterId" }
 
     private val builtInAvatars =
         listOf(
@@ -47,8 +55,8 @@ object StoreCosmeticCatalog {
             cosmetic("avatar_7","Avatar 7",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A7",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
             cosmetic("avatar_1","Avatar 1",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A1",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
             cosmetic("avatar_8","Avatar 8",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A8",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
-            cosmetic("avatar_2","Avatar 2",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A2",0xFF7D3FC1.toInt(),0xFF33206E.toInt(),gems=500),
-            cosmetic("avatar_10","Avatar 10",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A10",0xFFE14F7C.toInt(),0xFF79203D.toInt(),gems=500),
+            cosmetic("avatar_2","Avatar 2",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A2",0xFF7D3FC1.toInt(),0xFF33206E.toInt(),gems=100),
+            cosmetic("avatar_10","Avatar 10",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A10",0xFFE14F7C.toInt(),0xFF79203D.toInt(),gems=100),
         )
 
     /**
@@ -97,11 +105,11 @@ object StoreCosmeticCatalog {
                 id = "character_pack_cozy_paws",
                 title = "COZY PAWS",
                 category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
+                unlockKind = CosmeticUnlockKind.GEMS,
                 previewSymbol = "CO",
                 previewPrimary = 0xFF7E74D9.toInt(),
                 previewSecondary = 0xFF463A94.toInt(),
-                ads = 10,
+                gems = 100,
                 characterPackId = "cozy_paws",
                 contentAvailable = false,
             ),
@@ -246,7 +254,8 @@ object StoreCosmeticCatalog {
         val newRemoteItems = remote.values
             .filter { it.category == category && it.id !in builtInIds }
             .map { it.copy(contentAvailable = false) }
-        return (visibleBuiltIns + newRemoteItems).map(CosmeticPricing::apply)
+        // Built-in pricing is normalized when constructed. Published server prices must win.
+        return visibleBuiltIns + newRemoteItems
     }
 
     fun defaultId(

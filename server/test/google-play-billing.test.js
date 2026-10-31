@@ -250,6 +250,8 @@ test("server product grants match the Android product definitions", () => {
       ]),
     ),
     {
+      character_panda: [0, false],
+      character_monkey: [0, false],
       character_cock: [0, false],
       character_pig: [0, false],
       character_elephant: [0, false],
@@ -273,7 +275,7 @@ test("server product grants match the Android product definitions", () => {
 });
 
 test("cosmetic Play products are non-consumable entitlements and Pearl Paw has no cash SKU", () => {
-  const cosmeticIds = ["character_cock", "character_pig", "character_elephant", "character_horse", "character_rabbit", "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"];
+  const cosmeticIds = ["character_panda", "character_monkey", "character_cock", "character_pig", "character_elephant", "character_horse", "character_rabbit", "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"];
   for (const cosmeticId of cosmeticIds) {
     assert.equal(GOOGLE_PLAY_PRODUCTS[cosmeticId].cosmeticId, cosmeticId);
     assert.equal(GOOGLE_PLAY_PRODUCTS[cosmeticId].consumable, false);

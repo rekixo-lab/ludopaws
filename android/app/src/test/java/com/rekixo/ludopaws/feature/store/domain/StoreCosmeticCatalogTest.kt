@@ -78,7 +78,7 @@ class StoreCosmeticCatalogTest {
         assertEquals(8, lockedBoards.size)
         assertTrue(
             lockedBoards.all {
-                !it.contentAvailable && it.title == "LOCKED BOARD"
+                !it.contentAvailable && it.title.isNotBlank() && it.title != "LOCKED BOARD"
             },
         )
     }
@@ -112,14 +112,42 @@ class StoreCosmeticCatalogTest {
         StoreCosmeticCatalog.characterUnlocks.forEach {
             assertTrue(it.contentAvailable)
             if (it.id in setOf("character_goat_lumi", "character_donkey")) {
-                assertEquals(CosmeticUnlockKind.REWARDED_ADS, it.unlockKind)
+                assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
+                assertEquals(if (it.id == "character_goat_lumi") 50 else 75, it.gemPrice)
+                assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS), it.unlockChannels)
             } else {
                 assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
-                assertEquals(300, it.gemPrice)
+                assertEquals(if (it.id in setOf("character_panda", "character_monkey")) 150 else 300, it.gemPrice)
                 assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.PLAY_PRODUCT), it.unlockChannels)
             }
             assertTrue(it.id !in StoreCosmeticCatalog.defaultOwnedIds)
         }
+    }
+
+    @Test
+    fun allProposedComingSoonPricesAreVisibleButNotPurchasable() {
+        val boards = StoreCosmeticCatalog.boards.associateBy { it.id }
+        val dice = StoreCosmeticCatalog.dice.associateBy { it.id }
+        val avatars = StoreCosmeticCatalog.avatars.associateBy { it.id }
+        for ((id, price) in mapOf(
+            "board_chess" to 50, "board_diwali" to 75, "board_denim" to 75,
+            "board_neon" to 150, "board_pirate" to 200, "board_alien" to 250,
+            "board_penguin" to 250,
+        )) {
+            assertEquals(price, boards.getValue(id).gemPrice)
+            assertTrue(!boards.getValue(id).contentAvailable)
+        }
+        for ((id, price) in mapOf(
+            "dice_diwali" to 50, "dice_football" to 75, "dice_cricket" to 100,
+            "dice_summers" to 150, "dice_colors" to 150, "dice_heart" to 200,
+        )) {
+            assertEquals(price, dice.getValue(id).gemPrice)
+            assertTrue(!dice.getValue(id).contentAvailable)
+        }
+        assertEquals(100, avatars.getValue("avatar_2").gemPrice)
+        assertEquals(100, avatars.getValue("avatar_10").gemPrice)
+        assertEquals(150, StoreCosmeticCatalog.characterUnlock("panda")?.gemPrice)
+        assertEquals(150, StoreCosmeticCatalog.characterUnlock("monkey")?.gemPrice)
     }
 
     @Test
@@ -161,9 +189,8 @@ class StoreCosmeticCatalogTest {
             StoreCosmeticCatalog
                 .all
                 .filter {
-                    it.unlockKind ==
-                        CosmeticUnlockKind
-                            .REWARDED_ADS
+                    it.unlockKind == CosmeticUnlockKind.REWARDED_ADS ||
+                        CosmeticUnlockKind.REWARDED_ADS in it.unlockChannels
                 }
 
         assertTrue(

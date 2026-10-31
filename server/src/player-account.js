@@ -5,7 +5,7 @@ import {
   issueAccessToken, newRefreshToken, SESSION_TTL_MS, validRefreshToken, sha256Hex,
 } from "./account-security.js";
 import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
-import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS } from "./cosmetic-pricing.js";
+import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS, LEGACY_PAID_CHARACTER_IDS, INTRODUCTORY_CHARACTER_IDS } from "./cosmetic-pricing.js";
 import { REFERRAL_CAMPAIGN, REFERRAL_REWARD } from "./referral-config.js";
 
 const MAX_BALANCE = 2_000_000_000;
@@ -29,22 +29,22 @@ const COSMETICS = Object.freeze({
   board_winter_haven: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_monsoon_mire: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_checkers: { category: "BOARD", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
-  board_chess: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
-  board_diwali: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
-  board_denim: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
-  board_neon: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 10, ads: 20 },
-  board_pirate: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 200, level: 16, ads: 0 },
-  board_alien: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 22, ads: 0 },
+  board_chess: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 50, level: 0, ads: 0 },
+  board_diwali: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },
+  board_denim: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },
+  board_neon: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 150, level: 0, ads: 0 },
+  board_pirate: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
+  board_alien: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   board_penguin: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   dice_classic: { category: "DICE", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   dice_pearl_paw: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_pearl_paw },
   dice_pumpkin: { category: "DICE", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
-  dice_diwali: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
-  dice_football: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
-  dice_cricket: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 20 },
-  dice_summers: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 30 },
-  dice_colors: { category: "DICE", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
-  dice_heart: { category: "DICE", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
+  dice_diwali: { category: "DICE", kind: "GEMS", available: false, gemPrice: 50, level: 0, ads: 0 },
+  dice_football: { category: "DICE", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },
+  dice_cricket: { category: "DICE", kind: "GEMS", available: false, gemPrice: 100, level: 0, ads: 0 },
+  dice_summers: { category: "DICE", kind: "GEMS", available: false, gemPrice: 150, level: 0, ads: 0 },
+  dice_colors: { category: "DICE", kind: "GEMS", available: false, gemPrice: 150, level: 0, ads: 0 },
+  dice_heart: { category: "DICE", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
   avatar_9: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_4: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_3: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
@@ -53,14 +53,14 @@ const COSMETICS = Object.freeze({
   avatar_7: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_1: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_8: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
-  avatar_2: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 500, level: 0, ads: 0 },
-  avatar_10: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 500, level: 0, ads: 0 },
-  character_goat_lumi: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 10 },
-  character_donkey: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 15 },
+  avatar_2: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 100, level: 0, ads: 0 },
+  avatar_10: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 100, level: 0, ads: 0 },
+  character_goat_lumi: { category: "CHARACTER_PACK", kind: "GEMS", available: true, gemPrice: 50, level: 0, ads: 10, channels: ["GEMS", "REWARDED_ADS"] },
+  character_donkey: { category: "CHARACTER_PACK", kind: "GEMS", available: true, gemPrice: 75, level: 0, ads: 15, channels: ["GEMS", "REWARDED_ADS"] },
   character_pack_starter_paws: { category: "CHARACTER_PACK", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   character_pack_safari_paws: { category: "CHARACTER_PACK", kind: "LEVEL", available: false, gemPrice: 0, level: 8, ads: 0 },
   character_pack_farm_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 300, level: 0, ads: 0 },
-  character_pack_cozy_paws: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
+  character_pack_cozy_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 100, level: 0, ads: 0 },
   character_pack_wild_paws: { category: "CHARACTER_PACK", kind: "EVENT", available: false, gemPrice: 0, level: 0, ads: 0 },
   character_pack_pet_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 450, level: 0, ads: 0 },
   character_pack_jungle_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 550, level: 0, ads: 0 },
@@ -106,10 +106,20 @@ export class PlayerAccount {
         if ([...sql.exec("SELECT account_id FROM account_meta LIMIT 1")].length &&
             ![...sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 1 LIMIT 1")].length) {
           const now = Date.now();
-          for (const id of PAID_CHARACTER_IDS) {
+          for (const id of LEGACY_PAID_CHARACTER_IDS) {
             sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
           }
           sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (1, ?)", now);
+        }
+        // Panda and Monkey were freely selectable in previous Android releases.
+        // Existing accounts retain that access; newly created accounts must unlock.
+        if ([...sql.exec("SELECT account_id FROM account_meta LIMIT 1")].length &&
+            ![...sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 2 LIMIT 1")].length) {
+          const now = Date.now();
+          for (const id of INTRODUCTORY_CHARACTER_IDS) {
+            sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
+          }
+          sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (2, ?)", now);
         }
       });
     });
@@ -514,7 +524,7 @@ export class PlayerAccount {
             ? item.unlock.rewardedAds.requiredCompletedAds : 0,
           level: Number.isSafeInteger(item.unlock?.level?.minimumLevel) ? item.unlock.level.minimumLevel : 0,
           rendererReady,
-          ...(COSMETIC_PRICING[item.id] ?? {}),
+          // Published catalog values win; fallback overrides belong only to legacy offers.
         };
       }
     }
@@ -535,7 +545,7 @@ export class PlayerAccount {
       ...legacy,
       id: cosmeticId,
       catalogManaged: false,
-      channels: channel ? [channel] : [],
+      channels: Array.isArray(legacy.channels) ? [...legacy.channels] : channel ? [channel] : [],
       ...(COSMETIC_PRICING[cosmeticId] ?? {}),
     };
   }
@@ -795,10 +805,16 @@ export class PlayerAccount {
       this.#requireAccountNotDeleting(accountId);
       const exists = [...this.ctx.storage.sql.exec("SELECT account_id FROM account_meta WHERE account_id = ? LIMIT 1", accountId)];
       if (![...this.ctx.storage.sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 1 LIMIT 1")].length) {
-        if (exists.length) for (const id of PAID_CHARACTER_IDS) {
+        if (exists.length) for (const id of LEGACY_PAID_CHARACTER_IDS) {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
         }
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (1, ?)", now);
+      }
+      if (![...this.ctx.storage.sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 2 LIMIT 1")].length) {
+        if (exists.length) for (const id of INTRODUCTORY_CHARACTER_IDS) {
+          this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
+        }
+        this.ctx.storage.sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (2, ?)", now);
       }
       if (!exists.length) this.ctx.storage.sql.exec("INSERT INTO account_meta (account_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)", accountId, normalizeDisplayName(displayName, this.env), now, now);
       this.ctx.storage.sql.exec("INSERT OR IGNORE INTO wallet (account_id, balance, ads_removed, updated_at) VALUES (?, 0, 0, ?)", accountId, now);
@@ -856,6 +872,13 @@ export class PlayerAccount {
       selectedCosmetics,
       rewardedAdProgress,
       creditedAdRequestIds: [...this.ctx.storage.sql.exec("SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100")].map(row => String(row.request_id)),
+      // UTC-based quota for the new Android preflight. Signed SSV callbacks are
+      // always honored after an ad was shown, even if delivered late.
+      rewardedAdsToday: Number([...this.ctx.storage.sql.exec(
+        "SELECT COUNT(*) AS n FROM wallet_transactions WHERE kind IN ('REWARDED_AD_GEMS', 'REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS') AND created_at >= ?",
+        Math.floor(Date.now() / 86_400_000) * 86_400_000,
+      )][0]?.n ?? 0),
+      rewardedAdsDailyLimit: 10,
     };
   }
 }

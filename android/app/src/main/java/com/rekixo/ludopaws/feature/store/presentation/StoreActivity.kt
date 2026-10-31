@@ -256,10 +256,13 @@ class StoreActivity :
         if (selections.isUnlocked(characterId)) {
             selections.select(com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.STARTER_PACK_ID, characterId)
         }
-        StoreCosmeticCatalog.characterUnlock(characterId)?.let { spotlightPositions[StoreTab.PAWS] = it.id }
+        val unlock = StoreCosmeticCatalog.characterUnlock(characterId)
+        unlock?.let { spotlightPositions[StoreTab.PAWS] = it.id }
         if (promotedCosmeticId != null) promotedCosmeticId = StoreCosmeticCatalog.characterUnlock(characterId)?.id
         selectedTab = StoreTab.PAWS
         renderStore()
+        // Locked Paws must open the same verified checkout as boards/dice.
+        if (unlock != null && !cosmetics.isOwned(unlock.id)) purchaseOrSelectCosmetic(unlock)
     }
 
     override fun onStart() {
@@ -691,6 +694,22 @@ class StoreActivity :
                     "Rewarded ads are currently unavailable from the service. Please try again later."
                 }
                 val session = accountRepository.ensureGuestSession()
+                val rewardWallet = accountRepository.wallet()
+                check(rewardWallet.optString("accountId") == session.accountId) {
+                    "Your account changed. Reopen the store before watching an ad."
+                }
+                val dayStartUtc = System.currentTimeMillis() / 86_400_000L * 86_400_000L
+                val creditedIds = rewardWallet.optJSONArray("creditedAdRequestIds")
+                val knownCredits = (0 until (creditedIds?.length() ?: 0))
+                    .mapNotNull { creditedIds?.optString(it) }.toSet()
+                val waitingForVerification = pendingAdRewards.forAccount(session.accountId).count {
+                    it.createdAt >= dayStartUtc && !it.abandoned && it.requestId !in knownCredits
+                }
+                val used = rewardWallet.optInt("rewardedAdsToday", 0) + waitingForVerification
+                val limit = rewardWallet.optInt("rewardedAdsDailyLimit", 10)
+                check(used < limit) {
+                    "You have reached today's $limit rewarded ads. More ads are available after 00:00 UTC. You can still earn Gems by playing."
+                }
                 runOnUiThread {
                     if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
                     rewardRequestInProgress = false
@@ -940,6 +959,10 @@ class StoreActivity :
         val owned = cosmetics.isOwned(cosmetic.id)
         if (!owned && cosmetic.unlockChannels.size > 1) {
             val channels = cosmetic.unlockChannels
+            val adsForGems = adsEnabledForBuild &&
+                com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS in channels &&
+                cosmetic.gemPrice > wallet.balance()
+            val adsNeeded = ((cosmetic.gemPrice - wallet.balance()).coerceAtLeast(0) + 4) / 5
             val labels = channels.map { channel ->
                 when (channel) {
                     com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.FREE ->
@@ -961,9 +984,14 @@ class StoreActivity :
                         } ?: "Google Play · price unavailable"
                 }
             }
+            val options = labels + if (adsForGems) listOf("Watch ad · +5 Gems · $adsNeeded to afford") else emptyList()
             PlywoodAlertDialogBuilder(this)
                 .setTitle("Unlock ${cosmetic.title}")
-                .setItems(labels.toTypedArray()) { _, index ->
+                .setItems(options.toTypedArray()) { _, index ->
+                    if (adsForGems && index == channels.size) {
+                        requestRewardedAd()
+                        return@setItems
+                    }
                     val channel = channels.getOrNull(index) ?: return@setItems
                     if (channel == com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.REWARDED_ADS &&
                         cosmetics.rewardedAdProgress(cosmetic.id) < cosmetic.requiredAdViews
@@ -999,6 +1027,16 @@ class StoreActivity :
         }
         if (channel == "GEMS" || channel == null && cosmetic.unlockKind ==
             com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS) {
+            val deficit = cosmetic.gemPrice - wallet.balance()
+            if (deficit > 0 && adsEnabledForBuild) {
+                val adsNeeded = (deficit + 4) / 5
+                PlywoodAlertDialogBuilder(this)
+                    .setTitle("Earn Gems for ${cosmetic.title}")
+                    .setMessage("Need $deficit more Gems. You can earn 5 Gems per verified ad (about $adsNeeded ads), or buy a Gems pack in the Store.")
+                    .setPositiveButton("Watch ad (+5 Gems)") { _, _ -> requestRewardedAd() }
+                    .setNegativeButton("Cancel", null).show()
+                return
+            }
             PlywoodAlertDialogBuilder(this)
                 .setTitle("Unlock ${cosmetic.title}?")
                 .setMessage(android.text.SpannableStringBuilder("Spend ")
@@ -1048,6 +1086,12 @@ class StoreActivity :
                 cosmetics.applyServerSnapshot(serverWallet, session.accountId)
                 cosmetics.clearOfflineSelection(cosmetic.category)
                 runOnUiThread {
+                    if (cosmetic.id.startsWith("character_") && cosmetics.isOwned(cosmetic.id)) {
+                        val characterId = cosmetic.id.removePrefix("character_")
+                        com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this)
+                            .takeIf { it.isUnlocked(characterId) }
+                            ?.select(com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.STARTER_PACK_ID, characterId)
+                    }
                     cosmeticUpdateInProgress = false
                     if (!canRenderStoreUi()) return@runOnUiThread
                     renderStore()
@@ -1388,7 +1432,7 @@ class StoreActivity :
             )
         }
 
-        if (!BuildConfig.LUDOPROOF_BILLING_ENABLED && BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
+        if (BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
             offerContent.addView(rewardedAdCard())
         }
 

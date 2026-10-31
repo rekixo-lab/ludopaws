@@ -32,7 +32,27 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ),
         )
-
+        val upcomingPacks = StoreCosmeticCatalog.characterPacks.filter { it.characterPackId != "starter_paws" }
+        if (upcomingPacks.isNotEmpty()) {
+            addView(TextView(this@pawsCatalogContent).apply {
+                text = "UPCOMING PAW PACKS"
+                textSize = 16f
+                setTypeface(Typeface.DEFAULT_BOLD)
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                setPadding(0, dp(18), 0, dp(8))
+            })
+            addView(this@pawsCatalogContent.cosmeticGrid(upcomingPacks, 0xFFB9DFFB.toInt()))
+        }
+        addView(TextView(this@pawsCatalogContent).apply {
+            text = "AVATARS"
+            textSize = 16f
+            setTypeface(Typeface.DEFAULT_BOLD)
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(0, dp(18), 0, dp(8))
+        })
+        addView(this@pawsCatalogContent.cosmeticGrid(StoreCosmeticCatalog.avatars, 0xFFB9DFFB.toInt()))
     }
 
 private fun StoreActivity.pawsCharacterGrid(
@@ -117,8 +137,10 @@ private fun StoreActivity.pawsCharacterCard(
         isFocusable = true
         contentDescription =
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
-            else if ((unlock?.unlockChannels?.size ?: 0) > 1) "${character.displayName}, 300 Gems or Google Play purchase"
-            else "${character.displayName}, locked, $progress of ${unlock?.requiredAdViews} rewarded ads"
+            else if (unlock != null && com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT in unlock.unlockChannels)
+                "${character.displayName}, ${unlock.gemPrice} Gems or Google Play purchase; earn 5 Gems per rewarded ad"
+            else if (unlock != null) "${character.displayName}, ${unlock.gemPrice} Gems or $progress of ${unlock.requiredAdViews} rewarded ads"
+            else "${character.displayName}, unlocked"
 
         addView(
             LudoPawsCharacterAvatarView(this@pawsCharacterCard).apply {
@@ -161,7 +183,7 @@ private fun StoreActivity.pawsCharacterCard(
                 text = when {
                     owned -> "🔓 UNLOCKED"
                     unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> "🔒 $progress/${unlock?.requiredAdViews} ADS"
+                    else -> "🔒 ${unlock?.gemPrice ?: 0} Gems / $progress/${unlock?.requiredAdViews ?: 0} ADS"
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)

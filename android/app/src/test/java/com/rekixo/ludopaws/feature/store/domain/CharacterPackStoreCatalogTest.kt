@@ -66,7 +66,11 @@ class CharacterPackStoreCatalogTest {
         assertTrue(CosmeticUnlockKind.FREE in kinds)
         assertTrue(CosmeticUnlockKind.LEVEL in kinds)
         assertTrue(CosmeticUnlockKind.GEMS in kinds)
-        assertTrue(CosmeticUnlockKind.REWARDED_ADS in kinds)
+        // Multi-channel offers keep ad progression without using ads as primary purchase.
+        assertTrue(StoreCosmeticCatalog.characterPacks.any {
+            it.unlockKind == CosmeticUnlockKind.REWARDED_ADS ||
+                CosmeticUnlockKind.REWARDED_ADS in it.unlockChannels
+        })
         assertTrue(CosmeticUnlockKind.EVENT in kinds)
     }
 
