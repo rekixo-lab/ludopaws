@@ -22,7 +22,7 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        val panels = StoreCosmeticCatalog.boards.filter { it.contentAvailable }
+        val panels = StoreCosmeticCatalog.boards // Show every item; incomplete content stays Coming Soon.
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
         val selectionUpdates = mutableMapOf<String, (Boolean, Boolean) -> Unit>()
@@ -91,7 +91,7 @@ private fun StoreActivity.boardPanel(
 
         addView(
             TextView(this@boardPanel).apply {
-                text = if (locked && !board.remoteManaged) LOCKED_BOARD_TITLE else board.title
+                text = board.title
                 textSize = 14.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
