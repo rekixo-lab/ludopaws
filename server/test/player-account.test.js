@@ -696,6 +696,36 @@ test("published dynamic cosmetic prices override legacy built-in price defaults"
   assert.equal((await purchase.json()).wallet.balance, 10);
 });
 
+test("2-Gem signed rewards have no daily grant limit and are replay-safe, preserving cosmetic progress", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Updated Ad Player" });
+  for (let i = 1; i <= 14; i++) {
+    const item = { accountId, kind: "gems", gemAmount: 2, transactionId: i.toString(16).padStart(32, "0") };
+    const result = await post(account, "/wallet/reward-ad", item);
+    assert.equal(result.status, 200);
+    const wallet = (await result.json()).wallet;
+    assert.equal(wallet.balance, i * 2);
+    assert.equal(wallet.rewardedAdsToday, i);
+    const replay = (await (await post(account, "/wallet/reward-ad", item)).json()).wallet;
+    assert.equal(replay.balance, i * 2);
+  }
+  const cosmetic = await post(account, "/wallet/reward-ad", {
+    accountId, kind: "cosmetic", cosmeticId: "character_goat_lumi",
+    gemAmount: 2, transactionId: "e".repeat(32),
+  });
+  assert.equal(cosmetic.status, 200);
+  const snapshot = (await cosmetic.json()).wallet;
+  assert.equal(snapshot.balance, 30);
+  assert.equal(snapshot.rewardedAdProgress.character_goat_lumi, 1);
+  assert.equal(sql.walletTransactions.size, 15);
+  const invalid = await post(account, "/wallet/reward-ad", {
+    accountId, kind: "gems", gemAmount: 99, transactionId: "f".repeat(32),
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error, "AD_REWARD_INVALID");
+});
+
 test("verified rewarded ads report UTC daily progress without rejecting delayed SSV rewards", async () => {
   const { account } = makeAccount();
   const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
