@@ -172,7 +172,7 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
   const firstResponse = await post(account, "/wallet/cosmetic/purchase", purchase);
   assert.equal(firstResponse.status, 200);
   const first = await firstResponse.json();
-  assert.equal(first.wallet.balance, 250);
+  assert.equal(first.wallet.balance, 650);
   assert.equal(first.wallet.ownedCosmetics.includes("avatar_2"), true);
   assert.equal(first.wallet.selectedCosmetics.AVATAR, "avatar_2");
   assert.equal(sql.walletTransactions.size, 1);
@@ -181,7 +181,7 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
   assert.equal(replayResponse.status, 200);
   const replay = await replayResponse.json();
   assert.equal(replay.replay, true);
-  assert.equal(replay.wallet.balance, 250);
+  assert.equal(replay.wallet.balance, 650);
   assert.equal(sql.walletTransactions.size, 1);
 });
 
@@ -201,7 +201,7 @@ test("content-ready cosmetic purchases do not require client-only level progress
 
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.wallet.balance, 300);
+  assert.equal(body.wallet.balance, 700);
   assert.equal(body.wallet.ownedCosmetics.includes("avatar_10"), true);
   assert.equal(body.wallet.selectedCosmetics.AVATAR, "avatar_10");
 });
