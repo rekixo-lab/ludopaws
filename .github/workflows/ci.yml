@@ -85,6 +85,8 @@ jobs:
       ORG_GRADLE_PROJECT_LUDOPROOF_BILLING_ENABLED: "true"
       ORG_GRADLE_PROJECT_LUDOPROOF_ADS_ENABLED: "true"
       ORG_GRADLE_PROJECT_LUDOPROOF_INTERSTITIAL_ADS_ENABLED: "true"
+      # Synthetic CI-only rewarded unit ID; never use this in a signed release.
+      ORG_GRADLE_PROJECT_ADMOB_REWARDED_AD_UNIT_ID_V2: ca-app-pub-0000000000000000/0000000002
       ORG_GRADLE_PROJECT_LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true"
       ORG_GRADLE_PROJECT_ADMOB_INTERSTITIAL_AD_UNIT_ID: ca-app-pub-9987799703505828/5052207546
     if: ${{ github.event_name != 'pull_request' || github.event.pull_request.draft == false }}
