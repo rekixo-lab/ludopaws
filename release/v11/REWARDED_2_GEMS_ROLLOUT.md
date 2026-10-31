@@ -21,4 +21,6 @@
 - No guarantee of unlimited filled ads, revenue or eligibility. Follow Google AdMob policies, user consent and family-oriented ad safety controls.
 
 ## Verification
-CI Server tests cover old/new signed amounts and mismatches, replay, 14+ verified 2-Gem transactions, wallet progress, rollout configuration; Android CI + full instrumentation and CodeQL must be green before merge. Check public and in-app disclosures for the version-specific reward and no cap.
+CI Server tests cover old/new signed amounts and mismatches, replay, 14+ verified 2-Gem transactions, wallet progress, rollout configuration; Android CI + full instrumentation and CodeQL must be green before merge.
+
+Full emulator instrumentation must run **on the PR before merge** via a `[run-instrumentation]` title on a same-repository pull request; the merge commit also includes the marker to rerun it on exact `main`. Check public and in-app disclosures for the version-specific reward and no cap.
