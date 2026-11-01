@@ -104,6 +104,7 @@ class LudoPawsResultCard(context: Context) : LinearLayout(context) {
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(8), dp(4), dp(8), dp(4))
+                minimumHeight = dp(38)
                 if (place.highlighted) {
                     background = GradientDrawable().apply {
                         setColor(0x4459B87B)
@@ -117,7 +118,7 @@ class LudoPawsResultCard(context: Context) : LinearLayout(context) {
                 }
                 addView(text(12f, if (index == 0) gold else muted, true).apply {
                     text = place.rank
-                }, LayoutParams(dp(49), dp(30)))
+                }, LayoutParams(dp(49), -2))
                 addView(text(14f, cream, place.highlighted).apply {
                     text = place.name
                     maxLines = 1
@@ -127,17 +128,19 @@ class LudoPawsResultCard(context: Context) : LinearLayout(context) {
                 if (place.highlighted) addView(text(10f, green, true).apply {
                     text = "YOU"
                 }, LayoutParams(-2, -2).apply { marginStart = dp(5) })
-            }, LayoutParams(-1, dp(38)).apply { topMargin = dp(2) })
+            }, LayoutParams(-1, -2).apply { topMargin = dp(2) })
         }
         xpPanel.visibility = if (model.xpTitle == null) GONE else VISIBLE
         xpHeadline.text = model.xpTitle.orEmpty()
         xpInfo.text = model.xpDetail.orEmpty()
+        xpInfo.maxLines = 3
         xpBar.visibility = if (model.xpFraction == null) GONE else VISIBLE
         xpBar.progress = ((model.xpFraction ?: 0f).coerceIn(0f, 1f) * 1000).toInt()
         gemPanel.visibility = if (model.gemsTitle == null) GONE else VISIBLE
         gemHeadline.text = model.gemsTitle.orEmpty()
         gemHeadline.setTextColor(if (model.gemsCredited) green else gold)
         gemInfo.text = model.gemsDetail.orEmpty()
+        gemInfo.maxLines = 3
         contentDescription = buildString {
             append(model.title).append(". ").append(model.subtitle)
             model.placements.forEach { append(". ").append(it.rank).append(" ").append(it.name) }
