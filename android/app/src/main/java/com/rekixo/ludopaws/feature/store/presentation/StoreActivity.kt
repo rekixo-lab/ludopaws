@@ -347,11 +347,18 @@ class StoreActivity :
             try {
                 val session = accountRepository.ensureGuestSession()
                 activeBillingAccountId = session.billingAccountId
+                val serverWallet = accountRepository.wallet()
+                // Do not offer Play checkout if the authenticated wallet snapshot
+                // cannot be bound to this exact game account. A stale or changed
+                // session must fail closed before taking a payment.
+                check(wallet.applyServerSnapshot(serverWallet, session.accountId)) {
+                    "The store wallet could not be verified for this account. Reopen the store and retry."
+                }
+                check(cosmetics.applyServerSnapshot(serverWallet, session.accountId)) {
+                    "The store inventory could not be verified for this account. Reopen the store and retry."
+                }
                 available = BuildConfig.LUDOPROOF_BILLING_ENABLED &&
                     statusResponse?.optBoolean("billingAvailable", false) == true
-                val serverWallet = accountRepository.wallet()
-                wallet.applyServerSnapshot(serverWallet, session.accountId)
-                cosmetics.applyServerSnapshot(serverWallet, session.accountId)
 
                 // A purchase that belongs to another account is intentionally left pending.
                 // It can only be recovered after that same Google-linked account is restored.
