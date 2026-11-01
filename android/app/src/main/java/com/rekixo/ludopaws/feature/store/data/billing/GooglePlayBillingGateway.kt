@@ -12,6 +12,8 @@ import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsPlayOwnership
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsPurchasePolicy
 import com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import java.util.concurrent.ConcurrentHashMap
@@ -35,6 +37,8 @@ class GooglePlayBillingGateway(
     private var closed =
         false
     private var connecting = false
+    private var removeAdsPreflightInProgress = false
+    private var lastLaunchedProductId: String? = null
     private val processingPurchaseTokens =
         ConcurrentHashMap.newKeySet<String>()
 
@@ -63,7 +67,10 @@ class GooglePlayBillingGateway(
         require(OBFUSCATED_ACCOUNT_ID_REGEX.matches(newAccountId)) {
             "Google Play account binding is invalid."
         }
-        currentBillingAccountId = newAccountId
+        if (currentBillingAccountId != newAccountId) {
+            currentBillingAccountId = newAccountId
+            listener.onRemoveAdsOwnershipChanged(RemoveAdsPlayOwnership.UNKNOWN)
+        }
     }
 
     fun connect() {
@@ -183,6 +190,30 @@ class GooglePlayBillingGateway(
             return
         }
 
+        // Every Remove Ads checkout needs a FRESH owned-purchases query.
+        // The account binding must still match after the async Play callback.
+        if (productId == StoreCatalog.REMOVE_ADS) {
+            if (removeAdsPreflightInProgress) return
+            removeAdsPreflightInProgress = true
+            val expected = currentBillingAccountId
+            queryExistingPurchases { ownership ->
+                activity.runOnUiThread {
+                    removeAdsPreflightInProgress = false
+                    if (closed) return@runOnUiThread
+                    if (currentBillingAccountId != expected) {
+                        listener.onBillingUnavailable("The game account changed. Reopen the Store and retry.")
+                    } else if (ownership != RemoveAdsPlayOwnership.NOT_OWNED) {
+                        listener.onRemoveAdsCheckoutBlocked(ownership)
+                    } else openPlayPurchaseSheet(productId, details)
+                }
+            }
+            return
+        }
+        openPlayPurchaseSheet(productId, details)
+    }
+
+    private fun openPlayPurchaseSheet(productId: String, details: ProductDetails) {
+        if (closed) return
         val listedOffer = details.oneTimePurchaseOfferDetailsList?.firstOrNull()
         if (listedOffer != null && listedOffer.offerToken.isNullOrBlank()) {
             listener.onBillingUnavailable("Google Play returned an incomplete offer for this product.")
@@ -195,6 +226,7 @@ class GooglePlayBillingGateway(
         val productParams = productParamsBuilder.build()
 
         com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
+        lastLaunchedProductId = productId
         val result =
             billingClient
                 .launchBillingFlow(
@@ -210,19 +242,15 @@ class GooglePlayBillingGateway(
                         .build(),
                 )
 
-        if (
-            result.responseCode !=
-            BillingClient
-                .BillingResponseCode
-                .OK
-        ) {
-            listener
-                .onBillingUnavailable(
-                    result.debugMessage
-                        .ifBlank {
-                            "Google Play purchase screen could not be opened."
-                        },
-                )
+        when (result.responseCode) {
+            BillingClient.BillingResponseCode.OK -> Unit
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED ->
+                recoverAlreadyOwnedProduct(productId)
+            else -> listener.onBillingUnavailable(
+                result.debugMessage.ifBlank {
+                    "Google Play purchase screen could not be opened."
+                },
+            )
         }
     }
 
@@ -265,6 +293,9 @@ class GooglePlayBillingGateway(
                 .USER_CANCELED ->
                 Unit
 
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED ->
+                recoverAlreadyOwnedProduct(lastLaunchedProductId)
+
             else ->
                 listener
                     .onBillingUnavailable(
@@ -277,24 +308,59 @@ class GooglePlayBillingGateway(
         }
     }
 
-    private fun queryExistingPurchases() {
-        if (closed || !billingClient.isReady) return
+    /** Handle both synchronous and asynchronous Play ITEM_ALREADY_OWNED replies. */
+    private fun recoverAlreadyOwnedProduct(productId: String?) {
+        queryExistingPurchases { ownership ->
+            if (productId == StoreCatalog.REMOVE_ADS)
+                listener.onRemoveAdsCheckoutBlocked(ownership)
+            else listener.onBillingUnavailable(
+                "Google Play already owns this item. Reopen the Store to recover the original game account.",
+            )
+        }
+    }
+
+    private fun queryExistingPurchases(onComplete: ((RemoveAdsPlayOwnership) -> Unit)? = null) {
+        if (closed || !billingClient.isReady) {
+            onComplete?.invoke(RemoveAdsPlayOwnership.QUERY_FAILED)
+            return
+        }
+        val queriedAccount = currentBillingAccountId
+        listener.onRemoveAdsOwnershipChanged(RemoveAdsPlayOwnership.CHECKING)
         billingClient.queryPurchasesAsync(
             QueryPurchasesParams.newBuilder()
                 .setProductType(BillingClient.ProductType.INAPP)
                 .build(),
         ) { billingResult, purchases ->
             if (closed) return@queryPurchasesAsync
-            if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
-                listener.onBillingUnavailable(
-                    billingResult.debugMessage.ifBlank {
-                        "Google Play could not reload previous purchases."
-                    },
-                )
+            if (queriedAccount != currentBillingAccountId) {
+                onComplete?.invoke(RemoveAdsPlayOwnership.QUERY_FAILED)
                 return@queryPurchasesAsync
             }
+            if (billingResult.responseCode != BillingClient.BillingResponseCode.OK) {
+                listener.onRemoveAdsOwnershipChanged(RemoveAdsPlayOwnership.QUERY_FAILED)
+                listener.onBillingUnavailable(billingResult.debugMessage.ifBlank {
+                    "Google Play could not reload previous purchases."
+                })
+                onComplete?.invoke(RemoveAdsPlayOwnership.QUERY_FAILED)
+                return@queryPurchasesAsync
+            }
+            val ownership = classifyRemoveAdsOwnership(purchases, queriedAccount)
+            listener.onRemoveAdsOwnershipChanged(ownership)
             processPurchases(purchases)
+            onComplete?.invoke(ownership)
         }
+    }
+
+    private fun classifyRemoveAdsOwnership(purchases: List<Purchase>, accountId: String): RemoveAdsPlayOwnership {
+        return RemoveAdsPurchasePolicy.classifyOwnership(
+            purchaseBindings = purchases.filter {
+                StoreCatalog.REMOVE_ADS in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED
+            }.map { it.accountIdentifiers?.obfuscatedAccountId },
+            hasPending = purchases.any {
+                StoreCatalog.REMOVE_ADS in it.products && it.purchaseState == Purchase.PurchaseState.PENDING
+            },
+            currentBillingAccountId = accountId,
+        )
     }
 
     private fun processPurchases(purchases: List<Purchase>) {
@@ -442,6 +508,8 @@ class GooglePlayBillingGateway(
 
         /** A different-account Play purchase is never verified or granted here. */
         fun onPurchaseBelongsToOtherAccount() = Unit
+        fun onRemoveAdsOwnershipChanged(ownership: RemoveAdsPlayOwnership)
+        fun onRemoveAdsCheckoutBlocked(ownership: RemoveAdsPlayOwnership)
 
         fun onBillingUnavailable(
             message: String,

@@ -13,6 +13,7 @@ import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsOfferState
 import com.rekixo.ludopaws.feature.store.domain.model.StoreProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -348,11 +349,16 @@ private fun StoreActivity.featuredRemoveAdsCard(
             Button(
                 this@featuredRemoveAdsCard,
             ).apply {
-                text =
-                    priceFor(
-                        product.productId,
-                        product.fallbackPrice,
-                    )
+                text = when (removeAdsOfferState()) {
+                    RemoveAdsOfferState.BUY -> priceFor(product.productId, product.fallbackPrice)
+                    RemoveAdsOfferState.ACTIVE -> "Ads Removed ✓"
+                    RemoveAdsOfferState.VERIFYING -> "Restoring purchase…"
+                    RemoveAdsOfferState.RESTORE_ACCOUNT -> "Restore Original Account"
+                    RemoveAdsOfferState.CONTACT_SUPPORT -> "Purchase needs support"
+                    RemoveAdsOfferState.PAYMENT_PENDING -> "Payment pending"
+                    RemoveAdsOfferState.CHECKING -> "Checking Google Play…"
+                    RemoveAdsOfferState.RETRY_CHECK -> "Retry Play check"
+                }
                 textSize =
                     18f
                 setTypeface(
@@ -383,11 +389,8 @@ private fun StoreActivity.featuredRemoveAdsCard(
                                 dp(15).toFloat(),
                             )
                     }
-                setOnClickListener {
-                    requestPurchase(
-                        product.productId,
-                    )
-                }
+                contentDescription = "Remove Ads: $text"
+                setOnClickListener { performRemoveAdsAction() }
                 AppFocusRing.apply(this, cornerRadiusDp = 10f)
             },
             LinearLayout.LayoutParams(

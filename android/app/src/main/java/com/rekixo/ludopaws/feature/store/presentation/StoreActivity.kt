@@ -2,6 +2,7 @@ package com.rekixo.ludopaws.feature.store.presentation
 
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -28,8 +29,12 @@ import com.rekixo.ludopaws.feature.store.data.billing.PendingStorePurchaseStore
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
 import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
+import com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsPlayOwnership
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsOfferState
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsPurchasePolicy
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockDecision
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy
@@ -112,6 +117,9 @@ class StoreActivity :
     // Older Play tokens remain encrypted for their original Ludo Paws account.
     // Inform the player in the status strip instead of interrupting new checkout.
     private var crossAccountPurchaseAwaitingRestore = false
+    private var removeAdsPlayOwnership = RemoveAdsPlayOwnership.UNKNOWN
+    internal fun removeAdsOfferState(): RemoveAdsOfferState =
+        RemoveAdsPurchasePolicy.state(wallet.adsRemoved(), removeAdsPlayOwnership)
     private val scrollPositions = mutableMapOf<StoreTab, Int>()
     private var catalogRefreshInProgress = false
     private var catalogRefreshFailed = false
@@ -612,6 +620,11 @@ class StoreActivity :
             return
         }
         if (StoreCatalog.find(productId) == null || purchaseEligibilityInProgress || !storeStarted || !canRenderStoreUi()) return
+        if (productId == StoreCatalog.REMOVE_ADS &&
+            !RemoveAdsPurchasePolicy.canStartCheckout(wallet.adsRemoved(), removeAdsPlayOwnership)) {
+            performRemoveAdsAction()
+            return
+        }
         chosenProductId = productId
         chosenProductOwner = accountRepository.currentSession()?.accountId
         checkoutRetryNeeded = false
@@ -676,6 +689,41 @@ class StoreActivity :
         }
     }
 
+    /** The button never starts another payment for a known owned product. */
+    internal fun performRemoveAdsAction() {
+        when (removeAdsOfferState()) {
+            RemoveAdsOfferState.BUY -> requestPurchase(StoreCatalog.REMOVE_ADS)
+            RemoveAdsOfferState.ACTIVE -> showStoreMessage("Remove Ads is already active for your account.")
+            RemoveAdsOfferState.VERIFYING -> {
+                if (billingWasCreated) billing.refreshPurchases()
+                showStoreMessage("Google Play already owns Remove Ads for this game account. Checking secure purchase restoration.")
+            }
+            RemoveAdsOfferState.RESTORE_ACCOUNT ->
+                PlywoodAlertDialogBuilder(this)
+                    .setTitle("Restore original Ludo Paws account")
+                    .setMessage(
+                        "Google Play already owns Remove Ads, but it was purchased for another Ludo Paws game account. " +
+                            "Restore that original account from Profile; the current guest progress will not merge. " +
+                            "If your original account was never backed up to Google, contact support with your Play order receipt. Do not buy again.",
+                    )
+                    .setNegativeButton("Not now", null)
+                    .setPositiveButton("Open Profile") { _, _ ->
+                        startActivity(Intent(this, ProfileActivity::class.java).putExtra("open_account_actions", true))
+                    }
+                    .show()
+            RemoveAdsOfferState.CONTACT_SUPPORT -> showStoreMessage(
+                "Google Play owns Remove Ads, but its original game account binding is missing. Keep the app installed and contact support with your Google Play order receipt. Do not buy again.",
+            )
+            RemoveAdsOfferState.PAYMENT_PENDING -> showStoreMessage(
+                "Your Remove Ads payment is pending in Google Play. Wait for the payment result before retrying.",
+            )
+            RemoveAdsOfferState.CHECKING, RemoveAdsOfferState.RETRY_CHECK -> {
+                if (billingWasCreated && billingAvailable) billing.refreshPurchases()
+                showStoreMessage("Checking existing Google Play purchases. Wait for this check before buying.")
+            }
+        }
+    }
+
     private fun clearPendingCheckout() {
         purchaseEligibilityInProgress = false
         pendingCheckoutProductId = null
@@ -689,6 +737,8 @@ class StoreActivity :
             pendingCheckoutProductId != null -> "Getting your Google Play price…"
             purchaseEligibilityInProgress -> "Connecting to Google Play…"
             checkoutRetryNeeded && chosenProductId != null -> "Retry selected item · " + StoreCatalog.find(chosenProductId.orEmpty())?.title.orEmpty()
+            removeAdsOfferState() == RemoveAdsOfferState.RESTORE_ACCOUNT ->
+                "Remove Ads belongs to an earlier Ludo Paws account · Restore that account in Profile"
             crossAccountPurchaseAwaitingRestore -> "Earlier Play purchase saved for another Ludo Paws account · Restore that game account in Profile"
             else -> "Pay securely with Google Play"
         }
@@ -863,15 +913,18 @@ class StoreActivity :
         }
 
         val productId = pendingAutoPurchaseProductId ?: return
+        // Home's one-tap Buy must wait for the initial Play ownership result.
+        // The callback below resumes it without requiring another user tap.
+        if (productId == StoreCatalog.REMOVE_ADS &&
+            removeAdsOfferState() == RemoveAdsOfferState.CHECKING) return
         pendingAutoPurchaseProductId = null
-
-        if (productId == StoreCatalog.REMOVE_ADS && wallet.adsRemoved()) {
-            showStoreMessage("Remove Ads is already active for this account.")
+        if (productId == StoreCatalog.REMOVE_ADS &&
+            removeAdsOfferState() != RemoveAdsOfferState.BUY) {
+            performRemoveAdsAction()
             return
         }
 
-        // Called only after Google Play has returned the product catalog, so this opens
-        // the native Google Play purchase sheet rather than merely showing the Store page.
+        // Product details and ownership have both been confirmed.
         requestPurchase(productId)
     }
 
@@ -1405,9 +1458,49 @@ class StoreActivity :
             ) {
                 return@runOnUiThread
             }
-            showStoreMessage(
-                "Your Google Play purchase for $productId is pending. Items will only be granted after Google confirms payment and the backend verifies it.",
-            )
+            if (productId == StoreCatalog.REMOVE_ADS) {
+                // The button displays "Payment pending"; don't show a modal
+                // on every automatic purchase-refresh callback.
+                removeAdsPlayOwnership = RemoveAdsPlayOwnership.PENDING
+                renderStore()
+            } else {
+                showStoreMessage(
+                    "Your Google Play purchase for $productId is pending. Items will only be granted after Google confirms payment and the backend verifies it.",
+                )
+            }
+        }
+    }
+
+    override fun onRemoveAdsOwnershipChanged(ownership: RemoveAdsPlayOwnership) {
+        runOnUiThread {
+            if (!storeStarted || !canRenderStoreUi()) return@runOnUiThread
+            if (removeAdsPlayOwnership == ownership) return@runOnUiThread
+            removeAdsPlayOwnership = ownership
+            updateCheckoutStatus()
+            renderStore()
+            if (pendingAutoPurchaseProductId == StoreCatalog.REMOVE_ADS &&
+                ownership != RemoveAdsPlayOwnership.CHECKING &&
+                ownership != RemoveAdsPlayOwnership.UNKNOWN) {
+                launchPendingAutoPurchaseIfReady()
+            }
+        }
+    }
+
+    override fun onRemoveAdsCheckoutBlocked(ownership: RemoveAdsPlayOwnership) {
+        runOnUiThread {
+            if (!storeStarted || !canRenderStoreUi()) return@runOnUiThread
+            // Google reported ITEM_ALREADY_OWNED, so do not immediately
+            // re-enable Buy if a stale purchase-history query returned empty.
+            removeAdsPlayOwnership = if (ownership == RemoveAdsPlayOwnership.NOT_OWNED)
+                RemoveAdsPlayOwnership.QUERY_FAILED else ownership
+            chosenProductId = null
+            chosenProductOwner = null
+            checkoutRetryNeeded = false
+            clearPendingCheckout()
+            renderStore()
+            if (ownership == RemoveAdsPlayOwnership.NOT_OWNED)
+                showStoreMessage("Google Play reports an earlier purchase, but its ownership details have not refreshed yet. Try 'Retry Play check' after reopening the Store; do not make another payment.")
+            else performRemoveAdsAction()
         }
     }
 
@@ -1513,7 +1606,7 @@ class StoreActivity :
             },
             ProfileStore(this).snapshot(), accountRepository.currentSession()?.accountId,
             billingAvailable, billingProductCatalogLoaded, purchaseEligibilityInProgress, cosmeticUpdateInProgress,
-            pendingAutoPurchaseProductId, rewardedAdsEnabledByServer, rewardedAdsStatusLoaded,
+            pendingAutoPurchaseProductId, removeAdsPlayOwnership, rewardedAdsEnabledByServer, rewardedAdsStatusLoaded,
             rewardedAdsStatusError?.javaClass?.name,
         )
         if (renderedSignature == signature) return
