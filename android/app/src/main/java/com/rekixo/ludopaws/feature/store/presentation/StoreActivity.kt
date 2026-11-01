@@ -603,6 +603,16 @@ class StoreActivity :
                 check(status.optBoolean("billingAvailable", false)) {
                     "Google Play payments are currently unavailable. Please try again later."
                 }
+                // A fresh authenticated wallet check is required for every
+                // checkout, even when Store initialization previously failed.
+                // The public feature flag alone is not payment eligibility.
+                val verifiedWallet = accountRepository.wallet()
+                check(wallet.applyServerSnapshot(verifiedWallet, session.accountId)) {
+                    "Your store wallet could not be verified. Reopen the store and try again."
+                }
+                check(cosmetics.applyServerSnapshot(verifiedWallet, session.accountId)) {
+                    "Your store inventory could not be verified. Reopen the store and try again."
+                }
                 runOnUiThread {
                     if (generation != checkoutGeneration || !storeStarted || !canRenderStoreUi()) return@runOnUiThread
                     if (!com.rekixo.ludopaws.feature.store.domain.PurchaseAccountSafety.canLaunch(
@@ -679,7 +689,9 @@ class StoreActivity :
 
     private fun launchReadyCheckout() {
         val productId = pendingCheckoutProductId ?: return
-        if (!storeStarted || !canRenderStoreUi() || !billingProductCatalogLoaded) return
+        if (!storeStarted || !canRenderStoreUi() || !billingProductCatalogLoaded ||
+            !billingAvailable || !storeOnline
+        ) return
         val expectedAccountId = pendingCheckoutAccountId
         clearPendingCheckout()
         val currentSession = accountRepository.currentSession()
