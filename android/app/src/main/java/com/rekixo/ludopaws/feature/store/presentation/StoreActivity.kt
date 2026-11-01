@@ -1207,6 +1207,7 @@ class StoreActivity :
                     accountRepository.purchaseCosmetic(
                         cosmetic.id,
                         unlockChannel = unlockChannel,
+                        expectedGemPrice = if (unlockChannel == "GEMS") cosmetic.gemPrice else null,
                     )
                 }
                 val serverWallet = response.optJSONObject("wallet") ?: accountRepository.wallet()
@@ -1242,6 +1243,7 @@ class StoreActivity :
                 val apiError = error as? com.rekixo.ludopaws.feature.account.data.AccountApiException
                 val message = when (apiError?.code) {
                     "INSUFFICIENT_GEMS" -> "You do not have enough gems to buy ${cosmetic.title}."
+                    "COSMETIC_PRICE_CHANGED" -> "${cosmetic.title} has a new Gems price. Refresh the offer before buying; no Gems were deducted."
                     "COSMETIC_NOT_OWNED" -> "This item is not owned by the signed-in account."
                     "COSMETIC_UNAVAILABLE" -> "This item is not available yet."
                     "COSMETIC_UNLOCK_CHANNEL_REQUIRED" -> "Choose an unlock method before continuing."

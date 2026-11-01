@@ -662,6 +662,13 @@ export class PlayerAccount {
     }
     if (purchaseKind === "GEMS") {
       if (!Number.isSafeInteger(cosmetic.gemPrice) || cosmetic.gemPrice < 1) throw httpError(400, "COSMETIC_PRICE_INVALID", "cosmetic price is invalid");
+      // Modern clients pin the price displayed on their action button. If a
+      // remote catalog changes before checkout, reject instead of deducting a
+      // different amount. Legacy clients without this field remain compatible.
+      if (body?.expectedGemPrice != null &&
+          (!Number.isSafeInteger(body.expectedGemPrice) || body.expectedGemPrice !== cosmetic.gemPrice)) {
+        throw httpError(409, "COSMETIC_PRICE_CHANGED", "Gem price changed; refresh the offer and confirm the new price");
+      }
       const idem = "cosmetic-purchase:" + requestId;
       const payloadHash = await sha256Hex(JSON.stringify({ cosmeticId, gemPrice: cosmetic.gemPrice }));
       const sourceRefHash = await sha256Hex("ludoproof:cosmetic-purchase:v1:" + requestId);

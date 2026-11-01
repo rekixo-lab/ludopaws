@@ -230,12 +230,16 @@ class AccountRepository(context: Context) {
         )
     }
 
-    fun purchaseCosmetic(cosmeticId: String, unlockChannel: String? = null): JSONObject {
+    fun purchaseCosmetic(cosmeticId: String, unlockChannel: String? = null, expectedGemPrice: Int? = null): JSONObject {
         val session = requireSession()
         val body = JSONObject()
             .put("cosmeticId", cosmeticId)
             .put("clientRequestId", UUID.randomUUID().toString().lowercase())
         if (unlockChannel != null) body.put("unlockChannel", unlockChannel)
+        if (expectedGemPrice != null) {
+            require(unlockChannel == "GEMS" && expectedGemPrice > 0) { "Expected Gems price is invalid." }
+            body.put("expectedGemPrice", expectedGemPrice)
+        }
         return request(
             "POST",
             "/api/wallet/cosmetics/purchase",

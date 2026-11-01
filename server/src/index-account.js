@@ -518,6 +518,7 @@ export async function handleAccountRequest(request, env) {
           cosmeticId: body.cosmeticId,
           clientRequestId: body.clientRequestId,
           ...(body.unlockChannel != null ? { unlockChannel: body.unlockChannel } : {}),
+          ...(body.expectedGemPrice != null ? { expectedGemPrice: body.expectedGemPrice } : {}),
           catalogCountry: requestCatalogCountry(request),
         });
       }
