@@ -305,6 +305,10 @@ internal fun OfflineGameActivity.selectionPanel(
         background = null
         elevation = 0f
 
+        // Character picker already has its player tabs and paw cards.
+        // Omit only its decorative PAW/PAWS heading and adjacent paw icon
+        // in both Robot and Pass & Play; keep all other section headings.
+        if (title != "CHOOSE YOUR PAW" && title != "CHOOSE YOUR PAWS") {
         val heading = LinearLayout(this@selectionPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -367,6 +371,7 @@ internal fun OfflineGameActivity.selectionPanel(
             )
         }
         addView(heading)
+        }
 
         if (subtitle.isNotBlank()) {
             addView(
