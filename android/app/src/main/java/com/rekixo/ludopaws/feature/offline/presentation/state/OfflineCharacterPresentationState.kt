@@ -16,6 +16,7 @@ object OfflineCharacterAssignmentPolicy {
         playerCount: Int,
         preferredCharacterId: String,
         active: ActiveOfflineCharacterSetup?,
+        unlockedCharacterIds: Set<String> = StarterPawsAssignmentPolicy.starterCharacterIds.toSet(),
     ): List<String> {
         require(mode.isLocal) {
             "Offline character assignment requires a local game mode"
@@ -35,6 +36,7 @@ object OfflineCharacterAssignmentPolicy {
             requestedCharacterIds = requested,
             preferredCharacterId = preferredCharacterId,
             computerMode = mode == GameMode.COMPUTER,
+            unlockedCharacterIds = unlockedCharacterIds,
         )
     }
 }
@@ -71,6 +73,7 @@ internal fun OfflineGameActivity.resolveOfflineCharacterIds(
             playerCount = playerCount,
             preferredCharacterId = preferredCharacterId,
             active = active,
+            unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
         )
 
     val preferredColor =

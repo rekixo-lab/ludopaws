@@ -267,7 +267,7 @@ internal fun OfflineGameActivity.setupHero(): FrameLayout =
             TextView(this@setupHero).apply {
                 text =
                     if (isComputerMode) {
-                        "Pick a paw and challenge the computer"
+                        "Choose your paw and each computer opponent"
                     } else {
                         "Pick your paws and play together"
                     }

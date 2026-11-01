@@ -30,6 +30,12 @@ import com.rekixo.ludopaws.ui.offline.common.*
 
 internal fun OfflineGameActivity.initializeCharacterSetup() {
     val preferred = characterSelectionStore.load()
+    if (isComputerMode) {
+        selectedPlayers = offlineCharacterSetupStore.loadSavedPlayerCount(
+            mode = gameMode,
+            fallback = selectedPlayers,
+        )
+    }
     val saved =
         offlineCharacterSetupStore.loadSetup(
             mode = gameMode,
@@ -47,12 +53,7 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
         "Unsupported local player count: $playerCount"
     }
     selectedPlayers = playerCount
-    selectedCharacterSlot =
-        if (isComputerMode) {
-            0
-        } else {
-            selectedCharacterSlot.coerceIn(0, playerCount - 1)
-        }
+    selectedCharacterSlot = selectedCharacterSlot.coerceIn(0, playerCount - 1)
     selectedCharacterIds =
         StarterPawsAssignmentPolicy.normalize(
             playerCount = playerCount,
@@ -64,19 +65,17 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
     selectedColorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
         playerCount, selectedColorsBySeat, selectedColorsBySeat.firstOrNull() ?: "BLUE",
     )
-    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
     persistCharacterSetup()
     rebuildCharacterSlotButtons()
     refreshSetupSelections()
 }
 
 internal fun OfflineGameActivity.selectCharacterSlot(slot: Int) {
-    if (isComputerMode) {
-        selectedCharacterSlot = 0
-    } else if (slot in 0 until selectedPlayers) {
-        selectedCharacterSlot = slot
-    }
-    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    if (slot !in 0 until selectedPlayers) return
+    selectedCharacterSlot = slot
+    // The color picker in Robot mode always belongs to the human seat.
+    selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
     persistCharacterSetup()
     refreshSetupSelections()
 }
@@ -90,17 +89,30 @@ internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
         selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot,
         requestedColor = color,
     )
-    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
     // Save on selection, not just when PLAY is tapped.
     persistCharacterSetup()
     refreshSetupSelections()
 }
 
 internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: String) {
-    if (!characterSelectionStore.isUnlocked(characterId)) {
+    // Ownership gates the human player, not a computer-controlled opponent.
+    if ((!isComputerMode || selectedCharacterSlot == 0) &&
+        !characterSelectionStore.isUnlocked(characterId)
+    ) {
         startActivity(android.content.Intent(this, com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java)
             .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
             .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId))
+        return
+    }
+    if (isComputerMode && selectedCharacterSlot > 0 &&
+        selectedCharacterIds.firstOrNull() == characterId
+    ) {
+        android.widget.Toast.makeText(
+            this,
+            "This is your paw. Choose a different CPU opponent.",
+            android.widget.Toast.LENGTH_SHORT,
+        ).show()
         return
     }
     selectedCharacterIds =
@@ -113,14 +125,16 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
             unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
         )
 
-    selectedCharacterIds
-        .firstOrNull()
-        ?.let { playerOneCharacterId ->
-            characterSelectionStore.select(
-                packId = LudoPawsCharacterCatalog.STARTER_PACK_ID,
-                characterId = playerOneCharacterId,
-            )
-        }
+    if (!isComputerMode || selectedCharacterSlot == 0) {
+        selectedCharacterIds
+            .firstOrNull()
+            ?.let { playerOneCharacterId ->
+                characterSelectionStore.select(
+                    packId = LudoPawsCharacterCatalog.STARTER_PACK_ID,
+                    characterId = playerOneCharacterId,
+                )
+            }
+    }
 
     persistCharacterSetup()
     refreshCharacterSelectionUi()
@@ -141,7 +155,7 @@ internal fun OfflineGameActivity.persistCharacterSetup() {
     selectedCharacterSlot = repaired.selectedSlot
     selectedCharacterIds = repaired.characterIds
     selectedColorsBySeat = repaired.colorsBySeat
-    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
 }
 
 internal fun OfflineGameActivity.persistActiveCharacterSetup() {
@@ -156,21 +170,17 @@ internal fun OfflineGameActivity.persistActiveCharacterSetup() {
 
 internal fun OfflineGameActivity.characterPanel(): LinearLayout =
     selectionPanel(
-        "CHOOSE YOUR PAW",
+        if (isComputerMode) "CHOOSE YOUR PAWS" else "CHOOSE YOUR PAW",
         "",
     ).apply {
-        if (isComputerMode) {
-            // Computer mode needs no YOU/character slot tab; paw selection is direct.
-            characterSlotsRow = null
-            characterSlotButtons = emptyMap()
-        } else {
-            characterSlotsRow =
-                LinearLayout(this@characterPanel).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER
-                }.also(::addView)
-            rebuildCharacterSlotButtons()
-        }
+        // Match Pass & Play's seat tabs, including their plywood selection
+        // style, while naming computer-controlled opponents CPU 1/2/3.
+        characterSlotsRow =
+            LinearLayout(this@characterPanel).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+            }.also(::addView)
+        rebuildCharacterSlotButtons()
 
         val scroll =
             HorizontalScrollView(this@characterPanel).apply {
@@ -254,18 +264,13 @@ private fun OfflineGameActivity.rebuildCharacterSlotButtons() {
     slotsRow.removeAllViews()
 
     val slotMap = linkedMapOf<Int, Button>()
-    val visibleSlots =
-        if (isComputerMode) {
-            listOf(0)
-        } else {
-            (0 until selectedPlayers).toList()
-        }
+    val visibleSlots = (0 until selectedPlayers).toList()
 
     visibleSlots.forEach { slot ->
         val button =
             tileButton(
                 if (isComputerMode) {
-                    "YOU"
+                    if (slot == 0) "YOU" else "CPU $slot"
                 } else {
                     "P${slot + 1}"
                 },
@@ -277,16 +282,10 @@ private fun OfflineGameActivity.rebuildCharacterSlotButtons() {
         slotMap[slot] = button
         slotsRow.addView(
             button,
-            if (isComputerMode) {
-                LinearLayout.LayoutParams(dp(126), dp(54)).apply {
-                    setMargins(dp(4), 0, dp(4), 0)
-                }
-            } else {
-                setupTileParams(
-                    if (isCompactSetup()) 52 else 56,
-                    marginDp = 4,
-                )
-            },
+            setupTileParams(
+                if (isCompactSetup()) 58 else 62,
+                marginDp = 4,
+            ),
         )
     }
     characterSlotButtons = slotMap
@@ -342,10 +341,7 @@ private fun OfflineGameActivity.characterChoiceCard(
 
         addView(
             TextView(this@characterChoiceCard).apply {
-                text =
-                    if (!characterSelectionStore.isUnlocked(character.id)) characterUnlockLabel(character.id) else character.personality.name
-                        .lowercase()
-                        .replaceFirstChar(Char::uppercase)
+                text = characterChoiceSubtitle(character.id)
                 textSize = if (isCompactSetup()) 9.5f else 10.5f
                 setTextColor(0xFFBCD5FF.toInt())
                 gravity = Gravity.CENTER
@@ -384,12 +380,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
     )
 
-    val expectedSlots =
-        if (isComputerMode) {
-            emptySet()
-        } else {
-            (0 until selectedPlayers).toSet()
-        }
+    val expectedSlots = (0 until selectedPlayers).toSet()
     if (
         characterSlotsRow != null &&
         characterSlotButtons.keys != expectedSlots
@@ -419,18 +410,25 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         val seatColor = selectedColorsBySeat.getOrNull(slot) ?: "BLUE"
         val seatTint = LudoPawsTeamIdentityPolicy.resolve(seatColor)?.argb
             ?: Color.WHITE
-        val label = if (isComputerMode) "YOU\n$characterName"
-            else "● P${slot + 1}\n$characterName"
+        val slotName = if (isComputerMode) {
+            if (slot == 0) "YOU" else "CPU $slot"
+        } else {
+            "P${slot + 1}"
+        }
+        val label = "● $slotName\n$characterName"
         button.text = SpannableString(label).apply {
-            if (!isComputerMode) {
-                setSpan(
-                    ForegroundColorSpan(seatTint),
-                    0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-                )
-            }
+            setSpan(
+                ForegroundColorSpan(seatTint),
+                0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
         }
         button.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
-        button.contentDescription = "Player ${slot + 1}, $characterName, $seatColor color"
+        val accessibleSlot = if (isComputerMode) {
+            if (slot == 0) "You" else "Computer $slot"
+        } else {
+            "Player ${slot + 1}"
+        }
+        button.contentDescription = "$accessibleSlot, $characterName, $seatColor color"
     }
 
     val activeCharacterId = selectedCharacterIds.getOrNull(selectedCharacterSlot)
@@ -450,8 +448,9 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         card.findViewWithTag<LudoPawsCharacterAvatarView>(CHARACTER_AVATAR_TAG)
             ?.bind(
                 characterId = characterId,
-                ringColor = LudoPawsTeamIdentityPolicy.resolve(selectedColor)?.argb
-                    ?: 0xFF5BE0FF.toInt(),
+                ringColor = LudoPawsTeamIdentityPolicy.resolve(
+                    selectedColorsBySeat.getOrNull(selectedCharacterSlot) ?: selectedColor,
+                )?.argb ?: 0xFF5BE0FF.toInt(),
                 highlighted = selected,
                 modelTeamColor = selectedColor,
                 showCircularChrome = false,
@@ -460,16 +459,25 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         card.findViewWithTag<TextView>(CHARACTER_NAME_TAG)
             ?.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
         card.findViewWithTag<TextView>(CHARACTER_PERSONALITY_TAG)?.apply {
-            text = if (!characterSelectionStore.isUnlocked(characterId)) {
-                characterUnlockLabel(characterId)
-            } else com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.character(characterId)
-                ?.personality?.name?.lowercase()?.replaceFirstChar(Char::uppercase).orEmpty()
+            text = characterChoiceSubtitle(characterId)
             setTextColor(0xFFBCD5FF.toInt())
             background = null
         }
     }
 
 
+}
+
+private fun OfflineGameActivity.characterChoiceSubtitle(characterId: String): CharSequence {
+    if (!characterSelectionStore.isUnlocked(characterId)) {
+        return if (isComputerMode && selectedCharacterSlot > 0) {
+            "CPU ONLY"
+        } else {
+            characterUnlockLabel(characterId)
+        }
+    }
+    return LudoPawsCharacterCatalog.character(characterId)
+        ?.personality?.name?.lowercase()?.replaceFirstChar(Char::uppercase).orEmpty()
 }
 
 private fun OfflineGameActivity.characterUnlockLabel(characterId: String): CharSequence {

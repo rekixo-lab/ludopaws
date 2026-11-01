@@ -113,28 +113,60 @@ class StarterPawsAssignmentPolicyTest {
     }
 
     @Test
-    fun `computer selection can only change the human slot`() {
+    fun `robot players can choose distinct opponent paws independently`() {
         val current = listOf("dog", "goat", "duck", "cat")
-        val ignoredCpuChange =
-            StarterPawsAssignmentPolicy.select(
-                playerCount = 4,
-                currentCharacterIds = current,
-                selectedSlot = 2,
-                requestedCharacterId = "cat",
-                computerMode = true,
-            )
-        val humanChange =
-            StarterPawsAssignmentPolicy.select(
-                playerCount = 4,
-                currentCharacterIds = current,
-                selectedSlot = 0,
-                requestedCharacterId = "cat",
-                computerMode = true,
-            )
+        val cpuChoice = StarterPawsAssignmentPolicy.select(
+            playerCount = 4,
+            currentCharacterIds = current,
+            selectedSlot = 2,
+            requestedCharacterId = "horse",
+            computerMode = true,
+            unlockedCharacterIds = setOf("dog", "goat", "duck", "cat"),
+        )
 
-        assertEquals(current, ignoredCpuChange)
-        assertEquals("cat", humanChange.first())
-        assertEquals(4, humanChange.distinct().size)
+        assertEquals(listOf("dog", "goat", "horse", "cat"), cpuChoice)
+        assertEquals(cpuChoice, StarterPawsAssignmentPolicy.normalize(
+            4, cpuChoice, "dog", true, setOf("dog", "goat", "duck", "cat"),
+        ))
+        assertEquals(cpuChoice.size, cpuChoice.toSet().size)
+    }
+
+    @Test
+    fun `robot cpu to cpu swaps keep human choice stable`() {
+        val current = listOf("dog", "goat", "duck", "cat")
+        val swapped = StarterPawsAssignmentPolicy.select(
+            playerCount = 4,
+            currentCharacterIds = current,
+            selectedSlot = 2,
+            requestedCharacterId = "goat",
+            computerMode = true,
+            unlockedCharacterIds = setOf("dog"),
+        )
+        assertEquals(listOf("dog", "duck", "goat", "cat"), swapped)
+    }
+
+    @Test
+    fun `robot cpu cannot replace the human paw or unlock it`() {
+        val unlocked = setOf("dog", "goat")
+        val current = listOf("dog", "horse", "duck", "cat")
+        assertEquals(current, StarterPawsAssignmentPolicy.select(
+            4, current, 1, "dog", true, unlocked,
+        ))
+        assertEquals(current, StarterPawsAssignmentPolicy.select(
+            4, current, 0, "horse", true, unlocked,
+        ))
+        assertEquals("dog", StarterPawsAssignmentPolicy.normalize(
+            4, listOf("horse", "dog", "goat", "cat"), "horse", true, unlocked,
+        ).first())
+    }
+
+    @Test
+    fun `human may swap with a cpu using an owned paw`() {
+        val current = listOf("dog", "goat", "duck", "cat")
+        val swapped = StarterPawsAssignmentPolicy.select(
+            4, current, 0, "cat", true, setOf("dog", "cat"),
+        )
+        assertEquals(listOf("cat", "goat", "duck", "dog"), swapped)
     }
 
     @Test

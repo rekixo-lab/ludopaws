@@ -338,6 +338,7 @@ internal fun OfflineGameActivity.selectionPanel(
 
             val highlightedWord = when (title) {
                 "CHOOSE YOUR PAW" -> "PAW"
+                "CHOOSE YOUR PAWS" -> "PAWS"
                 "SELECT PLAYERS" -> "PLAYERS"
                 "CHOOSE YOUR COLOR" -> "COLOR"
                 else -> null

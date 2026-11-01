@@ -38,6 +38,15 @@ class OfflineCharacterSetupStore(
                 Context.MODE_PRIVATE,
             )
 
+    fun loadSavedPlayerCount(mode: GameMode, fallback: Int): Int {
+        require(mode.isLocal)
+        if (prefs.getInt(KEY_SCHEMA_VERSION, SCHEMA_VERSION) != SCHEMA_VERSION) {
+            return fallback
+        }
+        return prefs.getInt(setupPlayerCountKey(mode), fallback)
+            .takeIf(mode::supportsPlayerCount) ?: fallback
+    }
+
     fun loadSetup(
         mode: GameMode,
         playerCount: Int,
@@ -82,15 +91,7 @@ class OfflineCharacterSetupStore(
                 setupSlotKey(mode),
                 0,
             )
-        val selectedSlot =
-            if (mode == GameMode.COMPUTER) {
-                0
-            } else {
-                storedSlot.coerceIn(
-                    0,
-                    playerCount - 1,
-                )
-            }
+        val selectedSlot = storedSlot.coerceIn(0, playerCount - 1)
 
         return saveSetup(
             mode = mode,
@@ -123,15 +124,7 @@ class OfflineCharacterSetupStore(
                 computerMode = mode == GameMode.COMPUTER,
                 unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
             )
-        val safeSlot =
-            if (mode == GameMode.COMPUTER) {
-                0
-            } else {
-                snapshot.selectedSlot.coerceIn(
-                    0,
-                    snapshot.playerCount - 1,
-                )
-            }
+        val safeSlot = snapshot.selectedSlot.coerceIn(0, snapshot.playerCount - 1)
         val repaired =
             OfflineCharacterSetupSnapshot(
                 playerCount = snapshot.playerCount,

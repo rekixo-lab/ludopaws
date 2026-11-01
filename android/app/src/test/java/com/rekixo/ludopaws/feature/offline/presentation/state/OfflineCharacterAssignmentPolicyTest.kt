@@ -73,6 +73,24 @@ class OfflineCharacterAssignmentPolicyTest {
     }
 
     @Test
+    fun `computer resume preserves individually chosen robot opponents`() {
+        val active = ActiveOfflineCharacterSetup(
+            mode = GameMode.COMPUTER,
+            playerCount = 4,
+            preferredColor = "BLUE",
+            characterIds = listOf("dog", "horse", "rabbit", "cat"),
+        )
+        val resolved = OfflineCharacterAssignmentPolicy.resolve(
+            mode = GameMode.COMPUTER,
+            playerCount = 4,
+            preferredCharacterId = "dog",
+            active = active,
+            unlockedCharacterIds = setOf("dog", "goat", "cat"),
+        )
+        assertEquals(active.characterIds, resolved)
+    }
+
+    @Test
     fun `computer resume keeps human preference and unique cpu characters`() {
         val resolved =
             OfflineCharacterAssignmentPolicy.resolve(

@@ -41,19 +41,30 @@ object StarterPawsAssignmentPolicy {
                 ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
                     .takeIf(available::contains)
                 ?: available.first()
+        // Keep the seat indices intact even when an older saved ID is invalid.
         val canonicalRequested =
-            requestedCharacterIds.mapNotNull(
+            requestedCharacterIds.map(
                 LudoPawsCharacterCatalog::canonicalCharacterId,
             )
 
         if (computerMode) {
+            // The human must own their paw, while CPU opponents may use the
+            // complete shipped starter roster without granting ownership.
+            val humanCharacter =
+                canonicalRequested.firstOrNull()
+                    ?.takeIf { it in available && it in unlockedCharacterIds }
+                    ?: safePreferred
+            val used = linkedSetOf(humanCharacter)
             return buildList(playerCount) {
-                add(safePreferred)
-                available
-                    .asSequence()
-                    .filterNot { characterId -> characterId == safePreferred }
-                    .take(playerCount - 1)
-                    .forEach(::add)
+                add(humanCharacter)
+                for (seat in 1 until playerCount) {
+                    val requested = canonicalRequested.getOrNull(seat)
+                    val assigned =
+                        requested?.takeIf { it in available && it !in used }
+                            ?: available.first { it !in used }
+                    add(assigned)
+                    used += assigned
+                }
             }
         }
 
@@ -109,7 +120,11 @@ object StarterPawsAssignmentPolicy {
         val canonicalRequested =
             LudoPawsCharacterCatalog
                 .canonicalCharacterId(requestedCharacterId)
-        if (canonicalRequested == null || canonicalRequested !in available || canonicalRequested !in unlockedCharacterIds) {
+        if (
+            canonicalRequested == null ||
+            canonicalRequested !in available ||
+            (selectedSlot == 0 || !computerMode) && canonicalRequested !in unlockedCharacterIds
+        ) {
             return normalize(
                 playerCount = playerCount,
                 requestedCharacterIds = currentCharacterIds,
@@ -120,31 +135,13 @@ object StarterPawsAssignmentPolicy {
             )
         }
 
-        if (computerMode) {
-            // Only the human slot is directly selectable in Computer mode.
-            val humanCharacterId =
-                if (selectedSlot == 0) {
-                    canonicalRequested
-                } else {
-                    currentCharacterIds.firstOrNull()
-                        ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-                }
-            return normalize(
-                playerCount = playerCount,
-                requestedCharacterIds = listOf(humanCharacterId),
-                preferredCharacterId = humanCharacterId,
-                computerMode = true,
-                unlockedCharacterIds = unlockedCharacterIds,
-            )
-        }
-
         val current =
             normalize(
                 playerCount = playerCount,
                 requestedCharacterIds = currentCharacterIds,
                 preferredCharacterId = currentCharacterIds.firstOrNull()
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
-                computerMode = false,
+                computerMode = computerMode,
                 unlockedCharacterIds = unlockedCharacterIds,
             )
                 .toMutableList()
@@ -155,11 +152,16 @@ object StarterPawsAssignmentPolicy {
         }
 
         val ownerSlot = current.indexOf(canonicalRequested)
+        // Changing a CPU opponent must never silently replace the human's paw.
+        if (computerMode && selectedSlot > 0 && ownerSlot == 0) {
+            return current
+        }
         current[selectedSlot] = canonicalRequested
 
         if (ownerSlot >= 0 && ownerSlot != selectedSlot) {
-            // Swap instead of silently creating duplicates. This keeps every
-            // active local player visually distinct while preserving intent.
+            // Swap selected CPU/seat assignments rather than duplicating paws.
+            // A human can only request an owned paw (checked above), so this
+            // never moves an unowned CPU-only paw into the human seat.
             current[ownerSlot] = previousCharacterId
         }
 
