@@ -575,7 +575,9 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
             (content.getChildAt(2) as? TextView)?.apply {
                 setTextColor(countTextColor)
                 if (isComputerMode) {
-                    text = RobotTeamComposition.label(playerCount, if (selected) selectedHumans else 1)
+                    text = RobotTeamComposition.label(playerCount, if (selected) selectedHumans else 1) +
+                        if (selected && playerCount > 2) " ↻" else ""
+                    maxLines = 1
                 }
             }
             if (isComputerMode) {
