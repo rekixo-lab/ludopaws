@@ -13,9 +13,8 @@ import com.rekixo.ludopaws.LudoPawsBoardChromeView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
-import com.rekixo.ludopaws.core.ui.art.plywoodBackground
-import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind
@@ -63,23 +62,26 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
             else LudoPawsCharacterAvatarView(context).apply { bind(id, showCircularChrome = false) }
         }
     }
-     content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 82 else 92), dp(if (compact) 82 else 92)).apply {
+    content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 82 else 92), dp(if (compact) 82 else 92)).apply {
         if (horizontal) marginEnd = dp(10)
     })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
+    val primary = smartUnlockDecision(item).primary
     val subline = when {
         cosmetics.isOwned(item.id) -> "Owned · tap to equip"
-        item.requiredAdViews > 0 -> "$done / ${item.requiredAdViews} ads watched"
-        item.unlockKind == CosmeticUnlockKind.PLAY_PRODUCT || CosmeticUnlockKind.PLAY_PRODUCT in item.unlockChannels ->
-            "Permanent Google Play unlock"
-        item.gemPrice > 0 -> "${item.gemPrice} Gems · one-time unlock"
-        else -> "Unlock this item"
+        primary == SmartUnlockAction.GEMS -> "${item.gemPrice} Gems · instant unlock"
+        primary == SmartUnlockAction.PLAY_PRODUCT -> "Permanent Google Play unlock"
+        primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS ->
+            "$done / ${item.requiredAdViews} ads watched"
+        primary == SmartUnlockAction.GET_GEMS -> "${item.gemPrice} Gems · earn or buy"
+        else -> "Choose your unlock"
     }
     details.addView(label(subline, 11f).apply {
         setTextColor(0xFF60452D.toInt())
         maxLines = 1
     }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
-    if (item.requiredAdViews > 0 && !cosmetics.isOwned(item.id)) {
+    if (item.requiredAdViews > 0 && !cosmetics.isOwned(item.id) &&
+        (primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS)) {
         val progress = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             background = android.graphics.drawable.GradientDrawable().apply {

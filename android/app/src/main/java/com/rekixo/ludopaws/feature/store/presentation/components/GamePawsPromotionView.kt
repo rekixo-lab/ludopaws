@@ -20,7 +20,6 @@ import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.BuildConfig
-import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
@@ -144,7 +143,7 @@ internal class GamePawsPromotionView(
                 try {
                     preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L,
                         playful = true, prominent = !gameplay,
-                        portraitZoomMultiplier = if (gameplay) 2f else 1.20f).also { live ->
+                        portraitZoomMultiplier = if (gameplay) 2f else 1.30f).also { live ->
                         live.characterId = candidates[index].characterId ?: "dog"
                         live.alpha = 0f
                         live.onReady = { live.alpha = 1f; avatar.visibility = INVISIBLE }
@@ -168,7 +167,12 @@ internal class GamePawsPromotionView(
         clipChildren = true
         clipToPadding = true
         setPadding(dp(4), dp(4), dp(4), dp(4))
-        background = if (gameplay) null else recessedPlywoodBackground(context, outerCornerRadiusDp = 20f)
+        // The carousel already owns the plywood frame; a second thick frame
+        // made the home advertisement look inset and unnecessarily small.
+        background = if (gameplay) null else GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0x22FFF0CC, 0x25A56E40),
+        ).apply { cornerRadius = dp(18).toFloat() }
         artwork.clipChildren = true
         artwork.addView(avatar, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         listOf(leftCopy, rightCopy).forEach { copy ->
@@ -397,11 +401,12 @@ internal class GamePawsPromotionView(
             SmartUnlockAction.FREE -> "Free to unlock"
             else -> "Discover this limited offer"
         }
-        adProgress.text = if (!gameplay && offer.cosmetic.requiredAdViews > 0) {
+        adProgress.text = if (!gameplay && offer.cosmetic.requiredAdViews > 0 &&
+            (decision.primary == SmartUnlockAction.WATCH_AD || decision.primary == SmartUnlockAction.CLAIM_ADS)) {
             "$done / ${offer.cosmetic.requiredAdViews} ads watched"
         } else ""
         adProgress.visibility = if (adProgress.text.isBlank()) GONE else VISIBLE
-        adMeter.visibility = if (!gameplay && offer.cosmetic.requiredAdViews > 0) VISIBLE else GONE
+        adMeter.visibility = if (adProgress.text.isNotBlank()) VISIBLE else GONE
         adMeter.completion = if (offer.cosmetic.requiredAdViews > 0) {
             done.toFloat() / offer.cosmetic.requiredAdViews
         } else 0f
@@ -424,7 +429,7 @@ internal class GamePawsPromotionView(
         avatar.visibility = if (offer.characterId != null) VISIBLE else GONE
         if (offer.characterId != null) {
             if (!gameplay) {
-                val zoom = (homeSpotlightPortraitZoom(offer.characterId) * 1.18f).coerceAtMost(1.45f)
+                val zoom = (homeSpotlightPortraitZoom(offer.characterId) * 1.30f).coerceAtMost(1.55f)
                 avatar.scaleX = zoom
                 avatar.scaleY = zoom
                 val side = minOf(artwork.width, artwork.height)
