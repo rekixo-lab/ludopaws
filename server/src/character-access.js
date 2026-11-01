@@ -9,7 +9,7 @@ export const CHARACTER_ACCOUNT_HEADER = "x-ludoproof-character-account-token";
  * Only the authoritative server may create BOT seats, which bypass this helper
  * and may use the entire registered roster (including future additions).
  */
-export async function assertHumanCharacterAccess(request, env, requestedCharacterId) {
+export async function assertHumanCharacterAccess(request, env, requestedCharacterId, identity = {}) {
   const characterId = normalizeCharacterId(requestedCharacterId);
   if (!characterNeedsOwnership(characterId)) return;
 
@@ -18,6 +18,42 @@ export async function assertHumanCharacterAccess(request, env, requestedCharacte
     throw httpError(403, "CHARACTER_ACCOUNT_REQUIRED", "Connect your Ludo Paws account to use this unlocked character.");
   }
   const session = await verifyAccessToken(env, token);
+
+  // The premium entitlement and the human-controlled leaderboard/friend
+  // identity must belong to the SAME account. A paid JWT alone is not a
+  // transferable license for unrelated social profiles.
+  const profileId = identity?.profileId;
+  const friendId = identity?.friendId;
+  if ((Boolean(profileId) === Boolean(friendId)) || (!profileId && !friendId)) {
+    throw httpError(403, "CHARACTER_IDENTITY_REQUIRED", "Link your game account to this player profile before using a paid paw.");
+  }
+  const directory = env?.LUDOPROOF_ACCOUNT_DIRECTORY;
+  if (!directory) {
+    throw httpError(503, "CHARACTER_IDENTITY_UNAVAILABLE", "Character ownership verification is temporarily unavailable.");
+  }
+  let identityResponse;
+  try {
+    const target = directory.get(directory.idFromName("GLOBAL:V1"));
+    identityResponse = await target.fetch(new Request("https://account-directory/referral/identity", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(profileId ? { profileId } : { friendId }),
+    }));
+  } catch {
+    throw httpError(503, "CHARACTER_IDENTITY_UNAVAILABLE", "Character ownership verification is temporarily unavailable.");
+  }
+  if (!identityResponse.ok) {
+    throw httpError(503, "CHARACTER_IDENTITY_UNAVAILABLE", "Character ownership verification is temporarily unavailable.");
+  }
+  let linked;
+  try { linked = await identityResponse.json(); }
+  catch {
+    throw httpError(503, "CHARACTER_IDENTITY_UNAVAILABLE", "Character ownership verification is temporarily unavailable.");
+  }
+  if (linked?.accountId !== session.accountId) {
+    throw httpError(403, "CHARACTER_ACCOUNT_MISMATCH", "Restore the game account linked to this profile to use its premium character.");
+  }
+
   const namespace = env?.LUDOPROOF_PLAYER_ACCOUNTS;
   if (!namespace) {
     throw httpError(503, "CHARACTER_WALLET_UNAVAILABLE", "Character ownership verification is temporarily unavailable.");
