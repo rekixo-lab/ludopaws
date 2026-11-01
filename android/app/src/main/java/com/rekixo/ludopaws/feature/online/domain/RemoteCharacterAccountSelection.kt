@@ -15,11 +15,20 @@ data class RemoteCharacterAccountSelection(
          * Free paws need no extra auth. Premium paw requests carry a refreshed
          * game-account session for authoritative server ownership checks.
          */
-        fun current(context: Context): RemoteCharacterAccountSelection {
+        fun current(
+            context: Context,
+            leaderboardProfileToken: String? = null,
+            friendToken: String? = null,
+        ): RemoteCharacterAccountSelection {
             val characterId = CharacterSelectionStore(context).load().characterId
             val accountToken = if (StoreCosmeticCatalog.characterEntitlementId(characterId) != null) {
-                (context.applicationContext as LudoProofApplication)
-                    .accountRepository.requireSession().accessToken
+                val repository = (context.applicationContext as LudoProofApplication).accountRepository
+                when {
+                    leaderboardProfileToken != null -> repository.ensureLinkedLeaderboardWallet(leaderboardProfileToken)
+                    friendToken != null -> repository.ensureLinkedFriendWallet(friendToken)
+                    else -> error("A verified game profile is required for a premium online character")
+                }
+                repository.requireSession().accessToken
             } else null
             return RemoteCharacterAccountSelection(characterId, accountToken)
         }
