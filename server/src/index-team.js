@@ -1,5 +1,6 @@
 import hardenedWorker from "./index-hardening.js";
 import { MATCH_LOCATION_HEADER, matchLocationHint } from "./match-location.js";
+import { forwardCharacterAccountHeader } from "./character-access.js";
 import {
   httpError,
   sha256Hex,
@@ -58,6 +59,7 @@ export default {
       if (authorization) headers.set("authorization", authorization);
       const locationHint = matchLocationHint(env, request);
       if (locationHint) headers.set(MATCH_LOCATION_HEADER, locationHint);
+      if (match[1] === "search") forwardCharacterAccountHeader(headers, request);
 
       const response = await target.fetch(
         new Request("https://team-matchmaker/" + match[1], {

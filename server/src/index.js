@@ -10,6 +10,7 @@ import {
   verifyAndRedeemGooglePlayPurchase,
 } from "./google-play-billing.js";
 import { MATCH_LOCATION_HEADER, matchLocationHint } from "./match-location.js";
+import { forwardCharacterAccountHeader } from "./character-access.js";
 
 export { MatchRoom } from "./match-room.js";
 export { ApiGate } from "./api-gate.js";
@@ -363,6 +364,7 @@ export default {
                   }
                   const locationHint = matchLocationHint(env, request);
                   if (locationHint) headers.set(MATCH_LOCATION_HEADER, locationHint);
+                  if (matchmakingRoute[1] === "search") forwardCharacterAccountHeader(headers, request);
                   return headers;
                 })(),
                 body:
@@ -415,6 +417,7 @@ export default {
               authorization,
             );
           }
+          forwardCharacterAccountHeader(headers, request);
           const response = await target.fetch(
             new Request("https://room/create", {
               method: "POST",
@@ -540,6 +543,7 @@ export default {
           friendJoinToken,
         );
       }
+      if (action === "join") forwardCharacterAccountHeader(headers, request);
       headers.set(
         "content-type",
         "application/json",
