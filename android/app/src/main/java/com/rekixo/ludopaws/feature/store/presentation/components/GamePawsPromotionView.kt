@@ -180,7 +180,7 @@ internal class GamePawsPromotionView(
             copy.gravity = Gravity.CENTER
             copy.setPadding(dp(2), 0, dp(2), 0)
             if (gameplay) {
-                copy.setPadding(dp(5), dp(6), dp(5), dp(6))
+                copy.setPadding(dp(3), dp(3), dp(3), dp(3))
                 copy.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                     intArrayOf(0xD92B4D36.toInt(), 0xB51C382D.toInt())).apply {
                     cornerRadius = dp(12).toFloat()
@@ -237,14 +237,14 @@ internal class GamePawsPromotionView(
                     maxLines = 1
                     letterSpacing = .03f
                     setTextColor(0xFFD7F1BD.toInt())
-                    setPadding(dp(2), dp(4), dp(2), dp(4))
+                    setPadding(dp(2), dp(2), dp(2), dp(2))
                     background = GradientDrawable().apply {
                         setColor(0x485B904D)
                         cornerRadius = dp(8).toFloat()
                         setStroke(dp(1), 0x708FCB79)
                     }
                 }
-            }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(5) })
+            }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(2) })
             storeLabel.apply {
                 isAllCaps = false
                 backgroundTintList = null
@@ -263,9 +263,9 @@ internal class GamePawsPromotionView(
             }
         }
         if (gameplay) {
-            addView(leftCopy, LayoutParams(0, -2, 1f))
+            addView(leftCopy, LayoutParams(0, -2, .85f))
             addView(artwork, LayoutParams(dp(64), -1))
-            addView(rightCopy, LayoutParams(0, -2, 1f))
+            addView(rightCopy, LayoutParams(0, -2, 1.15f))
         } else {
             // Premium offer art direction: readable copy left, larger original
             // 3D item right, one full-width CTA at the bottom. Keep the exact
@@ -329,6 +329,8 @@ internal class GamePawsPromotionView(
             }
             com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.save(context, offer.cosmetic.id)
             storeLabel.text = "Saved ✓"
+            storeLabel.contentDescription = "${offer.title} saved for after the match"
+            contentDescription = "${offer.title} saved for after the match"
             notice?.cancel()
             notice = Toast.makeText(context, "${offer.title} saved. We’ll offer its details after the match.",
                 Toast.LENGTH_SHORT).also { it.show() }
@@ -385,13 +387,13 @@ internal class GamePawsPromotionView(
                 BuildConfig.ADMOB_REWARDED_AD_UNIT_ID.isNotBlank(),
         )
         priceLabel.text = if (gameplay) when (decision.primary) {
-            SmartUnlockAction.GEMS -> "Unlock · ${offer.cosmetic.gemPrice} Gems"
-            SmartUnlockAction.PLAY_PRODUCT -> "Buy with Google Play"
-            SmartUnlockAction.WATCH_AD -> "Watch Ad · $done/${offer.cosmetic.requiredAdViews}"
-            SmartUnlockAction.CLAIM_ADS -> "All Ads Completed"
-            SmartUnlockAction.GET_GEMS -> "Get Gems to Unlock"
-            SmartUnlockAction.FREE -> "Free Unlock"
-            else -> "View offer"
+            SmartUnlockAction.GEMS -> "${offer.cosmetic.gemPrice} Gems"
+            SmartUnlockAction.PLAY_PRODUCT -> "Buy"
+            SmartUnlockAction.WATCH_AD -> "$done/${offer.cosmetic.requiredAdViews} Ads"
+            SmartUnlockAction.CLAIM_ADS -> "Ads ready"
+            SmartUnlockAction.GET_GEMS -> "Get Gems"
+            SmartUnlockAction.FREE -> "Free"
+            else -> "See offer"
         } else when (decision.primary) {
             SmartUnlockAction.GEMS -> "${offer.cosmetic.gemPrice} Gems · instant unlock"
             SmartUnlockAction.PLAY_PRODUCT -> "Keep forever with Google Play"
@@ -411,7 +413,7 @@ internal class GamePawsPromotionView(
             done.toFloat() / offer.cosmetic.requiredAdViews
         } else 0f
         storeLabel.text = when {
-            gameplay -> "View after match"
+            gameplay -> "Save"
             !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() ||
                 !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
             decision.primary == SmartUnlockAction.PLAY_PRODUCT -> "Buy ›"
@@ -421,6 +423,7 @@ internal class GamePawsPromotionView(
             decision.primary == SmartUnlockAction.GET_GEMS -> "Get Gems ›"
             else -> "Unlock ›"
         }
+        storeLabel.contentDescription = if (gameplay) "Save ${offer.title} for after the match" else null
         preview?.setActive(false)
         preview?.alpha = 0f
         preview?.visibility = GONE
@@ -468,8 +471,18 @@ internal class GamePawsPromotionView(
                 artwork.addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
             }
         }
-        contentDescription = if (gameplay) "${offer.title}. Save this offer until after your match." else
-            "${offer.title}. ${storeLabel.text.toString().removeSuffix(" ›")}."
+        contentDescription = if (gameplay) {
+            val unlockDetail = when (decision.primary) {
+                SmartUnlockAction.GEMS -> "${offer.cosmetic.gemPrice} Gems to unlock"
+                SmartUnlockAction.PLAY_PRODUCT -> "Buy with Google Play"
+                SmartUnlockAction.WATCH_AD -> "$done of ${offer.cosmetic.requiredAdViews} ads watched"
+                SmartUnlockAction.CLAIM_ADS -> "Required ads completed"
+                SmartUnlockAction.GET_GEMS -> "More Gems needed to unlock"
+                SmartUnlockAction.FREE -> "Free unlock"
+                else -> "Offer details available after the match"
+            }
+            "${offer.title}. $unlockDetail. Save this offer until after your match."
+        } else "${offer.title}. ${storeLabel.text.toString().removeSuffix(" ›")}."
         updateMotion()
     }
 
@@ -510,7 +523,7 @@ internal class GamePawsPromotionView(
         val availableWidth = MeasureSpec.getSize(widthMeasureSpec)
         val availableHeight = MeasureSpec.getSize(heightMeasureSpec)
         if (gameplay) {
-            val portraitSize = minOf(availableHeight - dp(8), (availableWidth * .36f).toInt()).coerceAtLeast(dp(40))
+            val portraitSize = minOf(availableHeight - dp(8), (availableWidth * .28f).toInt()).coerceAtLeast(dp(40))
             if (artwork.layoutParams.width != portraitSize || artwork.layoutParams.height != portraitSize)
                 artwork.layoutParams = LayoutParams(portraitSize, portraitSize)
         }
