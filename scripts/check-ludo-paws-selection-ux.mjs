@@ -212,7 +212,7 @@ requireText(commonHeader, "RobotTitleIconView(", "Robot header icon");
 requireText(commonHeader, "FrameLayout.LayoutParams.MATCH_PARENT,", "responsive Robot title width");
 requireText(selection, "Same inset and breathing room around all three headings", "matched heading padding");
 for (const marker of [
-  'selectionPanel(\n        "CHOOSE YOUR PAW",\n        "",',
+  'selectionPanel(\n        if (isComputerMode) "CHOOSE YOUR PAWS" else "CHOOSE YOUR PAW",\n        "",',
   'selectionPanel(\n        "SELECT PLAYERS",\n        "",',
   'selectionPanel(\n        "CHOOSE YOUR COLOR",\n        "",',
 ]) {
