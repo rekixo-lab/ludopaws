@@ -126,10 +126,11 @@ export class MatchRoom extends SocialMatchRoom {
 
     const result = forfeitTimedOutTurn(deadlineState, { now });
     await this.ctx.storage.put(STATE_KEY, result.state);
-    broadcastStateChanged(this.ctx, result.state, this.env);
-    if (result.state.status === "FINISHED") {
-      await this.recordFinishedMatchForLifecycle(result.state);
-    }
+    // Settlement may persist a newer version: broadcast that actual state.
+    const finalState = result.state.status === "FINISHED"
+      ? await this.recordFinishedMatchForLifecycle(result.state)
+      : result.state;
+    broadcastStateChanged(this.ctx, finalState, this.env);
     return true;
   }
 
@@ -238,10 +239,11 @@ export class MatchRoom extends SocialMatchRoom {
       };
       next.history = history;
       await this.ctx.storage.put(STATE_KEY, next);
-      if (next.status === "FINISHED") {
-        await this.recordFinishedMatchForLifecycle(next);
-      }
-      broadcastStateChanged(this.ctx, next, this.env);
+      // Finished-match settlement can change the persisted leaderboard state.
+      const finalState = next.status === "FINISHED"
+        ? await this.recordFinishedMatchForLifecycle(next)
+        : next;
+      broadcastStateChanged(this.ctx, finalState, this.env);
       return true;
     }
     if (now < deadline) return false;
