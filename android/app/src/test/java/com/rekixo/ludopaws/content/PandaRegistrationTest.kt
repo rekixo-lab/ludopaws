@@ -18,8 +18,8 @@ class PandaRegistrationTest {
         assertNotSame(CharacterRegistry.resolve("dog").renderer, CharacterRegistry.resolve("panda").renderer)
     }
 
-    @Test fun newLocalPandaCannotBreakRequestsToTheExistingProductionServer() {
-        assertEquals("dog", LudoPawsCharacterIdentityContract.resolveForRequest("panda"))
+    @Test fun premiumPandaPreservesIdentityForServerVerifiedOwnership() {
+        assertEquals("panda", LudoPawsCharacterIdentityContract.resolveForRequest("panda"))
         assertEquals("panda", LudoPawsCharacterIdentityContract.resolveRemote("panda"))
     }
 

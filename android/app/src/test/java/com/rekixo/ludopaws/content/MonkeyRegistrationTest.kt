@@ -18,8 +18,8 @@ class MonkeyRegistrationTest {
         assertNotSame(CharacterRegistry.resolve("dog").renderer, CharacterRegistry.resolve("monkey").renderer)
     }
 
-    @Test fun newLocalMonkeyCannotBreakRequestsToTheExistingProductionServer() {
-        assertEquals("dog", LudoPawsCharacterIdentityContract.resolveForRequest("monkey"))
+    @Test fun premiumMonkeyPreservesIdentityForServerVerifiedOwnership() {
+        assertEquals("monkey", LudoPawsCharacterIdentityContract.resolveForRequest("monkey"))
         assertEquals("monkey", LudoPawsCharacterIdentityContract.resolveRemote("monkey"))
     }
 
