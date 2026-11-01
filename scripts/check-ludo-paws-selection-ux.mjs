@@ -279,7 +279,7 @@ for (const required of [
 ]) {
   requireText(ui, required, "Robot color selection and persistence");
 }
-if (!colorTests.includes("robotColorPickerKeepsHumanChoiceForTwoThreeAndFourPlayers")) {
+if (!colorTests.includes("robotColorPickerMatchesActualCpuSeatOrderForTwoThreeAndFourPlayers")) {
   throw new Error("Selection UX gate: Robot two-, three-, four-player regression test missing");
 }
 
