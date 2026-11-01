@@ -371,6 +371,8 @@ class HomeActivity : Activity() {
                     cosmeticId?.let { id ->
                         putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, id)
                         putExtra(StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+                        com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this@HomeActivity)
+                            .load()?.accountId?.let { putExtra(StoreActivity.EXTRA_EXPECTED_UNLOCK_OWNER, it) }
                         com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(id)?.let { offer ->
                             val decision = com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy.decide(
                                 cosmetic = offer,

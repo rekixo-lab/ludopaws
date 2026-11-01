@@ -62,6 +62,7 @@ class StoreActivity :
     internal var promotedCosmeticId: String? = null
     private var pendingSmartUnlockId: String? = null
     private var pendingSmartUnlockExpectedAction: String? = null
+    private var pendingSmartUnlockExpectedOwner: String? = null
     private var pendingSmartUnlockExpectedGems: Int = -1
     private var pendingPlayEquipId: String? = null
     private var pendingPlayEquipOwner: String? = null
@@ -232,6 +233,7 @@ class StoreActivity :
         promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.find(it) != null }
         pendingSmartUnlockId = if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_START_SMART_UNLOCK, false)) promotedCosmeticId else null
         pendingSmartUnlockExpectedAction = if (savedInstanceState == null) intent.getStringExtra(EXTRA_EXPECTED_UNLOCK_ACTION) else null
+        pendingSmartUnlockExpectedOwner = if (savedInstanceState == null) intent.getStringExtra(EXTRA_EXPECTED_UNLOCK_OWNER) else null
         pendingSmartUnlockExpectedGems = if (savedInstanceState == null) intent.getIntExtra(EXTRA_EXPECTED_GEMS_PRICE, -1) else -1
         if (savedInstanceState == null) promotedCosmeticId?.let { id ->
             StoreCosmeticCatalog.find(id)?.let { selectedTab = PromotionInterest.tabFor(it) }
@@ -1182,6 +1184,11 @@ class StoreActivity :
             BuildConfig.LUDOPROOF_BILLING_ENABLED && billingAvailable &&
             !billingProductCatalogLoaded) return
         pendingSmartUnlockId = null
+        if (pendingSmartUnlockExpectedOwner != null &&
+            accountRepository.currentSession()?.accountId != pendingSmartUnlockExpectedOwner) {
+            showCosmeticFeedback("The game account changed. Select this offer again for the current account.")
+            return
+        }
         if (catalogRefreshFailed) {
             showCosmeticFeedback("Offer verification failed. Refresh and select the item again.")
             return
@@ -1696,6 +1703,7 @@ class StoreActivity :
         const val EXTRA_PROMOTED_COSMETIC_ID = "promoted_cosmetic_id"
         const val EXTRA_START_SMART_UNLOCK = "start_smart_unlock"
         const val EXTRA_EXPECTED_UNLOCK_ACTION = "expected_unlock_action"
+        const val EXTRA_EXPECTED_UNLOCK_OWNER = "expected_unlock_owner"
         const val EXTRA_EXPECTED_GEMS_PRICE = "expected_unlock_gems"
         const val EXTRA_FEATURED_CHARACTER_ID = "ludo_paws_featured_character_id"
         const val EXTRA_INITIAL_TAB =

@@ -58,6 +58,7 @@ internal object PromotionInterest {
                         activity.launchPlayerScreen(Intent(activity, StoreActivity::class.java)
                             .putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, id)
                             .putExtra(StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+                            .putExtra(StoreActivity.EXTRA_EXPECTED_UNLOCK_OWNER, key.takeUnless { it == "installation" })
                             .putExtra(StoreActivity.EXTRA_EXPECTED_UNLOCK_ACTION, action.name)
                             .putExtra(StoreActivity.EXTRA_EXPECTED_GEMS_PRICE,
                                 if (action == com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.GEMS) item.gemPrice else -1)

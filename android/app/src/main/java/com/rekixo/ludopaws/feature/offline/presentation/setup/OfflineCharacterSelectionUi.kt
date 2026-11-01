@@ -131,6 +131,8 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
             if (offerId != null) {
                 putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, offerId)
                 putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+                com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this@selectCharacterForActiveSlot)
+                    .load()?.accountId?.let { putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_EXPECTED_UNLOCK_OWNER, it) }
                 com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(offerId)?.let { offer ->
                     val action = com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy.decide(
                         cosmetic = offer,
