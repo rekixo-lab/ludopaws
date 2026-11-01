@@ -840,6 +840,8 @@ class StoreActivity :
             renderStore()
             launchReadyCheckout()
             launchPendingAutoPurchaseIfReady()
+            // A Home Buy action is only safe once Play has supplied eligible SKUs.
+            maybeStartPendingSmartUnlock()
         }
     }
 
@@ -1104,7 +1106,10 @@ class StoreActivity :
         gems = wallet.balance(),
         adProgress = cosmetics.rewardedAdProgress(cosmetic.id),
         playAvailable = BuildConfig.LUDOPROOF_BILLING_ENABLED &&
-            StoreCatalog.cosmeticProductId(cosmetic.id) != null,
+            (storeRefreshInFlight || billingAvailable) &&
+            StoreCatalog.cosmeticProductId(cosmetic.id)?.let { productId ->
+                !billingProductCatalogLoaded || productId in liveProducts
+            } == true,
         adsAvailable = adsEnabledForBuild,
     )
 
@@ -1173,6 +1178,9 @@ class StoreActivity :
         val id = pendingSmartUnlockId ?: return
         if (!storeStarted || !showcaseResumed || !storeOnline || storeRefreshInFlight ||
             catalogRefreshInProgress || !canRenderStoreUi()) return
+        if (pendingSmartUnlockExpectedAction == SmartUnlockAction.PLAY_PRODUCT.name &&
+            BuildConfig.LUDOPROOF_BILLING_ENABLED && billingAvailable &&
+            !billingProductCatalogLoaded) return
         pendingSmartUnlockId = null
         if (catalogRefreshFailed) {
             showCosmeticFeedback("Offer verification failed. Refresh and select the item again.")
@@ -1279,6 +1287,7 @@ class StoreActivity :
                 runOnUiThread {
                     cosmeticUpdateInProgress = false
                     if (!canRenderStoreUi()) return@runOnUiThread
+                    if (apiError?.code == "COSMETIC_PRICE_CHANGED") refreshStoreCatalog()
                     showStoreMessage(message)
                 }
             }
