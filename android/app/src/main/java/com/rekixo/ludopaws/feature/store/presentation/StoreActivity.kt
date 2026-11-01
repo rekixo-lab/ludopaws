@@ -1218,14 +1218,14 @@ class StoreActivity :
                 }
                 cosmetics.clearOfflineSelection(cosmetic.category)
                 runOnUiThread {
+                    cosmeticUpdateInProgress = false
+                    if (!canRenderStoreUi() || accountRepository.currentSession()?.accountId != session.accountId) return@runOnUiThread
                     if (cosmetic.id.startsWith("character_") && cosmetics.isOwned(cosmetic.id)) {
                         val characterId = cosmetic.id.removePrefix("character_")
                         com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this)
                             .takeIf { it.isUnlocked(characterId) }
                             ?.select(com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.STARTER_PACK_ID, characterId)
                     }
-                    cosmeticUpdateInProgress = false
-                    if (!canRenderStoreUi() || accountRepository.currentSession()?.accountId != session.accountId) return@runOnUiThread
                     renderStore()
                     showStoreMessage(
                         if (cosmetics.selectedId(cosmetic.category) == cosmetic.id) {
