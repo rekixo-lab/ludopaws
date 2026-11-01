@@ -241,7 +241,7 @@ class StoreActivity :
             ?.takeIf { com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.find(it) != null }
         promotedCosmeticId = if (savedInstanceState != null) savedInstanceState.getString("store_promoted_item")
             else intent.getStringExtra(EXTRA_PROMOTED_COSMETIC_ID)
-        promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.find(it) != null }
+        promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.findShopItem(it) != null }
         pendingSmartUnlockId = if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_START_SMART_UNLOCK, false)) promotedCosmeticId else null
         pendingSmartUnlockExpectedAction = if (savedInstanceState == null) intent.getStringExtra(EXTRA_EXPECTED_UNLOCK_ACTION) else null
         pendingSmartUnlockExpectedOwner = if (savedInstanceState == null) intent.getStringExtra(EXTRA_EXPECTED_UNLOCK_OWNER) else null

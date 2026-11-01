@@ -137,6 +137,10 @@ object StoreCosmeticCatalog {
         (builtInBoards + builtInDice + builtInAvatars + builtInCharacterPacks + characterUnlocks)
             .firstOrNull { it.id == id }
 
+    /** Retail entry points use ONLY visible, released catalog items. */
+    fun findShopItem(id: String): StoreCosmetic? =
+        all.firstOrNull { it.id == id }
+
     fun find(
         id: String,
     ): StoreCosmetic? =

@@ -23,7 +23,7 @@ internal object PromotionInterest {
     }
 
     fun save(context: Context, id: String) {
-        val item = StoreCosmeticCatalog.find(id)?.takeIf { it.contentAvailable } ?: return
+        val item = StoreCosmeticCatalog.findShopItem(id)?.takeIf { it.contentAvailable } ?: return
         val key = owner(context)
         prefs(context).edit().putString(key, item.id).putLong("$key:time", System.currentTimeMillis()).apply()
     }
@@ -33,7 +33,7 @@ internal object PromotionInterest {
         val key = owner(activity)
         val preferences = prefs(activity)
         val id = preferences.getString(key, null) ?: return
-        val item = StoreCosmeticCatalog.find(id)
+        val item = StoreCosmeticCatalog.findShopItem(id)
         val age = System.currentTimeMillis() - preferences.getLong("$key:time", 0L)
         fun clear() { preferences.edit().remove(key).remove("$key:time").apply() }
         if (age !in 0L..86_400_000L || item == null || !item.contentAvailable || CosmeticInventoryStore(activity).isOwned(id)) {
@@ -54,7 +54,7 @@ internal object PromotionInterest {
                     "Unlock ${item.title} for ${item.gemPrice} Gems?" else
                     "You saved ${item.title}. Start its unlock now?")
                 .setPositiveButton("Unlock item") { _, _ ->
-                    if (owner(activity) == key && StoreCosmeticCatalog.find(id)?.contentAvailable == true) {
+                    if (owner(activity) == key && StoreCosmeticCatalog.findShopItem(id)?.contentAvailable == true) {
                         activity.launchPlayerScreen(Intent(activity, StoreActivity::class.java)
                             .putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, id)
                             .putExtra(StoreActivity.EXTRA_START_SMART_UNLOCK, true)

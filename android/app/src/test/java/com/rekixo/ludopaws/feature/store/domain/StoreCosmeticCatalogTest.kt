@@ -119,6 +119,12 @@ class StoreCosmeticCatalogTest {
         assertTrue(StoreCosmeticCatalog.characterPacks.all { it.contentAvailable })
         assertTrue(StoreCosmeticCatalog.avatars.isEmpty())
         assertTrue(StoreCosmeticCatalog.all.none { it.category == CosmeticCategory.AVATAR })
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("avatar_2"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("avatar_4"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("board_chess"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("dice_diwali"))
+        assertTrue(StoreCosmeticCatalog.findShopItem("board_classic") != null)
+        assertTrue(StoreCosmeticCatalog.findShopItem("character_pack_starter_paws") != null)
         assertTrue(StoreCosmeticCatalog.boards.none { it.id in setOf("board_chess", "board_diwali", "board_neon") })
         assertTrue(StoreCosmeticCatalog.dice.none { it.id in setOf("dice_diwali", "dice_heart", "dice_cricket") })
         assertTrue(StoreCosmeticCatalog.characterPacks.none {
