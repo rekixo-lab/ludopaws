@@ -245,7 +245,15 @@ internal class GamePawsPromotionView(
                         setStroke(dp(1), 0xB08FCB79.toInt())
                     }
                 }
-            }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(4) })
+            }, LayoutParams(
+                if (gameplay) LayoutParams.WRAP_CONTENT else LayoutParams.MATCH_PARENT,
+                LayoutParams.WRAP_CONTENT,
+            ).apply {
+                if (gameplay) {
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    topMargin = dp(4)
+                }
+            })
             storeLabel.apply {
                 isAllCaps = false
                 backgroundTintList = null
