@@ -170,6 +170,51 @@ class StarterPawsAssignmentPolicyTest {
     }
 
     @Test
+    fun `mixed human and robot seats keep owned paws on every human seat`() {
+        val owned = setOf("dog", "goat", "duck", "cat")
+        val initial = StarterPawsAssignmentPolicy.normalize(
+            playerCount = 4,
+            requestedCharacterIds = listOf("dog", "horse", "rabbit", "cat"),
+            preferredCharacterId = "dog",
+            computerMode = true,
+            unlockedCharacterIds = owned,
+            humanCount = 2,
+        )
+        assertEquals(listOf("dog", "goat", "rabbit", "cat"), initial)
+        assertEquals(4, initial.toSet().size)
+        assertTrue(initial.take(2).all(owned::contains))
+
+        val invalid = StarterPawsAssignmentPolicy.select(
+            playerCount = 4, currentCharacterIds = initial,
+            selectedSlot = 1, requestedCharacterId = "horse",
+            computerMode = true, unlockedCharacterIds = owned, humanCount = 2,
+        )
+        assertEquals(initial, invalid)
+
+        val robotCannotTakeHuman2 = StarterPawsAssignmentPolicy.select(
+            playerCount = 4, currentCharacterIds = initial,
+            selectedSlot = 2, requestedCharacterId = "goat",
+            computerMode = true, unlockedCharacterIds = owned, humanCount = 2,
+        )
+        assertEquals(initial, robotCannotTakeHuman2)
+    }
+
+    @Test
+    fun `raising number of human seats repairs previously locked cpu paw`() {
+        val owned = setOf("dog", "goat", "duck", "cat")
+        val selected = StarterPawsAssignmentPolicy.normalize(
+            playerCount = 4,
+            requestedCharacterIds = listOf("dog", "goat", "horse", "rabbit"),
+            preferredCharacterId = "dog",
+            computerMode = true, unlockedCharacterIds = owned, humanCount = 3,
+        )
+        assertEquals("duck", selected[2])
+        assertEquals("rabbit", selected[3])
+        assertTrue(selected.take(3).all(owned::contains))
+        assertEquals(4, selected.distinct().size)
+    }
+
+    @Test
     fun `only two to four local players are accepted`() {
         assertThrows(IllegalArgumentException::class.java) {
             StarterPawsAssignmentPolicy.normalize(
