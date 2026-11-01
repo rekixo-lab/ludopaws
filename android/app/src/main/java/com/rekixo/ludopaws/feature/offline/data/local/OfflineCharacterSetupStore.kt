@@ -5,12 +5,14 @@ import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.OfflinePlayerLayout
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.selection.StarterPawsAssignmentPolicy
+import com.rekixo.ludopaws.feature.offline.domain.engine.RobotTeamComposition
 
 data class OfflineCharacterSetupSnapshot(
     val playerCount: Int,
     val selectedSlot: Int,
     val characterIds: List<String>,
     val colorsBySeat: List<String> = emptyList(),
+    val humanCount: Int = 1,
 )
 
 data class ActiveOfflineCharacterSetup(
@@ -18,6 +20,7 @@ data class ActiveOfflineCharacterSetup(
     val playerCount: Int,
     val preferredColor: String,
     val characterIds: List<String>,
+    val humanCount: Int = 1,
 )
 
 /**
@@ -37,6 +40,15 @@ class OfflineCharacterSetupStore(
                 PREFS_NAME,
                 Context.MODE_PRIVATE,
             )
+
+    fun loadSavedPlayerCount(mode: GameMode, fallback: Int): Int {
+        require(mode.isLocal)
+        if (prefs.getInt(KEY_SCHEMA_VERSION, SCHEMA_VERSION) != SCHEMA_VERSION) {
+            return fallback
+        }
+        return prefs.getInt(setupPlayerCountKey(mode), fallback)
+            .takeIf(mode::supportsPlayerCount) ?: fallback
+    }
 
     fun loadSetup(
         mode: GameMode,
@@ -63,6 +75,9 @@ class OfflineCharacterSetupStore(
                     null,
                 ),
             )
+        val humanCount = if (mode == GameMode.COMPUTER) {
+            RobotTeamComposition.humans(playerCount, prefs.getInt(setupHumanCountKey(mode), 1))
+        } else playerCount
         val normalized =
             StarterPawsAssignmentPolicy.normalize(
                 playerCount = playerCount,
@@ -70,27 +85,27 @@ class OfflineCharacterSetupStore(
                 preferredCharacterId = preferredCharacterId,
                 computerMode = mode == GameMode.COMPUTER,
                 unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
+                humanCount = humanCount,
             )
         val storedColors = parseIds(prefs.getString(setupColorsKey(mode), null))
-        val colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
-            playerCount = playerCount,
-            requestedColors = storedColors,
-            preferredColor = storedColors.firstOrNull() ?: "BLUE",
-        )
+        val colorsBySeat = if (mode == GameMode.COMPUTER) {
+            OfflinePlayerLayout.colorsFor(
+                playerCount,
+                storedColors.firstOrNull()?.takeIf(OfflinePlayerLayout.COLORS::contains) ?: "BLUE",
+            )
+        } else {
+            OfflinePlayerLayout.normalizeColorsForSeats(
+                playerCount = playerCount,
+                requestedColors = storedColors,
+                preferredColor = storedColors.firstOrNull() ?: "BLUE",
+            )
+        }
         val storedSlot =
             prefs.getInt(
                 setupSlotKey(mode),
                 0,
             )
-        val selectedSlot =
-            if (mode == GameMode.COMPUTER) {
-                0
-            } else {
-                storedSlot.coerceIn(
-                    0,
-                    playerCount - 1,
-                )
-            }
+        val selectedSlot = storedSlot.coerceIn(0, playerCount - 1)
 
         return saveSetup(
             mode = mode,
@@ -100,6 +115,7 @@ class OfflineCharacterSetupStore(
                     selectedSlot = selectedSlot,
                     characterIds = normalized,
                     colorsBySeat = colorsBySeat,
+                    humanCount = humanCount,
                 ),
         )
     }
@@ -112,6 +128,9 @@ class OfflineCharacterSetupStore(
             "Offline character setup requires a local game mode"
         }
 
+        val humanCount = if (mode == GameMode.COMPUTER) {
+            RobotTeamComposition.humans(snapshot.playerCount, snapshot.humanCount)
+        } else snapshot.playerCount
         val preferred =
             snapshot.characterIds.firstOrNull()
                 ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
@@ -122,26 +141,28 @@ class OfflineCharacterSetupStore(
                 preferredCharacterId = preferred,
                 computerMode = mode == GameMode.COMPUTER,
                 unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
+                humanCount = humanCount,
             )
-        val safeSlot =
-            if (mode == GameMode.COMPUTER) {
-                0
-            } else {
-                snapshot.selectedSlot.coerceIn(
-                    0,
-                    snapshot.playerCount - 1,
-                )
-            }
+        val safeSlot = snapshot.selectedSlot.coerceIn(0, snapshot.playerCount - 1)
         val repaired =
             OfflineCharacterSetupSnapshot(
                 playerCount = snapshot.playerCount,
                 selectedSlot = safeSlot,
                 characterIds = normalized,
-                colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
-                    playerCount = snapshot.playerCount,
-                    requestedColors = snapshot.colorsBySeat,
-                    preferredColor = snapshot.colorsBySeat.firstOrNull() ?: "BLUE",
-                ),
+                humanCount = humanCount,
+                colorsBySeat = if (mode == GameMode.COMPUTER) {
+                    OfflinePlayerLayout.colorsFor(
+                        snapshot.playerCount,
+                        snapshot.colorsBySeat.firstOrNull()
+                            ?.takeIf(OfflinePlayerLayout.COLORS::contains) ?: "BLUE",
+                    )
+                } else {
+                    OfflinePlayerLayout.normalizeColorsForSeats(
+                        playerCount = snapshot.playerCount,
+                        requestedColors = snapshot.colorsBySeat,
+                        preferredColor = snapshot.colorsBySeat.firstOrNull() ?: "BLUE",
+                    )
+                },
             )
 
         prefs.edit()
@@ -157,6 +178,7 @@ class OfflineCharacterSetupStore(
                 setupSlotKey(mode),
                 repaired.selectedSlot,
             )
+            .putInt(setupHumanCountKey(mode), repaired.humanCount)
             .putString(
                 setupIdsKey(mode),
                 repaired.characterIds.joinToString(","),
@@ -172,10 +194,14 @@ class OfflineCharacterSetupStore(
         playerCount: Int,
         preferredColor: String,
         characterIds: List<String>,
+        humanCount: Int = 1,
     ): ActiveOfflineCharacterSetup {
         require(mode.isLocal) {
             "Active offline character setup requires a local game mode"
         }
+        val humans = if (mode == GameMode.COMPUTER) {
+            RobotTeamComposition.humans(playerCount, humanCount)
+        } else playerCount
         val normalized =
             StarterPawsAssignmentPolicy.normalize(
                 playerCount = playerCount,
@@ -184,6 +210,7 @@ class OfflineCharacterSetupStore(
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
                 computerMode = mode == GameMode.COMPUTER,
                 unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
+                humanCount = humans,
             )
         val active =
             ActiveOfflineCharacterSetup(
@@ -191,12 +218,14 @@ class OfflineCharacterSetupStore(
                 playerCount = playerCount,
                 preferredColor = preferredColor,
                 characterIds = normalized,
+                humanCount = humans,
             )
 
         prefs.edit()
             .putInt(KEY_SCHEMA_VERSION, SCHEMA_VERSION)
             .putString(KEY_ACTIVE_MODE, mode.wireValue)
             .putInt(KEY_ACTIVE_PLAYER_COUNT, playerCount)
+            .putInt(KEY_ACTIVE_HUMAN_COUNT, humans)
             .putString(KEY_ACTIVE_COLOR, preferredColor)
             .putString(KEY_ACTIVE_CHARACTER_IDS, normalized.joinToString(","))
             .apply()
@@ -239,6 +268,9 @@ class OfflineCharacterSetupStore(
                     null,
                 ),
             )
+        val humanCount = if (mode == GameMode.COMPUTER) {
+            RobotTeamComposition.humans(playerCount, prefs.getInt(KEY_ACTIVE_HUMAN_COUNT, 1))
+        } else playerCount
         val normalized =
             StarterPawsAssignmentPolicy.normalize(
                 playerCount = playerCount,
@@ -247,6 +279,7 @@ class OfflineCharacterSetupStore(
                     ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID,
                 computerMode = mode == GameMode.COMPUTER,
                 unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
+                humanCount = humanCount,
             )
 
         return ActiveOfflineCharacterSetup(
@@ -259,6 +292,7 @@ class OfflineCharacterSetupStore(
                 )
                     ?: "BLUE",
             characterIds = normalized,
+            humanCount = humanCount,
         )
     }
 
@@ -286,6 +320,9 @@ class OfflineCharacterSetupStore(
     ): String =
         "${modeKey(mode)}_selected_slot"
 
+    private fun setupHumanCountKey(mode: GameMode): String =
+        "${modeKey(mode)}_human_count"
+
     private fun setupColorsKey(mode: GameMode): String =
         "${modeKey(mode)}_colors_by_seat"
 
@@ -305,6 +342,8 @@ class OfflineCharacterSetupStore(
             "active_mode"
         const val KEY_ACTIVE_PLAYER_COUNT =
             "active_player_count"
+        const val KEY_ACTIVE_HUMAN_COUNT =
+            "active_human_count"
         const val KEY_ACTIVE_COLOR =
             "active_color"
         const val KEY_ACTIVE_CHARACTER_IDS =

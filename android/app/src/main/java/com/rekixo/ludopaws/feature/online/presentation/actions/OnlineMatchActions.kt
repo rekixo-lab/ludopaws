@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.online
 
+import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
@@ -65,6 +66,7 @@ internal fun MainActivity.createMatch() {
         action = {
             val credential =
                 ensureLeaderboardCredential()
+            val character = RemoteCharacterAccountSelection.current(this, leaderboardProfileToken = credential.profileToken)
             api.createMatch(
                 profileToken =
                     credential.profileToken,
@@ -72,6 +74,8 @@ internal fun MainActivity.createMatch() {
                     displayName,
                 clientRequestId =
                     requestId,
+                characterId = character.characterId,
+                characterAccountToken = character.accountToken,
                 rulesetKey = "CLASSIC_V5",
             )
         },
@@ -146,6 +150,7 @@ internal fun MainActivity.joinMatch() {
         action = {
             val credential =
                 ensureLeaderboardCredential()
+            val character = RemoteCharacterAccountSelection.current(this, leaderboardProfileToken = credential.profileToken)
             api.joinMatch(
                 matchId =
                     code,
@@ -155,6 +160,8 @@ internal fun MainActivity.joinMatch() {
                     requestId,
                 profileToken =
                     credential.profileToken,
+                characterId = character.characterId,
+                characterAccountToken = character.accountToken,
             )
         },
         onSuccess = {

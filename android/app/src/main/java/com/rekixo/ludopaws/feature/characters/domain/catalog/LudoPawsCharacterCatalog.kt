@@ -12,6 +12,14 @@ object LudoPawsCharacterCatalog {
     const val DEFAULT_CHARACTER_ID = "dog"
 
     /**
+     * Matches the server's explicit FREE_HUMAN_CHARACTER_IDS registry.
+     * Every future registered paw is locked to human/local Robot choices until
+     * it has an owned store entitlement or is intentionally added here.
+     * Automatic server bots are NOT restricted by this list.
+     */
+    val FREE_HUMAN_CHARACTER_IDS: Set<String> = setOf("dog", "goat", "duck", "cat")
+
+    /**
      * Compatibility only for installs/matches persisted before the 3D roster.
      * Old ids never appear in the production catalog or UI after normalization.
      */
@@ -140,6 +148,9 @@ object LudoPawsCharacterCatalog {
         }
         require(charactersById.containsKey(DEFAULT_CHARACTER_ID)) {
             "Default Ludo Paws character is missing"
+        }
+        require(FREE_HUMAN_CHARACTER_IDS.all(charactersById::containsKey)) {
+            "Every free human character must be registered in the catalog"
         }
 
         for (pack in packList) {

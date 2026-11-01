@@ -59,6 +59,10 @@ internal fun MainActivity.scheduleOnlineAutoMove(snapshot: MatchSnapshot) {
 
     cancelScheduledOnlineAutoMove()
     scheduledAutoMoveEventKey = decision.eventKey
+    // A move has one effective destination; explain why no second paw tap is needed.
+    if (autoMoveAttemptCount == 0 || lastAutoMoveAttemptEventKey != decision.eventKey) {
+        showStatus("Only one move available • moving your paw automatically…")
+    }
     val task = object : Runnable {
         override fun run() {
             if (scheduledAutoMoveEventKey != decision.eventKey) return
@@ -119,7 +123,15 @@ internal fun MainActivity.scheduleOnlineAutoMove(snapshot: MatchSnapshot) {
     scheduledAutoMoveRunnable = task
     mainHandler.postDelayed(
         task,
-        onlineAutoMoveWaitMillis(includePostRollBreath = true),
+        onlineAutoMoveWaitMillis(includePostRollBreath = true) +
+            // Bounded backoff after a transient rejected/failed network action.
+            // The server has a separate authoritative forced-move fallback.
+            when (autoMoveAttemptCount) {
+                0 -> 0L
+                1 -> 600L
+                2 -> 1_200L
+                else -> 2_400L
+            },
     )
 }
 
@@ -129,4 +141,4 @@ internal fun MainActivity.cancelScheduledOnlineAutoMove() {
     scheduledAutoMoveEventKey = null
 }
 
-private const val MAX_AUTO_MOVE_ATTEMPTS = 2
+private const val MAX_AUTO_MOVE_ATTEMPTS = 4

@@ -129,30 +129,62 @@ internal class ReferralPromotionController(
             if (!host.isAttachedToWindow) return@fetch
             host.removeAllViews()
             if (snapshot == null || !eligible(snapshot) || cosmeticId in inventory.ownedCosmeticIds()) { host.visibility = View.GONE; return@fetch }
+            // One compact referral ribbon; the detailed 3-item artwork and
+            // eligibility explanation remain in the existing referral popup.
             val card = LinearLayout(activity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(12), dp(8), dp(12), dp(10))
-                background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 16f)
-                addView(TextView(activity).apply {
-                    text = "Claim Your Friendship Bundle"
-                    textSize = 17f
-                    typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
-                    gravity = android.view.Gravity.CENTER
-                    setPadding(dp(4), dp(10), dp(4), dp(10))
-                    setTextColor(0xFF174F55.toInt())
-                    setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), 0x66FFF4DE)
-                    isAccessibilityHeading = true
-                }, LinearLayout.LayoutParams(-1, -2))
-                addView(ReferralGemRewardView(activity, compact = true, includeBundleItems = true), LinearLayout.LayoutParams(-1, -2))
+                orientation = LinearLayout.HORIZONTAL
+                gravity = android.view.Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(7), dp(10), dp(7))
+                background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 14f)
+                addView(android.widget.ImageView(activity).apply {
+                    setImageResource(com.rekixo.ludopaws.R.drawable.referral_gem_bucket_3d)
+                    scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }, LinearLayout.LayoutParams(dp(44), dp(48)))
+                addView(LinearLayout(activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    setPadding(dp(7), 0, dp(3), 0)
+                    addView(TextView(activity).apply {
+                        text = "Friendship Rewards"
+                        textSize = 13.5f
+                        typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+                        setTextColor(0xFF47301D.toInt())
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                    addView(TextView(activity).apply {
+                        text = "100 Gems + 3 items"
+                        textSize = 11.5f
+                        setTextColor(0xFF5E432D.toInt())
+                        maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
+                    })
+                    addView(TextView(activity).apply {
+                        text = "After verified play"
+                        textSize = 10.5f
+                        setTextColor(0xFF72553B.toInt())
+                        maxLines = 1
+                    })
+                }, LinearLayout.LayoutParams(0, -2, 1f))
                 addView(Button(activity).apply {
-                    text = if (snapshot.optString("state") == "INVITE") "Invite a friend  ›" else "View progress  ›"
-                    textSize = 14f; typeface = Typeface.DEFAULT_BOLD; isAllCaps = false
-                    minHeight = dp(48); backgroundTintList = null
+                    text = if (snapshot.optString("state") == "INVITE") "Invite ›" else "Progress ›"
+                    textSize = 12f
+                    typeface = Typeface.DEFAULT_BOLD
+                    isAllCaps = false
+                    minHeight = dp(44)
+                    minimumHeight = dp(44)
+                    setPadding(dp(3), 0, dp(3), 0)
+                    backgroundTintList = null
                     setTextColor(0xFFFFFFFF.toInt())
                     background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                        intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply { cornerRadius = dp(16).toFloat() }
+                        intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
+                        cornerRadius = dp(13).toFloat()
+                    }
+                    contentDescription = "View friendship rewards, invite requirements and verified progress"
                     setOnClickListener { requestPopup(automatic = false) }
-                }, LinearLayout.LayoutParams(-1, -2))
+                }, LinearLayout.LayoutParams(dp(84), dp(44)).apply { marginStart = dp(4) })
+                contentDescription = "Friendship rewards. Earn 100 Gems, a board, a character and dice after a qualifying friend's verified match."
             }
             host.addView(card, FrameLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
             host.visibility = View.VISIBLE

@@ -134,25 +134,19 @@ class OfflinePlayerLayoutTest {
     }
 
     @Test
-    fun robotColorPickerKeepsHumanChoiceForTwoThreeAndFourPlayers() {
+    fun robotColorPickerMatchesActualCpuSeatOrderForTwoThreeAndFourPlayers() {
         for (players in 2..4) {
-            var assigned = OfflinePlayerLayout.colorsFor(players, "BLUE")
             for (requested in OfflinePlayerLayout.COLORS) {
-                assigned = OfflinePlayerLayout.selectColorForSeat(
-                    playerCount = players,
-                    currentColors = assigned,
-                    selectedSeat = 0,
-                    requestedColor = requested,
-                )
+                // Robot setup must preview the same seat colors as engine.start:
+                // only the human color is chosen; CPU colors are automatic.
+                val assigned = OfflinePlayerLayout.colorsFor(players, requested)
                 assertEquals(requested, assigned.first())
                 assertEquals(players, assigned.size)
                 assertEquals(players, assigned.distinct().size)
                 assertEquals(
                     assigned,
-                    OfflinePlayerLayout.normalizeColorsForSeats(players, assigned, requested),
+                    OfflinePlayerLayout.colorsFor(players, assigned.first()),
                 )
-                // Robot match creation consumes the selected human color.
-                assertEquals(requested, OfflinePlayerLayout.colorsFor(players, requested).first())
             }
         }
     }

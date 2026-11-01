@@ -18,6 +18,12 @@ data class PendingStorePurchase(
     val accountId: String,
 )
 
+/** A pending Play token may be verified only by the game account that bought it. */
+internal object PendingPurchaseAccountPolicy {
+    fun mayVerify(purchaseAccountId: String, currentBillingAccountId: String?): Boolean =
+        currentBillingAccountId != null && purchaseAccountId == currentBillingAccountId
+}
+
 class PendingStorePurchaseStore(context: Context) {
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)

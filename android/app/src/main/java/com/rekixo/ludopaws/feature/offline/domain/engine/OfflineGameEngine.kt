@@ -88,7 +88,11 @@ class OfflineGameEngine(
         playerCount: Int,
         preferredColor: String = "RED",
         colorsBySeat: List<String>? = null,
+        humanCount: Int = 1,
     ): MatchSnapshot {
+        if (computerMode) require(humanCount in 1 until playerCount) {
+            "Robot mode needs at least one human and one robot"
+        }
         MatchSpec.classic(
             mode = mode,
             playerCount = playerCount,
@@ -112,7 +116,7 @@ class OfflineGameEngine(
         val players =
             (0 until playerCount)
                 .map { seat ->
-                    val isCpu = computerMode && seat > 0
+                    val isCpu = computerMode && seat >= humanCount
                     LocalPlayer(
                         playerId =
                             if (isCpu) {
@@ -123,7 +127,7 @@ class OfflineGameEngine(
                         displayName =
                             when {
                                 seat == 0 -> humanName
-                                isCpu -> "Robot $seat"
+                                isCpu -> "Robot ${seat - humanCount + 1}"
                                 else -> "Player ${seat + 1}"
                             },
                         color = colorOrder[seat],

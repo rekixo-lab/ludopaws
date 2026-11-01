@@ -95,7 +95,24 @@ export default {
     const startedAt = Date.now();
     try {
       const response = await handleAccountRequest(request, env);
-      return withAccountWebCors(request, await familyResponse(response, env), env);
+      const result = withAccountWebCors(request, await familyResponse(response, env), env);
+      if (result.status >= 500) {
+        // Privacy-safe operational diagnostics; never log query strings, bodies,
+        // authentication headers, Play purchase tokens, or account identifiers.
+        const pathClass = url.pathname === "/api/store/purchases/verify" ? "store.purchase-verify"
+          : url.pathname === "/api/store/status" ? "store.status"
+            : url.pathname === "/api/store/catalog" ? "store.catalog"
+              : ["account", "store", "referrals", "friends", "matches", "leaderboard"]
+                .find(name => url.pathname.startsWith("/api/" + name)) ?? "other";
+        console.error(JSON.stringify({
+          event: "api-server-error",
+          pathClass,
+          method: request.method,
+          status: result.status,
+          elapsedMs: Date.now() - startedAt,
+        }));
+      }
+      return result;
     } finally {
       const elapsedMs = Date.now() - startedAt;
       if (elapsedMs >= 1500) {
@@ -491,6 +508,17 @@ export async function handleAccountRequest(request, env) {
         });
       }
 
+      // Authenticated read only; never accepts an amount/rank or credits currency.
+      if (url.pathname === "/api/wallet/match-reward/status" && request.method === "GET") {
+        await rateLimit(env, request, "wallet:read", ACCOUNT_RATE_LIMITS.wallet);
+        const session = await authenticate(request, env);
+        return await playerResponse(env, session.accountId, "/wallet/match-reward/status", {
+          accountId: session.accountId,
+          sessionId: session.sessionId,
+          matchId: url.searchParams.get("matchId"),
+        });
+      }
+
       if (url.pathname === "/api/wallet/cosmetics/purchase" && request.method === "POST") {
         await rateLimit(env, request, "wallet:cosmetic:purchase", ACCOUNT_RATE_LIMITS.walletMutation);
         const session = await authenticate(request, env);
@@ -501,6 +529,7 @@ export async function handleAccountRequest(request, env) {
           cosmeticId: body.cosmeticId,
           clientRequestId: body.clientRequestId,
           ...(body.unlockChannel != null ? { unlockChannel: body.unlockChannel } : {}),
+          ...(body.expectedGemPrice != null ? { expectedGemPrice: body.expectedGemPrice } : {}),
           catalogCountry: requestCatalogCountry(request),
         });
       }

@@ -36,9 +36,4 @@ internal fun StoreActivity.cosmeticPlayPrice(cosmeticId: String): String =
         ?: "Price unavailable"
 
 internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharSequence =
-    CosmeticPriceLabels.gems(
-        this, cosmetic.gemPrice,
-        if (com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT in cosmetic.unlockChannels)
-            "\nBUY · ${cosmeticPlayPrice(cosmetic.id)}"
-        else "\nWATCH · ${cosmetic.requiredAdViews} ADS",
-    )
+    smartUnlockLabel(cosmetic)

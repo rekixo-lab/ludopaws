@@ -342,7 +342,11 @@ test("router rate-limits aggregate gameplay traffic before entering rooms", asyn
     const isGet = path === "state" || path === "events";
     const response = await worker.fetch(new Request("https://api.test/api/matches/LPABCDEFGH/" + path, {
       method: isGet ? "GET" : "POST",
-      headers: { authorization: "Bearer lp_authenticated", "content-type": "application/json" },
+      headers: {
+        authorization: "Bearer lp_authenticated",
+        "content-type": "application/json",
+        ...(path === "events" ? { upgrade: "websocket" } : {}),
+      },
       body: isGet ? undefined : "{}",
     }), env);
     assert.equal(response.status, 200);

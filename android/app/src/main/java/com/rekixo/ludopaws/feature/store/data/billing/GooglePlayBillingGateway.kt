@@ -322,9 +322,19 @@ class GooglePlayBillingGateway(
                         return@forEach
                     }
                     if (purchaseAccountId != currentBillingAccountId && !restorableNonConsumable) {
-                        listener.onBillingUnavailable(
-                            "A Play purchase could not be matched to this app account; no content was granted.",
-                        )
+                        // A completed but unconsumed Gem purchase may belong to
+                        // an older game account. Leave it with Google Play and
+                        // query it again when that original account is restored.
+                        // Do not interrupt a new checkout with a misleading toast.
+                        if (purchaseAccountId != null &&
+                            OBFUSCATED_ACCOUNT_ID_REGEX.matches(purchaseAccountId)
+                        ) {
+                            listener.onPurchaseBelongsToOtherAccount()
+                        } else {
+                            listener.onBillingUnavailable(
+                                "A Play purchase has no valid game account binding. No content was granted.",
+                            )
+                        }
                         return@forEach
                     }
                     if (validPurchaseAccountId == null || !processingPurchaseTokens.add(purchase.purchaseToken)) {
@@ -429,6 +439,9 @@ class GooglePlayBillingGateway(
         fun onPurchasePending(
             productId: String,
         )
+
+        /** A different-account Play purchase is never verified or granted here. */
+        fun onPurchaseBelongsToOtherAccount() = Unit
 
         fun onBillingUnavailable(
             message: String,

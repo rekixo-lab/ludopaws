@@ -137,6 +137,7 @@ export class PlayerAccount {
       if (request.method === "POST" && url.pathname === "/profile/get") return await this.#getProfile(request);
       if (request.method === "POST" && url.pathname === "/profile/update") return await this.#updateProfile(request);
       if (request.method === "POST" && url.pathname === "/wallet/get") return await this.#getWallet(request);
+      if (request.method === "POST" && url.pathname === "/wallet/match-reward/status") return await this.#matchRewardStatus(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-revoke") return await this.#revokePlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/referral-bundle") return await this.#grantReferralBundle(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-purchase") return await this.#grantPlayPurchase(request);
@@ -353,6 +354,29 @@ export class PlayerAccount {
     this.#requireActiveSession(accountId, sessionId);
     await this.#enrollLegacyPurchases(accountId);
     return json(200, { ok: true, wallet: this.#walletSnapshot(accountId) });
+  }
+
+  // Read-only, account-scoped receipt. A planned match reward is NOT proof of
+  // delivery; never report Credited until the wallet ledger actually contains it.
+  async #matchRewardStatus(request) {
+    const body = await readJson(request);
+    const accountId = requireAccountId(body?.accountId);
+    const sessionId = requireSessionId(body?.sessionId);
+    this.#requireActiveSession(accountId, sessionId);
+    const matchId = String(body?.matchId ?? "");
+    if (!/^LP[A-Z2-9]{8}$/.test(matchId)) {
+      throw httpError(400, "MATCH_REWARD_ID_INVALID", "match ID is invalid");
+    }
+    const row = [...this.ctx.storage.sql.exec(
+      "SELECT kind, delta FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1",
+      "match-reward:" + matchId,
+    )][0];
+    const status = row == null ? "PENDING"
+      : row.kind === "MATCH_REWARD_FRIENDS_LIMIT" && Number(row.delta) === 0 ? "LIMIT_REACHED"
+      : /^MATCH_REWARD_(ONLINE|FRIENDS|TEAM_UP)$/.test(String(row.kind)) &&
+        Number(row.delta) > 0 ? "CREDITED" : "UNAVAILABLE";
+    return json(200, { ok: true, matchId, status,
+      creditedGems: status === "CREDITED" ? Number(row.delta) : 0 });
   }
 
   async #enrollLegacyPurchases(accountId) {
@@ -611,7 +635,9 @@ export class PlayerAccount {
         this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", nextBalance, now, accountId);
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_ad_progress (cosmetic_id, progress, updated_at) VALUES (?, ?, ?) ON CONFLICT(cosmetic_id) DO UPDATE SET progress = excluded.progress, updated_at = excluded.updated_at", cosmeticId, next, now);
         this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", gemAmount, nextBalance, transactionHash, now);
-        if (next >= cosmetic.ads && ["character_goat_lumi", "character_donkey", "dice_pearl_paw"].includes(cosmeticId)) {
+        // Every server-approved ad cosmetic is fulfilled on the final signed ad.
+        // Ownership, progress, gem credit and idempotency share one transaction.
+        if (next >= cosmetic.ads) {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
         }
       });
@@ -660,6 +686,13 @@ export class PlayerAccount {
     }
     if (purchaseKind === "GEMS") {
       if (!Number.isSafeInteger(cosmetic.gemPrice) || cosmetic.gemPrice < 1) throw httpError(400, "COSMETIC_PRICE_INVALID", "cosmetic price is invalid");
+      // Modern clients pin the price displayed on their action button. If a
+      // remote catalog changes before checkout, reject instead of deducting a
+      // different amount. Legacy clients without this field remain compatible.
+      if (body?.expectedGemPrice != null &&
+          (!Number.isSafeInteger(body.expectedGemPrice) || body.expectedGemPrice !== cosmetic.gemPrice)) {
+        throw httpError(409, "COSMETIC_PRICE_CHANGED", "Gem price changed; refresh the offer and confirm the new price");
+      }
       const idem = "cosmetic-purchase:" + requestId;
       const payloadHash = await sha256Hex(JSON.stringify({ cosmeticId, gemPrice: cosmetic.gemPrice }));
       const sourceRefHash = await sha256Hex("ludoproof:cosmetic-purchase:v1:" + requestId);

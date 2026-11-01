@@ -24,8 +24,8 @@ class DonkeyRegistrationTest {
         assertFalse(LudoPawsCharacterCatalog.characters.any { it.id == "lion" })
     }
 
-    @Test fun oldProductionServerCannotRejectANewLocalDonkeySelection() {
-        assertEquals("dog",LudoPawsCharacterIdentityContract.resolveForRequest("donkey"))
+    @Test fun premiumDonkeyPreservesIdentityForServerVerifiedOwnership() {
+        assertEquals("donkey",LudoPawsCharacterIdentityContract.resolveForRequest("donkey"))
         assertEquals("donkey",LudoPawsCharacterIdentityContract.resolveRemote("donkey"))
         assertEquals("cat",LudoPawsCharacterIdentityContract.resolveForRequest("cat"))
     }

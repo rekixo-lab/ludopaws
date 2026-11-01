@@ -14,6 +14,7 @@ internal object OnlineAutoMovePolicy {
         "ludoproof-team-v3",
         "ludoproof-standard-v4",
         "ludoproof-standard-v5",
+        "ludoproof-standard-v6",
         "ludoproof-team-v4",
         "ludoproof-team-v5",
     )

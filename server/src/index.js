@@ -10,6 +10,7 @@ import {
   verifyAndRedeemGooglePlayPurchase,
 } from "./google-play-billing.js";
 import { MATCH_LOCATION_HEADER, matchLocationHint } from "./match-location.js";
+import { forwardCharacterAccountHeader } from "./character-access.js";
 
 export { MatchRoom } from "./match-room.js";
 export { ApiGate } from "./api-gate.js";
@@ -363,6 +364,7 @@ export default {
                   }
                   const locationHint = matchLocationHint(env, request);
                   if (locationHint) headers.set(MATCH_LOCATION_HEADER, locationHint);
+                  if (matchmakingRoute[1] === "search") forwardCharacterAccountHeader(headers, request);
                   return headers;
                 })(),
                 body:
@@ -415,6 +417,7 @@ export default {
               authorization,
             );
           }
+          forwardCharacterAccountHeader(headers, request);
           const response = await target.fetch(
             new Request("https://room/create", {
               method: "POST",
@@ -503,6 +506,19 @@ export default {
         request,
         route.method,
       );
+      if (
+        route.websocket &&
+        request.headers.get("upgrade")?.trim().toLowerCase() !== "websocket"
+      ) {
+        // Never fabricate an upstream upgrade for a plain HTTP request:
+        // the Durable Object would create a 101 WebSocket response that the
+        // outer Cloudflare Worker is forbidden from returning to this client.
+        throw httpError(
+          426,
+          "WEBSOCKET_REQUIRED",
+          "realtime events require an Upgrade: websocket request",
+        );
+      }
 
       const target = room(env, matchId);
       const headers = new Headers();
@@ -527,17 +543,14 @@ export default {
           friendJoinToken,
         );
       }
+      if (action === "join") forwardCharacterAccountHeader(headers, request);
       headers.set(
         "content-type",
         "application/json",
       );
-      if (
-        route.websocket
-      ) {
-        headers.set(
-          "upgrade",
-          "websocket",
-        );
+      if (route.websocket) {
+        // The incoming request has already been verified as an upgrade.
+        headers.set("upgrade", "websocket");
       }
 
       let body;

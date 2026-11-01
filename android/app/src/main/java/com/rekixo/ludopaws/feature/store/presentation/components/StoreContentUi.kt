@@ -29,32 +29,25 @@ internal fun StoreActivity.pinnedRemoveAdsContent(): LinearLayout {
 }
 
 internal fun StoreActivity.storeContent(): LinearLayout {
-    val catalog = when (selectedTab) {
-        StoreTab.GEMS ->
-            gemsContent()
-
-        StoreTab.PAWS ->
-            pawsCatalogContent()
-
-        StoreTab.BOARD ->
-            boardCatalogContent()
-
-        StoreTab.DICE ->
-            diceCatalogContent()
-
+    // The collection must be visible before cross-promotion.
+    // Insert a small optional friendship banner after its first product row.
+    val referralEntry = when (selectedTab) {
+        StoreTab.PAWS -> referralPromotions.storeEntry("character_rabbit")
+        StoreTab.BOARD -> referralPromotions.storeEntry("board_blossom_garden")
+        StoreTab.DICE -> referralPromotions.storeEntry("dice_pearl_paw")
+        StoreTab.GEMS -> null
     }
-    val bundleItem = when (selectedTab) {
-        StoreTab.PAWS -> "character_rabbit"
-        StoreTab.BOARD -> "board_blossom_garden"
-        StoreTab.DICE -> "dice_pearl_paw"
-        else -> null
+    val catalog = when (selectedTab) {
+        StoreTab.GEMS -> gemsContent()
+        StoreTab.PAWS -> pawsCatalogContent(referralEntry)
+        StoreTab.BOARD -> boardCatalogContent(referralEntry)
+        StoreTab.DICE -> diceCatalogContent(referralEntry)
     }
     return LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(it) }
             ?.takeIf { com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.tabFor(it) == selectedTab }
-            ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }) }
-        bundleItem?.let { addView(referralPromotions.storeEntry(it), LinearLayout.LayoutParams(-1, -2)) }
+            ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }) }
         val category = when (selectedTab) {
             StoreTab.PAWS -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.CHARACTER_PACK
             StoreTab.BOARD -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD
@@ -68,7 +61,7 @@ internal fun StoreActivity.storeContent(): LinearLayout {
             } else null
             val spotlight = StoreLockedSpotlightView(this@storeContent, category, initial) { spotlightPositions[tab] = it }
             storeSpotlight = spotlight
-            addView(spotlight, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+            addView(spotlight, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
             spotlight.setActive(showcaseResumed)
         }
         addView(catalog, LinearLayout.LayoutParams(-1, -2))
@@ -336,15 +329,17 @@ private fun StoreActivity.featuredRemoveAdsCard(
                 1f,
             ),
         )
-        body.addView(
-            rewardedAdCard(),
-            LinearLayout.LayoutParams(
-                dp(122),
-                dp(42),
-            ).apply {
-                marginStart = dp(4)
-            },
-        )
+        if (BuildConfig.LUDOPROOF_ADS_ENABLED) {
+            body.addView(
+                rewardedAdCard(),
+                LinearLayout.LayoutParams(
+                    dp(122),
+                    dp(42),
+                ).apply {
+                    marginStart = dp(4)
+                },
+            )
+        }
         addView(
             body,
         )

@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
@@ -18,7 +19,7 @@ import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
-internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
+internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         // Shipped Starter Paws characters; Lumi and Donkey have individual verified-ad entitlements.
@@ -26,7 +27,7 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
                 .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
         addView(
-            this@pawsCatalogContent.pawsCharacterGrid(starterCharacters),
+            this@pawsCatalogContent.pawsCharacterGrid(starterCharacters, friendshipEntry),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -57,6 +58,7 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
 
 private fun StoreActivity.pawsCharacterGrid(
     characters: List<AnimalCharacter>,
+    friendshipEntry: View? = null,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -104,6 +106,12 @@ private fun StoreActivity.pawsCharacterGrid(
                     if (rowIndex > 0) topMargin = dp(10)
                 },
             )
+            if (rowIndex == 0 && friendshipEntry != null) {
+                addView(friendshipEntry, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(8)
+                    bottomMargin = dp(8)
+                })
+            }
         }
     }
 
@@ -140,9 +148,7 @@ private fun StoreActivity.pawsCharacterCard(
         contentDescription =
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
             else if (offerUnavailable) "${character.displayName}, currently unavailable"
-            else if (unlock != null && com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT in unlock.unlockChannels)
-                "${character.displayName}, ${unlock.gemPrice} Gems or Google Play purchase; earn 5 Gems per rewarded ad"
-            else if (unlock != null) "${character.displayName}, ${unlock.gemPrice} Gems or $progress of ${unlock.requiredAdViews} rewarded ads"
+            else if (unlock != null) "${character.displayName}, ${smartUnlockLabel(unlock)}"
             else "${character.displayName}, unlocked"
 
         addView(
@@ -187,7 +193,7 @@ private fun StoreActivity.pawsCharacterCard(
                     owned -> "🔓 UNLOCKED"
                     offerUnavailable -> "🔒 UNAVAILABLE"
                     unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> "🔒 ${unlock?.gemPrice ?: 0} Gems / $progress/${unlock?.requiredAdViews ?: 0} ADS"
+                    else -> if (unlock == null) "UNLOCKED" else smartUnlockLabel(unlock)
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)

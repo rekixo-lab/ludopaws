@@ -295,6 +295,17 @@ private fun StoreActivity.cosmeticCard(
             },
         )
 
+        if (!owned && cosmetic.contentAvailable) {
+            unlockAlternativeLabel(cosmetic)?.let { alternative ->
+                addView(Button(this@cosmeticCard).apply {
+                    text = "Or $alternative"
+                    isAllCaps = false
+                    textSize = 10f
+                    setOnClickListener { requestAlternateCosmetic(cosmetic) }
+                }, LinearLayout.LayoutParams(-1, dp(40)).apply { topMargin = dp(4) })
+            }
+        }
+
         if (
             cosmetic.requiredLevel >
             0
@@ -347,45 +358,9 @@ private fun StoreActivity.cosmeticActionText(
     cosmetic: StoreCosmetic,
     owned: Boolean,
     selected: Boolean,
-): String =
-    when {
-        !cosmetic.contentAvailable ->
-            "SOON"
-
-        selected ->
-            "✓"
-
-        owned ->
-            "USE"
-
-        cosmetic.unlockKind ==
-            CosmeticUnlockKind.GEMS ->
-            cosmetic.gemPrice
-                .toString() +
-                " ◆"
-
-        cosmetic.unlockKind ==
-            CosmeticUnlockKind.REWARDED_ADS ->
-            "AD " +
-                cosmetics
-                    .rewardedAdProgress(
-                        cosmetic.id,
-                    ) +
-                "/" +
-                cosmetic.requiredAdViews
-
-        cosmetic.unlockKind ==
-            CosmeticUnlockKind.LEVEL ->
-            "UNLOCK"
-
-        cosmetic.unlockKind ==
-            CosmeticUnlockKind.EVENT ->
-            "EVENT"
-
-        cosmetic.unlockKind ==
-            CosmeticUnlockKind.PLAY_PRODUCT ->
-            "UNAVAILABLE"
-
-        else ->
-            "FREE"
-    }
+): String = when {
+    !cosmetic.contentAvailable -> "SOON"
+    selected -> "✓"
+    owned -> "USE"
+    else -> smartUnlockLabel(cosmetic)
+}

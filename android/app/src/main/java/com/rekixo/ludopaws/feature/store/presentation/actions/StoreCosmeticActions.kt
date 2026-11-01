@@ -8,6 +8,7 @@ import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 
 internal fun StoreActivity.handleCosmeticTap(cosmetic: StoreCosmetic) {
+    recordCosmeticIntent(cosmetic.id)
     // CONTENT_UNAVAILABLE is handled before any server request or value-bearing action.
     if (!cosmetic.contentAvailable) {
         showStoreMessage(

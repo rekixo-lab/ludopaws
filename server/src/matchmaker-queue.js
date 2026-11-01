@@ -8,6 +8,7 @@ import {
 import {
   normalizeCharacterId,
 } from "./ludo-paws-characters.js";
+import { assertHumanCharacterAccess } from "./character-access.js";
 import {
   CHARACTER_PREFERENCE_WINDOW_MS,
   characterPreferenceKey,
@@ -166,6 +167,7 @@ export class MatchmakerQueue {
   async #search(request, body) {
     const profile = await this.#profileIdentity(request);
     const participant = normalizeParticipant(body, profile.profileId, this.env);
+    await assertHumanCharacterAccess(request, this.env, participant.characterId, { profileId: profile.profileId });
     participant.locationHint = normalizeMatchLocationHint(request.headers.get(MATCH_LOCATION_HEADER));
     const now = Date.now();
     let state = this.#cleanup(await this.#load(), now);

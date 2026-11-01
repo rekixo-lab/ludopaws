@@ -18,7 +18,7 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 private const val LOCKED_BOARD_TITLE = "LOCKED BOARD"
 
-internal fun StoreActivity.boardCatalogContent(): LinearLayout =
+internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
@@ -71,6 +71,12 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
                     if (rowIndex > 0) topMargin = dp(10)
                 },
             )
+            if (rowIndex == 0 && friendshipEntry != null) {
+                addView(friendshipEntry, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(8)
+                    bottomMargin = dp(8)
+                })
+            }
         }
     }
 
@@ -220,10 +226,7 @@ private fun StoreActivity.boardStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "TAP TO SELECT"
-            board.unlockChannels.size > 1 -> cosmeticPurchaseLabel(board)
-            board.gemPrice > 0 -> CosmeticPriceLabels.gems(this@boardStatusBadge, board.gemPrice)
-            board.requiredAdViews > 0 -> "${board.requiredAdViews} ADS"
-            else -> "GET"
+            else -> smartUnlockLabel(board)
         }
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)

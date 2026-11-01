@@ -4,6 +4,7 @@ import com.rekixo.ludopaws.launchPlayerScreen
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.util.TypedValue
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
@@ -167,6 +168,14 @@ private fun HomeActivity.homeCurrencyPill(): LinearLayout =
                         .balance()
                         .toString()
                 textSize = if (isCompact()) 12f else 12.5f
+                // Keep the balance on one line as more Gems are earned.
+                setSingleLine(true)
+                setAutoSizeTextTypeUniformWithConfiguration(
+                    9,
+                    if (isCompact()) 12 else 13,
+                    1,
+                    TypedValue.COMPLEX_UNIT_SP,
+                )
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
