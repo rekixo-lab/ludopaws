@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.online
 
+import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
 import android.view.View
 import com.rekixo.ludopaws.ui.online.requestRemoteExit
 import com.rekixo.ludopaws.*
@@ -134,6 +135,7 @@ internal fun MainActivity.beginPublicMatchmaking() {
         action = {
             val credential =
                 ensureLeaderboardCredential()
+            val character = RemoteCharacterAccountSelection.current(this)
             api.searchPublicMatch(
                 profileToken =
                     credential.profileToken,
@@ -143,6 +145,8 @@ internal fun MainActivity.beginPublicMatchmaking() {
                     ticket.requestId,
                 playerCount =
                     ticket.playerCount,
+                characterId = character.characterId,
+                characterAccountToken = character.accountToken,
                 rulesetKey = "CLASSIC_V6",
             )
         },
