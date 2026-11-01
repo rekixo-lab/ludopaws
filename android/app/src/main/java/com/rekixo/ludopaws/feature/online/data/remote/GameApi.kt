@@ -182,11 +182,13 @@ class GameApi(
         clientRequestId: String,
         playerCount: Int,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
+        characterAccountToken: String? = null,
     ): JSONObject =
         request(
             method = "POST",
             path = "/api/matches",
             friendToken = friendToken,
+            characterAccountToken = characterAccountToken,
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
@@ -203,11 +205,13 @@ class GameApi(
         playerCount: Int,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         rulesetKey: String = "CLASSIC_V6",
+        characterAccountToken: String? = null,
     ): JSONObject =
         request(
             method = "POST",
             path = "/api/matchmaking/search",
             profileToken = profileToken,
+            characterAccountToken = characterAccountToken,
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
@@ -250,11 +254,13 @@ class GameApi(
         clientRequestId: String,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         rulesetKey: String = "CLASSIC_V6",
+        characterAccountToken: String? = null,
     ): JSONObject =
         request(
             method = "POST",
             path = "/api/matches",
             profileToken = profileToken,
+            characterAccountToken = characterAccountToken,
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
@@ -269,12 +275,14 @@ class GameApi(
         profileToken: String? = null,
         friendJoinToken: String? = null,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
+        characterAccountToken: String? = null,
     ): JSONObject =
         request(
             method = "POST",
             path = "/api/matches/${matchId.uppercase()}/join",
             profileToken = profileToken,
             friendJoinToken = friendJoinToken,
+            characterAccountToken = characterAccountToken,
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
@@ -366,6 +374,7 @@ class GameApi(
         profileToken: String? = null,
         roomPlayerToken: String? = null,
         friendJoinToken: String? = null,
+        characterAccountToken: String? = null,
         body: JSONObject? = null,
     ): JSONObject {
         val request = Request.Builder()
@@ -376,6 +385,9 @@ class GameApi(
         if (bearerToken != null) request.header("Authorization", "Bearer $bearerToken")
         if (roomPlayerToken != null) request.header("X-LudoProof-Room-Token", roomPlayerToken)
         if (friendJoinToken != null) request.header("X-LudoProof-Friend-Join-Token", friendJoinToken)
+        if (characterAccountToken != null) {
+            request.header("X-LudoProof-Character-Account-Token", characterAccountToken)
+        }
         request.method(method, body?.toString()?.toRequestBody("application/json; charset=utf-8".toMediaType()))
         return GameHttpTransport.executeJson(client, request.build(), MAX_RESPONSE_BYTES)
     }
