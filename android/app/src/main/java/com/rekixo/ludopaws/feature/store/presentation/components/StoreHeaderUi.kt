@@ -2,6 +2,7 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Color
 import android.graphics.Typeface
+import android.util.TypedValue
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import android.view.Gravity
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
@@ -53,8 +54,9 @@ internal fun StoreActivity.storeHeader():
             LudoProofTheme.isCompactWidth(this@storeHeader)
         val currencyIconSizeDp =
             if (compactCurrencyPill) 26 else 29
+        // Allow room for larger balances without shrinking the gem and plus icons.
         val currencyPillWidthDp =
-            if (compactCurrencyPill) 96 else 107
+            if (compactCurrencyPill) 124 else 138
         // Match the full-height 50dp Store back button; keep the gem and plus artwork compact inside.
         val currencyPillHeightDp = 50
 
@@ -104,6 +106,14 @@ internal fun StoreActivity.storeHeader():
                         .toString()
                 textSize =
                     if (compactCurrencyPill) 14f else 15f
+                // A growing balance must shrink to fit, never wrap under the icons.
+                setSingleLine(true)
+                setAutoSizeTextTypeUniformWithConfiguration(
+                    9,
+                    if (compactCurrencyPill) 14 else 15,
+                    1,
+                    TypedValue.COMPLEX_UNIT_SP,
+                )
                 setTypeface(
                     Typeface.DEFAULT_BOLD,
                 )
