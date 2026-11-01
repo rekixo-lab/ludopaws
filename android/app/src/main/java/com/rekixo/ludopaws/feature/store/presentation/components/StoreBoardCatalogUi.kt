@@ -18,7 +18,7 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 private const val LOCKED_BOARD_TITLE = "LOCKED BOARD"
 
-internal fun StoreActivity.boardCatalogContent(): LinearLayout =
+internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
@@ -71,6 +71,12 @@ internal fun StoreActivity.boardCatalogContent(): LinearLayout =
                     if (rowIndex > 0) topMargin = dp(10)
                 },
             )
+            if (rowIndex == 0 && friendshipEntry != null) {
+                addView(friendshipEntry, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(8)
+                    bottomMargin = dp(8)
+                })
+            }
         }
     }
 

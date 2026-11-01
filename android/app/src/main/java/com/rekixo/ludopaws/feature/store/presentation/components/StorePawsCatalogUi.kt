@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
@@ -18,7 +19,7 @@ import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
-internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
+internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         // Shipped Starter Paws characters; Lumi and Donkey have individual verified-ad entitlements.
@@ -26,7 +27,7 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
                 .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
         addView(
-            this@pawsCatalogContent.pawsCharacterGrid(starterCharacters),
+            this@pawsCatalogContent.pawsCharacterGrid(starterCharacters, friendshipEntry),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -57,6 +58,7 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
 
 private fun StoreActivity.pawsCharacterGrid(
     characters: List<AnimalCharacter>,
+    friendshipEntry: View? = null,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -104,6 +106,12 @@ private fun StoreActivity.pawsCharacterGrid(
                     if (rowIndex > 0) topMargin = dp(10)
                 },
             )
+            if (rowIndex == 0 && friendshipEntry != null) {
+                addView(friendshipEntry, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(8)
+                    bottomMargin = dp(8)
+                })
+            }
         }
     }
 
