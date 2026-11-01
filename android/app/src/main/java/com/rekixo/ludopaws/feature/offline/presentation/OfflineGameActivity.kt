@@ -160,6 +160,8 @@ class OfflineGameActivity : ComponentActivity() {
     internal var quickReactionLastShownAtMs: Long? = null
     internal lateinit var resultPanel: FrameLayout
     internal lateinit var resultTitleText: TextView
+    internal lateinit var resultCard: LudoPawsResultCard
+    internal var lastScheduledResultXpRefreshMatchId: String? = null
     private var postWinInterstitialAd: PostWinInterstitialAdController? = null
     private var postWinInterstitialExitGate: PostWinInterstitialExitGate? = null
     internal var postWinInterstitialShownForMatchId: String? = null

@@ -310,27 +310,20 @@ internal fun OfflineGameActivity.renderGame(
     if (state.status == "FINISHED") {
         resultPanel.visibility = if (blockedRemainingMillis > 0L) View.GONE else View.VISIBLE
         if (blockedRemainingMillis <= 0L) com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.showWhenFinished(this)
-        // Phase 11 compatibility marker retained for the integration gate:
-        // You brought all 4 paws home.
-        val humanRank = engine.humanPlayerId()?.let { LudoPawsFinishPresentation.ranks(state)[it] }
-        val title = if (isComputerMode) LudoPawsFinishPresentation.headline(humanRank) else "MATCH COMPLETE"
-        val standings = LudoPawsFinishPresentation.standings(state)
-        val detail = (if (isComputerMode && humanRank == 4)
-            "WELL PLAYED!\n$standings" else standings) + "\n" +
-            com.rekixo.ludopaws.feature.profile.presentation.MatchProgressSummary.text(this,
-                state.matchId, state.winnerPlayerId == state.players.firstOrNull()?.playerId)
-        resultTitleText.text = android.text.SpannableStringBuilder(title).apply {
-            if (detail.isNotBlank()) {
-                append("\n\n")
-                val start = length
-                append(detail)
-                setSpan(android.text.style.RelativeSizeSpan(.55f), start, length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                setSpan(android.text.style.ForegroundColorSpan(0xFFFFF1D8.toInt()), start, length,
-                    android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        updateOfflineResultCard(state)
+        // Profile writes run asynchronously. Refresh only the display after
+        // the result is persisted, never award XP or Gems from this callback.
+        if (lastScheduledResultXpRefreshMatchId != state.matchId) {
+            lastScheduledResultXpRefreshMatchId = state.matchId
+            listOf(500L, 1_700L, 4_000L).forEach { delay ->
+                resultPanel.postDelayed({
+                    if (!isFinishing && !isDestroyed && session.snapshot()?.matchId == state.matchId &&
+                        session.snapshot()?.status == "FINISHED") {
+                        updateOfflineResultCard(state)
+                    }
+                }, delay)
             }
         }
-        resultTitleText.contentDescription = "$title. $detail"
     } else {
         resultPanel.visibility = View.GONE
     }
@@ -652,5 +645,17 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
         },
         LudoPawsGameplayPacingPolicy
             .postRollAutoMoveDelayMillis(speed),
+    )
+}
+
+/** No XP or currency mutation: only the saved profile drives this card. */
+internal fun OfflineGameActivity.updateOfflineResultCard(state: MatchSnapshot) {
+    resultCard.render(
+        LudoPawsResultPresentation.model(
+            context = this,
+            match = state,
+            mode = gameMode,
+            viewerId = engine.humanPlayerId(),
+        ),
     )
 }
