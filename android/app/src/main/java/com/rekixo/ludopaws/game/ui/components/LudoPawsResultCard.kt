@@ -173,13 +173,21 @@ fun resultCardOverlay(context: Context, card: LudoPawsResultCard, reserveBottomD
         val metrics = resources.displayMetrics
         val maxWidth = minOf(dp(360), (metrics.widthPixels - dp(28)).coerceAtLeast(dp(240)))
         val maxHeight = minOf(dp(470), (metrics.heightPixels * .65f).toInt())
-        val scroll = android.widget.ScrollView(context).apply {
+        val scroll = object : android.widget.ScrollView(context) {
+            // Wrap short results tightly, but scroll long names and larger fonts.
+            override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                super.onMeasure(
+                    widthMeasureSpec,
+                    View.MeasureSpec.makeMeasureSpec(maxHeight, View.MeasureSpec.AT_MOST),
+                )
+            }
+        }.apply {
             isFillViewport = false
             overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
             clipToPadding = false
-            addView(card, android.widget.ScrollView.LayoutParams(-1, -2))
+            addView(card, FrameLayout.LayoutParams(-1, -2))
         }
-        addView(scroll, FrameLayout.LayoutParams(maxWidth, maxHeight, Gravity.CENTER).apply {
+        addView(scroll, FrameLayout.LayoutParams(maxWidth, -2, Gravity.CENTER).apply {
             bottomMargin = dp(reserveBottomDp)
         })
     }

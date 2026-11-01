@@ -22,7 +22,7 @@ object LudoPawsResultPresentation {
         val myRank = viewerId?.let(ranks::get)
         val title = when {
             teamMode && won -> "YOUR TEAM WON"
-            teamMode -> "TEAM \${match.winnerTeamId ?: "—"} WINS"
+            teamMode -> "TEAM ${match.winnerTeamId ?: "—"} WINS"
             mode == GameMode.PASS_AND_PLAY -> "MATCH COMPLETE"
             myRank == 1 -> "1ST PLACE"
             myRank == 2 -> "2ND PLACE"
@@ -57,7 +57,7 @@ object LudoPawsResultPresentation {
             }.sortedWith(compareBy<Triple<PlayerSnapshot, Int?, Boolean>> { it.second ?: 99 }
                 .thenBy { it.first.seat }).map { (player, rank, isYou) ->
                 ResultPlace(
-                    rank?.let { "\${it}\${ordinal(it)}" } ?: "—",
+                    rank?.let { "${it}${ordinal(it)}" } ?: "—",
                     player.displayName,
                     isYou && mode != GameMode.PASS_AND_PLAY,
                 )
