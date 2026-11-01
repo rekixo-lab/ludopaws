@@ -169,6 +169,7 @@ internal fun OfflineGameActivity.showSetup() {
                         preferredColor = if (isComputerMode) selectedColor
                             else selectedColorsBySeat.first(),
                         colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
+                        humanCount = if (isComputerMode) selectedHumans else selectedPlayers,
                     ),
                 )
             }

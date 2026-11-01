@@ -250,6 +250,10 @@ private fun OfflineGameActivity.startOfflineRematch() {
         resolveOfflineCharacterIds(finished)
 
     selectedPlayers = spec.playerCount
+    selectedHumans = if (isComputerMode) {
+        finished.players.count { !engine.isComputerPlayer(it.playerId) }
+            .coerceIn(1, spec.playerCount - 1)
+    } else spec.playerCount
     selectedColor = spec.preferredColor
     selectedCharacterSlot =
         if (isComputerMode) {
@@ -270,6 +274,7 @@ private fun OfflineGameActivity.startOfflineRematch() {
             playerCount = spec.playerCount,
             preferredColor = spec.preferredColor,
             colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
+            humanCount = selectedHumans,
         ),
     )
 }

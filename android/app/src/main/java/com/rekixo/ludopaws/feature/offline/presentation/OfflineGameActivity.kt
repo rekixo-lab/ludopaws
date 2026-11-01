@@ -123,6 +123,7 @@ class OfflineGameActivity : ComponentActivity() {
         get() = setupStateHolder.value.selectedColor
         set(value) { setupStateHolder.update { it.copy(selectedColor = value) } }
 
+    internal var selectedHumans: Int = 1
     internal var selectedCharacterSlot: Int = 0
     internal var selectedCharacterIds: List<String> = emptyList()
     internal var selectedColorsBySeat: List<String> = emptyList()

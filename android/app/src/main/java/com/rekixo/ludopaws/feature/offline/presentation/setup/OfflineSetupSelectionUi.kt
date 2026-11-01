@@ -17,6 +17,7 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
+import com.rekixo.ludopaws.feature.offline.domain.engine.RobotTeamComposition
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
@@ -49,7 +50,7 @@ internal fun OfflineGameActivity.playersPanel(): LinearLayout =
                 setShadowLayer(2f, 0f, dp(1).toFloat(), 0x7A00112D)
             }
             val label = TextView(this@playersPanel).apply {
-                text = "PLAYERS"
+                text = if (isComputerMode) RobotTeamComposition.label(playerCount, 1) else "PLAYERS"
                 textSize = if (isCompactSetup()) 10f else 11.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
@@ -571,7 +572,16 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
             (content.getChildAt(0) as? ModeArtView)?.playerCountSelected = selected
             val countTextColor = if (selected) 0xFFFFD45E.toInt() else Color.WHITE
             (content.getChildAt(1) as? TextView)?.setTextColor(countTextColor)
-            (content.getChildAt(2) as? TextView)?.setTextColor(countTextColor)
+            (content.getChildAt(2) as? TextView)?.apply {
+                setTextColor(countTextColor)
+                if (isComputerMode) {
+                    text = RobotTeamComposition.label(playerCount, if (selected) selectedHumans else 1)
+                }
+            }
+            if (isComputerMode) {
+                val humans = if (selected) selectedHumans else 1
+                tile.contentDescription = "$playerCount players: $humans humans and ${playerCount - humans} robots. Tap the selected tile again to change."
+            }
         }
     }
 

@@ -17,6 +17,7 @@ object OfflineCharacterAssignmentPolicy {
         preferredCharacterId: String,
         active: ActiveOfflineCharacterSetup?,
         unlockedCharacterIds: Set<String> = StarterPawsAssignmentPolicy.starterCharacterIds.toSet(),
+        humanCount: Int = 1,
     ): List<String> {
         require(mode.isLocal) {
             "Offline character assignment requires a local game mode"
@@ -26,7 +27,8 @@ object OfflineCharacterAssignmentPolicy {
             active
                 ?.takeIf {
                     it.mode == mode &&
-                        it.playerCount == playerCount
+                        it.playerCount == playerCount &&
+                        (mode != GameMode.COMPUTER || it.humanCount == humanCount)
                 }
                 ?.characterIds
                 .orEmpty()
@@ -37,6 +39,7 @@ object OfflineCharacterAssignmentPolicy {
             preferredCharacterId = preferredCharacterId,
             computerMode = mode == GameMode.COMPUTER,
             unlockedCharacterIds = unlockedCharacterIds,
+            humanCount = humanCount,
         )
     }
 }
@@ -63,6 +66,12 @@ internal fun OfflineGameActivity.resolveOfflineCharacterIds(
 
     val active =
         offlineCharacterSetupStore.loadActive()
+    // The match checkpoint owns the human/robot seat layout; preferences may
+    // have changed after saving this match.
+    val humanCount = if (gameMode == GameMode.COMPUTER) {
+        state.players.count { !engine.isComputerPlayer(it.playerId) }
+            .coerceIn(1, playerCount - 1)
+    } else playerCount
     val preferredCharacterId =
         characterSelectionStore
             .load()
@@ -74,6 +83,7 @@ internal fun OfflineGameActivity.resolveOfflineCharacterIds(
             preferredCharacterId = preferredCharacterId,
             active = active,
             unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
+            humanCount = humanCount,
         )
 
     val preferredColor =
@@ -87,6 +97,7 @@ internal fun OfflineGameActivity.resolveOfflineCharacterIds(
         active == null ||
         active.mode != gameMode ||
         active.playerCount != playerCount ||
+        active.humanCount != humanCount ||
         active.preferredColor != preferredColor ||
         active.characterIds != resolved
     ) {
@@ -95,6 +106,7 @@ internal fun OfflineGameActivity.resolveOfflineCharacterIds(
             playerCount = playerCount,
             preferredColor = preferredColor,
             characterIds = resolved,
+            humanCount = humanCount,
         )
     }
 
