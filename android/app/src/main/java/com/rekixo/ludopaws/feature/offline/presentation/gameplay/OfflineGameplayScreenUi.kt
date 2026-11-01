@@ -207,6 +207,7 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
                 protect(listOfNotNull(topPlayerRail, bottomPlayerRail, boardView))
             }
         } else null,
+        centerContentBelowActions = state.status == "ACTIVE",
         onSettings = {
             showSettingsDialog(
                 this,

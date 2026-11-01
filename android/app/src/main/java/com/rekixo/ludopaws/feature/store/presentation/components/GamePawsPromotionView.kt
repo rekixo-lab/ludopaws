@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.app.ActivityManager
 import android.graphics.Color
+import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -20,6 +21,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.BuildConfig
+import com.rekixo.ludopaws.LudoPawsTapHandArt
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
@@ -55,14 +57,18 @@ internal class GamePawsPromotionView(
                     // live preview's .70 anchor after scaling about the center.
                     child.translationY = side * (.20f - .12f * child.scaleY)
                 } else if (gameplay && child === avatar) {
-                    child.translationY = side * (.19f - .12f * child.scaleY)
+                    child.translationY = side * (.10f - .08f * child.scaleY)
                 }
             }
         }
         override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
     }
+    // Gameplay art is anchored to the middle of this frame, independent of the copy widths.
+    private val gameplayFrame = FrameLayout(context)
     private val name = TextView(context)
     private val storeLabel = Button(context)
+    private val saveHintFrame = if (gameplay) SaveTapHintFrame(context) else null
+    private var savedOfferId: String? = null
     private val categoryLabel = TextView(context)
     private val priceLabel = TextView(context)
     private val leftCopy = LinearLayout(context)
@@ -143,7 +149,7 @@ internal class GamePawsPromotionView(
                 try {
                     preview = FeaturedPawsPreview(context, if (gameplay) 66L else 50L,
                         playful = true, prominent = !gameplay,
-                        portraitZoomMultiplier = if (gameplay) 2f else 1.30f).also { live ->
+                        portraitZoomMultiplier = if (gameplay) 1.70f else 1.30f).also { live ->
                         live.characterId = candidates[index].characterId ?: "dog"
                         live.alpha = 0f
                         live.onReady = { live.alpha = 1f; avatar.visibility = INVISIBLE }
@@ -166,10 +172,16 @@ internal class GamePawsPromotionView(
         gravity = Gravity.CENTER_VERTICAL
         clipChildren = true
         clipToPadding = true
-        setPadding(dp(4), dp(4), dp(4), dp(4))
-        // The carousel already owns the plywood frame; a second thick frame
-        // made the home advertisement look inset and unnecessarily small.
-        background = if (gameplay) null else GradientDrawable(
+        setPadding(if (gameplay) dp(6) else dp(4), dp(4), if (gameplay) dp(6) else dp(4), dp(4))
+        // A single match-only panel replaces the two mismatched copy boxes.
+        // Home carousel art direction is left untouched.
+        background = if (gameplay) GradientDrawable(
+            GradientDrawable.Orientation.TOP_BOTTOM,
+            intArrayOf(0xD92B4D36.toInt(), 0xB51C382D.toInt()),
+        ).apply {
+            cornerRadius = dp(14).toFloat()
+            setStroke(dp(1), 0x707DA46A)
+        } else GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
             intArrayOf(0x22FFF0CC, 0x25A56E40),
         ).apply { cornerRadius = dp(18).toFloat() }
@@ -179,14 +191,7 @@ internal class GamePawsPromotionView(
             copy.orientation = VERTICAL
             copy.gravity = Gravity.CENTER
             copy.setPadding(dp(2), 0, dp(2), 0)
-            if (gameplay) {
-                copy.setPadding(dp(3), dp(3), dp(3), dp(3))
-                copy.background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                    intArrayOf(0xD92B4D36.toInt(), 0xB51C382D.toInt())).apply {
-                    cornerRadius = dp(12).toFloat()
-                    setStroke(dp(1), 0x507DA46A)
-                }
-            }
+            copy.background = null
         }
         listOf(name, storeLabel, categoryLabel, priceLabel).forEach { label ->
             label.gravity = Gravity.CENTER
@@ -220,13 +225,13 @@ internal class GamePawsPromotionView(
             addView(priceLabel.apply {
                 textSize = 9f
                 setTextColor(0xFFFFEDCA.toInt())
-                maxLines = 2
+                maxLines = if (gameplay) 1 else 2
                 if (gameplay) {
                     setTypeface(Typeface.DEFAULT_BOLD)
                     setTextColor(0xFFFFE9AA.toInt())
                 }
             }, LayoutParams(-1, -2))
-            addView(storeLabel.apply {
+            val actionButton = storeLabel.apply {
                 text = if (gameplay) "STORE ›" else "EXPLORE ›"
                 textSize = 9f
                 setTextColor(0xFFFFDC79.toInt())
@@ -236,15 +241,26 @@ internal class GamePawsPromotionView(
                 if (gameplay) {
                     maxLines = 1
                     letterSpacing = .03f
-                    setTextColor(0xFFD7F1BD.toInt())
-                    setPadding(dp(2), dp(2), dp(2), dp(2))
-                    background = GradientDrawable().apply {
-                        setColor(0x485B904D)
-                        cornerRadius = dp(8).toFloat()
-                        setStroke(dp(1), 0x708FCB79)
+                    setTextColor(Color.WHITE)
+                    setPadding(dp(8), 0, dp(8), 0)
+                    background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(0xB2539142.toInt(), 0xB22D6C38.toInt())).apply {
+                        cornerRadius = dp(9).toFloat()
+                        setStroke(dp(1), 0xB08FCB79.toInt())
                     }
                 }
-            }, LayoutParams(-1, -2).apply { if (gameplay) topMargin = dp(2) })
+            }
+            if (gameplay) {
+                val frame = checkNotNull(saveHintFrame)
+                frame.addView(actionButton, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER,
+                ))
+                addView(frame, LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            } else {
+                addView(actionButton, LayoutParams(-1, -2))
+            }
             storeLabel.apply {
                 isAllCaps = false
                 backgroundTintList = null
@@ -258,14 +274,21 @@ internal class GamePawsPromotionView(
                         intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
                         cornerRadius = dp(14).toFloat()
                     }
-                } else { minHeight = 0; minimumHeight = 0 }
+                } else { minHeight = dp(28); minimumHeight = dp(28) }
                 setOnClickListener { this@GamePawsPromotionView.performClick() }
             }
         }
         if (gameplay) {
-            addView(leftCopy, LayoutParams(0, -2, .85f))
-            addView(artwork, LayoutParams(dp(64), -1))
-            addView(rightCopy, LayoutParams(0, -2, 1.15f))
+            gameplayFrame.apply {
+                clipChildren = false
+                clipToPadding = false
+                addView(leftCopy, FrameLayout.LayoutParams(dp(88), -1,
+                    Gravity.START or Gravity.CENTER_VERTICAL).apply { marginStart = dp(3) })
+                addView(artwork, FrameLayout.LayoutParams(dp(76), dp(76), Gravity.CENTER))
+                addView(rightCopy, FrameLayout.LayoutParams(dp(88), -1,
+                    Gravity.END or Gravity.CENTER_VERTICAL).apply { marginEnd = dp(3) })
+            }
+            addView(gameplayFrame, LayoutParams(-1, -1))
         } else {
             // Premium offer art direction: readable copy left, larger original
             // 3D item right, one full-width CTA at the bottom. Keep the exact
@@ -328,7 +351,9 @@ internal class GamePawsPromotionView(
                 return@setOnClickListener
             }
             com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.save(context, offer.cosmetic.id)
+            savedOfferId = offer.cosmetic.id
             storeLabel.text = "Saved ✓"
+            saveHintFrame?.setHintActive(false)
             storeLabel.contentDescription = "${offer.title} saved for after the match"
             contentDescription = "${offer.title} saved for after the match"
             notice?.cancel()
@@ -343,20 +368,18 @@ internal class GamePawsPromotionView(
         if (environmentBoardId == environment.boardId) return
         environmentBoardId = environment.boardId
         fun tint(color: Int, alpha: Int) = (color and 0x00FFFFFF) or (alpha shl 24)
-        listOf(leftCopy, rightCopy).forEach { copy ->
-            (copy.background as? GradientDrawable)?.apply {
-                colors = intArrayOf(tint(environment.panelTop, 217), tint(environment.panelBottom, 181))
-                setStroke(dp(1), tint(environment.accent, 80))
-            }
+        (background as? GradientDrawable)?.apply {
+            colors = intArrayOf(tint(environment.panelTop, 217), tint(environment.panelBottom, 181))
+            setStroke(dp(1), tint(environment.accent, 112))
         }
         name.setTextColor(environment.title)
         name.setShadowLayer(dp(1).toFloat(), 0f, dp(1).toFloat(), tint(environment.panelBottom, 180))
         categoryLabel.setTextColor(environment.accent)
         priceLabel.setTextColor(environment.price)
-        storeLabel.setTextColor(environment.accent)
+        storeLabel.setTextColor(Color.WHITE)
         (storeLabel.background as? GradientDrawable)?.apply {
-            setColor(tint(environment.accent, 36))
-            setStroke(dp(1), tint(environment.accent, 112))
+            setColor(tint(environment.accent, 82))
+            setStroke(dp(1), tint(environment.accent, 164))
         }
     }
 
@@ -388,7 +411,7 @@ internal class GamePawsPromotionView(
         )
         priceLabel.text = if (gameplay) when (decision.primary) {
             SmartUnlockAction.GEMS -> "${offer.cosmetic.gemPrice} Gems"
-            SmartUnlockAction.PLAY_PRODUCT -> "Buy"
+            SmartUnlockAction.PLAY_PRODUCT -> "Play Store"
             SmartUnlockAction.WATCH_AD -> "$done/${offer.cosmetic.requiredAdViews} Ads"
             SmartUnlockAction.CLAIM_ADS -> "Ads ready"
             SmartUnlockAction.GET_GEMS -> "Get Gems"
@@ -412,7 +435,9 @@ internal class GamePawsPromotionView(
         adMeter.completion = if (offer.cosmetic.requiredAdViews > 0) {
             done.toFloat() / offer.cosmetic.requiredAdViews
         } else 0f
+        val offerSaved = gameplay && savedOfferId == offer.cosmetic.id
         storeLabel.text = when {
+            offerSaved -> "Saved ✓"
             gameplay -> "Save"
             !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() ||
                 !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
@@ -423,7 +448,11 @@ internal class GamePawsPromotionView(
             decision.primary == SmartUnlockAction.GET_GEMS -> "Get Gems ›"
             else -> "Unlock ›"
         }
-        storeLabel.contentDescription = if (gameplay) "Save ${offer.title} for after the match" else null
+        storeLabel.contentDescription = when {
+            offerSaved -> "${offer.title} saved for after the match"
+            gameplay -> "Save ${offer.title} for after the match"
+            else -> null
+        }
         preview?.setActive(false)
         preview?.alpha = 0f
         preview?.visibility = GONE
@@ -438,11 +467,11 @@ internal class GamePawsPromotionView(
                 val side = minOf(artwork.width, artwork.height)
                 avatar.translationY = side * (.20f - .12f * zoom)
             } else {
-                val zoom = compactSpotlightPortraitZoom(offer.characterId) * 2f
+                val zoom = compactSpotlightPortraitZoom(offer.characterId) * 1.70f
                 avatar.scaleX = zoom
                 avatar.scaleY = zoom
                 val side = minOf(artwork.width, artwork.height)
-                avatar.translationY = side * (.19f - .12f * zoom)
+                avatar.translationY = side * (.10f - .08f * zoom)
             }
             avatar.bind(characterId = offer.characterId, ringColor = 0xFF5BE0FF.toInt(),
                 highlighted = false, showCircularChrome = false)
@@ -481,7 +510,8 @@ internal class GamePawsPromotionView(
                 SmartUnlockAction.FREE -> "Free unlock"
                 else -> "Offer details available after the match"
             }
-            "${offer.title}. $unlockDetail. Save this offer until after your match."
+            if (offerSaved) "${offer.title} saved for after the match."
+            else "${offer.title}. $unlockDetail. Save this offer until after your match."
         } else "${offer.title}. ${storeLabel.text.toString().removeSuffix(" ›")}."
         updateMotion()
     }
@@ -495,7 +525,7 @@ internal class GamePawsPromotionView(
         if (!isShown || width <= 0 || height <= 0) return true
         getLocationOnScreen(location)
         ownBounds.set(location[0], location[1], location[0] + width, location[1] + height)
-        var availableHeight = dp(132)
+        var availableHeight = dp(84)
         for (view in protectedViews) {
             if (view.isShown && view.getGlobalVisibleRect(protectedBounds) &&
                 protectedBounds.left < ownBounds.right && protectedBounds.right > ownBounds.left &&
@@ -504,14 +534,14 @@ internal class GamePawsPromotionView(
             }
         }
         val heightHost = (parent as? GamePawsPromotionSlot) ?: this
-        val targetHeight = availableHeight.coerceIn(dp(52), dp(132))
+        val targetHeight = availableHeight.coerceIn(dp(52), dp(84))
         val params = heightHost.layoutParams
         if (params != null && params.height != targetHeight) {
             params.height = targetHeight
             heightHost.layoutParams = params
             return false
         }
-        val available = width >= dp(120) && availableHeight >= dp(52) && height <= availableHeight
+        val available = width >= dp(220) && availableHeight >= dp(58) && height <= availableHeight
         if (available == spaceAvailable) return true
         spaceAvailable = available
         updateOfferVisibility()
@@ -523,21 +553,32 @@ internal class GamePawsPromotionView(
         val availableWidth = MeasureSpec.getSize(widthMeasureSpec)
         val availableHeight = MeasureSpec.getSize(heightMeasureSpec)
         if (gameplay) {
-            val portraitSize = minOf(availableHeight - dp(8), (availableWidth * .28f).toInt()).coerceAtLeast(dp(40))
-            if (artwork.layoutParams.width != portraitSize || artwork.layoutParams.height != portraitSize)
-                artwork.layoutParams = LayoutParams(portraitSize, portraitSize)
-        }
-        if (gameplay) {
-            val roomy = availableWidth >= dp(300) && availableHeight >= dp(96)
-            name.textSize = if (roomy) 15f else if (availableHeight >= dp(96)) 11f else 9f
-            // TextView.setMaxLines requests another layout even for the same
-            // value. Doing that on every measure prevents the UI becoming idle.
-            val titleLines = if (availableHeight >= dp(96)) 3 else 2
-            if (name.maxLines != titleLines) name.maxLines = titleLines
-            storeLabel.textSize = if (roomy) 11f else 9f
-            categoryLabel.textSize = if (roomy) 9f else 7f
-            priceLabel.textSize = if (roomy) 13f else 9f
-            categoryLabel.visibility = if (availableHeight >= dp(76)) VISIBLE else GONE
+            val contentWidth = (availableWidth - paddingLeft - paddingRight).coerceAtLeast(dp(1))
+            val portraitSize = minOf(dp(78), availableHeight - paddingTop - paddingBottom,
+                contentWidth / 3).coerceAtLeast(dp(36))
+            val copyWidth = ((contentWidth - portraitSize) / 2 - dp(10)).coerceAtLeast(dp(42))
+            val artParams = artwork.layoutParams as FrameLayout.LayoutParams
+            if (artParams.width != portraitSize || artParams.height != portraitSize) {
+                artwork.layoutParams = FrameLayout.LayoutParams(portraitSize, portraitSize, Gravity.CENTER)
+            }
+            for (copy in listOf(leftCopy, rightCopy)) {
+                val params = copy.layoutParams as FrameLayout.LayoutParams
+                if (params.width != copyWidth) {
+                    copy.layoutParams = FrameLayout.LayoutParams(copyWidth, -1,
+                        if (copy === leftCopy) Gravity.START or Gravity.CENTER_VERTICAL
+                        else Gravity.END or Gravity.CENTER_VERTICAL).apply {
+                        if (copy === leftCopy) marginStart = dp(3) else marginEnd = dp(3)
+                    }
+                }
+            }
+            val roomy = contentWidth >= dp(270) && availableHeight >= dp(66)
+            name.textSize = if (roomy) 13f else 11f
+            // Avoid requestLayout loops from repeatedly changing maxLines inside measure.
+            if (name.maxLines != 2) name.maxLines = 2
+            storeLabel.textSize = if (roomy) 12f else 10f
+            categoryLabel.textSize = if (roomy) 9f else 8f
+            priceLabel.textSize = if (roomy) 11.5f else 10f
+            categoryLabel.visibility = if (availableHeight >= dp(58)) VISIBLE else GONE
             storeLabel.visibility = VISIBLE
         } else {
             name.textSize = if (availableWidth >= dp(315)) 21f else 18f
@@ -610,6 +651,10 @@ internal class GamePawsPromotionView(
         preview?.setActive(false)
         removeCallbacks(resumeAfterQuiet)
         val quietRemaining = quietUntilMillis - android.os.SystemClock.uptimeMillis()
+        saveHintFrame?.setHintActive(
+            quietRemaining <= 0L && canPresentPromotion() && animationsAllowed() &&
+                storeLabel.text.toString() == "Save",
+        )
         if (quietRemaining > 0L) {
             if (isAttachedToWindow) postDelayed(resumeAfterQuiet, quietRemaining)
             return
@@ -643,6 +688,7 @@ internal class GamePawsPromotionView(
     }
 
     override fun onDetachedFromWindow() {
+        saveHintFrame?.setHintActive(false)
         removeCallbacks(resumeAfterQuiet)
         inventoryPreferences.unregisterOnSharedPreferenceChangeListener(inventoryListener)
         removeCallbacks(refreshOwnedOffers)
@@ -655,6 +701,88 @@ internal class GamePawsPromotionView(
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()
+}
+
+/**
+ * Intermittent non-clickable hand cue beside Save. The actual pill keeps
+ * WRAP_CONTENT width, while the frame provides a place to draw the hand
+ * outside the text. The same artwork and 3.6s/1.4s cadence as pawn hints.
+ */
+private class SaveTapHintFrame(context: Context) : FrameLayout(context) {
+    private val hand = LudoPawsTapHandArt(context)
+    private var hintActive = false
+    private val ticker = object : Runnable {
+        override fun run() {
+            if (!hintActive || !isAttachedToWindow || !isShown || windowVisibility != VISIBLE) return
+            invalidate()
+            val phase = android.os.SystemClock.uptimeMillis() % 3600L
+            postDelayed(this, if (phase < 1400L) 48L else 3600L - phase)
+        }
+    }
+
+    init {
+        setWillNotDraw(false)
+        clipChildren = false
+        clipToPadding = false
+        isClickable = false
+        isFocusable = false
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    fun setHintActive(value: Boolean) {
+        if (hintActive == value) return
+        hintActive = value
+        refreshTicker()
+    }
+
+    private fun refreshTicker() {
+        removeCallbacks(ticker)
+        invalidate()
+        if (hintActive && isAttachedToWindow && isShown && windowVisibility == VISIBLE) {
+            postOnAnimation(ticker)
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        refreshTicker()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        refreshTicker()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        refreshTicker()
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(ticker)
+        super.onDetachedFromWindow()
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (!hintActive || !isShown || childCount == 0) return
+        val phase = android.os.SystemClock.uptimeMillis() % 3600L
+        if (phase >= 1400L) return
+        val button = getChildAt(0)
+        if (button.width <= 0 || button.height <= 0) return
+        val fade = minOf(1f, phase / 220f, (1400L - phase) / 240f).coerceAtLeast(0f)
+        val tapProgress = kotlin.math.sin(phase / 1400.0 * Math.PI).toFloat()
+        hand.draw(
+            canvas,
+            button.right - dp(2).toFloat(),
+            button.top + button.height * .48f + dp(3) * tapProgress,
+            dp(17).toFloat(),
+            (230f * fade).toInt(),
+        )
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + .5f).toInt()
 }
 
 internal class GamePawsPromotionSlot(context: Context, private val fallback: View?) : FrameLayout(context) {
@@ -674,8 +802,23 @@ internal class GamePawsPromotionSlot(context: Context, private val fallback: Vie
         matchActive = active
         updateContentVisibility()
         promotion.setActive(active)
-        if (!active && layoutParams != null && layoutParams.height != (52 * resources.displayMetrics.density + .5f).toInt()) {
-            layoutParams = layoutParams.apply { height = (52 * resources.displayMetrics.density + .5f).toInt() }
+        // In a match the offer gets its own full-width row beneath Back/Settings.
+        // In a lobby the original centered title remains in the 52dp control row.
+        val params = layoutParams as? FrameLayout.LayoutParams
+        if (params != null) {
+            val density = resources.displayMetrics.density
+            fun dp(value: Int) = (value * density + .5f).toInt()
+            val side = dp(if (active) 12 else 76)
+            val top = dp(if (active) 70 else 14)
+            if (params.topMargin != top || params.leftMargin != side || params.rightMargin != side) {
+                params.width = LayoutParams.MATCH_PARENT
+                params.height = dp(if (active) 84 else 52)
+                params.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+                params.topMargin = top
+                params.leftMargin = side
+                params.rightMargin = side
+                layoutParams = params
+            }
         }
     }
 
