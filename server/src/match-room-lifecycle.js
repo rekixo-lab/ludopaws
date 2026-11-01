@@ -4,6 +4,9 @@ import {
 } from "./match-room-social.js";
 import {
   actingSeatForTurn,
+  applyMove,
+  destinationForRoll,
+  legalTokenIndexes,
   forfeitTimedOutTurn,
   isTeamUp,
   publicState,
@@ -19,6 +22,9 @@ const FINISHED_IDLE_TTL_MS = 24 * 60 * 60 * 1000;
 // indefinitely. Strategy stays client-controlled inside this window; once it
 // expires the move is forfeited and the authoritative turn advances.
 export const MOVE_SELECTION_TIMEOUT_MS = 45 * 1000;
+// After the client has time to render the proven dice, recover a truly forced
+// move at the authoritative server. Manual choices retain the full 45 seconds.
+export const FORCED_MOVE_RECOVERY_MS = 8 * 1000;
 export const TURN_ROLL_TIMEOUT_MS = 15 * 1000;
 export const MAX_TURN_ROLL_TIMEOUTS = 4;
 
@@ -197,9 +203,48 @@ export class MatchRoom extends SocialMatchRoom {
 
     const deadline = resolvedMoveDeadline(pending);
     const now = Date.now();
-    if (deadline == null || now < deadline) {
-      return false;
+    if (deadline == null) return false;
+
+    const forcedToken = forcedAutomaticTokenIndex(state);
+    const forcedAt = Number(pending.resolvedAt) + FORCED_MOVE_RECOVERY_MS;
+    if (forcedToken != null && now >= forcedAt) {
+      // Same engine and serialized queue as a real /move. If a client move
+      // raced with this alarm it has already changed the pending event; if it
+      // arrives later /move returns the recorded receipt as a safe replay.
+      const moved = applyMove(state, {
+        playerId: pending.playerId,
+        tokenIndex: forcedToken,
+        now,
+      });
+      const next = moved.state;
+      const history = Array.isArray(next.history) ? [...next.history] : [];
+      const eventIndex = history.findLastIndex(event =>
+        event?.eventIndex === pending.eventIndex &&
+        event?.playerId === pending.playerId
+      );
+      // A missing receipt indicates corrupted state; never commit a move
+      // without its matching verified roll history.
+      if (eventIndex < 0) {
+        throw new Error("FORCED_MOVE_HISTORY_MISSING");
+      }
+      history[eventIndex] = {
+        ...history[eventIndex],
+        moveTokenIndex: forcedToken,
+        captures: moved.captures,
+        extraTurn: moved.extraTurn,
+        winnerPlayerId: moved.winnerPlayerId,
+        movedAt: now,
+        autoMoveSource: "SERVER_FORCED_MOVE_RECOVERY",
+      };
+      next.history = history;
+      await this.ctx.storage.put(STATE_KEY, next);
+      if (next.status === "FINISHED") {
+        await this.recordFinishedMatchForLifecycle(next);
+      }
+      broadcastStateChanged(this.ctx, next, this.env);
+      return true;
     }
+    if (now < deadline) return false;
 
     const next = structuredClone(state);
     const seat = next.pendingRoll.seat;
@@ -281,11 +326,18 @@ export class MatchRoom extends SocialMatchRoom {
     if (deadline == null) {
       return false;
     }
-    if (deadline <= Date.now()) {
+    const now = Date.now();
+    const forcedToken = forcedAutomaticTokenIndex(state);
+    const forcedAt = forcedToken == null
+      ? null
+      : Number(pending.resolvedAt) + FORCED_MOVE_RECOVERY_MS;
+    if (deadline <= now || (forcedAt != null && forcedAt <= now)) {
       return this.#expireResolvedMoveIfNeeded();
     }
 
-    await this.ctx.storage.setAlarm(deadline);
+    await this.ctx.storage.setAlarm(
+      forcedAt == null ? deadline : Math.min(deadline, forcedAt),
+    );
     return true;
   }
 }
@@ -342,4 +394,35 @@ function broadcastStateChanged(ctx, state, env) {
       }
     }
   }
+}
+
+// A server-side fail-closed equivalent of the Android effective-move policy.
+// Only rulesets explicitly promising automatic moves participate. Always derive
+// legality again from the authoritative tokens; never trust stale client indexes.
+export function forcedAutomaticTokenIndex(state) {
+  if (state?.status !== "ACTIVE" || state?.pendingRoll?.status !== "RESOLVED") return null;
+  if (rulesetForState(state).singleLegalMovePolicy !== "AUTO_MOVE") return null;
+
+  const pending = state.pendingRoll;
+  const seat = pending.seat;
+  if (!Number.isInteger(seat) || seat !== actingSeatForTurn(state)) return null;
+  const player = state.players?.[seat];
+  if (!player || player.playerType === "BOT" || player.playerId !== pending.playerId) return null;
+  const roll = pending.outcome;
+  if (!Number.isInteger(roll) || roll < 1 || roll > 6) return null;
+  if (!Array.isArray(player.tokens) || player.tokens.length !== 4) return null;
+
+  const advertised = pending.legalTokenIndexes;
+  if (!Array.isArray(advertised) || !advertised.length ||
+      advertised.some(index => !Number.isInteger(index) || index < 0 || index > 3) ||
+      new Set(advertised).size !== advertised.length) return null;
+
+  const canonical = legalTokenIndexes(state, seat, roll);
+  if (canonical.length !== advertised.length ||
+      !canonical.every(index => advertised.includes(index))) return null;
+
+  const destinations = canonical.map(index => destinationForRoll(player.tokens[index], roll));
+  if (destinations.some(destination => destination == null)) return null;
+  if (new Set(destinations).size !== 1) return null;
+  return Math.min(...canonical);
 }
