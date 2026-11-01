@@ -20,6 +20,26 @@ class RobotTeamCompositionTest {
     }
 
     @Test
+    fun `player tile labels explain human robot counts within two lines`() {
+        assertEquals("1 HUMAN\n1 ROBOT", RobotTeamComposition.tileLabel(2, 1, true))
+        assertEquals("1 HUMAN\n2 ROBOTS", RobotTeamComposition.tileLabel(3, 1, false))
+        assertEquals("2 HUMANS\n1 ROBOT ↻", RobotTeamComposition.tileLabel(3, 2, true))
+        assertEquals("1 HUMAN\n3 ROBOTS ↻", RobotTeamComposition.tileLabel(4, 1, true))
+        assertEquals("2 HUMANS\n2 ROBOTS ↻", RobotTeamComposition.tileLabel(4, 2, true))
+        assertEquals("3 HUMANS\n1 ROBOT ↻", RobotTeamComposition.tileLabel(4, 3, true))
+    }
+
+    @Test
+    fun `changing player count always starts at the one human tile preview`() {
+        assertEquals(1, RobotTeamComposition.humansAfterPlayerTileTap(4, 3, 2))
+        assertEquals(1, RobotTeamComposition.humansAfterPlayerTileTap(3, 4, 3))
+        assertEquals(2, RobotTeamComposition.humansAfterPlayerTileTap(4, 4, 1))
+        assertEquals(3, RobotTeamComposition.humansAfterPlayerTileTap(4, 4, 2))
+        assertEquals(1, RobotTeamComposition.humansAfterPlayerTileTap(4, 4, 3))
+        assertEquals(1, RobotTeamComposition.humansAfterPlayerTileTap(2, 2, 1))
+    }
+
+    @Test
     fun `old saved values are normalized to a valid mix`() {
         assertEquals(1, RobotTeamComposition.humans(3, 0))
         assertEquals(2, RobotTeamComposition.humans(3, 99))

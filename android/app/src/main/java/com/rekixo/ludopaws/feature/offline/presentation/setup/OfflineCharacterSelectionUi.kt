@@ -56,11 +56,14 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
     require(gameMode.supportsPlayerCount(playerCount)) {
         "Unsupported local player count: $playerCount"
     }
-    // Tap the selected total again to cycle the Human/Robot composition.
+    // A newly selected total begins at 1 Human; re-tapping it cycles ratios.
+    // This matches the preview printed on unselected player tiles.
     selectedHumans = if (isComputerMode) {
-        if (playerCount == selectedPlayers) {
-            RobotTeamComposition.nextHumans(playerCount, selectedHumans)
-        } else RobotTeamComposition.humans(playerCount, selectedHumans)
+        RobotTeamComposition.humansAfterPlayerTileTap(
+            playerCount = playerCount,
+            previouslySelectedPlayerCount = selectedPlayers,
+            previouslySelectedHumans = selectedHumans,
+        )
     } else playerCount
     selectedPlayers = playerCount
     selectedCharacterSlot = selectedCharacterSlot.coerceIn(0, playerCount - 1)

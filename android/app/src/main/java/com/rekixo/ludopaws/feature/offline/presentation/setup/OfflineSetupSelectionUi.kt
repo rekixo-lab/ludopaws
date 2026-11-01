@@ -11,6 +11,7 @@ import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -50,12 +51,24 @@ internal fun OfflineGameActivity.playersPanel(): LinearLayout =
                 setShadowLayer(2f, 0f, dp(1).toFloat(), 0x7A00112D)
             }
             val label = TextView(this@playersPanel).apply {
-                text = if (isComputerMode) RobotTeamComposition.label(playerCount, 1) else "PLAYERS"
+                text = if (isComputerMode) {
+                    RobotTeamComposition.tileLabel(playerCount, 1, selected = false)
+                } else "PLAYERS"
                 textSize = if (isCompactSetup()) 10f else 11.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 includeFontPadding = false
+                if (isComputerMode) {
+                    maxLines = 2
+                    // Fit complete HUMAN/ROBOT words without enlarging any tile.
+                    setAutoSizeTextTypeUniformWithConfiguration(
+                        8,
+                        if (isCompactSetup()) 10 else 11,
+                        1,
+                        TypedValue.COMPLEX_UNIT_SP,
+                    )
+                }
             }
             val tile = LinearLayout(this@playersPanel).apply {
                 orientation = LinearLayout.VERTICAL
@@ -93,6 +106,21 @@ internal fun OfflineGameActivity.playersPanel(): LinearLayout =
                 setOnClickListener { clicked ->
                     clicked.playSelectionPopAnimation()
                     updateSelectedPlayerCount(playerCount)
+                    // One brief discovery hint, never an extra section or button.
+                    if (isComputerMode && playerCount > 2) {
+                        val preferences = this@playersPanel.getSharedPreferences(
+                            "robot_player_tile_hints",
+                            android.content.Context.MODE_PRIVATE,
+                        )
+                        if (!preferences.getBoolean("composition_cycle_shown", false)) {
+                            preferences.edit().putBoolean("composition_cycle_shown", true).apply()
+                            android.widget.Toast.makeText(
+                                this@playersPanel,
+                                "Tap this tile again to change Humans and Robots.",
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
                 }
             }
             playerMap[playerCount] = tile
@@ -580,14 +608,19 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
             (content.getChildAt(2) as? TextView)?.apply {
                 setTextColor(countTextColor)
                 if (isComputerMode) {
-                    text = RobotTeamComposition.label(playerCount, if (selected) selectedHumans else 1) +
-                        if (selected && playerCount > 2) " ↻" else ""
-                    maxLines = 1
+                    text = RobotTeamComposition.tileLabel(
+                        playerCount,
+                        if (selected) selectedHumans else 1,
+                        selected = selected,
+                    )
                 }
             }
             if (isComputerMode) {
                 val humans = if (selected) selectedHumans else 1
-                tile.contentDescription = "$playerCount players: $humans humans and ${playerCount - humans} robots. Tap the selected tile again to change."
+                val description = "$playerCount players: $humans humans and ${playerCount - humans} robots."
+                tile.contentDescription = if (playerCount > 2) {
+                    "$description ${if (selected) "Tap again" else "Select, then tap again"} to change the mix."
+                } else description
             }
         }
     }
