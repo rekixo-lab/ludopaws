@@ -533,6 +533,11 @@ internal fun OfflineGameActivity.renderCommittedMove(
             "Paw is moving…"
         },
     )
+    schedulePassAndPlayHandoff(
+        previous = previous,
+        current = current,
+        presentationDelayMillis = delay,
+    )
 }
 
 private fun OfflineGameActivity.schedulePresentationUnlock(
@@ -595,7 +600,7 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
     if (singleLegalMoveKey == eventKey) return
     singleLegalMoveKey = eventKey
 
-    showStatus("Only one effective move • holding the dice result…")
+    showStatus("Only one move available • moving your paw automatically…")
 
     val speed =
         GameSettingsStore(this)

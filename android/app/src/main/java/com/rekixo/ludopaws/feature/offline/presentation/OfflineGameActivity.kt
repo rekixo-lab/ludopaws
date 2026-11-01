@@ -44,6 +44,11 @@ class OfflineGameActivity : ComponentActivity() {
     }
 
     internal fun resumeOfflineActions() {
+        if (pendingPassAndPlayHandoff != null) {
+            offlineModalPaused = true
+            if (boardView != null) showPendingPassAndPlayHandoff()
+            return
+        }
         if (offlineActionsAllowed && boardView != null) session.snapshot()?.let { renderGame(it) }
     }
 
@@ -156,6 +161,8 @@ class OfflineGameActivity : ComponentActivity() {
     internal var gameplayPawsPromotion: com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionView? = null
     internal var exitConfirmationDialog: Dialog? = null
     internal var turnHandoffDialog: Dialog? = null
+    internal var pendingPassAndPlayHandoff: OfflinePassAndPlayHandoff? = null
+    internal var pendingPassAndPlayMatchId: String? = null
     internal var quickReactionView: View? = null
     internal var quickReactionLastShownAtMs: Long? = null
     internal lateinit var resultPanel: FrameLayout
@@ -192,6 +199,26 @@ class OfflineGameActivity : ComponentActivity() {
         } else {
             showSetup()
         }
+        // showGame() resets UI state: restore pending handoff only after
+        // that transition, so rotation cannot silently skip the next player.
+        if (savedInstanceState != null && gameMode == GameMode.PASS_AND_PLAY) {
+            val savedMatchId = savedInstanceState.getString("pending_handoff_match")
+            val savedSeat = savedInstanceState.getInt("pending_handoff_seat", -1)
+            val match = session.snapshot()
+            val player = match?.players?.getOrNull(savedSeat)
+            if (savedMatchId != null && match != null && match.matchId == savedMatchId &&
+                match.status == "ACTIVE" && match.turnSeat == savedSeat &&
+                match.pendingRoll == null && player != null && boardView != null) {
+                pendingPassAndPlayHandoff = OfflinePassAndPlayHandoff(
+                    playerId = player.playerId,
+                    displayName = player.displayName,
+                    color = player.color,
+                    seat = player.seat,
+                )
+                pendingPassAndPlayMatchId = savedMatchId
+                offlineModalPaused = true
+            }
+        }
         preparePostWinInterstitialAd()
     }
 
@@ -227,6 +254,9 @@ class OfflineGameActivity : ComponentActivity() {
 
     internal fun prepareOfflineUiTransition() {
         pauseOfflineActions()
+        pendingPassAndPlayHandoff = null
+        pendingPassAndPlayMatchId = null
+        offlineModalPaused = false
         boardView?.let { com.rekixo.ludopaws.ui.quickchat.clearQuickChatReactions(it) }
         handler.removeCallbacksAndMessages(null)
         turnHandoffDialog
@@ -282,6 +312,14 @@ class OfflineGameActivity : ComponentActivity() {
         characterSummaryText =
             null
         colorSelectionStatus = null
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        pendingPassAndPlayHandoff?.let { handoff ->
+            outState.putString("pending_handoff_match", pendingPassAndPlayMatchId)
+            outState.putInt("pending_handoff_seat", handoff.seat)
+        }
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
