@@ -121,8 +121,8 @@ export function createBotParticipants({
     usedNames.add(displayName.toLocaleLowerCase("en"));
 
     // Prefer a character not already assigned to a human or earlier bot.
-    // With the current four-character roster and at most four seats, a unique
-    // character is always available whenever the selected group has a vacancy.
+    // The entire server roster remains available to auto-filled bots,
+    // irrespective of player unlocks or new premium characters added later.
     const availableCharacters = LUDO_PAWS_CHARACTER_IDS.filter(
       (id) => !usedCharacters.has(id),
     );

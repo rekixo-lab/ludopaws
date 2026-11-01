@@ -29,8 +29,8 @@ object StarterPawsAssignmentPolicy {
     ): List<String> {
         requirePlayerCount(playerCount)
         val humans = if (computerMode) RobotTeamComposition.humans(playerCount, humanCount) else playerCount
-        val available = starterCharacterIds.filter { computerMode || it in unlockedCharacterIds }
-        val owned = available.filter { it in unlockedCharacterIds }
+        val available = starterCharacterIds.filter { it in unlockedCharacterIds }
+        val owned = available
         require(owned.size >= humans) {
             "Not enough unlocked paws for $humans human seats"
         }
@@ -54,15 +54,15 @@ object StarterPawsAssignmentPolicy {
             )
 
         if (computerMode) {
-            // The human must own their paw, while CPU opponents may use the
-            // complete shipped starter roster without granting ownership.
+            // Every seat is chosen by this account in local Robot mode; locked
+            // cosmetics are not usable by CPU opponents or human seats.
             val humanCharacter = canonicalRequested.firstOrNull()
                 ?.takeIf(owned::contains) ?: safePreferred
             val used = linkedSetOf(humanCharacter)
             return buildList(playerCount) {
                 add(humanCharacter)
                 for (seat in 1 until playerCount) {
-                    val pool = if (seat < humans) owned else available
+                    val pool = available
                     val requested = canonicalRequested.getOrNull(seat)
                     val assigned = requested?.takeIf { it in pool && it !in used }
                         ?: pool.first { it !in used }
@@ -122,14 +122,14 @@ object StarterPawsAssignmentPolicy {
             "Character slot $selectedSlot is outside the active player range"
         }
 
-        val available = starterCharacterIds.filter { computerMode || it in unlockedCharacterIds }
+        val available = starterCharacterIds.filter { it in unlockedCharacterIds }
         val canonicalRequested =
             LudoPawsCharacterCatalog
                 .canonicalCharacterId(requestedCharacterId)
         if (
             canonicalRequested == null ||
             canonicalRequested !in available ||
-            selectedSlot < humans && canonicalRequested !in unlockedCharacterIds
+            canonicalRequested !in unlockedCharacterIds
         ) {
             return normalize(
                 playerCount = playerCount,
@@ -167,9 +167,7 @@ object StarterPawsAssignmentPolicy {
         current[selectedSlot] = canonicalRequested
 
         if (ownerSlot >= 0 && ownerSlot != selectedSlot) {
-            // Swap selected CPU/seat assignments rather than duplicating paws.
-            // A human can only request an owned paw (checked above), so this
-            // never moves an unowned CPU-only paw into the human seat.
+            // Swap between already-owned paws, keeping every seat visually unique.
             current[ownerSlot] = previousCharacterId
         }
 

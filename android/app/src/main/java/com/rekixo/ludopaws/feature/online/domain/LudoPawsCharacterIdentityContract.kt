@@ -14,23 +14,9 @@ object LudoPawsCharacterIdentityContract {
     const val WIRE_FIELD = "characterId"
     const val SCHEMA_VERSION = 1
 
-    /** New characters are available locally while production still has its old roster.
-     * Remove this fallback only with the matching server rollout; never overwrite local selection. */
-    fun resolveForRequest(characterId: String?): String {
-        val canonical=resolveRemote(characterId)
-        return when (canonical) {
-            "donkey" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            "goat_lumi" -> "goat"
-            "cock" -> "duck"
-            "pig" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            "elephant" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            "horse" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            "rabbit" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            "monkey" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            "panda" -> LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
-            else -> canonical
-        }
-    }
+    /** Send every locally registered paw unchanged; server ownership checks
+     * human seats without limiting the shared roster for auto-filled bots. */
+    fun resolveForRequest(characterId: String?): String = resolveRemote(characterId)
 
     fun resolveRemote(characterId: String?): String {
         val canonical =

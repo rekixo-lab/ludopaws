@@ -116,10 +116,9 @@ internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
 }
 
 internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: String) {
-    // Ownership gates the human player, not a computer-controlled opponent.
-    if ((!isComputerMode || selectedCharacterSlot < selectedHumans) &&
-        !characterSelectionStore.isUnlocked(characterId)
-    ) {
+    // Local Robot opponents are user-selected cosmetics, so they have the
+    // same ownership requirement as local human players.
+    if (!characterSelectionStore.isUnlocked(characterId)) {
         startActivity(android.content.Intent(this, com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java)
             .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
             .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId))
@@ -506,11 +505,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
 
 private fun OfflineGameActivity.characterChoiceSubtitle(characterId: String): CharSequence {
     if (!characterSelectionStore.isUnlocked(characterId)) {
-        return if (isComputerMode && selectedCharacterSlot >= selectedHumans) {
-            "CPU ONLY"
-        } else {
-            characterUnlockLabel(characterId)
-        }
+        return characterUnlockLabel(characterId)
     }
     return LudoPawsCharacterCatalog.character(characterId)
         ?.personality?.name?.lowercase()?.replaceFirstChar(Char::uppercase).orEmpty()
