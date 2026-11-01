@@ -336,15 +336,17 @@ private fun StoreActivity.featuredRemoveAdsCard(
                 1f,
             ),
         )
-        body.addView(
-            rewardedAdCard(),
-            LinearLayout.LayoutParams(
-                dp(122),
-                dp(42),
-            ).apply {
-                marginStart = dp(4)
-            },
-        )
+        if (BuildConfig.LUDOPROOF_ADS_ENABLED) {
+            body.addView(
+                rewardedAdCard(),
+                LinearLayout.LayoutParams(
+                    dp(122),
+                    dp(42),
+                ).apply {
+                    marginStart = dp(4)
+                },
+            )
+        }
         addView(
             body,
         )

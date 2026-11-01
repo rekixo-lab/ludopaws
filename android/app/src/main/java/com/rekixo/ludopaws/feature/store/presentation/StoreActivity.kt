@@ -23,6 +23,7 @@ import com.rekixo.ludopaws.feature.store.data.StoreCatalogRepository
 import com.rekixo.ludopaws.feature.store.data.ads.RewardedAdsController
 import com.rekixo.ludopaws.feature.store.data.billing.GooglePlayBillingGateway
 import com.rekixo.ludopaws.feature.store.data.billing.PendingStorePurchase
+import com.rekixo.ludopaws.feature.store.data.billing.PendingPurchaseAccountPolicy
 import com.rekixo.ludopaws.feature.store.data.billing.PendingStorePurchaseStore
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
 import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
@@ -97,6 +98,9 @@ class StoreActivity :
     private var chosenProductId: String? = null
     private var chosenProductOwner: String? = null
     private var checkoutRetryNeeded = false
+    // Older Play tokens remain encrypted for their original Ludo Paws account.
+    // Inform the player in the status strip instead of interrupting new checkout.
+    private var crossAccountPurchaseAwaitingRestore = false
     private val scrollPositions = mutableMapOf<StoreTab, Int>()
     private var catalogRefreshInProgress = false
     private var catalogRefreshFailed = false
@@ -338,6 +342,7 @@ class StoreActivity :
             var availabilityError: Exception? = null
             var recoveredPurchases = 0
             var recoveryError: Exception? = null
+            var crossAccountPurchasesPresent = false
             var activeBillingAccountId: String? = null
             try {
                 val session = accountRepository.ensureGuestSession()
@@ -352,6 +357,14 @@ class StoreActivity :
                 // It can only be recovered after that same Google-linked account is restored.
                 if (available) {
                     pendingPurchases.all().forEach { pending ->
+                        if (!PendingPurchaseAccountPolicy.mayVerify(
+                                pending.accountId,
+                                session.billingAccountId,
+                            )
+                        ) {
+                            crossAccountPurchasesPresent = true
+                            return@forEach
+                        }
                         try {
                             val applied = verifyPurchaseAndFulfill(pending)
                             if (applied) recoveredPurchases += 1
@@ -371,6 +384,8 @@ class StoreActivity :
                 if (!storeStarted || availabilityGeneration != checkoutGeneration || !canRenderStoreUi()) return@runOnUiThread
                 storeRefreshInFlight = false
                 billingAvailable = available
+                crossAccountPurchaseAwaitingRestore = crossAccountPurchasesPresent
+                updateCheckoutStatus()
                 recoverPendingAdRewards()
 
                 val requestedProduct = pendingAutoPurchaseProductId
@@ -410,7 +425,7 @@ class StoreActivity :
                     )
                 } else if (recoveryError != null) {
                     showStoreMessage(
-                        "A previous Play payment could not yet be verified for the currently signed-in account. It remains pending; restore the account that made the purchase and try again.",
+                        "A previous Google Play purchase is waiting for verification. Its recovery record is saved; keep the app installed and retry when your connection is stable. No unverified Gems or items were granted.",
                     )
                 }
                 if (
@@ -627,6 +642,7 @@ class StoreActivity :
             pendingCheckoutProductId != null -> "Getting your Google Play price…"
             purchaseEligibilityInProgress -> "Connecting to Google Play…"
             checkoutRetryNeeded && chosenProductId != null -> "Retry selected item · " + StoreCatalog.find(chosenProductId.orEmpty())?.title.orEmpty()
+            crossAccountPurchaseAwaitingRestore -> "Earlier Play purchase saved for another Ludo Paws account · Restore that game account in Profile"
             else -> "Pay securely with Google Play"
         }
     }
@@ -857,6 +873,21 @@ class StoreActivity :
             onFinished()
             return
         }
+        // QueryPurchasesAsync also reports purchases owned by older app accounts.
+        // Save their tokens, but NEVER verify against or grant the current account.
+        // In particular, do not raise a modal over an unrelated new checkout.
+        if (!PendingPurchaseAccountPolicy.mayVerify(
+                pending.accountId,
+                accountRepository.currentSession()?.billingAccountId,
+            )
+        ) {
+            runOnUiThread {
+                crossAccountPurchaseAwaitingRestore = true
+                updateCheckoutStatus()
+            }
+            onFinished()
+            return
+        }
         billingExecutor.execute {
             var entitlementApplied = false
             try {
@@ -877,13 +908,27 @@ class StoreActivity :
                 Log.e(TAG, "Store purchase verification failed", error)
                 runOnUiThread {
                     if (!canRenderStoreUi()) return@runOnUiThread
-                    val detail = error.message?.takeIf(String::isNotBlank)
-                        ?: "Please keep the app installed and try again."
+                    // A game-account switch during asynchronous verification
+                    // is not a failure of the player's current checkout.
+                    if (!PendingPurchaseAccountPolicy.mayVerify(
+                            pending.accountId,
+                            accountRepository.currentSession()?.billingAccountId,
+                        )
+                    ) {
+                        crossAccountPurchaseAwaitingRestore = true
+                        updateCheckoutStatus()
+                        return@runOnUiThread
+                    }
+                    val detail = if (error is com.rekixo.ludopaws.feature.account.data.AccountApiException) {
+                        "Google Play verification is temporarily unavailable (HTTP ${error.status}, ${error.code})."
+                    } else {
+                        "Please keep the app installed and reopen the store to retry."
+                    }
                     showStoreMessage(
                         if (entitlementApplied) {
-                            "Payment was verified, but the recovery record could not be cleared. It will be safely checked again. $detail"
+                            "Payment was verified, but its recovery record could not be cleared. It will be checked again. $detail"
                         } else {
-                            "Payment was received, but its verification is still pending. No unverified entitlement was granted. $detail"
+                            "Google Play purchase verification is still pending. No unverified Gems or items were granted. $detail"
                         },
                     )
                 }
@@ -897,8 +942,8 @@ class StoreActivity :
         pending: PendingStorePurchase,
     ): Boolean {
         val session = accountRepository.requireSession()
-        check(session.billingAccountId == pending.accountId) {
-            "This Play purchase belongs to another account. Restore that account before recovering it."
+        check(PendingPurchaseAccountPolicy.mayVerify(pending.accountId, session.billingAccountId)) {
+            "This Play purchase belongs to the original game account. Restore it to recover the purchase."
         }
         val response = accountRepository.verifyPlayPurchase(
             productId = pending.productId,
@@ -1430,7 +1475,12 @@ class StoreActivity :
             )
         }
 
-        if (BuildConfig.LUDOPROOF_ADS_ENABLED && selectedTab == StoreTab.GEMS) {
+        // The Remove Ads card already contains the single Watch Ad action.
+        // Use a standalone placement only in builds where that card is absent.
+        if (BuildConfig.LUDOPROOF_ADS_ENABLED &&
+            !BuildConfig.LUDOPROOF_BILLING_ENABLED &&
+            selectedTab == StoreTab.GEMS
+        ) {
             offerContent.addView(rewardedAdCard())
         }
 
