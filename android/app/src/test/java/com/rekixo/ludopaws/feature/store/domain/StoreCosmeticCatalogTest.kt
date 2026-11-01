@@ -59,28 +59,16 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
-    fun shippedBoardsAreAvailableAndDraftBoardsRemainLocked() {
+    fun shippedBoardsOnlyAppearInStore() {
         val boards = StoreCosmeticCatalog.boards
-        assertEquals(15, boards.size)
-        assertEquals(setOf("board_classic", "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"), boards.filter { it.contentAvailable }.map { it.id }.toSet())
-
-        val classic =
-            requireNotNull(
-                StoreCosmeticCatalog.find(StoreCosmeticCatalog.DEFAULT_BOARD),
-            )
-        assertEquals("CLASSIC", classic.title)
-        assertTrue(classic.contentAvailable)
-
-        val lockedBoards =
-            boards.filter {
-                !it.contentAvailable
-            }
-        assertEquals(8, lockedBoards.size)
-        assertTrue(
-            lockedBoards.all {
-                !it.contentAvailable && it.title.isNotBlank() && it.title != "LOCKED BOARD"
-            },
+        assertEquals(7, boards.size)
+        assertEquals(
+            setOf("board_classic", "board_astral", "board_cloud_lagoon",
+                "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"),
+            boards.map { it.id }.toSet(),
         )
+        assertTrue(boards.all { it.contentAvailable })
+        assertEquals("CLASSIC", requireNotNull(StoreCosmeticCatalog.find(StoreCosmeticCatalog.DEFAULT_BOARD)).title)
     }
 
     @Test
@@ -125,29 +113,27 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
-    fun allProposedComingSoonPricesAreVisibleButNotPurchasable() {
-        val boards = StoreCosmeticCatalog.boards.associateBy { it.id }
-        val dice = StoreCosmeticCatalog.dice.associateBy { it.id }
-        val avatars = StoreCosmeticCatalog.avatars.associateBy { it.id }
-        for ((id, price) in mapOf(
-            "board_chess" to 50, "board_diwali" to 75, "board_denim" to 75,
-            "board_neon" to 150, "board_pirate" to 200, "board_alien" to 250,
-            "board_penguin" to 250,
-        )) {
-            assertEquals(price, boards.getValue(id).gemPrice)
-            assertTrue(!boards.getValue(id).contentAvailable)
-        }
-        for ((id, price) in mapOf(
-            "dice_diwali" to 50, "dice_football" to 75, "dice_cricket" to 100,
-            "dice_summers" to 150, "dice_colors" to 150, "dice_heart" to 200,
-        )) {
-            assertEquals(price, dice.getValue(id).gemPrice)
-            assertTrue(!dice.getValue(id).contentAvailable)
-        }
-        assertEquals(100, avatars.getValue("avatar_2").gemPrice)
-        assertEquals(100, avatars.getValue("avatar_10").gemPrice)
-        assertEquals(150, StoreCosmeticCatalog.characterUnlock("panda")?.gemPrice)
-        assertEquals(150, StoreCosmeticCatalog.characterUnlock("monkey")?.gemPrice)
+    fun unpublishedBoardsDicePawsAndAvatarsAreNotInTheShop() {
+        assertTrue(StoreCosmeticCatalog.boards.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.dice.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.characterPacks.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.avatars.isEmpty())
+        assertTrue(StoreCosmeticCatalog.all.none { it.category == CosmeticCategory.AVATAR })
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("avatar_2"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("avatar_4"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("board_chess"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("dice_diwali"))
+        assertTrue(StoreCosmeticCatalog.findShopItem("board_classic") != null)
+        assertTrue(StoreCosmeticCatalog.findShopItem("character_pack_starter_paws") != null)
+        assertTrue(StoreCosmeticCatalog.boards.none { it.id in setOf("board_chess", "board_diwali", "board_neon") })
+        assertTrue(StoreCosmeticCatalog.dice.none { it.id in setOf("dice_diwali", "dice_heart", "dice_cricket") })
+        assertTrue(StoreCosmeticCatalog.characterPacks.none {
+            it.id.startsWith("character_pack_") && it.id != StoreCosmeticCatalog.DEFAULT_CHARACTER_PACK
+        })
+        // Existing ownership IDs are intentionally recognized, not advertised.
+        assertEquals(100, StoreCosmeticCatalog.findBuiltIn("avatar_2")?.gemPrice)
+        assertEquals(100, StoreCosmeticCatalog.findBuiltIn("avatar_10")?.gemPrice)
+        assertTrue(StoreCosmeticCatalog.DEFAULT_AVATAR in StoreCosmeticCatalog.defaultOwnedIds)
     }
 
     @Test
@@ -170,15 +156,12 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
-    fun starterPawsHasSixReservedFuturePacksThatRemainLocked() {
-        val futurePacks =
-            StoreCosmeticCatalog.characterPacks.filter {
-                it.characterPackId != "starter_paws"
-            }
-
-        assertEquals(6, futurePacks.size)
-        assertTrue(futurePacks.all { !it.contentAvailable })
-        assertTrue(futurePacks.any { it.id == "character_pack_jungle_paws" })
+    fun starterPawsIsTheOnlyPackUntilNewContentShips() {
+        val packIds = StoreCosmeticCatalog.characterPacks.mapNotNull {
+            it.id.takeIf { id -> id.startsWith("character_pack_") }
+        }
+        assertEquals(listOf(StoreCosmeticCatalog.DEFAULT_CHARACTER_PACK), packIds)
+        assertTrue(StoreCosmeticCatalog.findBuiltIn("character_pack_jungle_paws") == null)
     }
 
     @Test

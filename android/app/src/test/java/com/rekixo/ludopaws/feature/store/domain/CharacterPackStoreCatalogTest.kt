@@ -57,41 +57,22 @@ class CharacterPackStoreCatalogTest {
     }
 
     @Test
-    fun `animal pack catalog supports every planned progression channel`() {
-        val kinds =
-            StoreCosmeticCatalog.characterPacks
-                .map { it.unlockKind }
-                .toSet()
-
-        assertTrue(CosmeticUnlockKind.FREE in kinds)
-        assertTrue(CosmeticUnlockKind.LEVEL in kinds)
-        assertTrue(CosmeticUnlockKind.GEMS in kinds)
-        // Multi-channel offers keep ad progression without using ads as primary purchase.
-        assertTrue(StoreCosmeticCatalog.characterPacks.any {
-            it.unlockKind == CosmeticUnlockKind.REWARDED_ADS ||
-                CosmeticUnlockKind.REWARDED_ADS in it.unlockChannels
+    fun `only ready animal packs and priced character offers appear`() {
+        val packs = StoreCosmeticCatalog.characterPacks
+        assertTrue(packs.isNotEmpty())
+        assertTrue(packs.all { it.contentAvailable })
+        assertTrue(packs.any { it.unlockKind == CosmeticUnlockKind.FREE })
+        assertTrue(packs.any { it.unlockKind == CosmeticUnlockKind.GEMS })
+        assertTrue(packs.any { CosmeticUnlockKind.REWARDED_ADS in it.unlockChannels })
+        assertFalse(packs.any {
+            it.unlockKind == CosmeticUnlockKind.EVENT || it.unlockKind == CosmeticUnlockKind.LEVEL
         })
-        assertTrue(CosmeticUnlockKind.EVENT in kinds)
     }
 
     @Test
-    fun `future packs cannot spend currency or become selectable before content ships`() {
-        val future =
-            StoreCosmeticCatalog.characterPacks
-                .filter {
-                    it.characterPackId != "starter_paws"
-                }
-
-        assertTrue(future.isNotEmpty())
-        future.forEach { offer ->
-            assertFalse(offer.contentAvailable)
-            // Registered content may exist for a Debug-only preview while its offer stays locked.
-            val packId = requireNotNull(offer.characterPackId)
-            val registeredPack = LudoPawsCharacterCatalog.pack(packId)
-            if (registeredPack != null) {
-                assertTrue(LudoPawsCharacterCatalog.charactersForPack(packId).isNotEmpty())
-            }
-        }
+    fun `future packs are removed instead of disabled placeholders`() {
+        assertTrue(StoreCosmeticCatalog.characterPacks.none { it.characterPackId != "starter_paws" })
+        assertTrue(StoreCosmeticCatalog.all.none { !it.contentAvailable })
     }
 
     @Test

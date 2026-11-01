@@ -75,8 +75,18 @@ class ContentRegistryTest {
 
     @Test
     fun boardAndDiceOffersHaveMatchingLocalDefinitionsAndRenderers() {
-        assertEquals(StoreCosmeticCatalog.boards.map { it.id }.toSet(), BoardRegistry.all.map { it.id }.toSet())
-        assertEquals(StoreCosmeticCatalog.dice.map { it.id }.toSet(), DiceRegistry.all.map { it.id }.toSet())
+        // Registries retain legacy/future definitions for renderer compatibility.
+        // The Shop must expose only shipped, content-ready assets.
+        assertEquals(
+            BoardRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet(),
+            StoreCosmeticCatalog.boards.map { it.id }.toSet(),
+        )
+        assertEquals(
+            DiceRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet(),
+            StoreCosmeticCatalog.dice.map { it.id }.toSet(),
+        )
+        assertTrue(StoreCosmeticCatalog.boards.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.dice.all { it.contentAvailable })
         for (board in BoardRegistry.all) {
             assertEquals(CosmeticCategory.BOARD, board.offer.category)
             assertTrue(BoardRendererRegistry.supports(board.rendererKey))

@@ -45,10 +45,8 @@ requireText(models, "contentAvailable", "Character-pack offers must fail closed 
 requireText(storeModels, 'PAWS("PAWS")', "The store must expose a dedicated PAWS tab.");
 requireText(catalog, "DEFAULT_CHARACTER_PACK", "Starter Paws must have a stable default store ID.");
 requireText(catalog, "character_pack_starter_paws", "Starter Paws store offer is missing.");
-requireText(catalog, "CosmeticUnlockKind.LEVEL", "Level animal-pack progression is missing.");
 requireText(catalog, "CosmeticUnlockKind.GEMS", "Gem animal-pack progression is missing.");
 requireText(catalog, "CosmeticUnlockKind.REWARDED_ADS", "Rewarded-ad animal-pack progression is missing.");
-requireText(catalog, "CosmeticUnlockKind.EVENT", "Event animal-pack progression is missing.");
 
 const availabilityGuard = inventory.indexOf("if (!cosmetic.contentAvailable || !cosmetic.purchaseAvailable)");
 const gemDebit = inventory.indexOf("balance -");
@@ -61,13 +59,23 @@ requireText(inventory, "KEY_SELECTED_CHARACTER_PACK", "Selected character pack m
 requireText(preferences, "KEY_EVENT_ENTITLEMENTS", "Verified event entitlements must persist.");
 requireText(contentUi, "StoreTab.PAWS", "PAWS tab must route to animal-pack content.");
 requireText(pawsUi, "LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)", "Store must list shipped starter characters rather than coming-soon packs.");
-requireText(boardCatalogUi, "val panels = StoreCosmeticCatalog.boards", "All boards must remain listed, including Coming Soon.");
-requireText(diceCatalogUi, "val panels = StoreCosmeticCatalog.dice", "All dice must remain listed, including Coming Soon.");
-if (/StoreCosmeticCatalog\.(boards|dice)\.filter\s*\{\s*it\.contentAvailable/.test(boardCatalogUi + diceCatalogUi)) {
-  throw new Error("Coming Soon boards or dice must not be hidden from the Store.");
+requireText(boardCatalogUi, "StoreCosmeticCatalog.boards.filter { it.contentAvailable }", "Only released boards must be listed.");
+requireText(diceCatalogUi, "StoreCosmeticCatalog.dice.filter { it.contentAvailable }", "Only released dice must be listed.");
+requireText(catalog, "return (visibleBuiltIns + newRemoteItems).filter { it.contentAvailable }",
+  "The public Shop catalog must hide every unreleased or non-renderable item.");
+requireText(catalog, "get() = emptyList()", "The Avatar Shop catalog must be empty.");
+for (const [source, name] of [[pawsUi, "Paws"], [boardCatalogUi, "Board"], [diceCatalogUi, "Dice"]]) {
+  if (/COMING SOON|UPCOMING PAW PACKS|AVATARS/.test(source)) throw new Error(`${name} Shop still contains retired placeholder or Avatar text.`);
 }
-requireText(pawsUi, "UPCOMING PAW PACKS", "Future Paw packs must remain visible.");
-requireText(pawsUi, "StoreCosmeticCatalog.avatars", "Avatar offers must remain visible.");
+if (pawsUi.includes("StoreCosmeticCatalog.avatars") || catalog.includes("character_pack_safari_paws")) {
+  throw new Error("Avatar Shop or speculative character packs are still exposed.");
+}
+for (const obsolete of [
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreAvatarCatalogUi.kt",
+  "android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreCosmeticGridUi.kt",
+]) {
+  if (fs.existsSync(obsolete)) throw new Error(`Obsolete Shop component is still present: ${obsolete}`);
+}
 const featuredUi = read("android/app/src/main/java/com/rekixo/ludopaws/feature/store/presentation/components/StoreLockedSpotlightView.kt");
 requireText(featuredUi, "item.contentAvailable && !store.cosmetics.isOwned(item.id)", "Spotlights must show available, unowned content only.");
 for (const category of ["BOARD", "DICE", "CHARACTER_PACK"]) {
@@ -81,13 +89,13 @@ requireText(actions, "NEED_EVENT", "Event pack UX is missing.");
 
 for (const marker of [
   "starter paws is free content ready and linked to complete character content",
-  "animal pack catalog supports every planned progression channel",
-  "future packs cannot spend currency or become selectable before content ships",
+  "only ready animal packs and priced character offers appear",
+  "future packs are removed instead of disabled placeholders",
   "event packs require a stable event key",
 ]) {
   requireText(tests, marker, `Phase 14 catalog coverage is missing: ${marker}`);
 }
 
 console.log(
-  "Ludo Paws Phase 14 animal-store gate passed: character packs, progression channels, content readiness, selection sync and purchase-safety guards are wired.",
+  "Ludo Paws Shop gate passed: released-only Board/Dice/Paws, no avatars/upcoming shelf, legacy entitlement compatibility and purchase-safety guards.",
 );

@@ -33,27 +33,7 @@ internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): Li
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ),
         )
-        val upcomingPacks = StoreCosmeticCatalog.characterPacks.filter { it.characterPackId != "starter_paws" }
-        if (upcomingPacks.isNotEmpty()) {
-            addView(TextView(this@pawsCatalogContent).apply {
-                text = "UPCOMING PAW PACKS"
-                textSize = 16f
-                setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-                setPadding(0, dp(18), 0, dp(8))
-            })
-            addView(this@pawsCatalogContent.cosmeticGrid(upcomingPacks, 0xFFB9DFFB.toInt()))
-        }
-        addView(TextView(this@pawsCatalogContent).apply {
-            text = "AVATARS"
-            textSize = 16f
-            setTypeface(Typeface.DEFAULT_BOLD)
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            setPadding(0, dp(18), 0, dp(8))
-        })
-        addView(this@pawsCatalogContent.cosmeticGrid(StoreCosmeticCatalog.avatars, 0xFFB9DFFB.toInt()))
+
     }
 
 private fun StoreActivity.pawsCharacterGrid(

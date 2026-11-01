@@ -46,7 +46,7 @@ internal fun StoreActivity.storeContent(): LinearLayout {
     }
     return LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(it) }
+        promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.findShopItem(it) }
             ?.takeIf { com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.tabFor(it) == selectedTab }
             ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }) }
         val category = when (selectedTab) {
