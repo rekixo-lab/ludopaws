@@ -99,6 +99,9 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
                     latest?.players?.getOrNull(latest.turnSeat)
                 if (
                     latest == null ||
+                    latest.matchId != state.matchId ||
+                    latest.randomEventIndex != state.randomEventIndex ||
+                    latest.turnSeat != state.turnSeat ||
                     latest.status != "ACTIVE" ||
                     latest.pendingRoll != null ||
                     latestActive?.playerId != active.playerId
@@ -141,19 +144,39 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
             return
         }
 
-    showStatus(active.displayName + " is choosing a move…")
+    showStatus(
+        if (pending.legalTokenIndexes.size == 1) {
+            active.displayName + " • only one move available…"
+        } else {
+            active.displayName + " is choosing a move…"
+        },
+    )
     handler.postDelayed(
         {
             if (!offlineActionsAllowed) return@postDelayed
             val latest = session.snapshot()
             val latestActive =
                 latest?.players?.getOrNull(latest.turnSeat)
+            val latestPending = latest?.pendingRoll
             if (
                 latest == null ||
+                latest.matchId != state.matchId ||
+                latest.randomEventIndex != state.randomEventIndex ||
+                latest.turnSeat != state.turnSeat ||
                 latest.status != "ACTIVE" ||
                 latestActive?.playerId != active.playerId ||
-                latest.pendingRoll?.legalTokenIndexes?.contains(token) != true
+                latestActive.tokens != active.tokens ||
+                latestPending?.status != "RESOLVED" ||
+                latestPending.eventIndex != pending.eventIndex ||
+                latestPending.outcome != outcome ||
+                latestPending.proofDigest != pending.proofDigest ||
+                latestPending.legalTokenIndexes != pending.legalTokenIndexes ||
+                token !in latestPending.legalTokenIndexes
             ) {
+                // Never replay an old CPU decision against a newer dice event.
+                // A fresh render can schedule the current legal decision.
+                computerActionRevision = null
+                latest?.let { renderGame(it) }
                 return@postDelayed
             }
 
