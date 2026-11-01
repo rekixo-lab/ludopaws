@@ -503,6 +503,19 @@ export default {
         request,
         route.method,
       );
+      if (
+        route.websocket &&
+        request.headers.get("upgrade")?.trim().toLowerCase() !== "websocket"
+      ) {
+        // Never fabricate an upstream upgrade for a plain HTTP request:
+        // the Durable Object would create a 101 WebSocket response that the
+        // outer Cloudflare Worker is forbidden from returning to this client.
+        throw httpError(
+          426,
+          "WEBSOCKET_REQUIRED",
+          "realtime events require an Upgrade: websocket request",
+        );
+      }
 
       const target = room(env, matchId);
       const headers = new Headers();
@@ -531,13 +544,9 @@ export default {
         "content-type",
         "application/json",
       );
-      if (
-        route.websocket
-      ) {
-        headers.set(
-          "upgrade",
-          "websocket",
-        );
+      if (route.websocket) {
+        // The incoming request has already been verified as an upgrade.
+        headers.set("upgrade", "websocket");
       }
 
       let body;
