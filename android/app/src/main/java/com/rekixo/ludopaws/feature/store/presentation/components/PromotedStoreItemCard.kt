@@ -77,7 +77,7 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         isAllCaps = false
         LudoProofTheme.positive(this)
         minHeight = dp(48)
-        isEnabled = item.contentAvailable && item.purchaseAvailable
+        isEnabled = item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
         setOnClickListener {
             val current = StoreCosmeticCatalog.find(item.id)
             if (current == null || !current.contentAvailable) showStoreMessage("This item is unavailable. Refresh the catalog.")

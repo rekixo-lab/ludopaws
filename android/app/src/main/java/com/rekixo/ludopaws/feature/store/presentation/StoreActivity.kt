@@ -304,6 +304,10 @@ class StoreActivity :
             updateCatalogStatus()
             updateCheckoutStatus()
             renderStore()
+            if (pendingSmartUnlockId != null) {
+                pendingSmartUnlockId = null
+                showCosmeticFeedback("Connect to verify this offer and start its unlock.")
+            }
         }
     }
 
@@ -520,6 +524,7 @@ class StoreActivity :
                     catalogRefreshInProgress = false
                     catalogRefreshFailed = true
                     updateCatalogStatus()
+                    maybeStartPendingSmartUnlock()
                 }
             }
         }
@@ -1145,8 +1150,12 @@ class StoreActivity :
     private fun maybeStartPendingSmartUnlock() {
         val id = pendingSmartUnlockId ?: return
         if (!storeStarted || !showcaseResumed || !storeOnline || storeRefreshInFlight ||
-            catalogRefreshInProgress || catalogRefreshFailed || !canRenderStoreUi()) return
+            catalogRefreshInProgress || !canRenderStoreUi()) return
         pendingSmartUnlockId = null
+        if (catalogRefreshFailed) {
+            showCosmeticFeedback("Offer verification failed. Refresh and select the item again.")
+            return
+        }
         val current = StoreCosmeticCatalog.find(id)
         if (current == null || !current.contentAvailable || !current.purchaseAvailable) {
             showStoreMessage("This offer is unavailable. No purchase or ad was started.")
@@ -1204,7 +1213,9 @@ class StoreActivity :
                 check(wallet.applyServerSnapshot(serverWallet, session.accountId)) {
                     "Server returned a wallet for a different account."
                 }
-                cosmetics.applyServerSnapshot(serverWallet, session.accountId)
+                check(cosmetics.applyServerSnapshot(serverWallet, session.accountId)) {
+                    "Server inventory belongs to a different account."
+                }
                 cosmetics.clearOfflineSelection(cosmetic.category)
                 runOnUiThread {
                     if (cosmetic.id.startsWith("character_") && cosmetics.isOwned(cosmetic.id)) {
@@ -1214,7 +1225,7 @@ class StoreActivity :
                             ?.select(com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.STARTER_PACK_ID, characterId)
                     }
                     cosmeticUpdateInProgress = false
-                    if (!canRenderStoreUi()) return@runOnUiThread
+                    if (!canRenderStoreUi() || accountRepository.currentSession()?.accountId != session.accountId) return@runOnUiThread
                     renderStore()
                     showStoreMessage(
                         if (cosmetics.selectedId(cosmetic.category) == cosmetic.id) {
