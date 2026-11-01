@@ -232,7 +232,7 @@ class StoreActivity :
         promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.find(it) != null }
         pendingSmartUnlockId = if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_START_SMART_UNLOCK, false)) promotedCosmeticId else null
         pendingSmartUnlockExpectedAction = if (savedInstanceState == null) intent.getStringExtra(EXTRA_EXPECTED_UNLOCK_ACTION) else null
-        pendingSmartUnlockExpectedGems = if (savedInstanceState == null) intent.getIntExtra(EXTRA_EXPECTED_GEMS_PRICE, -1) else -1 else null
+        pendingSmartUnlockExpectedGems = if (savedInstanceState == null) intent.getIntExtra(EXTRA_EXPECTED_GEMS_PRICE, -1) else -1
         if (savedInstanceState == null) promotedCosmeticId?.let { id ->
             StoreCosmeticCatalog.find(id)?.let { selectedTab = PromotionInterest.tabFor(it) }
         }
