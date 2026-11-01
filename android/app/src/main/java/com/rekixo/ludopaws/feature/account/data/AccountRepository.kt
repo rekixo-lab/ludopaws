@@ -184,6 +184,17 @@ class AccountRepository(context: Context) {
             .getJSONObject("wallet")
     }
 
+    /** Confirm a completed match reward from the server wallet ledger only. */
+    fun matchRewardStatus(matchId: String): JSONObject {
+        require(Regex("^LP[A-Z2-9]{8}$").matches(matchId)) { "Invalid match ID" }
+        val session = requireSession()
+        return request(
+            "GET",
+            "/api/wallet/match-reward/status?matchId=$matchId",
+            token = session.accessToken,
+        )
+    }
+
     fun profile(): JSONObject {
         val session = requireSession()
         return request("GET", "/api/account/me", token = session.accessToken)

@@ -137,6 +137,7 @@ export class PlayerAccount {
       if (request.method === "POST" && url.pathname === "/profile/get") return await this.#getProfile(request);
       if (request.method === "POST" && url.pathname === "/profile/update") return await this.#updateProfile(request);
       if (request.method === "POST" && url.pathname === "/wallet/get") return await this.#getWallet(request);
+      if (request.method === "POST" && url.pathname === "/wallet/match-reward/status") return await this.#matchRewardStatus(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-revoke") return await this.#revokePlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/referral-bundle") return await this.#grantReferralBundle(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-purchase") return await this.#grantPlayPurchase(request);
@@ -353,6 +354,29 @@ export class PlayerAccount {
     this.#requireActiveSession(accountId, sessionId);
     await this.#enrollLegacyPurchases(accountId);
     return json(200, { ok: true, wallet: this.#walletSnapshot(accountId) });
+  }
+
+  // Read-only, account-scoped receipt. A planned match reward is NOT proof of
+  // delivery; never report Credited until the wallet ledger actually contains it.
+  async #matchRewardStatus(request) {
+    const body = await readJson(request);
+    const accountId = requireAccountId(body?.accountId);
+    const sessionId = requireSessionId(body?.sessionId);
+    this.#requireActiveSession(accountId, sessionId);
+    const matchId = String(body?.matchId ?? "");
+    if (!/^LP[A-Z2-9]{8}$/.test(matchId)) {
+      throw httpError(400, "MATCH_REWARD_ID_INVALID", "match ID is invalid");
+    }
+    const row = [...this.ctx.storage.sql.exec(
+      "SELECT kind, delta FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1",
+      "match-reward:" + matchId,
+    )][0];
+    const status = row == null ? "PENDING"
+      : row.kind === "MATCH_REWARD_FRIENDS_LIMIT" && Number(row.delta) === 0 ? "LIMIT_REACHED"
+      : /^MATCH_REWARD_(ONLINE|FRIENDS|TEAM_UP)$/.test(String(row.kind)) &&
+        Number(row.delta) > 0 ? "CREDITED" : "UNAVAILABLE";
+    return json(200, { ok: true, matchId, status,
+      creditedGems: status === "CREDITED" ? Number(row.delta) : 0 });
   }
 
   async #enrollLegacyPurchases(accountId) {

@@ -508,6 +508,17 @@ export async function handleAccountRequest(request, env) {
         });
       }
 
+      // Authenticated read only; never accepts an amount/rank or credits currency.
+      if (url.pathname === "/api/wallet/match-reward/status" && request.method === "GET") {
+        await rateLimit(env, request, "wallet:read", ACCOUNT_RATE_LIMITS.wallet);
+        const session = await authenticate(request, env);
+        return await playerResponse(env, session.accountId, "/wallet/match-reward/status", {
+          accountId: session.accountId,
+          sessionId: session.sessionId,
+          matchId: url.searchParams.get("matchId"),
+        });
+      }
+
       if (url.pathname === "/api/wallet/cosmetics/purchase" && request.method === "POST") {
         await rateLimit(env, request, "wallet:cosmetic:purchase", ACCOUNT_RATE_LIMITS.walletMutation);
         const session = await authenticate(request, env);
