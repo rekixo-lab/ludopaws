@@ -23,7 +23,7 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        val panels = StoreCosmeticCatalog.dice // Keep all Coming Soon dice visible, never purchasable.
+        val panels = StoreCosmeticCatalog.dice.filter { it.contentAvailable } // Released products only.
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.DICE)
 

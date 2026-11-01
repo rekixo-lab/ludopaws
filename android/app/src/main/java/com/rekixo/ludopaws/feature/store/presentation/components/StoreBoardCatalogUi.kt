@@ -22,7 +22,7 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
 
-        val panels = StoreCosmeticCatalog.boards // Show every item; incomplete content stays Coming Soon.
+        val panels = StoreCosmeticCatalog.boards.filter { it.contentAvailable } // Released products only.
         val ownedIds = cosmetics.ownedCosmeticIds()
         val selectedId = cosmetics.selectedId(com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD)
         val selectionUpdates = mutableMapOf<String, (Boolean, Boolean) -> Unit>()
