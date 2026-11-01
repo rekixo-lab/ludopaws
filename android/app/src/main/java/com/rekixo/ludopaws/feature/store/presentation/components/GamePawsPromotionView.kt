@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.app.ActivityManager
 import android.graphics.Color
+import android.graphics.Canvas
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -20,6 +21,7 @@ import android.widget.TextView
 import android.widget.Toast
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.BuildConfig
+import com.rekixo.ludopaws.LudoPawsTapHandArt
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
@@ -65,6 +67,8 @@ internal class GamePawsPromotionView(
     private val gameplayFrame = FrameLayout(context)
     private val name = TextView(context)
     private val storeLabel = Button(context)
+    private val saveHintFrame = if (gameplay) SaveTapHintFrame(context) else null
+    private var savedOfferId: String? = null
     private val categoryLabel = TextView(context)
     private val priceLabel = TextView(context)
     private val leftCopy = LinearLayout(context)
@@ -227,7 +231,7 @@ internal class GamePawsPromotionView(
                     setTextColor(0xFFFFE9AA.toInt())
                 }
             }, LayoutParams(-1, -2))
-            addView(storeLabel.apply {
+            val actionButton = storeLabel.apply {
                 text = if (gameplay) "STORE ›" else "EXPLORE ›"
                 textSize = 9f
                 setTextColor(0xFFFFDC79.toInt())
@@ -245,15 +249,18 @@ internal class GamePawsPromotionView(
                         setStroke(dp(1), 0xB08FCB79.toInt())
                     }
                 }
-            }, LayoutParams(
-                if (gameplay) LayoutParams.WRAP_CONTENT else LayoutParams.MATCH_PARENT,
-                LayoutParams.WRAP_CONTENT,
-            ).apply {
-                if (gameplay) {
-                    gravity = Gravity.CENTER_HORIZONTAL
-                    topMargin = dp(4)
-                }
-            })
+            }
+            if (gameplay) {
+                val frame = checkNotNull(saveHintFrame)
+                frame.addView(actionButton, FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER,
+                ))
+                addView(frame, LayoutParams(-1, -2).apply { topMargin = dp(4) })
+            } else {
+                addView(actionButton, LayoutParams(-1, -2))
+            }
             storeLabel.apply {
                 isAllCaps = false
                 backgroundTintList = null
@@ -344,7 +351,9 @@ internal class GamePawsPromotionView(
                 return@setOnClickListener
             }
             com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.save(context, offer.cosmetic.id)
+            savedOfferId = offer.cosmetic.id
             storeLabel.text = "Saved ✓"
+            saveHintFrame?.setHintActive(false)
             storeLabel.contentDescription = "${offer.title} saved for after the match"
             contentDescription = "${offer.title} saved for after the match"
             notice?.cancel()
@@ -426,7 +435,9 @@ internal class GamePawsPromotionView(
         adMeter.completion = if (offer.cosmetic.requiredAdViews > 0) {
             done.toFloat() / offer.cosmetic.requiredAdViews
         } else 0f
+        val offerSaved = gameplay && savedOfferId == offer.cosmetic.id
         storeLabel.text = when {
+            offerSaved -> "Saved ✓"
             gameplay -> "Save"
             !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() ||
                 !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
@@ -437,7 +448,11 @@ internal class GamePawsPromotionView(
             decision.primary == SmartUnlockAction.GET_GEMS -> "Get Gems ›"
             else -> "Unlock ›"
         }
-        storeLabel.contentDescription = if (gameplay) "Save ${offer.title} for after the match" else null
+        storeLabel.contentDescription = when {
+            offerSaved -> "${offer.title} saved for after the match"
+            gameplay -> "Save ${offer.title} for after the match"
+            else -> null
+        }
         preview?.setActive(false)
         preview?.alpha = 0f
         preview?.visibility = GONE
@@ -495,7 +510,8 @@ internal class GamePawsPromotionView(
                 SmartUnlockAction.FREE -> "Free unlock"
                 else -> "Offer details available after the match"
             }
-            "${offer.title}. $unlockDetail. Save this offer until after your match."
+            if (offerSaved) "${offer.title} saved for after the match."
+            else "${offer.title}. $unlockDetail. Save this offer until after your match."
         } else "${offer.title}. ${storeLabel.text.toString().removeSuffix(" ›")}."
         updateMotion()
     }
@@ -635,6 +651,10 @@ internal class GamePawsPromotionView(
         preview?.setActive(false)
         removeCallbacks(resumeAfterQuiet)
         val quietRemaining = quietUntilMillis - android.os.SystemClock.uptimeMillis()
+        saveHintFrame?.setHintActive(
+            quietRemaining <= 0L && canPresentPromotion() && animationsAllowed() &&
+                storeLabel.text.toString() == "Save",
+        )
         if (quietRemaining > 0L) {
             if (isAttachedToWindow) postDelayed(resumeAfterQuiet, quietRemaining)
             return
@@ -668,6 +688,7 @@ internal class GamePawsPromotionView(
     }
 
     override fun onDetachedFromWindow() {
+        saveHintFrame?.setHintActive(false)
         removeCallbacks(resumeAfterQuiet)
         inventoryPreferences.unregisterOnSharedPreferenceChangeListener(inventoryListener)
         removeCallbacks(refreshOwnedOffers)
@@ -680,6 +701,88 @@ internal class GamePawsPromotionView(
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()
+}
+
+/**
+ * Intermittent non-clickable hand cue beside Save. The actual pill keeps
+ * WRAP_CONTENT width, while the frame provides a place to draw the hand
+ * outside the text. The same artwork and 3.6s/1.4s cadence as pawn hints.
+ */
+private class SaveTapHintFrame(context: Context) : FrameLayout(context) {
+    private val hand = LudoPawsTapHandArt(context)
+    private var hintActive = false
+    private val ticker = object : Runnable {
+        override fun run() {
+            if (!hintActive || !isAttachedToWindow || !isShown || windowVisibility != VISIBLE) return
+            invalidate()
+            val phase = android.os.SystemClock.uptimeMillis() % 3600L
+            postDelayed(this, if (phase < 1400L) 48L else 3600L - phase)
+        }
+    }
+
+    init {
+        setWillNotDraw(false)
+        clipChildren = false
+        clipToPadding = false
+        isClickable = false
+        isFocusable = false
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    fun setHintActive(value: Boolean) {
+        if (hintActive == value) return
+        hintActive = value
+        refreshTicker()
+    }
+
+    private fun refreshTicker() {
+        removeCallbacks(ticker)
+        invalidate()
+        if (hintActive && isAttachedToWindow && isShown && windowVisibility == VISIBLE) {
+            postOnAnimation(ticker)
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        refreshTicker()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        refreshTicker()
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(visibility)
+        refreshTicker()
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(ticker)
+        super.onDetachedFromWindow()
+    }
+
+    override fun dispatchDraw(canvas: Canvas) {
+        super.dispatchDraw(canvas)
+        if (!hintActive || !isShown || childCount == 0) return
+        val phase = android.os.SystemClock.uptimeMillis() % 3600L
+        if (phase >= 1400L) return
+        val button = getChildAt(0)
+        if (button.width <= 0 || button.height <= 0) return
+        val fade = minOf(1f, phase / 220f, (1400L - phase) / 240f).coerceAtLeast(0f)
+        val tapProgress = kotlin.math.sin(phase / 1400.0 * Math.PI).toFloat()
+        hand.draw(
+            canvas,
+            button.right - dp(2).toFloat(),
+            button.top + button.height * .48f + dp(3) * tapProgress,
+            dp(17).toFloat(),
+            (230f * fade).toInt(),
+        )
+    }
+
+    private fun dp(value: Int): Int =
+        (value * resources.displayMetrics.density + .5f).toInt()
 }
 
 internal class GamePawsPromotionSlot(context: Context, private val fallback: View?) : FrameLayout(context) {
