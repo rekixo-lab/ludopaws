@@ -406,8 +406,18 @@ export function forcedAutomaticTokenIndex(state) {
   const pending = state.pendingRoll;
   const seat = pending.seat;
   if (!Number.isInteger(seat) || seat !== actingSeatForTurn(state)) return null;
+  if (isTeamUp(state) && pending.scheduledSeat !== state.turnSeat) return null;
+  if (!Number.isSafeInteger(pending.eventIndex) || pending.eventIndex < 0) return null;
   const player = state.players?.[seat];
-  if (!player || player.playerType === "BOT" || player.playerId !== pending.playerId) return null;
+  if (!player || player.playerType === "BOT" || player.playerId !== pending.playerId ||
+      Number.isSafeInteger(player.forfeitedAt)) return null;
+  // Recover only a verified, unresolved event with a durable history receipt.
+  const event = state.history?.findLast(entry =>
+    entry?.eventIndex === pending.eventIndex &&
+    entry?.playerId === pending.playerId
+  );
+  if (!event || event.moveTokenIndex != null || event.proofDigest !== pending.proofDigest ||
+      typeof pending.proofDigest !== "string" || pending.proofDigest.length === 0) return null;
   const roll = pending.outcome;
   if (!Number.isInteger(roll) || roll < 1 || roll > 6) return null;
   if (!Array.isArray(player.tokens) || player.tokens.length !== 4) return null;
