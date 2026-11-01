@@ -55,8 +55,15 @@ internal fun MainActivity.createRealtimeClient(
                     ) {
                         return@post
                     }
-                    realtimeConnected =
-                        connected
+                    val wasConnected = realtimeConnected
+                    realtimeConnected = connected
+                    if (connected && !wasConnected) {
+                        // A freshly reconnected socket authorizes one fresh retry
+                        // after an exhausted auto-move attempt budget. The actual
+                        // move still waits for a new authoritative snapshot.
+                        lastAutoMoveAttemptEventKey = null
+                        autoMoveAttemptCount = 0
+                    }
                     updateConnectionLabel()
                     if (screenStarted && playerToken != null) {
                         mainHandler.removeCallbacks(statePollRunnable)
