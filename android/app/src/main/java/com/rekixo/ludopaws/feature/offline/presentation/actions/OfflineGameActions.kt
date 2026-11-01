@@ -94,7 +94,7 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
         handler.postDelayed(
             {
                 if (!offlineActionsAllowed) return@postDelayed
-            val latest = session.snapshot()
+                val latest = session.snapshot()
                 val latestActive =
                     latest?.players?.getOrNull(latest.turnSeat)
                 if (
@@ -165,13 +165,13 @@ internal fun OfflineGameActivity.scheduleComputerTurnIfNeeded(
                 latest.turnSeat != state.turnSeat ||
                 latest.status != "ACTIVE" ||
                 latestActive?.playerId != active.playerId ||
-                latestActive.tokens != active.tokens ||
+                latestActive?.tokens != active.tokens ||
                 latestPending?.status != "RESOLVED" ||
-                latestPending.eventIndex != pending.eventIndex ||
-                latestPending.outcome != outcome ||
-                latestPending.proofDigest != pending.proofDigest ||
-                latestPending.legalTokenIndexes != pending.legalTokenIndexes ||
-                token !in latestPending.legalTokenIndexes
+                latestPending?.eventIndex != pending.eventIndex ||
+                latestPending?.outcome != outcome ||
+                latestPending?.proofDigest != pending.proofDigest ||
+                latestPending?.legalTokenIndexes != pending.legalTokenIndexes ||
+                latestPending?.legalTokenIndexes?.contains(token) != true
             ) {
                 // Never replay an old CPU decision against a newer dice event.
                 // A fresh render can schedule the current legal decision.
