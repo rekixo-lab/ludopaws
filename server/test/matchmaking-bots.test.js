@@ -12,6 +12,7 @@ import {
   botTurnDelayMs,
   botTurnsEnabled,
   createBotParticipants,
+  selectBotCharacterFromRoster,
 } from "../src/matchmaking-bots.js";
 
 const SESSION_KEY = "lp_test_session_hmac_key_1234567890abcdef";
@@ -170,6 +171,13 @@ test("bot settings are bounded and bots receive non-profile identities", () => {
   assert.ok(bots.every((bot) => bot.displayName.toLowerCase() !== "aarav"));
   assert.equal(new Set(["dog", ...bots.map((bot) => bot.characterId)]).size, 4);
   assert.ok(bots.every((bot) => bot.characterId !== "dog"));
+});
+
+test("future server bot rosters above 256 entries can select their final character", () => {
+  const roster = Array.from({ length: 400 }, (_, index) => "future-paw-" + index);
+  const chosen = selectBotCharacterFromRoster(roster, new Set(), (length) => length - 1);
+  assert.equal(chosen, "future-paw-399");
+  assert.equal(selectBotCharacterFromRoster(roster, new Set(roster.slice(0, 399))), "future-paw-399");
 });
 
 test("automatic server bots may use every premium roster character without user ownership", () => {

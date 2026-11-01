@@ -7,6 +7,34 @@ const BOT_NAMES = Object.freeze([
   "Vihaan", "Nora", "Dev", "Tara", "Rohan", "Kiara",
 ]);
 
+/**
+ * Draw from the whole pool with 32-bit rejection sampling. The previous
+ * single-byte index could never reach character indexes >= 256 after future
+ * roster expansions, and modulo directly introduces distribution bias.
+ */
+function secureIndex(length) {
+  if (!Number.isSafeInteger(length) || length < 1 || length > 0x1_0000_0000) {
+    throw new RangeError("invalid bot selection pool size");
+  }
+  const universe = 0x1_0000_0000;
+  const ceiling = universe - universe % length;
+  const random = new Uint32Array(1);
+  do {
+    crypto.getRandomValues(random);
+  } while (random[0] >= ceiling);
+  return random[0] % length;
+}
+
+/** Tests can inject an index picker; production always uses cryptographic RNG. */
+export function selectBotCharacterFromRoster(roster, usedCharacters, indexPicker = secureIndex) {
+  if (!Array.isArray(roster) || roster.length === 0) {
+    throw new RangeError("bot character roster must not be empty");
+  }
+  const unused = roster.filter((id) => !usedCharacters.has(id));
+  const pool = unused.length > 0 ? unused : roster;
+  return pool[indexPicker(pool.length)];
+}
+
 const DEFAULT_FILL_DELAY_MS = 15_000;
 const DEFAULT_TURN_DELAY_MS = 1_100;
 const DEFAULT_RESULT_HOLD_MS = 1_400;
@@ -115,21 +143,13 @@ export function createBotParticipants({
       (name) => !usedNames.has(name.toLocaleLowerCase("en")),
     );
     const namePool = availableNames.length > 0 ? availableNames : BOT_NAMES;
-    const random = new Uint8Array(2);
-    crypto.getRandomValues(random);
-    const displayName = namePool[((random[0] << 8) | random[1]) % namePool.length];
+    const displayName = namePool[secureIndex(namePool.length)];
     usedNames.add(displayName.toLocaleLowerCase("en"));
 
     // Prefer a character not already assigned to a human or earlier bot.
     // The entire server roster remains available to auto-filled bots,
     // irrespective of player unlocks or new premium characters added later.
-    const availableCharacters = LUDO_PAWS_CHARACTER_IDS.filter(
-      (id) => !usedCharacters.has(id),
-    );
-    const characterPool = availableCharacters.length > 0
-      ? availableCharacters
-      : LUDO_PAWS_CHARACTER_IDS;
-    const characterId = characterPool[random[1] % characterPool.length];
+    const characterId = selectBotCharacterFromRoster(LUDO_PAWS_CHARACTER_IDS, usedCharacters);
     usedCharacters.add(characterId);
 
     bots.push({
