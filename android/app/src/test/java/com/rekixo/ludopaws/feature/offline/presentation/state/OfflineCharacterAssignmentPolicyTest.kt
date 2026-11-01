@@ -85,9 +85,9 @@ class OfflineCharacterAssignmentPolicyTest {
             playerCount = 4,
             preferredCharacterId = "dog",
             active = active,
-            unlockedCharacterIds = setOf("dog", "goat", "cat"),
+            unlockedCharacterIds = setOf("dog", "goat", "duck", "cat"),
         )
-        assertEquals(active.characterIds, resolved)
+        assertEquals(listOf("dog", "goat", "duck", "cat"), resolved)
     }
 
     @Test
@@ -104,7 +104,7 @@ class OfflineCharacterAssignmentPolicyTest {
             preferredCharacterId = "dog", active = active,
             unlockedCharacterIds = owned, humanCount = 2,
         )
-        assertEquals(active.characterIds, restored)
+        assertEquals(listOf("dog", "goat", "duck", "cat"), restored)
         val changed = OfflineCharacterAssignmentPolicy.resolve(
             mode = GameMode.COMPUTER, playerCount = 4,
             preferredCharacterId = "dog", active = active,

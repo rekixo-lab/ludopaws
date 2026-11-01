@@ -113,22 +113,28 @@ class StarterPawsAssignmentPolicyTest {
     }
 
     @Test
-    fun `robot players can choose distinct opponent paws independently`() {
+    fun `robot cpu can swap owned opponent paws but cannot select locked premium`() {
+        val owned = setOf("dog", "goat", "duck", "cat")
         val current = listOf("dog", "goat", "duck", "cat")
-        val cpuChoice = StarterPawsAssignmentPolicy.select(
+        val swapped = StarterPawsAssignmentPolicy.select(
             playerCount = 4,
             currentCharacterIds = current,
             selectedSlot = 2,
+            requestedCharacterId = "cat",
+            computerMode = true,
+            unlockedCharacterIds = owned,
+        )
+        assertEquals(listOf("dog", "goat", "cat", "duck"), swapped)
+        val denied = StarterPawsAssignmentPolicy.select(
+            playerCount = 4,
+            currentCharacterIds = swapped,
+            selectedSlot = 2,
             requestedCharacterId = "horse",
             computerMode = true,
-            unlockedCharacterIds = setOf("dog", "goat", "duck", "cat"),
+            unlockedCharacterIds = owned,
         )
-
-        assertEquals(listOf("dog", "goat", "horse", "cat"), cpuChoice)
-        assertEquals(cpuChoice, StarterPawsAssignmentPolicy.normalize(
-            4, cpuChoice, "dog", true, setOf("dog", "goat", "duck", "cat"),
-        ))
-        assertEquals(cpuChoice.size, cpuChoice.toSet().size)
+        assertEquals(swapped, denied)
+        assertEquals(swapped.size, swapped.toSet().size)
     }
 
     @Test
@@ -140,15 +146,15 @@ class StarterPawsAssignmentPolicyTest {
             selectedSlot = 2,
             requestedCharacterId = "goat",
             computerMode = true,
-            unlockedCharacterIds = setOf("dog"),
+            unlockedCharacterIds = setOf("dog", "goat", "duck", "cat"),
         )
         assertEquals(listOf("dog", "duck", "goat", "cat"), swapped)
     }
 
     @Test
     fun `robot cpu cannot replace the human paw or unlock it`() {
-        val unlocked = setOf("dog", "goat")
-        val current = listOf("dog", "horse", "duck", "cat")
+        val unlocked = setOf("dog", "goat", "duck", "cat")
+        val current = listOf("dog", "goat", "duck", "cat")
         assertEquals(current, StarterPawsAssignmentPolicy.select(
             4, current, 1, "dog", true, unlocked,
         ))
@@ -164,7 +170,7 @@ class StarterPawsAssignmentPolicyTest {
     fun `human may swap with a cpu using an owned paw`() {
         val current = listOf("dog", "goat", "duck", "cat")
         val swapped = StarterPawsAssignmentPolicy.select(
-            4, current, 0, "cat", true, setOf("dog", "cat"),
+            4, current, 0, "cat", true, setOf("dog", "goat", "duck", "cat"),
         )
         assertEquals(listOf("cat", "goat", "duck", "dog"), swapped)
     }
@@ -180,7 +186,7 @@ class StarterPawsAssignmentPolicyTest {
             unlockedCharacterIds = owned,
             humanCount = 2,
         )
-        assertEquals(listOf("dog", "goat", "rabbit", "cat"), initial)
+        assertEquals(listOf("dog", "goat", "duck", "cat"), initial)
         assertEquals(4, initial.toSet().size)
         assertTrue(initial.take(2).all(owned::contains))
 
@@ -209,9 +215,25 @@ class StarterPawsAssignmentPolicyTest {
             computerMode = true, unlockedCharacterIds = owned, humanCount = 3,
         )
         assertEquals("duck", selected[2])
-        assertEquals("rabbit", selected[3])
+        assertEquals("cat", selected[3])
         assertTrue(selected.take(3).all(owned::contains))
         assertEquals(4, selected.distinct().size)
+    }
+
+    @Test
+    fun `locked CPU paws in old saves are repaired for every mixed team size`() {
+        val owned = setOf("dog", "goat", "duck", "cat")
+        for (humans in 1..3) {
+            val restored = StarterPawsAssignmentPolicy.normalize(
+                playerCount = 4,
+                requestedCharacterIds = listOf("horse", "panda", "rabbit", "monkey"),
+                preferredCharacterId = "horse",
+                computerMode = true,
+                unlockedCharacterIds = owned,
+                humanCount = humans,
+            )
+            assertEquals(listOf("dog", "goat", "duck", "cat"), restored)
+        }
     }
 
     @Test
