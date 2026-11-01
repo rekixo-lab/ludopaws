@@ -122,7 +122,11 @@ assert.ok(privacy.includes("Updated app versions award two Gems"), "online priva
 assert.ok(inAppPolicy.includes("updated app versions grant two Gems"), "in-app privacy copy must disclose the same verified rewarded-ad grant");
 assert.ok(storeActivity.includes("BuildConfig.ADMOB_REWARDED_AD_UNIT_ID"), "updated Android must use the configured 2-Gem AdMob unit");
 assert.ok(storeActivity.includes('rewardedAdsV2Available'), "updated Android must require explicit new-unit server readiness");
-assert.ok(storeActivity.includes("StoreCatalog.REWARDED_AD_GEMS"), "updated ad earning labels must derive from the shared 2-Gem amount");
+assert.ok(
+  storeContent.includes("StoreCatalog.REWARDED_AD_GEMS.toString()") &&
+    storeActivity.includes("requestRewardedAd("),
+  "the rendered ad earning label must derive from the shared 2-Gem amount, and Store must route ad requests",
+);
 assert.doesNotMatch(storeActivity, /rewardedAdsDailyLimit|You have reached today's .*rewarded ads|earn 5 Gems per verified ad/, "updated Android must have no daily rewarded-ad quota or stale 5-Gem promise");
 assert.ok(storeContent.includes("StoreCatalog.REWARDED_AD_GEMS"), "rewarded ad card must display the 2-Gem amount");
 assert.ok(androidBuildConfig.includes('ADMOB_REWARDED_AD_UNIT_ID'), "updated signed app must embed the configured 2-Gem unit");
