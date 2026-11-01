@@ -42,11 +42,12 @@ internal object PromotionInterest {
         // Called only after the result panel is visible, never during a turn.
         try {
             PlywoodAlertDialogBuilder(activity).setTitle("Your saved item")
-                .setMessage("You wanted to see ${item.title}. Open its Shop details now?")
-                .setPositiveButton("View in Shop") { _, _ ->
+                .setMessage("You wanted to see ${item.title}. Start its unlock now?")
+                .setPositiveButton("Unlock item") { _, _ ->
                     if (owner(activity) == key && StoreCosmeticCatalog.find(id)?.contentAvailable == true) {
                         activity.launchPlayerScreen(Intent(activity, StoreActivity::class.java)
                             .putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, id)
+                            .putExtra(StoreActivity.EXTRA_START_SMART_UNLOCK, true)
                             .putExtra(StoreActivity.EXTRA_INITIAL_TAB, tabFor(item).name))
                     }
                 }.setNegativeButton("Later", null).show()

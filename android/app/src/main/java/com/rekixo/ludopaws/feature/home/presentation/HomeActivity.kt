@@ -368,7 +368,10 @@ class HomeActivity : Activity() {
             HomePromotionCarousel(this) { tab, cosmeticId ->
                 launchPlayerScreen(Intent(this, StoreActivity::class.java).apply {
                     putExtra(StoreActivity.EXTRA_INITIAL_TAB, tab)
-                    cosmeticId?.let { putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, it) }
+                    cosmeticId?.let {
+                        putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, it)
+                        putExtra(StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+                    }
                 })
             }.also { promotionCarousel = it },
             FrameLayout.LayoutParams(

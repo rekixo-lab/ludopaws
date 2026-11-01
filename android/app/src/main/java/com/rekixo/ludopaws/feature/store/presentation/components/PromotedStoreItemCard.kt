@@ -69,31 +69,31 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
     if (item.requiredAdViews > 0) details.addView(label("$done / ${item.requiredAdViews} verified ads completed", 14f))
-    if (item.gemPrice > 0) details.addView(label(CosmeticPriceLabels.gems(context, item.gemPrice), 16f))
+    if (item.gemPrice > 0 && wallet.balance() >= item.gemPrice) details.addView(label(CosmeticPriceLabels.gems(context, item.gemPrice), 16f))
     if (item.unlockKind == CosmeticUnlockKind.PLAY_PRODUCT || CosmeticUnlockKind.PLAY_PRODUCT in item.unlockChannels)
         details.addView(label("Google Play: ${cosmeticPlayPrice(item.id)}", 14f))
-    val adsOnlyUnavailable = item.requiredAdViews > done && item.gemPrice == 0 &&
-        item.unlockChannels.size <= 1 && !BuildConfig.LUDOPROOF_ADS_ENABLED && !cosmetics.isOwned(item.id)
     details.addView(Button(context).apply {
-        text = when {
-            !item.contentAvailable -> "Unavailable"
-            cosmetics.isOwned(item.id) -> "Select item"
-            !item.purchaseAvailable || !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() -> "Connect to unlock"
-            adsOnlyUnavailable -> "Ads unavailable"
-            item.unlockChannels.size > 1 -> "Unlock options"
-            item.requiredAdViews > done -> "Watch ad · ${item.requiredAdViews - done} remaining"
-            else -> "Unlock item"
-        }
+        text = smartUnlockLabel(item)
         isAllCaps = false
         LudoProofTheme.positive(this)
         minHeight = dp(48)
-        isEnabled = item.contentAvailable && !adsOnlyUnavailable
+        isEnabled = item.contentAvailable && item.purchaseAvailable
         setOnClickListener {
             val current = StoreCosmeticCatalog.find(item.id)
-            if (current == null || !current.contentAvailable) showStoreMessage("This item is no longer available. Refresh the catalog.")
+            if (current == null || !current.contentAvailable) showStoreMessage("This item is unavailable. Refresh the catalog.")
             else handleCosmeticTap(current)
         }
     }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+    if (!cosmetics.isOwned(item.id)) unlockAlternativeLabel(item)?.let { alternative ->
+        details.addView(Button(context).apply {
+            text = "Or $alternative"
+            isAllCaps = false
+            minHeight = dp(40)
+            setOnClickListener {
+                StoreCosmeticCatalog.find(item.id)?.let { requestAlternateCosmetic(it) }
+            }
+        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4) })
+    }
     content.addView(details, if (horizontal) LinearLayout.LayoutParams(0, -2, 1f) else LinearLayout.LayoutParams(-1, -2))
     addView(content, LinearLayout.LayoutParams(-1, -2))
     if (!compact) addView(Button(context).apply {

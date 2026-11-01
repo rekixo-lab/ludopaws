@@ -141,8 +141,8 @@ private fun StoreActivity.pawsCharacterCard(
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
             else if (offerUnavailable) "${character.displayName}, currently unavailable"
             else if (unlock != null && com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT in unlock.unlockChannels)
-                "${character.displayName}, ${unlock.gemPrice} Gems or Google Play purchase; earn 5 Gems per rewarded ad"
-            else if (unlock != null) "${character.displayName}, ${unlock.gemPrice} Gems or $progress of ${unlock.requiredAdViews} rewarded ads"
+                "${character.displayName}, ${smartUnlockLabel(unlock)}; optional rewarded ad earns ${com.rekixo.ludopaws.feature.store.domain.StoreCatalog.REWARDED_AD_GEMS} Gems"
+            else if (unlock != null) "${character.displayName}, ${smartUnlockLabel(unlock)}"
             else "${character.displayName}, unlocked"
 
         addView(
@@ -187,7 +187,7 @@ private fun StoreActivity.pawsCharacterCard(
                     owned -> "🔓 UNLOCKED"
                     offerUnavailable -> "🔒 UNAVAILABLE"
                     unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> "🔒 ${unlock?.gemPrice ?: 0} Gems / $progress/${unlock?.requiredAdViews ?: 0} ADS"
+                    else -> if (unlock == null) "UNLOCKED" else smartUnlockLabel(unlock)
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
