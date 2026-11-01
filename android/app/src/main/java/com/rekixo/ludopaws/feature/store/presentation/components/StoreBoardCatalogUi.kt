@@ -16,8 +16,6 @@ import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
-private const val LOCKED_BOARD_TITLE = "LOCKED BOARD"
-
 internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -91,9 +89,8 @@ private fun StoreActivity.boardPanel(
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(8), dp(6), dp(8))
 
-        val locked = !board.contentAvailable
-        isClickable = !locked
-        isFocusable = !locked
+        isClickable = true
+        isFocusable = true
 
         addView(
             TextView(this@boardPanel).apply {
@@ -113,45 +110,32 @@ private fun StoreActivity.boardPanel(
             ),
         )
 
-        if (locked) {
-            // Leave the locked placeholder blank; its title and lock state are the only preview.
-            addView(
-                View(this@boardPanel).apply {
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(82),
-                ),
-            )
-        } else {
-            if (!owned && board.requiredAdViews > 0) {
-                addView(TextView(this@boardPanel).apply {
-                    text = "or ${board.requiredAdViews} ads"
-                    textSize = 9f
-                    includeFontPadding = false
-                    setTextColor(Color.WHITE)
-                    gravity = Gravity.CENTER
-                })
-            }
-            addView(
-                BoardIconView(this@boardPanel, board.id).apply {
-                    isClickable = false
-                    isFocusable = false
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    contentDescription = "${board.title} board preview"
-                },
-                LinearLayout.LayoutParams(
-                    dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
-                    dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
-                ).apply {
-                    topMargin = dp(1)
-                    bottomMargin = dp(1)
-                },
-            )
+        if (!owned && board.requiredAdViews > 0) {
+            addView(TextView(this@boardPanel).apply {
+                text = "or ${board.requiredAdViews} ads"
+                textSize = 9f
+                includeFontPadding = false
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+            })
         }
+        addView(
+            BoardIconView(this@boardPanel, board.id).apply {
+                isClickable = false
+                isFocusable = false
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                contentDescription = "${board.title} board preview"
+            },
+            LinearLayout.LayoutParams(
+                dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
+                dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
+            ).apply {
+                topMargin = dp(1)
+                bottomMargin = dp(1)
+            },
+        )
 
-        val statusBadge = boardStatusBadge(board = board, locked = locked, owned = owned, selected = selected)
+        val statusBadge = boardStatusBadge(board = board, owned = owned, selected = selected)
         addView(
             statusBadge,
             LinearLayout.LayoutParams(
@@ -164,7 +148,7 @@ private fun StoreActivity.boardPanel(
 
         val updateSelection: (Boolean, Boolean) -> Unit = { currentOwned, currentSelected ->
             isSelected = currentSelected
-            background = if (locked || !currentOwned) {
+            background = if (!currentOwned) {
                 plywoodBackground(this@boardPanel, cornerRadiusDp = 13f)
             } else {
                 playerCountSelectionBackground(
@@ -180,50 +164,30 @@ private fun StoreActivity.boardPanel(
             }
             elevation = dp(if (currentSelected) 4 else 2).toFloat()
             contentDescription = when {
-                locked && board.remoteManaged -> "${board.title}, not available in this app build yet"
-                locked -> "$LOCKED_BOARD_TITLE, locked, coming soon"
                 !currentOwned -> "${board.title}, available to unlock"
                 currentSelected -> "${board.title}, selected"
                 else -> "${board.title}, unlocked, tap to select"
             }
-            boardStatusBadge(board, locked, currentOwned, currentSelected, statusBadge)
+            boardStatusBadge(board, currentOwned, currentSelected, statusBadge)
         }
         selectionUpdates[board.id] = updateSelection
         updateSelection(owned, selected)
 
-        if (locked) {
-            addView(
-                TextView(this@boardPanel).apply {
-                    text = "COMING SOON"
-                    textSize = 8.5f
-                    setTypeface(Typeface.DEFAULT_BOLD)
-                    setTextColor(0xFF65421E.toInt())
-                    gravity = Gravity.CENTER
-                    includeFontPadding = false
-                    maxLines = 1
-                    letterSpacing = 0.02f
-                    setPadding(0, dp(3), 0, 0)
-                },
-            )
-        } else {
-            setOnClickListener { clicked ->
-                handleCosmeticTap(board)
-                clicked.playSelectionPopAnimation {}
-            }
-            AppFocusRing.apply(this, cornerRadiusDp = 13f)
+        setOnClickListener { clicked ->
+            handleCosmeticTap(board)
+            clicked.playSelectionPopAnimation {}
         }
+        AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
 
 private fun StoreActivity.boardStatusBadge(
     board: StoreCosmetic,
-    locked: Boolean,
     owned: Boolean,
     selected: Boolean,
     badge: TextView = TextView(this),
 ): TextView =
     badge.apply {
         text = when {
-            locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "TAP TO SELECT"
             else -> smartUnlockLabel(board)
@@ -232,7 +196,6 @@ private fun StoreActivity.boardStatusBadge(
         setTypeface(Typeface.DEFAULT_BOLD)
         setTextColor(
             when {
-                locked -> 0xFF65421E.toInt()
                 selected -> 0xFF67430F.toInt()
                 owned -> 0xFF104B29.toInt()
                 else -> 0xFF235A86.toInt()
@@ -247,8 +210,6 @@ private fun StoreActivity.boardStatusBadge(
             GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 when {
-                    locked ->
-                        intArrayOf(0xFFE5D2B5.toInt(), 0xFFC4A47B.toInt())
                     selected ->
                         intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
                     else ->
@@ -259,7 +220,6 @@ private fun StoreActivity.boardStatusBadge(
                 setStroke(
                     dp(1),
                     when {
-                        locked -> 0xFF987044.toInt()
                         selected -> 0xFFFFF5C9.toInt()
                         else -> 0xFF47B86C.toInt()
                     },

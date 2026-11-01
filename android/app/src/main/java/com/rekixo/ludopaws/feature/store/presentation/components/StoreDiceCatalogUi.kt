@@ -17,8 +17,6 @@ import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
-private const val LOCKED_DICE_TITLE = "LOCKED DICE"
-
 internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -82,10 +80,9 @@ private fun StoreActivity.dicePanel(
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(8), dp(6), dp(8))
 
-        val locked = !dice.contentAvailable
-        // Keep the same plywood and selected-check styling as Board Store.
+        // Each released item has real artwork; draft items never reach this view.
         background =
-            if (locked || !owned) {
+            if (!owned) {
                 plywoodBackground(this@dicePanel, cornerRadiusDp = 13f)
             } else {
                 playerCountSelectionBackground(
@@ -100,14 +97,11 @@ private fun StoreActivity.dicePanel(
                 )
             }
         elevation = dp(if (selected) 4 else 2).toFloat()
-        isClickable = !locked
-        isFocusable = !locked
+        isClickable = true
+        isFocusable = true
         contentDescription =
-            when {
-                locked -> "$LOCKED_DICE_TITLE, locked, coming soon"
-                !owned -> "${dice.title}, available to unlock"
-                else -> "${dice.title}, unlocked" + if (selected) ", selected" else ""
-            }
+            if (!owned) "${dice.title}, available to unlock"
+            else "${dice.title}, unlocked" + if (selected) ", selected" else ""
 
         addView(
             TextView(this@dicePanel).apply {
@@ -127,41 +121,28 @@ private fun StoreActivity.dicePanel(
             ),
         )
 
-        if (locked) {
-            // No invented dice artwork: future dice remain unavailable placeholders.
-            addView(
-                View(this@dicePanel).apply {
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                },
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    dp(82),
-                ),
-            )
-        } else {
-            addView(
-                DiceView(this@dicePanel).apply {
-                    // Preview this offer's actual renderer palette without equipping it.
-                    setPreviewStyle(dice.id)
-                    showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(dice.id).previewFace, animate = false)
-                    setPlayerTeamColor(null)
-                    isClickable = false
-                    isFocusable = false
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    contentDescription = "${dice.title} dice preview"
-                },
-                LinearLayout.LayoutParams(
-                    dp(104),
-                    dp(104),
-                ).apply {
-                    topMargin = dp(1)
-                    bottomMargin = dp(1)
-                },
-            )
-        }
+        addView(
+            DiceView(this@dicePanel).apply {
+                // Preview this offer's actual renderer palette without equipping it.
+                setPreviewStyle(dice.id)
+                showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(dice.id).previewFace, animate = false)
+                setPlayerTeamColor(null)
+                isClickable = false
+                isFocusable = false
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                contentDescription = "${dice.title} dice preview"
+            },
+            LinearLayout.LayoutParams(
+                dp(104),
+                dp(104),
+            ).apply {
+                topMargin = dp(1)
+                bottomMargin = dp(1)
+            },
+        )
 
         addView(
-            diceStatusBadge(dice = dice, locked = locked, owned = owned, selected = selected),
+            diceStatusBadge(dice = dice, owned = owned, selected = selected),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -170,39 +151,19 @@ private fun StoreActivity.dicePanel(
             },
         )
 
-        if (locked) {
-            addView(
-                TextView(this@dicePanel).apply {
-                    text = "COMING SOON"
-                    textSize = 8.5f
-                    setTypeface(Typeface.DEFAULT_BOLD)
-                    setTextColor(0xFF65421E.toInt())
-                    gravity = Gravity.CENTER
-                    includeFontPadding = false
-                    maxLines = 1
-                    letterSpacing = 0.02f
-                    setPadding(0, dp(3), 0, 0)
-                },
-            )
-        } else {
-            setOnClickListener { clicked ->
-                clicked.playSelectionPopAnimation {
-                    handleCosmeticTap(dice)
-                }
-            }
-            AppFocusRing.apply(this, cornerRadiusDp = 13f)
+        setOnClickListener { clicked ->
+            clicked.playSelectionPopAnimation { handleCosmeticTap(dice) }
         }
+        AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
 
 private fun StoreActivity.diceStatusBadge(
     dice: StoreCosmetic,
-    locked: Boolean,
     owned: Boolean,
     selected: Boolean,
 ): TextView =
     TextView(this).apply {
         text = when {
-            locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "🔓 UNLOCKED"
             else -> smartUnlockLabel(dice)
@@ -211,7 +172,6 @@ private fun StoreActivity.diceStatusBadge(
         setTypeface(Typeface.DEFAULT_BOLD)
         setTextColor(
             when {
-                locked -> 0xFF65421E.toInt()
                 selected -> 0xFF67430F.toInt()
                 owned -> 0xFF104B29.toInt()
                 else -> 0xFF235A86.toInt()
@@ -226,8 +186,6 @@ private fun StoreActivity.diceStatusBadge(
             GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 when {
-                    locked ->
-                        intArrayOf(0xFFE5D2B5.toInt(), 0xFFC4A47B.toInt())
                     selected ->
                         intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
                     else ->
@@ -238,7 +196,6 @@ private fun StoreActivity.diceStatusBadge(
                 setStroke(
                     dp(1),
                     when {
-                        locked -> 0xFF987044.toInt()
                         selected -> 0xFFFFF5C9.toInt()
                         else -> 0xFF47B86C.toInt()
                     },
