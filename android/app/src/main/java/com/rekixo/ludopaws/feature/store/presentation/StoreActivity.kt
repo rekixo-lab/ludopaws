@@ -699,7 +699,18 @@ class StoreActivity :
                 showStoreMessage("Google Play already owns Remove Ads for this game account. Checking secure purchase restoration.")
             }
             RemoveAdsOfferState.RESTORE_ACCOUNT ->
-                startActivity(Intent(this, ProfileActivity::class.java).putExtra("open_account_actions", true))
+                PlywoodAlertDialogBuilder(this)
+                    .setTitle("Restore original Ludo Paws account")
+                    .setMessage(
+                        "Google Play already owns Remove Ads, but it was purchased for another Ludo Paws game account. " +
+                            "Restore that original account from Profile; the current guest progress will not merge. " +
+                            "If your original account was never backed up to Google, contact support with your Play order receipt. Do not buy again.",
+                    )
+                    .setNegativeButton("Not now", null)
+                    .setPositiveButton("Open Profile") { _, _ ->
+                        startActivity(Intent(this, ProfileActivity::class.java).putExtra("open_account_actions", true))
+                    }
+                    .show()
             RemoveAdsOfferState.CONTACT_SUPPORT -> showStoreMessage(
                 "Google Play owns Remove Ads, but its original game account binding is missing. Keep the app installed and contact support with your Google Play order receipt. Do not buy again.",
             )
@@ -1478,14 +1489,17 @@ class StoreActivity :
     override fun onRemoveAdsCheckoutBlocked(ownership: RemoveAdsPlayOwnership) {
         runOnUiThread {
             if (!storeStarted || !canRenderStoreUi()) return@runOnUiThread
-            removeAdsPlayOwnership = ownership
+            // Google reported ITEM_ALREADY_OWNED, so do not immediately
+            // re-enable Buy if a stale purchase-history query returned empty.
+            removeAdsPlayOwnership = if (ownership == RemoveAdsPlayOwnership.NOT_OWNED)
+                RemoveAdsPlayOwnership.QUERY_FAILED else ownership
             chosenProductId = null
             chosenProductOwner = null
             checkoutRetryNeeded = false
             clearPendingCheckout()
             renderStore()
             if (ownership == RemoveAdsPlayOwnership.NOT_OWNED)
-                showStoreMessage("Google Play reported an existing purchase. Refresh the Store and check your Play account.")
+                showStoreMessage("Google Play reports an earlier purchase, but its ownership details have not refreshed yet. Try 'Retry Play check' after reopening the Store; do not make another payment.")
             else performRemoveAdsAction()
         }
     }
