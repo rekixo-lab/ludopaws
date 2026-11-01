@@ -6,6 +6,7 @@ import android.graphics.drawable.GradientDrawable
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.util.TypedValue
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
 import android.animation.ValueAnimator
@@ -45,7 +46,8 @@ internal fun OfflineGameActivity.initializeCharacterSetup() {
     selectedCharacterSlot = saved.selectedSlot
     selectedCharacterIds = saved.characterIds
     selectedColorsBySeat = saved.colorsBySeat
-    selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+    // The robot color selector always controls the human player's seat.
+    selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
 }
 
 internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
@@ -62,9 +64,14 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
             computerMode = isComputerMode,
             unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
         )
-    selectedColorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
-        playerCount, selectedColorsBySeat, selectedColorsBySeat.firstOrNull() ?: "BLUE",
-    )
+    selectedColorsBySeat = if (isComputerMode) {
+        // Robot seat colors are assigned by the game engine from the human color.
+        OfflinePlayerLayout.colorsFor(playerCount, selectedColorsBySeat.firstOrNull() ?: "BLUE")
+    } else {
+        OfflinePlayerLayout.normalizeColorsForSeats(
+            playerCount, selectedColorsBySeat, selectedColorsBySeat.firstOrNull() ?: "BLUE",
+        )
+    }
     selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
     persistCharacterSetup()
     rebuildCharacterSlotButtons()
@@ -81,14 +88,18 @@ internal fun OfflineGameActivity.selectCharacterSlot(slot: Int) {
 }
 
 internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
-    // Same one-tap color picker for Robot and Pass & Play. In Robot, seat 0 is
-    // the human; a CPU-owned color is automatically exchanged for its old one.
-    selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(
-        playerCount = selectedPlayers,
-        currentColors = selectedColorsBySeat,
-        selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot,
-        requestedColor = color,
-    )
+    // Pass & Play seats own independently chosen colors. In Robot mode only
+    // the human chooses a color; CPU colors must mirror the actual match engine.
+    selectedColorsBySeat = if (isComputerMode) {
+        OfflinePlayerLayout.colorsFor(selectedPlayers, color)
+    } else {
+        OfflinePlayerLayout.selectColorForSeat(
+            playerCount = selectedPlayers,
+            currentColors = selectedColorsBySeat,
+            selectedSeat = selectedCharacterSlot,
+            requestedColor = color,
+        )
+    }
     selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]
     // Save on selection, not just when PLAY is tapped.
     persistCharacterSetup()
@@ -275,6 +286,17 @@ private fun OfflineGameActivity.rebuildCharacterSlotButtons() {
                     "P${slot + 1}"
                 },
             ) {}
+        // Long paw names should stay on exactly two readable lines inside
+        // the same compact tabs used by Pass & Play.
+        button.isAllCaps = false
+        button.maxLines = 2
+        button.ellipsize = android.text.TextUtils.TruncateAt.END
+        button.setAutoSizeTextTypeUniformWithConfiguration(
+            8,
+            if (isCompactSetup()) 12 else 14,
+            1,
+            TypedValue.COMPLEX_UNIT_SP,
+        )
         button.setOnClickListener { clicked ->
             clicked.playSelectionPopAnimation()
             selectCharacterSlot(slot)
@@ -307,9 +329,10 @@ private fun OfflineGameActivity.characterChoiceCard(
             avatar.tag = CHARACTER_AVATAR_TAG
             avatar.bind(
                 characterId = character.id,
-                ringColor = LudoPawsTeamIdentityPolicy.resolve(selectedColor)?.argb
-                    ?: 0xFF5BE0FF.toInt(),
-                modelTeamColor = selectedColor,
+                ringColor = LudoPawsTeamIdentityPolicy.resolve(
+                    selectedColorsBySeat.getOrNull(selectedCharacterSlot) ?: selectedColor,
+                )?.argb ?: 0xFF5BE0FF.toInt(),
+                modelTeamColor = selectedColorsBySeat.getOrNull(selectedCharacterSlot) ?: selectedColor,
                 showCircularChrome = false,
                 showTeamBadge = true,
             )
@@ -452,7 +475,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
                     selectedColorsBySeat.getOrNull(selectedCharacterSlot) ?: selectedColor,
                 )?.argb ?: 0xFF5BE0FF.toInt(),
                 highlighted = selected,
-                modelTeamColor = selectedColor,
+                modelTeamColor = selectedColorsBySeat.getOrNull(selectedCharacterSlot) ?: selectedColor,
                 showCircularChrome = false,
                 showTeamBadge = true,
             )

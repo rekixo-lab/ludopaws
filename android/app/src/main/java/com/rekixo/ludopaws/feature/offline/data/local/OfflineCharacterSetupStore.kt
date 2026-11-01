@@ -81,11 +81,18 @@ class OfflineCharacterSetupStore(
                 unlockedCharacterIds = characterSelection.unlockedCharacterIds(),
             )
         val storedColors = parseIds(prefs.getString(setupColorsKey(mode), null))
-        val colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
-            playerCount = playerCount,
-            requestedColors = storedColors,
-            preferredColor = storedColors.firstOrNull() ?: "BLUE",
-        )
+        val colorsBySeat = if (mode == GameMode.COMPUTER) {
+            OfflinePlayerLayout.colorsFor(
+                playerCount,
+                storedColors.firstOrNull()?.takeIf(OfflinePlayerLayout.COLORS::contains) ?: "BLUE",
+            )
+        } else {
+            OfflinePlayerLayout.normalizeColorsForSeats(
+                playerCount = playerCount,
+                requestedColors = storedColors,
+                preferredColor = storedColors.firstOrNull() ?: "BLUE",
+            )
+        }
         val storedSlot =
             prefs.getInt(
                 setupSlotKey(mode),
@@ -130,11 +137,19 @@ class OfflineCharacterSetupStore(
                 playerCount = snapshot.playerCount,
                 selectedSlot = safeSlot,
                 characterIds = normalized,
-                colorsBySeat = OfflinePlayerLayout.normalizeColorsForSeats(
-                    playerCount = snapshot.playerCount,
-                    requestedColors = snapshot.colorsBySeat,
-                    preferredColor = snapshot.colorsBySeat.firstOrNull() ?: "BLUE",
-                ),
+                colorsBySeat = if (mode == GameMode.COMPUTER) {
+                    OfflinePlayerLayout.colorsFor(
+                        snapshot.playerCount,
+                        snapshot.colorsBySeat.firstOrNull()
+                            ?.takeIf(OfflinePlayerLayout.COLORS::contains) ?: "BLUE",
+                    )
+                } else {
+                    OfflinePlayerLayout.normalizeColorsForSeats(
+                        playerCount = snapshot.playerCount,
+                        requestedColors = snapshot.colorsBySeat,
+                        preferredColor = snapshot.colorsBySeat.firstOrNull() ?: "BLUE",
+                    )
+                },
             )
 
         prefs.edit()
