@@ -85,32 +85,50 @@ class MainActivity : ComponentActivity() {
 
     internal fun refreshMatchGemWalletAfterFinish(completedMatchId: String) {
         if (lastGemWalletSyncMatchId == completedMatchId) return
+        val repository = (application as LudoProofApplication).accountRepository
+        val expectedOwner = repository.currentSession()?.accountId ?: return
         lastGemWalletSyncMatchId = completedMatchId
-        // Match settlement may be asynchronous. Fetch the confirmed server
-        // wallet a bounded three times and let the Store refresh thereafter.
-        // An Activity may be destroyed between scheduling and execution.
-        listOf(2_000L, 12_000L, 30_000L).forEach { delay ->
+        gemRewardStatusMatchId = completedMatchId
+        gemRewardLedgerStatus = null
+        gemRewardConfirmedAmount = 0
+        // Rewards may settle after the game finishes. Read a match-specific
+        // wallet receipt, not a guessed balance delta. Reopening the game will
+        // start fresh reads; the server retains pending delivery on its own.
+        listOf(1_500L, 6_000L, 15_000L, 30_000L, 90_000L).forEach { delay ->
             mainHandler.postDelayed({
-                if (
-                    isFinishing || isDestroyed || executor.isShutdown ||
-                    lastGemWalletSyncMatchId != completedMatchId
-                ) {
-                    return@postDelayed
-                }
+                if (isFinishing || isDestroyed || executor.isShutdown ||
+                    lastGemWalletSyncMatchId != completedMatchId) return@postDelayed
                 runCatching {
                     executor.execute {
+                        if (repository.currentSession()?.accountId != expectedOwner) return@execute
+                        val status = runCatching {
+                            repository.matchRewardStatus(completedMatchId)
+                        }.getOrNull()
                         runCatching {
-                            val repository = (application as LudoProofApplication).accountRepository
                             val session = repository.currentSession() ?: return@runCatching
-                            val snapshot = repository.wallet()
-                            GemWalletStore(this).applyServerSnapshot(snapshot, session.accountId)
+                            if (session.accountId != expectedOwner) return@runCatching
+                            val wallet = repository.wallet()
+                            if (repository.currentSession()?.accountId == expectedOwner) {
+                                GemWalletStore(this).applyServerSnapshot(wallet, expectedOwner)
+                            }
+                        }
+                        if (status != null && status.optString("matchId") == completedMatchId) {
+                            runOnUiThread {
+                                if (isFinishing || isDestroyed || matchId != completedMatchId ||
+                                    repository.currentSession()?.accountId != expectedOwner ||
+                                    gemRewardStatusMatchId != completedMatchId) return@runOnUiThread
+                                gemRewardLedgerStatus = status.optString("status")
+                                gemRewardConfirmedAmount = status.optInt("creditedGems", 0).coerceAtLeast(0)
+                                currentState?.takeIf {
+                                    it.matchId == completedMatchId && it.status == "FINISHED"
+                                }?.let(::updateTurnBanner)
+                            }
                         }
                     }
                 }
             }, delay)
         }
     }
-
 
     internal lateinit var arcadeRootView: FrameLayout
     internal lateinit var lobbyPanel: LinearLayout
@@ -119,6 +137,10 @@ class MainActivity : ComponentActivity() {
     internal lateinit var resultPanel: FrameLayout
     internal lateinit var resultTitleText: TextView
     internal lateinit var resultSubtitleText: TextView
+    internal lateinit var resultCard: LudoPawsResultCard
+    internal var gemRewardStatusMatchId: String? = null
+    internal var gemRewardLedgerStatus: String? = null
+    internal var gemRewardConfirmedAmount: Int = 0
     internal lateinit var boardFrame: FrameLayout
     internal lateinit var actionPanel: LinearLayout
     internal lateinit var nameInput: EditText

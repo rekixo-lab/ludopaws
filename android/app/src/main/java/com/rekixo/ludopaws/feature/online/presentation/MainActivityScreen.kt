@@ -155,17 +155,9 @@ internal fun MainActivity.buildOnlineMatchScreen() {
                     visibility =
                         View.GONE
                 }
-        content.addView(
-            resultPanel,
-            onlineSectionParams(
-                if (isCompactOnline()) 12 else 16,
-            ).apply {
-                leftMargin =
-                    sectionSideMargin
-                rightMargin =
-                    sectionSideMargin
-            },
-        )
+        // Result belongs above the board, not in the scrolling lobby flow.
+        // It must not push the board down or cover the Rematch/Home actions.
+        host.addView(resultPanel, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
 
         boardView =
             LudoBoardView(this).apply {
