@@ -199,12 +199,7 @@ private fun StoreActivity.diceStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "🔓 UNLOCKED"
-            dice.gemPrice > 0 && dice.requiredAdViews > 0 -> android.text.SpannableStringBuilder("🔒 ").append(
-                CosmeticPriceLabels.gems(this@diceStatusBadge, dice.gemPrice,
-                    "\nOR ${cosmetics.rewardedAdProgress(dice.id).coerceAtMost(dice.requiredAdViews)}/${dice.requiredAdViews} ADS"))
-            dice.gemPrice > 0 -> CosmeticPriceLabels.gems(this@diceStatusBadge, dice.gemPrice)
-            dice.requiredAdViews > 0 -> "${dice.requiredAdViews} ADS"
-            else -> "GET"
+            else -> smartUnlockLabel(dice)
         }
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)

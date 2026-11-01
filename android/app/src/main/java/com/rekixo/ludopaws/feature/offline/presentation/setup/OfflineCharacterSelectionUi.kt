@@ -122,9 +122,17 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
     // Local Robot opponents are user-selected cosmetics, so they have the
     // same ownership requirement as local human players.
     if (!characterSelectionStore.isUnlocked(characterId)) {
-        startActivity(android.content.Intent(this, com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java)
-            .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
-            .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId))
+        val store = com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java
+        val offerId = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
+            .characterUnlock(characterId)?.id
+        startActivity(android.content.Intent(this, store).apply {
+            putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_INITIAL_TAB, "PAWS")
+            putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId)
+            if (offerId != null) {
+                putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, offerId)
+                putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+            }
+        })
         return
     }
     if (isComputerMode && selectedCharacterSlot >= selectedHumans &&
@@ -517,10 +525,23 @@ private fun OfflineGameActivity.characterChoiceSubtitle(characterId: String): Ch
 private fun OfflineGameActivity.characterUnlockLabel(characterId: String): CharSequence {
     val offer = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(characterId)
         ?: return "🔒 LOCKED"
-    return if (offer.gemPrice > 0) {
-        com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels.gems(this,
-            offer.gemPrice, " · STORE")
-    } else "🔒 ${offer.requiredAdViews} ADS"
+    val action = com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy.decide(
+        cosmetic = offer,
+        owned = false,
+        gems = com.rekixo.ludopaws.feature.store.data.local.GemWalletStore(this).balance(),
+        adProgress = com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(this).rewardedAdProgress(offer.id),
+        playAvailable = com.rekixo.ludopaws.BuildConfig.LUDOPROOF_BILLING_ENABLED &&
+            com.rekixo.ludopaws.feature.store.domain.StoreCatalog.cosmeticProductId(offer.id) != null,
+        adsAvailable = com.rekixo.ludopaws.BuildConfig.LUDOPROOF_ADS_ENABLED,
+    ).primary
+    return when (action) {
+        com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.GEMS -> "🔒 ${offer.gemPrice} Gems · Unlock"
+        com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.PLAY_PRODUCT -> "🔒 BUY"
+        com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.WATCH_AD -> "🔒 WATCH AD"
+        com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.CLAIM_ADS -> "🔒 UNLOCK"
+        com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.GET_GEMS -> "🔒 GET GEMS"
+        else -> "🔒 LOCKED"
+    }
 }
 
 private const val CHARACTER_AVATAR_TAG =

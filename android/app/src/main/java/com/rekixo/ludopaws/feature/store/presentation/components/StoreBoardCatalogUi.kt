@@ -220,10 +220,7 @@ private fun StoreActivity.boardStatusBadge(
             locked -> "🔒 COMING SOON"
             selected -> "✓ EQUIPPED"
             owned -> "TAP TO SELECT"
-            board.unlockChannels.size > 1 -> cosmeticPurchaseLabel(board)
-            board.gemPrice > 0 -> CosmeticPriceLabels.gems(this@boardStatusBadge, board.gemPrice)
-            board.requiredAdViews > 0 -> "${board.requiredAdViews} ADS"
-            else -> "GET"
+            else -> smartUnlockLabel(board)
         }
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)
