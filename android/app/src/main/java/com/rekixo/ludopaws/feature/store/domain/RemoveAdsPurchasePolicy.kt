@@ -30,7 +30,7 @@ internal object RemoveAdsPurchasePolicy {
         hasPending: Boolean,
         currentBillingAccountId: String,
     ): RemoveAdsPlayOwnership {
-        if (purchaseBindings.any { it == currentBillingAccountId && billingAccountPattern.matches(it) })
+        if (purchaseBindings.any { it != null && it == currentBillingAccountId && billingAccountPattern.matches(it) })
             return RemoveAdsPlayOwnership.OWNED_BY_CURRENT_ACCOUNT
         if (purchaseBindings.any { it != null && billingAccountPattern.matches(it) })
             return RemoveAdsPlayOwnership.OWNED_BY_OTHER_ACCOUNT
