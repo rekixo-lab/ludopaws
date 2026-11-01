@@ -40,6 +40,21 @@ class RemoveAdsPurchasePolicyTest {
             RemoveAdsPurchasePolicy.state(false, RemoveAdsPlayOwnership.PENDING))
     }
 
+    @Test fun ownershipClassificationPrefersOriginalGameAccount() {
+        val original = "a".repeat(64)
+        val other = "b".repeat(64)
+        assertEquals(RemoveAdsPlayOwnership.OWNED_BY_CURRENT_ACCOUNT,
+            RemoveAdsPurchasePolicy.classifyOwnership(listOf(other, original), false, original))
+        assertEquals(RemoveAdsPlayOwnership.OWNED_BY_OTHER_ACCOUNT,
+            RemoveAdsPurchasePolicy.classifyOwnership(listOf(other), false, original))
+        assertEquals(RemoveAdsPlayOwnership.OWNED_WITHOUT_BINDING,
+            RemoveAdsPurchasePolicy.classifyOwnership(listOf(null, "invalid"), false, original))
+        assertEquals(RemoveAdsPlayOwnership.PENDING,
+            RemoveAdsPurchasePolicy.classifyOwnership(emptyList(), true, original))
+        assertEquals(RemoveAdsPlayOwnership.NOT_OWNED,
+            RemoveAdsPurchasePolicy.classifyOwnership(emptyList(), false, original))
+    }
+
     @Test fun failedQueryRequiresRetry() {
         assertEquals(RemoveAdsOfferState.RETRY_CHECK,
             RemoveAdsPurchasePolicy.state(false, RemoveAdsPlayOwnership.QUERY_FAILED))

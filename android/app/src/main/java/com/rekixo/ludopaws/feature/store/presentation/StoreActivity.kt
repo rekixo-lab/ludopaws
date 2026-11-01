@@ -1447,9 +1447,16 @@ class StoreActivity :
             ) {
                 return@runOnUiThread
             }
-            showStoreMessage(
-                "Your Google Play purchase for $productId is pending. Items will only be granted after Google confirms payment and the backend verifies it.",
-            )
+            if (productId == StoreCatalog.REMOVE_ADS) {
+                // The button displays "Payment pending"; don't show a modal
+                // on every automatic purchase-refresh callback.
+                removeAdsPlayOwnership = RemoveAdsPlayOwnership.PENDING
+                renderStore()
+            } else {
+                showStoreMessage(
+                    "Your Google Play purchase for $productId is pending. Items will only be granted after Google confirms payment and the backend verifies it.",
+                )
+            }
         }
     }
 

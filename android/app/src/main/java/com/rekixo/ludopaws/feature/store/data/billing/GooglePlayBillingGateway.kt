@@ -13,6 +13,7 @@ import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
 import com.rekixo.ludopaws.feature.store.domain.RemoveAdsPlayOwnership
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsPurchasePolicy
 import com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import java.util.concurrent.ConcurrentHashMap
@@ -241,19 +242,15 @@ class GooglePlayBillingGateway(
                         .build(),
                 )
 
-        if (
-            result.responseCode !=
-            BillingClient
-                .BillingResponseCode
-                .OK
-        ) {
-            listener
-                .onBillingUnavailable(
-                    result.debugMessage
-                        .ifBlank {
-                            "Google Play purchase screen could not be opened."
-                        },
-                )
+        when (result.responseCode) {
+            BillingClient.BillingResponseCode.OK -> Unit
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED ->
+                recoverAlreadyOwnedProduct(productId)
+            else -> listener.onBillingUnavailable(
+                result.debugMessage.ifBlank {
+                    "Google Play purchase screen could not be opened."
+                },
+            )
         }
     }
 
@@ -296,17 +293,8 @@ class GooglePlayBillingGateway(
                 .USER_CANCELED ->
                 Unit
 
-            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> {
-                // A second device may purchase the item after our preflight.
-                val attempted = lastLaunchedProductId
-                queryExistingPurchases { ownership ->
-                    if (attempted == StoreCatalog.REMOVE_ADS)
-                        listener.onRemoveAdsCheckoutBlocked(ownership)
-                    else listener.onBillingUnavailable(
-                        "Google Play already owns this item. Reopen the Store to recover the original game account.",
-                    )
-                }
-            }
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED ->
+                recoverAlreadyOwnedProduct(lastLaunchedProductId)
 
             else ->
                 listener
@@ -317,6 +305,17 @@ class GooglePlayBillingGateway(
                                 "Google Play purchase failed."
                             },
                     )
+        }
+    }
+
+    /** Handle both synchronous and asynchronous Play ITEM_ALREADY_OWNED replies. */
+    private fun recoverAlreadyOwnedProduct(productId: String?) {
+        queryExistingPurchases { ownership ->
+            if (productId == StoreCatalog.REMOVE_ADS)
+                listener.onRemoveAdsCheckoutBlocked(ownership)
+            else listener.onBillingUnavailable(
+                "Google Play already owns this item. Reopen the Store to recover the original game account.",
+            )
         }
     }
 
@@ -353,17 +352,15 @@ class GooglePlayBillingGateway(
     }
 
     private fun classifyRemoveAdsOwnership(purchases: List<Purchase>, accountId: String): RemoveAdsPlayOwnership {
-        val paid = purchases.filter {
-            StoreCatalog.REMOVE_ADS in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED
-        }
-        if (paid.any { it.accountIdentifiers?.obfuscatedAccountId == accountId })
-            return RemoveAdsPlayOwnership.OWNED_BY_CURRENT_ACCOUNT
-        if (paid.any { it.accountIdentifiers?.obfuscatedAccountId?.let(OBFUSCATED_ACCOUNT_ID_REGEX::matches) == true })
-            return RemoveAdsPlayOwnership.OWNED_BY_OTHER_ACCOUNT
-        if (paid.isNotEmpty()) return RemoveAdsPlayOwnership.OWNED_WITHOUT_BINDING
-        if (purchases.any { StoreCatalog.REMOVE_ADS in it.products && it.purchaseState == Purchase.PurchaseState.PENDING })
-            return RemoveAdsPlayOwnership.PENDING
-        return RemoveAdsPlayOwnership.NOT_OWNED
+        return RemoveAdsPurchasePolicy.classifyOwnership(
+            purchaseBindings = purchases.filter {
+                StoreCatalog.REMOVE_ADS in it.products && it.purchaseState == Purchase.PurchaseState.PURCHASED
+            }.map { it.accountIdentifiers?.obfuscatedAccountId },
+            hasPending = purchases.any {
+                StoreCatalog.REMOVE_ADS in it.products && it.purchaseState == Purchase.PurchaseState.PENDING
+            },
+            currentBillingAccountId = accountId,
+        )
     }
 
     private fun processPurchases(purchases: List<Purchase>) {

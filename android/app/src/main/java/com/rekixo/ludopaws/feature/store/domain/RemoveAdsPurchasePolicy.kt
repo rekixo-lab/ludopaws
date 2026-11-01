@@ -22,6 +22,23 @@ internal object RemoveAdsPurchasePolicy {
             RemoveAdsPlayOwnership.QUERY_FAILED -> RemoveAdsOfferState.RETRY_CHECK
         }
     }
+    private val billingAccountPattern = Regex("^[a-f0-9]{64}$")
+
+    /** The immutable Play result contains only a billing-account hash, not a game entitlement. */
+    fun classifyOwnership(
+        purchaseBindings: List<String?>,
+        hasPending: Boolean,
+        currentBillingAccountId: String,
+    ): RemoveAdsPlayOwnership {
+        if (purchaseBindings.any { it == currentBillingAccountId && billingAccountPattern.matches(it) })
+            return RemoveAdsPlayOwnership.OWNED_BY_CURRENT_ACCOUNT
+        if (purchaseBindings.any { it != null && billingAccountPattern.matches(it) })
+            return RemoveAdsPlayOwnership.OWNED_BY_OTHER_ACCOUNT
+        if (purchaseBindings.isNotEmpty()) return RemoveAdsPlayOwnership.OWNED_WITHOUT_BINDING
+        if (hasPending) return RemoveAdsPlayOwnership.PENDING
+        return RemoveAdsPlayOwnership.NOT_OWNED
+    }
+
     fun canStartCheckout(serverOwned: Boolean, ownership: RemoveAdsPlayOwnership): Boolean =
         state(serverOwned, ownership) == RemoveAdsOfferState.BUY
 }
