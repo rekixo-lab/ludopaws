@@ -270,6 +270,7 @@ class StoreActivity :
     }
 
     internal fun showFeaturedCharacter(characterId: String) {
+        recordCosmeticIntent("character_$characterId")
         featuredCharacterId = characterId
         val selections = com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this)
         if (selections.isUnlocked(characterId)) {
@@ -1026,6 +1027,15 @@ class StoreActivity :
                                 if (cosmetics.selectOwnedLocalCosmetic(item)) {
                                     com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
                                 }
+                                // Premium Paws are individually selected, unlike Boards/Dice.
+                                // Only an account-owned, shipped character can be equipped.
+                                if (item.category == com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.CHARACTER_PACK &&
+                                    item.id.startsWith("character_")) {
+                                    val characterId = item.id.removePrefix("character_")
+                                    com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this)
+                                        .takeIf { it.isUnlocked(characterId) }
+                                        ?.select(com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog.STARTER_PACK_ID, characterId)
+                                }
                             }
                             renderStore()
                         }
@@ -1046,6 +1056,18 @@ class StoreActivity :
             return false
         }
         return true
+    }
+
+    /** A newer explicit item choice supersedes old auto-equip intentions,
+     * never the verified ownership or pending payment recovery itself. */
+    internal fun recordCosmeticIntent(itemId: String) {
+        if (pendingPlayEquipId != null && pendingPlayEquipId != itemId) {
+            pendingPlayEquipId = null
+            pendingPlayEquipOwner = null
+        }
+        if (pendingAdSelectionId != null && pendingAdSelectionId != itemId) {
+            pendingAdSelectionId = null
+        }
     }
 
     internal fun purchaseOrSelectCosmetic(cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic) {
