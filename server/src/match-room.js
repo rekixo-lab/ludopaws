@@ -377,7 +377,7 @@ export class MatchRoom {
     // Signed matchmaking assertions originate from queues that verified
     // human ownership at entry. Unasserted direct/Friends requests must be
     // checked here; server-issued BOT seats are never subject to paid unlocks.
-    if (playerType !== "BOT" && !request.headers.has("x-ludoproof-profile-assertion")) {
+    if (playerType !== "BOT" && !(matchMode !== "FRIENDS" && request.headers.has("x-ludoproof-profile-assertion"))) {
       await assertHumanCharacterAccess(request, this.env, characterId);
     }
 
@@ -630,7 +630,7 @@ export class MatchRoom {
       }
     }
 
-    if (playerType !== "BOT" && !request.headers.has("x-ludoproof-profile-assertion")) {
+    if (playerType !== "BOT" && !(state.matchMode !== "FRIENDS" && request.headers.has("x-ludoproof-profile-assertion"))) {
       await assertHumanCharacterAccess(request, this.env, characterId);
     }
 
