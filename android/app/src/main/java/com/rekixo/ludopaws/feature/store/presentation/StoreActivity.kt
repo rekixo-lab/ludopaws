@@ -1270,6 +1270,14 @@ class StoreActivity :
         }
     }
 
+    override fun onPurchaseBelongsToOtherAccount() {
+        runOnUiThread {
+            if (!storeStarted || !canRenderStoreUi()) return@runOnUiThread
+            crossAccountPurchaseAwaitingRestore = true
+            updateCheckoutStatus()
+        }
+    }
+
     override fun onBillingUnavailable(
         message: String,
     ) {
