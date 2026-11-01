@@ -26,6 +26,10 @@ import com.rekixo.ludopaws.feature.boards.rendering.GameplayBoardEnvironment
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
+import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy
+import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
 import com.rekixo.ludopaws.feature.store.data.local.StorePreferences
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
@@ -72,7 +76,7 @@ internal class GamePawsPromotionView(
     private val inventoryPreferences = context.applicationContext.getSharedPreferences(StorePreferences.PREFS_NAME, Context.MODE_PRIVATE)
     private val refreshOwnedOffers = Runnable { refreshCandidates() }
     private val inventoryListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_WALLET_ACCOUNT_ID ||
+        if (key == null || key == StorePreferences.KEY_OWNED_COSMETICS || key == StorePreferences.KEY_BALANCE || key == StorePreferences.KEY_WALLET_ACCOUNT_ID ||
             key == StorePreferences.KEY_SELECTED_BOARD || key == "offline_selection_BOARD" || (key.startsWith("local_equipment_") && key.endsWith("_BOARD")) ||
             key.startsWith(StorePreferences.KEY_AD_PROGRESS_PREFIX)) {
             removeCallbacks(refreshOwnedOffers)
@@ -328,23 +332,40 @@ internal class GamePawsPromotionView(
         }
         val done = CosmeticInventoryStore(context).rewardedAdProgress(offer.cosmetic.id)
             .coerceAtMost(offer.cosmetic.requiredAdViews)
-        val remaining = (offer.cosmetic.requiredAdViews - done).coerceAtLeast(0)
-        priceLabel.text = when {
-            offer.cosmetic.gemPrice > 0 && remaining > 0 ->
-                CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice, " or ads")
-            offer.cosmetic.gemPrice > 0 -> CosmeticPriceLabels.gems(context, offer.cosmetic.gemPrice)
-            offer.cosmetic.requiredAdViews > 0 -> "$done / ${offer.cosmetic.requiredAdViews} ads completed"
-            else -> "View unlock options"
+        val decision = SmartUnlockPolicy.decide(
+            cosmetic = offer.cosmetic,
+            owned = false,
+            gems = GemWalletStore(context).balance(),
+            adProgress = done,
+            playAvailable = BuildConfig.LUDOPROOF_BILLING_ENABLED &&
+                StoreCatalog.cosmeticProductId(offer.cosmetic.id) != null,
+            adsAvailable = BuildConfig.LUDOPROOF_ADS_ENABLED &&
+                BuildConfig.ADMOB_REWARDED_AD_UNIT_ID.isNotBlank(),
+        )
+        priceLabel.text = when (decision.primary) {
+            SmartUnlockAction.GEMS -> "Unlock · ${offer.cosmetic.gemPrice} Gems"
+            SmartUnlockAction.PLAY_PRODUCT -> "Buy with Google Play"
+            SmartUnlockAction.WATCH_AD -> "Watch Ad · $done/${offer.cosmetic.requiredAdViews}"
+            SmartUnlockAction.CLAIM_ADS -> "All Ads Completed"
+            SmartUnlockAction.GET_GEMS -> "Get Gems to Unlock"
+            SmartUnlockAction.FREE -> "Free Unlock"
+            else -> "View offer"
         }
-        adProgress.text = if (offer.cosmetic.requiredAdViews > 0 && offer.cosmetic.gemPrice > 0)
-            "$done / ${offer.cosmetic.requiredAdViews} ads completed" else ""
+        adProgress.text = if (offer.cosmetic.requiredAdViews > 0 &&
+            decision.primary != SmartUnlockAction.WATCH_AD &&
+            decision.primary != SmartUnlockAction.CLAIM_ADS
+        ) "$done / ${offer.cosmetic.requiredAdViews} verified ads" else ""
         adProgress.visibility = if (adProgress.text.isBlank()) GONE else VISIBLE
         storeLabel.text = when {
             gameplay -> "View after match"
-            !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() || !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
-            remaining > 0 && offer.cosmetic.gemPrice == 0 && BuildConfig.LUDOPROOF_ADS_ENABLED -> "Unlock with Ads ›"
-            offer.cosmetic.gemPrice > 0 && remaining == 0 -> "View & Unlock ›"
-            else -> "Unlock Options ›"
+            !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() ||
+                !offer.cosmetic.purchaseAvailable -> "Connect to unlock ›"
+            decision.primary == SmartUnlockAction.PLAY_PRODUCT -> "Buy ›"
+            decision.primary == SmartUnlockAction.GEMS -> "Unlock ›"
+            decision.primary == SmartUnlockAction.WATCH_AD -> "Watch Ad ›"
+            decision.primary == SmartUnlockAction.CLAIM_ADS -> "Unlock ›"
+            decision.primary == SmartUnlockAction.GET_GEMS -> "Get Gems ›"
+            else -> "Unlock ›"
         }
         preview?.setActive(false)
         preview?.alpha = 0f
