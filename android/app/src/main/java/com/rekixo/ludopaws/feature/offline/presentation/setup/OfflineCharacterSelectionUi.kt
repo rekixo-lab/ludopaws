@@ -26,6 +26,7 @@ import com.rekixo.ludopaws.LudoPawsTeamIdentityPolicy
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
 import com.rekixo.ludopaws.feature.characters.domain.selection.StarterPawsAssignmentPolicy
+import com.rekixo.ludopaws.feature.offline.domain.engine.RobotTeamComposition
 import com.rekixo.ludopaws.feature.offline.data.local.OfflineCharacterSetupSnapshot
 import com.rekixo.ludopaws.ui.offline.common.*
 
@@ -43,6 +44,7 @@ internal fun OfflineGameActivity.initializeCharacterSetup() {
             playerCount = selectedPlayers,
             preferredCharacterId = preferred.characterId,
         )
+    selectedHumans = saved.humanCount
     selectedCharacterSlot = saved.selectedSlot
     selectedCharacterIds = saved.characterIds
     selectedColorsBySeat = saved.colorsBySeat
@@ -54,6 +56,12 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
     require(gameMode.supportsPlayerCount(playerCount)) {
         "Unsupported local player count: $playerCount"
     }
+    // Tap the selected total again to cycle the Human/Robot composition.
+    selectedHumans = if (isComputerMode) {
+        if (playerCount == selectedPlayers) {
+            RobotTeamComposition.nextHumans(playerCount, selectedHumans)
+        } else RobotTeamComposition.humans(playerCount, selectedHumans)
+    } else playerCount
     selectedPlayers = playerCount
     selectedCharacterSlot = selectedCharacterSlot.coerceIn(0, playerCount - 1)
     selectedCharacterIds =
@@ -63,6 +71,7 @@ internal fun OfflineGameActivity.updateSelectedPlayerCount(playerCount: Int) {
             preferredCharacterId = characterSelectionStore.load().characterId,
             computerMode = isComputerMode,
             unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
+            humanCount = selectedHumans,
         )
     selectedColorsBySeat = if (isComputerMode) {
         // Robot seat colors are assigned by the game engine from the human color.
@@ -108,7 +117,7 @@ internal fun OfflineGameActivity.selectColorForActiveSlot(color: String) {
 
 internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: String) {
     // Ownership gates the human player, not a computer-controlled opponent.
-    if ((!isComputerMode || selectedCharacterSlot == 0) &&
+    if ((!isComputerMode || selectedCharacterSlot < selectedHumans) &&
         !characterSelectionStore.isUnlocked(characterId)
     ) {
         startActivity(android.content.Intent(this, com.rekixo.ludopaws.feature.store.presentation.StoreActivity::class.java)
@@ -116,12 +125,12 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
             .putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_FEATURED_CHARACTER_ID, characterId))
         return
     }
-    if (isComputerMode && selectedCharacterSlot > 0 &&
-        selectedCharacterIds.firstOrNull() == characterId
+    if (isComputerMode && selectedCharacterSlot >= selectedHumans &&
+        selectedCharacterIds.take(selectedHumans).contains(characterId)
     ) {
         android.widget.Toast.makeText(
             this,
-            "This is your paw. Choose a different CPU opponent.",
+            "This paw belongs to a human player. Choose another robot paw.",
             android.widget.Toast.LENGTH_SHORT,
         ).show()
         return
@@ -134,6 +143,7 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
             requestedCharacterId = characterId,
             computerMode = isComputerMode,
             unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
+            humanCount = selectedHumans,
         )
 
     if (!isComputerMode || selectedCharacterSlot == 0) {
@@ -161,6 +171,7 @@ internal fun OfflineGameActivity.persistCharacterSetup() {
                     selectedSlot = selectedCharacterSlot,
                     characterIds = selectedCharacterIds,
                     colorsBySeat = selectedColorsBySeat,
+                    humanCount = selectedHumans,
                 ),
         )
     selectedCharacterSlot = repaired.selectedSlot
@@ -176,6 +187,7 @@ internal fun OfflineGameActivity.persistActiveCharacterSetup() {
         playerCount = selectedPlayers,
         preferredColor = if (isComputerMode) selectedColor else selectedColorsBySeat.first(),
         characterIds = selectedCharacterIds,
+        humanCount = selectedHumans,
     )
 }
 
@@ -281,7 +293,7 @@ private fun OfflineGameActivity.rebuildCharacterSlotButtons() {
         val button =
             tileButton(
                 if (isComputerMode) {
-                    if (slot == 0) "YOU" else "CPU $slot"
+                    if (slot == 0) "YOU" else if (slot < selectedHumans) "H${slot + 1}" else "CPU ${slot - selectedHumans + 1}"
                 } else {
                     "P${slot + 1}"
                 },
@@ -401,6 +413,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         preferredCharacterId = characterSelectionStore.load().characterId,
         computerMode = isComputerMode,
         unlockedCharacterIds = characterSelectionStore.unlockedCharacterIds(),
+        humanCount = selectedHumans,
     )
 
     val expectedSlots = (0 until selectedPlayers).toSet()
@@ -434,7 +447,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         val seatTint = LudoPawsTeamIdentityPolicy.resolve(seatColor)?.argb
             ?: Color.WHITE
         val slotName = if (isComputerMode) {
-            if (slot == 0) "YOU" else "CPU $slot"
+            if (slot == 0) "YOU" else if (slot < selectedHumans) "H${slot + 1}" else "CPU ${slot - selectedHumans + 1}"
         } else {
             "P${slot + 1}"
         }
@@ -447,7 +460,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
         }
         button.setTextColor(if (selected) 0xFFFFD45E.toInt() else Color.WHITE)
         val accessibleSlot = if (isComputerMode) {
-            if (slot == 0) "You" else "Computer $slot"
+            if (slot == 0) "You" else if (slot < selectedHumans) "Human player ${slot + 1}" else "Robot ${slot - selectedHumans + 1}"
         } else {
             "Player ${slot + 1}"
         }
@@ -493,7 +506,7 @@ internal fun OfflineGameActivity.refreshCharacterSelectionUi() {
 
 private fun OfflineGameActivity.characterChoiceSubtitle(characterId: String): CharSequence {
     if (!characterSelectionStore.isUnlocked(characterId)) {
-        return if (isComputerMode && selectedCharacterSlot > 0) {
+        return if (isComputerMode && selectedCharacterSlot >= selectedHumans) {
             "CPU ONLY"
         } else {
             characterUnlockLabel(characterId)
