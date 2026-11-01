@@ -902,15 +902,18 @@ class StoreActivity :
         }
 
         val productId = pendingAutoPurchaseProductId ?: return
+        // Home's one-tap Buy must wait for the initial Play ownership result.
+        // The callback below resumes it without requiring another user tap.
+        if (productId == StoreCatalog.REMOVE_ADS &&
+            removeAdsOfferState() == RemoveAdsOfferState.CHECKING) return
         pendingAutoPurchaseProductId = null
-
-        if (productId == StoreCatalog.REMOVE_ADS && wallet.adsRemoved()) {
-            showStoreMessage("Remove Ads is already active for this account.")
+        if (productId == StoreCatalog.REMOVE_ADS &&
+            removeAdsOfferState() != RemoveAdsOfferState.BUY) {
+            performRemoveAdsAction()
             return
         }
 
-        // Called only after Google Play has returned the product catalog, so this opens
-        // the native Google Play purchase sheet rather than merely showing the Store page.
+        // Product details and ownership have both been confirmed.
         requestPurchase(productId)
     }
 
@@ -1457,6 +1460,11 @@ class StoreActivity :
             removeAdsPlayOwnership = ownership
             updateCheckoutStatus()
             renderStore()
+            if (pendingAutoPurchaseProductId == StoreCatalog.REMOVE_ADS &&
+                ownership != RemoveAdsPlayOwnership.CHECKING &&
+                ownership != RemoveAdsPlayOwnership.UNKNOWN) {
+                launchPendingAutoPurchaseIfReady()
+            }
         }
     }
 
