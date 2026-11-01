@@ -44,7 +44,7 @@ class GameResultArtView @JvmOverloads constructor(
     private val animator =
         ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 1800L
-            repeatCount = ValueAnimator.INFINITE
+            repeatCount = 0
             interpolator = LinearInterpolator()
             addUpdateListener {
                 phase = it.animatedValue as Float
@@ -66,15 +66,28 @@ class GameResultArtView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        if (!animator.isStarted) {
-            animator.start()
-        } else {
-            animator.resume()
+        // Result panels are mounted hidden during play: celebrate only when
+        // the match ends, never while the screen is still being built.
+        if (isShown) startCelebration()
+    }
+
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility == VISIBLE && isAttachedToWindow && isShown) {
+            startCelebration()
+        } else if (visibility != VISIBLE) {
+            animator.cancel()
         }
     }
 
+    private fun startCelebration() {
+        animator.cancel()
+        phase = 0f
+        animator.start()
+    }
+
     override fun onDetachedFromWindow() {
-        animator.pause()
+        animator.cancel()
         super.onDetachedFromWindow()
     }
 
@@ -92,8 +105,11 @@ class GameResultArtView @JvmOverloads constructor(
                 0xFF46E8A4.toInt()
             }
 
-        drawBurst(canvas, w, h, accent)
-        drawConfetti(canvas, w, h, accent)
+        // Two-second celebration ends cleanly; no permanent motion behind text.
+        if (phase < 0.99f) {
+            drawBurst(canvas, w, h, accent)
+            drawConfetti(canvas, w, h, accent)
+        }
     }
 
     private fun drawBurst(
