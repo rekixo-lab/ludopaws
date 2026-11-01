@@ -30,6 +30,10 @@ import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockDecision
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy
+import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
@@ -56,6 +60,10 @@ class StoreActivity :
     internal var refreshBoardSelection: (() -> Unit)? = null
     internal var featuredCharacterId: String? = null
     internal var promotedCosmeticId: String? = null
+    private var pendingSmartUnlockId: String? = null
+    private var pendingPlayEquipId: String? = null
+    private var pendingPlayEquipOwner: String? = null
+    private var pendingAdSelectionId: String? = null
     internal var storeSpotlight: com.rekixo.ludopaws.feature.store.presentation.components.StoreLockedSpotlightView? = null
     internal val spotlightPositions = mutableMapOf<StoreTab, String>()
     internal var showcaseResumed = false
@@ -220,6 +228,7 @@ class StoreActivity :
         promotedCosmeticId = if (savedInstanceState != null) savedInstanceState.getString("store_promoted_item")
             else intent.getStringExtra(EXTRA_PROMOTED_COSMETIC_ID)
         promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.find(it) != null }
+        pendingSmartUnlockId = if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_START_SMART_UNLOCK, false)) promotedCosmeticId else null
         if (savedInstanceState == null) promotedCosmeticId?.let { id ->
             StoreCosmeticCatalog.find(id)?.let { selectedTab = PromotionInterest.tabFor(it) }
         }
@@ -246,6 +255,7 @@ class StoreActivity :
         // Play approval/payment may finish while this Activity is only paused.
         // Refresh owned purchases even when onStart is not called again.
         if (billingWasCreated && billingAvailable) billing.refreshPurchases()
+        maybeStartPendingSmartUnlock()
     }
 
     override fun onPause() {
@@ -426,6 +436,7 @@ class StoreActivity :
                     showStoreMessage(message)
                 }
                 renderStore()
+                maybeStartPendingSmartUnlock()
                 if (recoveredPurchases > 0) {
                     showStoreMessage(
                         "Recovered $recoveredPurchases verified Play purchase${if (recoveredPurchases == 1) "" else "s"} from this account.",
@@ -496,6 +507,7 @@ class StoreActivity :
                     }
                     updateCatalogStatus()
                     renderStore()
+                    maybeStartPendingSmartUnlock()
                 }
             } catch (error: Exception) {
                 Log.w(TAG, "Catalog refresh failed: ${safeErrorSummary(error)}")
@@ -629,6 +641,7 @@ class StoreActivity :
                     billingAvailable = true
                     billingProductCatalogLoaded = false
                     chosenProductOwner = session.accountId
+                    if (StoreCatalog.find(productId)?.cosmeticId == pendingPlayEquipId) pendingPlayEquipOwner = session.accountId
                     pendingCheckoutProductId = productId
                     pendingCheckoutAccountId = session.accountId
                     updateCheckoutStatus()
@@ -762,7 +775,7 @@ class StoreActivity :
                             if (!storeStarted || !showcaseResumed || accountRepository.currentSession()?.accountId != record.accountId) false
                             else if (cosmeticId != null && StoreCosmeticCatalog.find(cosmeticId)?.contentAvailable != true) {
                                 showStoreMessage("This item is no longer available. No ad was shown."); false
-                            } else try { pendingAdRewards.put(record); true }
+                            } else try { pendingAdRewards.put(record); pendingAdSelectionId = cosmeticId; true }
                             catch (error: Exception) { showStoreMessage(error.message ?: "Reward recovery could not be saved. Please retry."); false }
                         },
                         onFinished = { earned ->
@@ -980,8 +993,39 @@ class StoreActivity :
         check(wallet.applyServerSnapshot(serverWallet, session.accountId)) {
             "Verified wallet snapshot did not match the signed-in account."
         }
-        cosmetics.applyServerSnapshot(serverWallet, session.accountId)
+        check(cosmetics.applyServerSnapshot(serverWallet, session.accountId)) {
+            "Verified inventory belongs to a different account."
+        }
         ProfileStore(this).addPurchase(pending.productId) // UI cache only; server remains authoritative.
+        val selectedItemId = pendingPlayEquipId?.takeIf { id ->
+            StoreCatalog.find(pending.productId)?.cosmeticId == id &&
+                pendingPlayEquipOwner == session.accountId &&
+                accountRepository.currentSession()?.accountId == session.accountId &&
+                cosmetics.isOwned(id)
+        }
+        if (selectedItemId != null) {
+            pendingPlayEquipId = null
+            pendingPlayEquipOwner = null
+            try {
+                val selected = accountRepository.selectCosmetic(selectedItemId)
+                val snapshot = selected.optJSONObject("wallet")
+                if (snapshot != null && accountRepository.currentSession()?.accountId == session.accountId &&
+                    cosmetics.applyServerSnapshot(snapshot, session.accountId)) {
+                    runOnUiThread {
+                        if (accountRepository.currentSession()?.accountId == session.accountId) {
+                            StoreCosmeticCatalog.find(selectedItemId)?.let { item ->
+                                if (cosmetics.selectOwnedLocalCosmetic(item)) {
+                                    com.rekixo.ludopaws.feature.store.data.local.LocalEquipmentSync.request(this)
+                                }
+                            }
+                            renderStore()
+                        }
+                    }
+                }
+            } catch (error: Exception) {
+                Log.w(TAG, "Verified ownership saved; automatic equip can be retried", error)
+            }
+        }
         return !response.optBoolean("replay", false)
     }
 
@@ -1018,97 +1062,93 @@ class StoreActivity :
             showCosmeticFeedback("${cosmetic.title} selected")
             return
         }
-        val owned = cosmetics.isOwned(cosmetic.id)
-        if (!owned && cosmetic.unlockChannels.size > 1) {
-            val channels = cosmetic.unlockChannels
-            val adsForGems = adsEnabledForBuild &&
-                com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS in channels &&
-                cosmetic.gemPrice > wallet.balance()
-            val adsNeeded = ((cosmetic.gemPrice - wallet.balance()).coerceAtLeast(0) + StoreCatalog.REWARDED_AD_GEMS - 1) / StoreCatalog.REWARDED_AD_GEMS
-            val labels = channels.map { channel ->
-                when (channel) {
-                    com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.FREE ->
-                        "Free"
-                    com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS ->
-                        CosmeticPriceLabels.gems(this, cosmetic.gemPrice)
-                    com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.REWARDED_ADS ->
-                        cosmetics.rewardedAdProgress(cosmetic.id).let { progress ->
-                            if (progress >= cosmetic.requiredAdViews) "Unlock · ads completed"
-                            else "Watch ad · $progress/${cosmetic.requiredAdViews} completed"
-                        }
-                    com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.LEVEL ->
-                        "Reach level ${cosmetic.requiredLevel}"
-                    com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.EVENT ->
-                        "Event unlock"
-                    com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT ->
-                        StoreCatalog.cosmeticProductId(cosmetic.id)?.let { productId ->
-                            liveProducts[productId]?.formattedPrice?.let { "Buy · $it" }
-                        } ?: "Google Play · price unavailable"
-                }
-            }
-            val options = labels + if (adsForGems) listOf("Watch ad · +${StoreCatalog.REWARDED_AD_GEMS} Gems · $adsNeeded to afford") else emptyList()
-            PlywoodAlertDialogBuilder(this)
-                .setTitle("Unlock ${cosmetic.title}")
-                .setItems(options.toTypedArray()) { _, index ->
-                    if (adsForGems && index == channels.size) {
-                        requestRewardedAd()
-                        return@setItems
-                    }
-                    val channel = channels.getOrNull(index) ?: return@setItems
-                    if (channel == com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.REWARDED_ADS &&
-                        cosmetics.rewardedAdProgress(cosmetic.id) < cosmetic.requiredAdViews
-                    ) {
-                        requestRewardedAd(cosmetic.id)
-                    } else {
-                        chooseCosmeticUnlock(cosmetic, channel.name)
-                    }
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
-            return
-        }
-
-        val unlockChannel = if (cosmetic.unlockChannels.size == 1) {
-            cosmetic.unlockChannels.single().name
-        } else {
-            null
-        }
-        if (owned) performCosmeticPurchaseOrSelect(cosmetic, null)
-        else chooseCosmeticUnlock(cosmetic, unlockChannel)
+        runSmartUnlock(cosmetic, smartUnlockDecision(cosmetic).primary)
     }
 
-    private fun chooseCosmeticUnlock(
+    internal fun smartUnlockDecision(
         cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
-        channel: String?,
+    ): SmartUnlockDecision = SmartUnlockPolicy.decide(
+        cosmetic = cosmetic,
+        owned = cosmetics.isOwned(cosmetic.id),
+        gems = wallet.balance(),
+        adProgress = cosmetics.rewardedAdProgress(cosmetic.id),
+        playAvailable = BuildConfig.LUDOPROOF_BILLING_ENABLED &&
+            StoreCatalog.cosmeticProductId(cosmetic.id) != null,
+        adsAvailable = adsEnabledForBuild,
+    )
+
+    internal fun smartUnlockLabel(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+        action: SmartUnlockAction = smartUnlockDecision(cosmetic).primary,
+    ): String = when (action) {
+        SmartUnlockAction.SELECT -> "Select"
+        SmartUnlockAction.FREE -> "Unlock Free"
+        SmartUnlockAction.GEMS -> "Unlock · ${cosmetic.gemPrice} Gems"
+        SmartUnlockAction.PLAY_PRODUCT -> StoreCatalog.cosmeticProductId(cosmetic.id)
+            ?.let { liveProducts[it]?.formattedPrice }
+            ?.let { "Buy · $it" } ?: "Buy with Google Play"
+        SmartUnlockAction.WATCH_AD ->
+            "Watch Ad · ${cosmetics.rewardedAdProgress(cosmetic.id).coerceAtMost(cosmetic.requiredAdViews)}/${cosmetic.requiredAdViews}"
+        SmartUnlockAction.CLAIM_ADS -> "Unlock · Ads Completed"
+        SmartUnlockAction.GET_GEMS -> "Get Gems to Unlock"
+        SmartUnlockAction.LEVEL -> "Level ${cosmetic.requiredLevel} Required"
+        SmartUnlockAction.EVENT -> "Event Unlock"
+        SmartUnlockAction.UNAVAILABLE -> "Unavailable"
+    }
+
+    internal fun unlockAlternativeLabel(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+    ): String? = smartUnlockDecision(cosmetic).alternative?.let { smartUnlockLabel(cosmetic, it) }
+
+    internal fun requestAlternateCosmetic(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
     ) {
-        if (channel == "PLAY_PRODUCT") {
-            val productId = StoreCatalog.cosmeticProductId(cosmetic.id)
-            if (productId == null) showStoreMessage("This item has no verified Google Play product.")
-            else requestPurchase(productId)
-            return
-        }
-        if (channel == "GEMS" || channel == null && cosmetic.unlockKind ==
-            com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.GEMS) {
-            val deficit = cosmetic.gemPrice - wallet.balance()
-            if (deficit > 0 && adsEnabledForBuild) {
-                val adsNeeded = (deficit + StoreCatalog.REWARDED_AD_GEMS - 1) / StoreCatalog.REWARDED_AD_GEMS
-                PlywoodAlertDialogBuilder(this)
-                    .setTitle("Earn Gems for ${cosmetic.title}")
-                    .setMessage("Need $deficit more Gems. You can earn ${StoreCatalog.REWARDED_AD_GEMS} Gems per verified ad (about $adsNeeded ads), or buy a Gems pack in the Store.")
-                    .setPositiveButton("Watch ad (+${StoreCatalog.REWARDED_AD_GEMS} Gems)") { _, _ -> requestRewardedAd() }
-                    .setNegativeButton("Cancel", null).show()
-                return
+        if (!currentOfferMatches(cosmetic)) return
+        smartUnlockDecision(cosmetic).alternative?.let { runSmartUnlock(cosmetic, it) }
+    }
+
+    private fun runSmartUnlock(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+        action: SmartUnlockAction,
+    ) {
+        if (cosmeticUpdateInProgress) return
+        when (action) {
+            SmartUnlockAction.SELECT -> performCosmeticPurchaseOrSelect(cosmetic, null)
+            SmartUnlockAction.FREE -> performCosmeticPurchaseOrSelect(cosmetic, "FREE")
+            SmartUnlockAction.GEMS -> performCosmeticPurchaseOrSelect(cosmetic, "GEMS")
+            SmartUnlockAction.PLAY_PRODUCT -> {
+                val productId = StoreCatalog.cosmeticProductId(cosmetic.id)
+                if (productId == null) showStoreMessage("No verified Google Play product is available for this item.")
+                else {
+                    pendingPlayEquipId = cosmetic.id
+                    pendingPlayEquipOwner = accountRepository.currentSession()?.accountId
+                    requestPurchase(productId)
+                }
             }
-            PlywoodAlertDialogBuilder(this)
-                .setTitle("Unlock ${cosmetic.title}?")
-                .setMessage(android.text.SpannableStringBuilder("Spend ")
-                    .append(CosmeticPriceLabels.gems(this, cosmetic.gemPrice))
-                    .append("? This unlock is saved to your account."))
-                .setPositiveButton("Unlock") { _, _ -> performCosmeticPurchaseOrSelect(cosmetic, channel) }
-                .setNegativeButton("Cancel", null).show()
+            SmartUnlockAction.WATCH_AD -> requestRewardedAd(cosmetic.id)
+            SmartUnlockAction.CLAIM_ADS -> performCosmeticPurchaseOrSelect(cosmetic, "REWARDED_ADS")
+            SmartUnlockAction.GET_GEMS -> {
+                selectedTab = StoreTab.GEMS
+                renderStore()
+                showCosmeticFeedback("Choose a Gems pack to unlock ${cosmetic.title}.")
+            }
+            SmartUnlockAction.LEVEL -> showStoreMessage("Reach level ${cosmetic.requiredLevel} to unlock ${cosmetic.title}.")
+            SmartUnlockAction.EVENT -> showStoreMessage("This item needs a server-verified event entitlement.")
+            SmartUnlockAction.UNAVAILABLE -> showStoreMessage("This unlock method is unavailable right now. Nothing was spent.")
+        }
+    }
+
+    private fun maybeStartPendingSmartUnlock() {
+        val id = pendingSmartUnlockId ?: return
+        if (!storeStarted || !showcaseResumed || !storeOnline || storeRefreshInFlight ||
+            catalogRefreshInProgress || catalogRefreshFailed || !canRenderStoreUi()) return
+        pendingSmartUnlockId = null
+        val current = StoreCosmeticCatalog.find(id)
+        if (current == null || !current.contentAvailable || !current.purchaseAvailable) {
+            showStoreMessage("This offer is unavailable. No purchase or ad was started.")
             return
         }
-        performCosmeticPurchaseOrSelect(cosmetic, channel)
+        handleCosmeticTap(current)
     }
 
     private fun performCosmeticPurchaseOrSelect(
@@ -1265,6 +1305,13 @@ class StoreActivity :
                 })
                 if (confirmed.isNotEmpty()) showCosmeticFeedback("Ad reward verified. Your server wallet is up to date.")
                 renderStore()
+                val selectedAdId = pendingAdSelectionId
+                if (selectedAdId != null &&
+                    records.any { it.requestId in confirmed && it.cosmeticId == selectedAdId } &&
+                    cosmetics.isOwned(selectedAdId)) {
+                    pendingAdSelectionId = null
+                    StoreCosmeticCatalog.find(selectedAdId)?.let { purchaseOrSelectCosmetic(it) }
+                }
                 if (visible && rewardRecoveryAttempt < 6) {
                     val delay = minOf(15_000L, 2_000L shl (rewardRecoveryAttempt - 1))
                     rewardHandler.postDelayed(retryRewardRecovery, delay)
@@ -1584,6 +1631,7 @@ class StoreActivity :
 
     companion object {
         const val EXTRA_PROMOTED_COSMETIC_ID = "promoted_cosmetic_id"
+        const val EXTRA_START_SMART_UNLOCK = "start_smart_unlock"
         const val EXTRA_FEATURED_CHARACTER_ID = "ludo_paws_featured_character_id"
         const val EXTRA_INITIAL_TAB =
             "ludo_paws_store_initial_tab"
