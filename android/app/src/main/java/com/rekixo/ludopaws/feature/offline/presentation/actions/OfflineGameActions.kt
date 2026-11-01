@@ -11,7 +11,6 @@ import com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback
 import com.rekixo.ludopaws.ui.offline.gameplay.OfflineTurnTransitionFeedbackPolicy
 import com.rekixo.ludopaws.ui.offline.gameplay.renderCommittedMove
 import com.rekixo.ludopaws.ui.offline.gameplay.renderGame
-import com.rekixo.ludopaws.ui.offline.gameplay.schedulePassAndPlayHandoff
 
 internal fun OfflineGameActivity.rollOffline() {
     val control = diceHost ?: return
@@ -214,10 +213,11 @@ private fun OfflineGameActivity.renderRolledState(
         GameSettingsStore(this)
             .snapshot()
             .gameSpeed
-    val presentationDelay = LudoPawsGameplayPacingPolicy.diceResultHoldMillis(speed)
     renderGame(
         state = current,
-        presentationDelayMillis = presentationDelay,
+        presentationDelayMillis =
+            LudoPawsGameplayPacingPolicy
+                .diceResultHoldMillis(speed),
     )
     OfflineTurnTransitionFeedbackPolicy
         .message(
@@ -225,11 +225,6 @@ private fun OfflineGameActivity.renderRolledState(
             current = current,
         )
         ?.let(::showStatus)
-    schedulePassAndPlayHandoff(
-        previous = previous,
-        current = current,
-        presentationDelayMillis = presentationDelay,
-    )
 }
 
 /** Compatibility seam kept for existing tests and diagnostics. */

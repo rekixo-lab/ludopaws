@@ -15,42 +15,19 @@ import com.rekixo.ludopaws.OfflineGameActivity
 import com.rekixo.ludopaws.feature.settings.data.local.GameSoundFeedback
 import com.rekixo.ludopaws.ui.offline.common.*
 
-/**
- * Block the next player immediately, then show the handoff after the current
- * dice/pawn presentation. The pending seat survives pause/resume and rotation.
- */
-internal fun OfflineGameActivity.schedulePassAndPlayHandoff(
+internal fun OfflineGameActivity.presentPassAndPlayHandoff(
     previous: MatchSnapshot?,
     current: MatchSnapshot,
-    presentationDelayMillis: Long,
 ) {
-    val handoff = OfflinePassAndPlayHandoffPolicy.resolve(
-        mode = gameMode,
-        previous = previous,
-        current = current,
-    ) ?: return
-    pendingPassAndPlayHandoff = handoff
-    pendingPassAndPlayMatchId = current.matchId
-    offlineModalPaused = true
-    handler.postDelayed({ showPendingPassAndPlayHandoff() },
-        presentationDelayMillis.coerceAtLeast(1L))
-}
+    val handoff =
+        OfflinePassAndPlayHandoffPolicy.resolve(
+            mode = gameMode,
+            previous = previous,
+            current = current,
+        ) ?: return
 
-internal fun OfflineGameActivity.showPendingPassAndPlayHandoff() {
-    val handoff = pendingPassAndPlayHandoff ?: return
-    if (isFinishing || isDestroyed || boardView == null) return
-    if (turnHandoffDialog?.isShowing == true) return
-    val match = session.snapshot()
-    val player = match?.players?.getOrNull(handoff.seat)
-    if (match == null || match.matchId != pendingPassAndPlayMatchId ||
-        match.status != "ACTIVE" || match.turnSeat != handoff.seat ||
-        match.pendingRoll != null || player?.playerId != handoff.playerId) {
-        pendingPassAndPlayHandoff = null
-        pendingPassAndPlayMatchId = null
-        offlineModalPaused = false
-        resumeOfflineActions()
-        return
-    }
+    turnHandoffDialog?.dismiss()
+
     val dialog = Dialog(this)
     val card =
         LinearLayout(this).apply {
@@ -59,12 +36,12 @@ internal fun OfflineGameActivity.showPendingPassAndPlayHandoff() {
             setPadding(dp(24), dp(22), dp(24), dp(20))
             background =
                 LudoProofTheme.hudPanelDrawable(
-                    this@showPendingPassAndPlayHandoff,
+                    this@presentPassAndPlayHandoff,
                     goldBorder = true,
                 )
 
             addView(
-                TextView(this@showPendingPassAndPlayHandoff).apply {
+                TextView(this@presentPassAndPlayHandoff).apply {
                     text = "PASS THE PHONE"
                     LudoProofTheme.body(
                         this,
@@ -77,7 +54,7 @@ internal fun OfflineGameActivity.showPendingPassAndPlayHandoff() {
             )
 
             addView(
-                TextView(this@showPendingPassAndPlayHandoff).apply {
+                TextView(this@presentPassAndPlayHandoff).apply {
                     text = handoff.displayName
                     LudoProofTheme.title(
                         this,
@@ -90,7 +67,7 @@ internal fun OfflineGameActivity.showPendingPassAndPlayHandoff() {
             )
 
             addView(
-                TextView(this@showPendingPassAndPlayHandoff).apply {
+                TextView(this@presentPassAndPlayHandoff).apply {
                     text = "${handoff.color.lowercase().replaceFirstChar { it.uppercase() }} paws • your turn"
                     LudoProofTheme.body(
                         this,
@@ -103,19 +80,15 @@ internal fun OfflineGameActivity.showPendingPassAndPlayHandoff() {
             )
 
             addView(
-                Button(this@showPendingPassAndPlayHandoff).apply {
+                Button(this@presentPassAndPlayHandoff).apply {
                     text = "READY"
                     textSize = if (isCompactSetup()) 12f else 13f
                     minHeight = 0
                     LudoProofTheme.positive(this)
                     contentDescription = "Ready for ${handoff.displayName} turn"
                     setOnClickListener {
-                        GameSoundFeedback.click(this@showPendingPassAndPlayHandoff)
-                        pendingPassAndPlayHandoff = null
-                        pendingPassAndPlayMatchId = null
-                        offlineModalPaused = false
+                        GameSoundFeedback.click(this@presentPassAndPlayHandoff)
                         dialog.dismiss()
-                        resumeOfflineActions()
                     }
                 },
                 LinearLayout.LayoutParams(

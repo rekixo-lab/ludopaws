@@ -533,11 +533,6 @@ internal fun OfflineGameActivity.renderCommittedMove(
             "Paw is moving…"
         },
     )
-    schedulePassAndPlayHandoff(
-        previous = previous,
-        current = current,
-        presentationDelayMillis = delay,
-    )
 }
 
 private fun OfflineGameActivity.schedulePresentationUnlock(
