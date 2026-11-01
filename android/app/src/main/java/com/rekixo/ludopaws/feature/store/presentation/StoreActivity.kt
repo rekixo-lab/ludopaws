@@ -225,6 +225,9 @@ class StoreActivity :
         StoreTab.entries.forEach { tab -> savedInstanceState?.getString("store_spotlight_" + tab.name)?.let { spotlightPositions[tab] = it } }
         chosenProductId = savedInstanceState?.getString("store_product")?.takeIf { StoreCatalog.find(it) != null }
         chosenProductOwner = savedInstanceState?.getString("store_product_owner")
+        pendingPlayEquipId = savedInstanceState?.getString("store_pending_play_equip_id")
+            ?.takeIf { StoreCatalog.cosmeticProductId(it) != null }
+        pendingPlayEquipOwner = savedInstanceState?.getString("store_pending_play_equip_owner")
         checkoutRetryNeeded = chosenProductId != null
         featuredCharacterId = (savedInstanceState?.getString("store_character") ?: intent.getStringExtra(EXTRA_FEATURED_CHARACTER_ID))
             ?.takeIf { com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry.find(it) != null }
@@ -493,6 +496,8 @@ class StoreActivity :
         spotlightPositions.forEach { (tab, id) -> outState.putString("store_spotlight_" + tab.name, id) }
         outState.putString("store_product", chosenProductId)
         outState.putString("store_product_owner", chosenProductOwner)
+        outState.putString("store_pending_play_equip_id", pendingPlayEquipId)
+        outState.putString("store_pending_play_equip_owner", pendingPlayEquipOwner)
         scrollPositions.forEach { (tab, position) -> outState.putInt("store_scroll_" + tab.name, position) }
         super.onSaveInstanceState(outState)
     }

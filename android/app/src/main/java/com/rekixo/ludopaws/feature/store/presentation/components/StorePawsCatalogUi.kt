@@ -140,8 +140,6 @@ private fun StoreActivity.pawsCharacterCard(
         contentDescription =
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
             else if (offerUnavailable) "${character.displayName}, currently unavailable"
-            else if (unlock != null && com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind.PLAY_PRODUCT in unlock.unlockChannels)
-                "${character.displayName}, ${smartUnlockLabel(unlock)}; optional rewarded ad earns ${com.rekixo.ludopaws.feature.store.domain.StoreCatalog.REWARDED_AD_GEMS} Gems"
             else if (unlock != null) "${character.displayName}, ${smartUnlockLabel(unlock)}"
             else "${character.displayName}, unlocked"
 

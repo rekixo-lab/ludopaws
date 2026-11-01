@@ -414,7 +414,8 @@ internal class GamePawsPromotionView(
                 artwork.addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
             }
         }
-        contentDescription = "${offer.title}. ${if (gameplay) "Available in Store after your match" else "Explore in Store"}."
+        contentDescription = if (gameplay) "${offer.title}. Save this offer until after your match." else
+            "${offer.title}. ${storeLabel.text.toString().removeSuffix(" ›")}."
         updateMotion()
     }
 
