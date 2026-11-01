@@ -61,6 +61,8 @@ class StoreActivity :
     internal var featuredCharacterId: String? = null
     internal var promotedCosmeticId: String? = null
     private var pendingSmartUnlockId: String? = null
+    private var pendingSmartUnlockExpectedAction: String? = null
+    private var pendingSmartUnlockExpectedGems: Int = -1
     private var pendingPlayEquipId: String? = null
     private var pendingPlayEquipOwner: String? = null
     private var pendingAdSelectionId: String? = null
@@ -229,6 +231,8 @@ class StoreActivity :
             else intent.getStringExtra(EXTRA_PROMOTED_COSMETIC_ID)
         promotedCosmeticId = promotedCosmeticId?.takeIf { StoreCosmeticCatalog.find(it) != null }
         pendingSmartUnlockId = if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_START_SMART_UNLOCK, false)) promotedCosmeticId else null
+        pendingSmartUnlockExpectedAction = if (savedInstanceState == null) intent.getStringExtra(EXTRA_EXPECTED_UNLOCK_ACTION) else null
+        pendingSmartUnlockExpectedGems = if (savedInstanceState == null) intent.getIntExtra(EXTRA_EXPECTED_GEMS_PRICE, -1) else -1 else null
         if (savedInstanceState == null) promotedCosmeticId?.let { id ->
             StoreCosmeticCatalog.find(id)?.let { selectedTab = PromotionInterest.tabFor(it) }
         }
@@ -1148,6 +1152,21 @@ class StoreActivity :
             showStoreMessage("This offer is unavailable. No purchase or ad was started.")
             return
         }
+        val decision = smartUnlockDecision(current)
+        // A stale Home wallet must not turn "Buy" into an undisclosed Gem debit.
+        // Every automatic Gem spend requires an explicit matching price/action.
+        if (decision.primary == SmartUnlockAction.GEMS &&
+            (pendingSmartUnlockExpectedAction != SmartUnlockAction.GEMS.name ||
+                pendingSmartUnlockExpectedGems != current.gemPrice)) {
+            showCosmeticFeedback("Wallet updated. Confirm the Gem price shown in the Store.")
+            return
+        }
+        if (pendingSmartUnlockExpectedAction != null &&
+            decision.primary != SmartUnlockAction.SELECT &&
+            pendingSmartUnlockExpectedAction != decision.primary.name) {
+            showCosmeticFeedback("This offer changed. Confirm the new unlock option in the Store.")
+            return
+        }
         handleCosmeticTap(current)
     }
 
@@ -1632,6 +1651,8 @@ class StoreActivity :
     companion object {
         const val EXTRA_PROMOTED_COSMETIC_ID = "promoted_cosmetic_id"
         const val EXTRA_START_SMART_UNLOCK = "start_smart_unlock"
+        const val EXTRA_EXPECTED_UNLOCK_ACTION = "expected_unlock_action"
+        const val EXTRA_EXPECTED_GEMS_PRICE = "expected_unlock_gems"
         const val EXTRA_FEATURED_CHARACTER_ID = "ludo_paws_featured_character_id"
         const val EXTRA_INITIAL_TAB =
             "ludo_paws_store_initial_tab"

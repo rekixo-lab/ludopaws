@@ -368,9 +368,25 @@ class HomeActivity : Activity() {
             HomePromotionCarousel(this) { tab, cosmeticId ->
                 launchPlayerScreen(Intent(this, StoreActivity::class.java).apply {
                     putExtra(StoreActivity.EXTRA_INITIAL_TAB, tab)
-                    cosmeticId?.let {
-                        putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, it)
+                    cosmeticId?.let { id ->
+                        putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, id)
                         putExtra(StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+                        com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(id)?.let { offer ->
+                            val decision = com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy.decide(
+                                cosmetic = offer,
+                                owned = com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(this@HomeActivity).isOwned(id),
+                                gems = com.rekixo.ludopaws.feature.store.data.local.GemWalletStore(this@HomeActivity).balance(),
+                                adProgress = com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(this@HomeActivity).rewardedAdProgress(id),
+                                playAvailable = com.rekixo.ludopaws.BuildConfig.LUDOPROOF_BILLING_ENABLED &&
+                                    com.rekixo.ludopaws.feature.store.domain.StoreCatalog.cosmeticProductId(id) != null,
+                                adsAvailable = com.rekixo.ludopaws.BuildConfig.LUDOPROOF_ADS_ENABLED &&
+                                    com.rekixo.ludopaws.BuildConfig.ADMOB_REWARDED_AD_UNIT_ID.isNotBlank(),
+                            )
+                            putExtra(StoreActivity.EXTRA_EXPECTED_UNLOCK_ACTION, decision.primary.name)
+                            if (decision.primary == com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.GEMS) {
+                                putExtra(StoreActivity.EXTRA_EXPECTED_GEMS_PRICE, offer.gemPrice)
+                            }
+                        }
                     }
                 })
             }.also { promotionCarousel = it },

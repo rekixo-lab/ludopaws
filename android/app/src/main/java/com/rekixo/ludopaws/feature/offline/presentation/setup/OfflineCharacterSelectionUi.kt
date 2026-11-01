@@ -131,6 +131,21 @@ internal fun OfflineGameActivity.selectCharacterForActiveSlot(characterId: Strin
             if (offerId != null) {
                 putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, offerId)
                 putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_START_SMART_UNLOCK, true)
+                com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(offerId)?.let { offer ->
+                    val action = com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy.decide(
+                        cosmetic = offer,
+                        owned = false,
+                        gems = com.rekixo.ludopaws.feature.store.data.local.GemWalletStore(this@selectCharacterForActiveSlot).balance(),
+                        adProgress = com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(this@selectCharacterForActiveSlot).rewardedAdProgress(offer.id),
+                        playAvailable = com.rekixo.ludopaws.BuildConfig.LUDOPROOF_BILLING_ENABLED &&
+                            com.rekixo.ludopaws.feature.store.domain.StoreCatalog.cosmeticProductId(offer.id) != null,
+                        adsAvailable = com.rekixo.ludopaws.BuildConfig.LUDOPROOF_ADS_ENABLED,
+                    ).primary
+                    putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_EXPECTED_UNLOCK_ACTION, action.name)
+                    if (action == com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction.GEMS) {
+                        putExtra(com.rekixo.ludopaws.feature.store.presentation.StoreActivity.EXTRA_EXPECTED_GEMS_PRICE, offer.gemPrice)
+                    }
+                }
             }
         })
         return
