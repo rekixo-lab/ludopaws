@@ -22,7 +22,8 @@ object LudoPawsResultPresentation {
         val myRank = viewerId?.let(ranks::get)
         val title = when {
             teamMode && won -> "YOUR TEAM WON"
-            teamMode -> "TEAM ${match.winnerTeamId ?: "—"} WINS"
+            teamMode && match.winnerTeamId != null -> "TEAM ${match.winnerTeamId} WINS"
+            teamMode -> "MATCH COMPLETE"
             mode == GameMode.PASS_AND_PLAY -> "MATCH COMPLETE"
             myRank == 1 -> "1ST PLACE"
             myRank == 2 -> "2ND PLACE"
@@ -70,13 +71,15 @@ object LudoPawsResultPresentation {
         )
         val planned = viewerId?.let(match.matchGemRewards::get)?.takeIf { it > 0 }
         val gems = when {
-            planned == null -> null
-            gemLedgerStatus == "CREDITED" && creditedGems == planned ->
+            // The authenticated receipt, not the planned payout, is authoritative.
+            gemLedgerStatus == "CREDITED" && creditedGems > 0 ->
                 "+$creditedGems Gems · Credited" to "Confirmed in your Wallet"
-            gemLedgerStatus == "LIMIT_REACHED" ->
+            gemLedgerStatus == "LIMIT_REACHED" && planned != null ->
                 "Reward limit reached" to "Friends Gems are limited to 3 rewards per 24 hours"
-            else -> "+$planned Gems · Verifying" to
-                "Pending Wallet confirmation · no Gems credited on this screen"
+            planned != null ->
+                "+$planned Gems · Verifying" to
+                    "Pending Wallet confirmation · no Gems credited on this screen"
+            else -> null
         }
         return ResultCardModel(
             title = title, subtitle = subtitle, placements = placements,
