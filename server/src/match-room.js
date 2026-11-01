@@ -43,6 +43,7 @@ import {
 import {
   normalizeCharacterId,
 } from "./ludo-paws-characters.js";
+import { assertHumanCharacterAccess } from "./character-access.js";
 import {
   LEGACY_RULESET_KEY,
   LEGACY_TEAM_RULESET_KEY,
@@ -373,6 +374,13 @@ export class MatchRoom {
         },
       );
 
+    // Signed matchmaking assertions originate from queues that verified
+    // human ownership at entry. Unasserted direct/Friends requests must be
+    // checked here; server-issued BOT seats are never subject to paid unlocks.
+    if (playerType !== "BOT" && !request.headers.has("x-ludoproof-profile-assertion")) {
+      await assertHumanCharacterAccess(request, this.env, characterId);
+    }
+
     const identity =
       await derivePlayerIdentity(
         this.env,
@@ -620,6 +628,10 @@ export class MatchRoom {
           "this friend invite already filled a room seat",
         );
       }
+    }
+
+    if (playerType !== "BOT" && !request.headers.has("x-ludoproof-profile-assertion")) {
+      await assertHumanCharacterAccess(request, this.env, characterId);
     }
 
     const identity =
