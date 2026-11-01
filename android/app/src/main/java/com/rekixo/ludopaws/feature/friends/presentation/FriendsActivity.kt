@@ -1326,7 +1326,7 @@ class FriendsActivity : Activity() {
         runRequest(
             working = working,
             action = {
-                val character = RemoteCharacterAccountSelection.current(this@FriendsActivity)
+                val character = RemoteCharacterAccountSelection.current(this@FriendsActivity, friendToken = auth.friendToken)
                 api.createFriendRoom(
                     friendToken = auth.friendToken,
                     displayName = displayName,
@@ -1444,7 +1444,7 @@ class FriendsActivity : Activity() {
                 if (authorizedMatchId != matchId) {
                     throw IllegalStateException("Accepted invite does not match the selected room.")
                 }
-                val character = RemoteCharacterAccountSelection.current(this@FriendsActivity)
+                val character = RemoteCharacterAccountSelection.current(this@FriendsActivity, friendToken = auth.friendToken)
                 api.joinMatch(
                     matchId = matchId,
                     displayName = displayName,

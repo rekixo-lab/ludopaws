@@ -135,7 +135,7 @@ internal fun MainActivity.beginPublicMatchmaking() {
         action = {
             val credential =
                 ensureLeaderboardCredential()
-            val character = RemoteCharacterAccountSelection.current(this)
+            val character = RemoteCharacterAccountSelection.current(this, leaderboardProfileToken = credential.profileToken)
             api.searchPublicMatch(
                 profileToken =
                     credential.profileToken,

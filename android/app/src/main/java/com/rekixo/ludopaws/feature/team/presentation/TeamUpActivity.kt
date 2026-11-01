@@ -829,7 +829,7 @@ class TeamUpActivity : ComponentActivity() {
             action = {
                 val credential = ensureLeaderboardCredential()
                 ticketStore.bindOwner(ticket.requestId)
-                val character = RemoteCharacterAccountSelection.current(this@TeamUpActivity)
+                val character = RemoteCharacterAccountSelection.current(this@TeamUpActivity, leaderboardProfileToken = credential.profileToken)
                 api.search(
                     profileToken = credential.profileToken,
                     displayName = ticket.displayName,

@@ -66,7 +66,7 @@ internal fun MainActivity.createMatch() {
         action = {
             val credential =
                 ensureLeaderboardCredential()
-            val character = RemoteCharacterAccountSelection.current(this)
+            val character = RemoteCharacterAccountSelection.current(this, leaderboardProfileToken = credential.profileToken)
             api.createMatch(
                 profileToken =
                     credential.profileToken,
@@ -150,7 +150,7 @@ internal fun MainActivity.joinMatch() {
         action = {
             val credential =
                 ensureLeaderboardCredential()
-            val character = RemoteCharacterAccountSelection.current(this)
+            val character = RemoteCharacterAccountSelection.current(this, leaderboardProfileToken = credential.profileToken)
             api.joinMatch(
                 matchId =
                     code,
