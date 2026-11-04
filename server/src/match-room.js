@@ -51,6 +51,8 @@ import {
   RULESET_V4_KEY,
   RULESET_V5_KEY,
   RULESET_V6_KEY,
+  RULESET_V7_KEY,
+  TEAM_RULESET_V6_KEY,
   TEAM_RULESET_KEY,
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4_KEY,
@@ -333,8 +335,8 @@ export class MatchRoom {
     if (requestedRulesetKey != null) {
       const acceptedRulesets =
         matchMode === "TEAM_UP"
-          ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY]
-          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY, RULESET_V6_KEY];
+          ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY, TEAM_RULESET_V6_KEY]
+          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY, RULESET_V6_KEY, RULESET_V7_KEY];
       if (!acceptedRulesets.includes(requestedRulesetKey)) {
         throw httpError(
           400,
@@ -870,6 +872,7 @@ export class MatchRoom {
       outcome,
       randomOutcome: proof.outcome,
       openingRollApplied: Boolean(result.openingRollApplied),
+      comebackBonusApplied: Boolean(result.comebackBonusApplied),
       proofDigest: proof.proofDigest,
       roundId: proof.roundId,
       legalTokenIndexes: result.legalTokenIndexes,

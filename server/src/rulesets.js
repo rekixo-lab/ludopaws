@@ -143,6 +143,27 @@ export const RULESET_V6 = Object.freeze({
   placementPolicy: "FINISH_ALL_BUT_LAST",
 });
 
+// Next-update contracts: dice stays unchanged; only an isolated yard entry is granted.
+export const RULESET_V7_KEY = "CLASSIC_V7";
+export const TEAM_RULESET_V6_KEY = "TEAM_UP_V6";
+export const COMEBACK_POLICY = Object.freeze({
+  comebackPolicy: "CAPTURE_STRANDED_THIRD_ROLL_ENTRY",
+  comebackFailedRollsBeforeEntry: 2,
+  comebackEntryPosition: 0,
+  comebackTokensPerBonus: 1,
+  comebackTokenSelection: "LOWEST_INDEX_YARD_TOKEN",
+  comebackDiceOutcomePolicy: "UNCHANGED",
+  comebackExtraTurn: false,
+  comebackCountsTimeouts: false,
+  comebackFinishedTokensExcluded: true,
+});
+export const RULESET_V7 = Object.freeze({
+  ...RULESET_V6, ...COMEBACK_POLICY, id: "ludoproof-standard-v7",
+});
+export const TEAM_RULESET_V6 = Object.freeze({
+  ...TEAM_RULESET_V5, ...COMEBACK_POLICY, id: "ludoproof-team-v6",
+});
+
 export function rulesetKeyForState(state, { teamUp = false } = {}) {
   const key = state?.rulesetKey;
   if (key == null) {
@@ -171,6 +192,8 @@ export function rulesetForKey(key) {
       return TEAM_RULESET_V4;
     case RULESET_V5_KEY: return RULESET_V5;
     case RULESET_V6_KEY: return RULESET_V6;
+    case RULESET_V7_KEY: return RULESET_V7;
+    case TEAM_RULESET_V6_KEY: return TEAM_RULESET_V6;
     case TEAM_RULESET_V5_KEY: return TEAM_RULESET_V5;
     default: {
       const error = new Error(`unsupported ruleset key: ${String(key)}`);

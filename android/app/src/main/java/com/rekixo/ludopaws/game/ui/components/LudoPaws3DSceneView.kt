@@ -151,7 +151,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         val player = state.players.firstOrNull { it.playerId == playerId } ?: return false
         val from = player.tokens.getOrNull(tokenIndex) ?: return false
         val roll = pending.outcome ?: return false
-        val to = LudoPathEncoding.destinationForRoll(from, roll) ?: return false
+        val to = if (pending.comebackBonusApplied && from == -1) 0 else
+            LudoPathEncoding.destinationForRoll(from, roll) ?: return false
         val motion = LudoPawsPawnAnimationPolicy.transition(
             playerId = playerId,
             tokenIndex = tokenIndex,

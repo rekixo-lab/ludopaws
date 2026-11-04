@@ -449,6 +449,9 @@ internal fun OfflineGameActivity.renderGame(
         state.status == "FINISHED" ->
             showStatus("Rematch or change setup.")
 
+        com.rekixo.ludopaws.LudoComebackPolicy.hint(state) != null ->
+            showStatus(requireNotNull(com.rekixo.ludopaws.LudoComebackPolicy.hint(state)))
+
         computerTurn && pending != null ->
             showStatus("Computer is choosing a paw…")
 
@@ -578,19 +581,19 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
             .firstOrNull { it.playerId == activePlayerId }
             ?: return
     val outcome = pending.outcome ?: return
-    val tokenIndex =
+    val tokenIndex = (if (pending.comebackBonusApplied) pending.legalTokenIndexes.singleOrNull() else
         LudoTurnAutomationPolicy.singleAutomaticTokenIndex(
             tokens = activePlayer.tokens,
             roll = outcome,
             legalTokenIndexes = pending.legalTokenIndexes,
-        ) ?: return
+        )) ?: return
 
     val eventKey =
         "single-legal:${state.matchId}:${pending.eventIndex}:$tokenIndex"
     if (singleLegalMoveKey == eventKey) return
     singleLegalMoveKey = eventKey
 
-    showStatus("Only one effective move • holding the dice result…")
+    showStatus(if (pending.comebackBonusApplied) "Comeback bonus • one paw returns • no extra turn" else "Only one effective move • holding the dice result…")
 
     val speed =
         GameSettingsStore(this)
@@ -614,11 +617,11 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                     !engine.isComputerPlayer(latestActive.playerId) &&
                     latestPending?.eventIndex == pending.eventIndex &&
                     latestOutcome != null &&
-                    LudoTurnAutomationPolicy.singleAutomaticTokenIndex(
+                    (if (latestPending.comebackBonusApplied) latestPending.legalTokenIndexes.singleOrNull() else LudoTurnAutomationPolicy.singleAutomaticTokenIndex(
                         tokens = latestActive.tokens,
                         roll = latestOutcome,
                         legalTokenIndexes = latestPending.legalTokenIndexes,
-                    ) == tokenIndex
+                    )) == tokenIndex
 
             if (!stillSameMove) {
                 singleLegalMoveKey = null

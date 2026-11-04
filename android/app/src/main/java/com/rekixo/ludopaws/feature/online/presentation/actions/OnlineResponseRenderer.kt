@@ -222,7 +222,7 @@ internal fun MainActivity.applyResponse(
     } else if (state.status == "ACTIVE" || state.status == "FINISHED") {
         // Normal gameplay transitions are presented by the board and player rails,
         // not as a scrolling activity-style status message.
-        statusText.text = ""
+        statusText.text = LudoComebackPolicy.hint(state).orEmpty()
     }
 
     val wireState = response.optJSONObject("state") ?: response

@@ -72,7 +72,7 @@ internal fun MainActivity.createMatch() {
                     displayName,
                 clientRequestId =
                     requestId,
-                rulesetKey = "CLASSIC_V5",
+                rulesetKey = "CLASSIC_V7",
             )
         },
         onSuccess = {

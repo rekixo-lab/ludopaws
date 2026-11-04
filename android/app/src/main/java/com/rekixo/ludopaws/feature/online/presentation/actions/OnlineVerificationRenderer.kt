@@ -54,6 +54,10 @@ internal fun MainActivity.updateVerification(
                 if (presentation.openingRollApplied) {
                     append(" • opening bonus")
                 }
+                val comeback = state.pendingRoll?.comebackBonusApplied
+                    ?: state.history.lastOrNull()?.comebackBonusApplied ?: false
+                if (comeback) append(" • comeback bonus: one paw returns, no extra turn")
+                LudoComebackPolicy.hint(state)?.let { append("\n"); append(it) }
                 presentation.eventIndex?.let { eventIndex ->
                     append("\nEvent ")
                     append(eventIndex)
@@ -68,7 +72,7 @@ internal fun MainActivity.updateVerification(
 
             when (pending?.status) {
                 "RESOLVED" -> "Syncing the dice result…"
-                else -> "Ready to roll."
+                else -> LudoComebackPolicy.hint(state) ?: "Ready to roll."
             }
         }
 }

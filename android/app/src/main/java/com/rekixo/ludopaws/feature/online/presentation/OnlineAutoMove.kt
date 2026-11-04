@@ -16,6 +16,8 @@ internal object OnlineAutoMovePolicy {
         "ludoproof-standard-v5",
         "ludoproof-team-v4",
         "ludoproof-team-v5",
+        "ludoproof-standard-v7",
+        "ludoproof-team-v6",
     )
 
     fun resolve(

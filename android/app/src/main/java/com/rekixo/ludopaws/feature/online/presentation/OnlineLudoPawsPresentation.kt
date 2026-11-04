@@ -687,7 +687,8 @@ internal object OnlineLudoPawsPresentation {
         val versionSupportsTimer =
             state.rulesetId == "ludoproof-standard-v4" ||
                 state.rulesetId == "ludoproof-team-v4" ||
-                state.rulesetId == "ludoproof-standard-v5" || state.rulesetId == "ludoproof-team-v5"
+                state.rulesetId == "ludoproof-standard-v5" || state.rulesetId == "ludoproof-team-v5" ||
+                state.rulesetId == "ludoproof-standard-v7" || state.rulesetId == "ludoproof-team-v6"
         val hasTrustedTimerContract =
             state.serverTimeAtSnapshot != null &&
                 state.turnRollTimeoutMillis?.let { it > 0L } == true
