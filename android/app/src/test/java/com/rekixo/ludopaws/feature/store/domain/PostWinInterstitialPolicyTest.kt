@@ -14,7 +14,7 @@ class PostWinInterstitialPolicyTest {
     }
 
     @Test
-    fun offlineInterstitialOnlyFollowsFinishedLocalWin() {
+    fun offlineInterstitialRequiresFinishedMatch() {
         assertTrue(
             PostWinInterstitialPolicy.shouldShowOffline(
                 matchStatus = "FINISHED",
@@ -34,7 +34,7 @@ class PostWinInterstitialPolicyTest {
     }
 
     @Test
-    fun computerModeRequiresTheHumanPlayerToWin() {
+    fun computerModeAllowsHumanWinOrLoss() {
         assertTrue(
             PostWinInterstitialPolicy.shouldShowOffline(
                 matchStatus = "FINISHED",
@@ -43,7 +43,7 @@ class PostWinInterstitialPolicyTest {
                 isComputerMode = true,
             ),
         )
-        assertFalse(
+        assertTrue(
             PostWinInterstitialPolicy.shouldShowOffline(
                 matchStatus = "FINISHED",
                 winnerPlayerId = "computer-1",
@@ -54,7 +54,7 @@ class PostWinInterstitialPolicyTest {
     }
 
     @Test
-    fun remoteClassicInterstitialOnlyFollowsCurrentPlayersWin() {
+    fun remoteClassicAllowsCurrentPlayersWinOrLoss() {
         assertTrue(
             PostWinInterstitialPolicy.shouldShowRemote(
                 matchStatus = "FINISHED",
@@ -65,7 +65,7 @@ class PostWinInterstitialPolicyTest {
                 playerTeamId = null,
             ),
         )
-        assertFalse(
+        assertTrue(
             PostWinInterstitialPolicy.shouldShowRemote(
                 matchStatus = "FINISHED",
                 teamBased = false,
@@ -78,7 +78,7 @@ class PostWinInterstitialPolicyTest {
     }
 
     @Test
-    fun teamUpInterstitialOnlyFollowsWinningTeam() {
+    fun teamUpAllowsWinningOrLosingTeam() {
         assertTrue(
             PostWinInterstitialPolicy.shouldShowRemote(
                 matchStatus = "FINISHED",
@@ -89,7 +89,7 @@ class PostWinInterstitialPolicyTest {
                 playerTeamId = "A",
             ),
         )
-        assertFalse(
+        assertTrue(
             PostWinInterstitialPolicy.shouldShowRemote(
                 matchStatus = "FINISHED",
                 teamBased = true,

@@ -123,6 +123,7 @@ internal fun MainActivity.applyResponse(
         refreshMatchGemWalletAfterFinish(state.matchId)
     }
     if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED") {
+        preparePostWinInterstitialAd()
         val winners = state.players.filter { player ->
             if (state.winnerTeamId != null) player.teamId == state.winnerTeamId else player.playerId == state.winnerPlayerId
         }

@@ -246,32 +246,35 @@ private fun OfflineGameActivity.startOfflineRematch() {
                 showStatus("Rematch is available after the match ends.")
                 return
             }
-    val characterIds =
-        resolveOfflineCharacterIds(finished)
+    val startNextMatch: () -> Unit = {
+        val characterIds =
+            resolveOfflineCharacterIds(finished)
 
-    selectedPlayers = spec.playerCount
-    selectedColor = spec.preferredColor
-    selectedCharacterSlot =
-        if (isComputerMode) {
-            0
-        } else {
-            selectedCharacterSlot.coerceIn(
-                0,
-                spec.playerCount - 1,
-            )
-        }
-    selectedCharacterIds = characterIds
-    selectedColorsBySeat = finished.players.map { it.color }
-    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
-    persistActiveCharacterSetup()
+        selectedPlayers = spec.playerCount
+        selectedColor = spec.preferredColor
+        selectedCharacterSlot =
+            if (isComputerMode) {
+                0
+            } else {
+                selectedCharacterSlot.coerceIn(
+                    0,
+                    spec.playerCount - 1,
+                )
+            }
+        selectedCharacterIds = characterIds
+        selectedColorsBySeat = finished.players.map { it.color }
+        if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+        persistActiveCharacterSetup()
 
-    showGame(
-        session.start(
-            playerCount = spec.playerCount,
-            preferredColor = spec.preferredColor,
-            colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
-        ),
-    )
+        showGame(
+            session.start(
+                playerCount = spec.playerCount,
+                preferredColor = spec.preferredColor,
+                colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
+            ),
+        )
+    }
+    if (!showPostWinInterstitialIfReady(finished.matchId, startNextMatch)) startNextMatch()
 }
 
 internal fun OfflineGameActivity.gameplaySectionParams(

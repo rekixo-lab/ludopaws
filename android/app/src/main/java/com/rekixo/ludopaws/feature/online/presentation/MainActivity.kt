@@ -516,12 +516,20 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun preparePostWinInterstitialAd() {
-        if (!BuildConfig.LUDOPROOF_INTERSTITIAL_ADS_ENABLED || postWinInterstitialAd != null) return
-        postWinInterstitialAd = PostWinInterstitialAdController(
+        if (!BuildConfig.LUDOPROOF_INTERSTITIAL_ADS_ENABLED || isFinishing || isDestroyed) return
+        val interstitial = postWinInterstitialAd ?: PostWinInterstitialAdController(
             activity = this,
             enabled = true,
             adUnitId = BuildConfig.ADMOB_INTERSTITIAL_AD_UNIT_ID,
-        ).also { it.prepare() }
+        ).also { postWinInterstitialAd = it }
+        interstitial.prepare()
+        val gate = postWinInterstitialExitGate ?: PostWinInterstitialExitGate(
+            activity = this,
+            accountRepository = (application as LudoProofApplication).accountRepository,
+            walletStore = GemWalletStore(this),
+            interstitial = interstitial,
+        ).also { postWinInterstitialExitGate = it }
+        gate.prepare()
     }
 
     private fun showPostWinInterstitialIfReady(
@@ -529,6 +537,7 @@ class MainActivity : ComponentActivity() {
         onSkipAd: () -> Unit,
     ): Boolean {
         if (postWinInterstitialShownForMatchId == matchId) return false
+        com.rekixo.ludopaws.feature.store.data.ads.AdBreakSession.completed(matchId)
         val interstitial = postWinInterstitialAd ?: return false
         val gate = postWinInterstitialExitGate ?: PostWinInterstitialExitGate(
             activity = this,
@@ -548,7 +557,7 @@ class MainActivity : ComponentActivity() {
     internal fun requestRemoteExitAfterWinInterstitial() {
         val state = currentState
         val currentPlayer = state?.players?.firstOrNull { it.playerId == playerId }
-        val didCurrentPlayerWin = PostWinInterstitialPolicy.shouldShowRemote(
+        val completedResultEligible = PostWinInterstitialPolicy.shouldShowRemote(
             matchStatus = state?.status,
             teamBased = gameMode.teamBased,
             winnerPlayerId = state?.winnerPlayerId,
@@ -561,7 +570,8 @@ class MainActivity : ComponentActivity() {
         val finishedMatchId = state?.matchId
         if (
             resultIsAuthoritative &&
-            didCurrentPlayerWin &&
+            completedResultEligible &&
+            currentPlayer != null &&
             finishedMatchId != null &&
             showPostWinInterstitialIfReady(
                 matchId = finishedMatchId,
@@ -578,6 +588,7 @@ class MainActivity : ComponentActivity() {
         // A new foreground session may have refreshed permissions or credentials.
         remoteSessionUnavailable = false
         screenStarted = true
+        preparePostWinInterstitialAd()
         connectivityMonitor.start()
         scheduleOnlineGameplayUnlock()
         currentState?.let(::scheduleOnlineAutoMove)

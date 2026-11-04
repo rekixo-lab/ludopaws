@@ -1,9 +1,10 @@
 package com.rekixo.ludopaws.feature.store.domain
 
 /**
- * Keeps the initial monetization placement limited to exiting a completed win result.
- * Active-match exits, unfinished games, and losses never qualify.
+ * Completed-match placement for every mode, independent of who won.
+ * Active-match exits and unfinished games never qualify.
  */
+@Suppress("UNUSED_PARAMETER") // Keep call-site compatibility; win/loss no longer affects eligibility.
 internal object PostWinInterstitialPolicy {
     /**
      * Remove Ads suppresses unsolicited interstitial placements.
@@ -20,8 +21,7 @@ internal object PostWinInterstitialPolicy {
         isComputerMode: Boolean,
     ): Boolean {
         if (matchStatus != FINISHED_STATUS || winnerPlayerId.isNullOrBlank()) return false
-        return !isComputerMode ||
-            (!humanPlayerId.isNullOrBlank() && winnerPlayerId == humanPlayerId)
+        return true
     }
 
     fun shouldShowRemote(
@@ -32,11 +32,11 @@ internal object PostWinInterstitialPolicy {
         winnerTeamId: String?,
         playerTeamId: String?,
     ): Boolean {
-        if (matchStatus != FINISHED_STATUS) return false
+        if (matchStatus != FINISHED_STATUS || playerId.isNullOrBlank()) return false
         return if (teamBased) {
-            !winnerTeamId.isNullOrBlank() && winnerTeamId == playerTeamId
+            winnerTeamId in setOf("A", "B") && playerTeamId in setOf("A", "B")
         } else {
-            !winnerPlayerId.isNullOrBlank() && winnerPlayerId == playerId
+            !winnerPlayerId.isNullOrBlank()
         }
     }
 
