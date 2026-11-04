@@ -63,6 +63,18 @@ private fun OfflineGameActivity.ensureOfflineResultActions(
             setPadding(0, 0, 0, 0)
         }
 
+    actions.addView(android.widget.Button(this).apply {
+        text = "SHARE"
+        LudoProofTheme.secondary(this)
+        setOnClickListener {
+            engine.snapshot()?.let { latest ->
+                com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(this@ensureOfflineResultActions, latest,
+                    (if (quickMatch) "Quick Match · " else "") + (if (isComputerMode) "Vs Robot" else "Pass & Play"),
+                    if (isComputerMode) latest.players.firstOrNull()?.playerId else null)
+            }
+        }
+    }, LinearLayout.LayoutParams(0, dp(if (isCompactSetup()) 48 else 52), 1f))
+
     actions.addView(
         offlineResultActionButton(
             label = "REMATCH",

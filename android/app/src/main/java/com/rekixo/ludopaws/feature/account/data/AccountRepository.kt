@@ -356,7 +356,7 @@ class AccountRepository(context: Context) {
             promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
         }.commit()
         runCatching { com.rekixo.ludopaws.feature.store.data.ads.PendingAdRewardStore(appContext).removeAccount(session.accountId) }
-        listOf("engagement_v1", "reward_requests_v1").forEach { name ->
+        listOf("engagement_v1", "reward_requests_v1", "weekly_challenges_v1").forEach { name ->
             val preferences = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
             preferences.edit().also { editor -> preferences.all.keys.filter { it.startsWith(session.accountId + ":") }.forEach(editor::remove) }.commit()
         }

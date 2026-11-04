@@ -163,6 +163,16 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout =
             setPadding(dp(4), dp(4), dp(4), 0)
         }
         actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+            text = "SHARE"
+            LudoProofTheme.secondary(this)
+            setOnClickListener {
+                currentState?.let { state -> com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(
+                    this@onlineResultPanel, state, when (state.matchMode) {
+                        "TEAM_UP" -> "Team Up"; "FRIENDS" -> "Friends"; else -> "Online"
+                    }, playerId) }
+            }
+        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
             text = if (gameMode == GameMode.FRIENDS) "INVITE AGAIN" else "PLAY AGAIN"
             LudoProofTheme.positive(this)
             setOnClickListener {

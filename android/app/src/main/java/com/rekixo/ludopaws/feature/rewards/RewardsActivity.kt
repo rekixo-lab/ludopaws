@@ -103,6 +103,17 @@ class RewardsActivity : Activity() {
                 !rewards.optBoolean("bonusClaimed") && !bonusPending) { bonus() }
             body.addView(text("Your free gifts do not require an ad. Remove Ads owners can still choose rewarded ads."))
         }
+        val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).status()
+        body.addView(text("THIS WEEK · ${weekly.title}", 20f))
+        val end = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+            .format(java.util.Date(weekly.endsAt))
+        body.addView(text("${weekly.goal} · ${weekly.progress}/${weekly.target}\n" +
+            (if (weekly.complete) "Weekly Paws badge earned!" else "Earn a Weekly Paws badge. Wins are optional; all modes count.") +
+            "\nNext challenge: $end (your local time). Badges stay on this device. No fee, ad or purchase required."))
+        button("Share weekly challenge") { com.rekixo.ludopaws.feature.sharing.MatchShareCard.weekly(this, weekly.title, weekly.complete) }
+        button("Play this challenge · Pass & Play") { launchPlayerScreen(Intent(this, OfflineGameActivity::class.java)
+            .putExtra(OfflineGameActivity.EXTRA_GAME_MODE, "PASS_AND_PLAY")) }
+        button("Play with friends") { openGameMode(GameMode.FRIENDS) }
         val profile = ProfileStore(this).snapshot()
         val today = EngagementStore(this).todayMatches()
         val used = profile.characterMatches.count { it.value > 0 }

@@ -16,6 +16,10 @@ internal fun ProfileActivity.profileMasteryPanel(profile: ProfileSnapshot): Line
     val owner = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this@profileMasteryPanel).load()?.accountId
     val giftTier = getSharedPreferences("reward_requests_v1", android.content.Context.MODE_PRIVATE).getInt("$owner:milestoneTier", 0)
     if (giftTier > 0) addView(profileBody("✿ Garden Friend · gift collection tier $giftTier").apply { setTextColor(0xFF513A24.toInt()) })
+    val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this@profileMasteryPanel).status()
+    addView(profileBody("Weekly Paws badges: ${weekly.badges}\n${weekly.title} · ${weekly.progress}/${weekly.target}").apply {
+        setTextColor(0xFF513A24.toInt())
+    })
     val used = profile.characterMatches.count { it.value > 0 }
     val best = profile.characterMatches.values.maxOrNull() ?: 0
     addView(profileBody("Next goals\nPlay 3 matches: ${profile.totalGames.coerceAtMost(3)}/3\nMeet 3 pals: ${used.coerceAtMost(3)}/3\nPlay 5 with a pal: ${best.coerceAtMost(5)}/5", 12f).apply {

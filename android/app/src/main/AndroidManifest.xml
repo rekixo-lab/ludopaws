@@ -38,6 +38,24 @@
         <meta-data
             android:name="com.google.android.gms.games.SUPPRESS_GAME_PROFILE_CREATION"
             android:value="true" />
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.sharecards" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/share_card_paths" />
+        </provider>
+        <activity android:name=".feature.sharing.RoomLinkActivity" android:exported="true" android:screenOrientation="portrait">
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="api.ludopaws.rekixo.com" android:pathPrefix="/play/" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="ludopaws" android:host="api.ludopaws.rekixo.com" android:pathPrefix="/play/" />
+            </intent-filter>
+        </activity>
         <activity
             android:name=".MainActivity"
             android:exported="false"

@@ -1,3 +1,4 @@
+import { roomLinkLanding } from "./room-link-landing.js";
 import { familyResponse, familyCapabilities } from "./family-safety.js";
 import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
@@ -128,6 +129,8 @@ export async function handleAccountRequest(request, env) {
           target: { namespace: "android_app", package_name: REFERRAL_PACKAGE,
             sha256_cert_fingerprints: signingCertificates(env).map(value => value.match(/../g).join(":").toUpperCase()) } }] : []);
       }
+      const roomLanding = roomLinkLanding(request);
+      if (roomLanding) return roomLanding;
       const invitePath = /^\/r\/([a-f0-9]{64})(\/download)?$/.exec(url.pathname);
       if (invitePath) {
         await rateLimit(env, request, "referral:landing", 120);

@@ -128,6 +128,8 @@ internal fun MainActivity.applyResponse(
             if (state.winnerTeamId != null) player.teamId == state.winnerTeamId else player.playerId == state.winnerPlayerId
         }
         if (winners.isNotEmpty() && winners.all { it.tokens.size == 4 && it.tokens.all { position -> position == LudoPathEncoding.HOME_POSITION } }) {
+            runCatching { com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).completed(
+                state.matchId, state.players.firstOrNull { it.playerId == playerId }?.characterId?.let(::listOf).orEmpty()) }
             com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(state.matchId)
         }
     }
