@@ -39,6 +39,8 @@ internal object PromotionInterest {
         if (age !in 0L..86_400_000L || item == null || !item.contentAvailable || CosmeticInventoryStore(activity).isOwned(id)) {
             clear(); return
         }
+        // A saved-interest suggestion shares the same unsolicited budget as review/referral.
+        if (!com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.reserve(activity, "saved-item")) return
         // Called only after the result panel is visible, never during a turn.
         try {
             PlywoodAlertDialogBuilder(activity).setTitle("Your saved item")
@@ -49,8 +51,12 @@ internal object PromotionInterest {
                             .putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, id)
                             .putExtra(StoreActivity.EXTRA_INITIAL_TAB, tabFor(item).name))
                     }
-                }.setNegativeButton("Later", null).show()
+                }.setNegativeButton("Later", null).show().also { dialog ->
+                    com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.presented(activity, "saved-item")
+                    dialog.setOnDismissListener { com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.release("saved-item") }
+                }
         } catch (_: android.view.WindowManager.BadTokenException) {
+            com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.release("saved-item")
             return // Keep the explicit saved interest for a later visible result.
         }
         clear()

@@ -178,6 +178,11 @@ class AccountRepository(context: Context) {
         )
     }
 
+    fun engagementRewards(body: JSONObject? = null): JSONObject {
+        val session = ensureGuestSession()
+        return request(if (body == null) "GET" else "POST", "/api/rewards", body, token = session.accessToken)
+    }
+
     fun wallet(): JSONObject {
         val session = requireSession()
         return request("GET", "/api/wallet", token = session.accessToken)
@@ -351,6 +356,10 @@ class AccountRepository(context: Context) {
             promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
         }.commit()
         runCatching { com.rekixo.ludopaws.feature.store.data.ads.PendingAdRewardStore(appContext).removeAccount(session.accountId) }
+        listOf("engagement_v1", "reward_requests_v1").forEach { name ->
+            val preferences = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+            preferences.edit().also { editor -> preferences.all.keys.filter { it.startsWith(session.accountId + ":") }.forEach(editor::remove) }.commit()
+        }
         sessions.clear()
         return response
     }

@@ -269,6 +269,7 @@ private fun OfflineGameActivity.startOfflineRematch() {
         showGame(
             session.start(
                 playerCount = spec.playerCount,
+                quickMatch = finished.rulesetId == QuickMatchPolicy.RULESET_ID,
                 preferredColor = spec.preferredColor,
                 colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
             ),
@@ -401,12 +402,13 @@ internal fun OfflineGameActivity.renderGame(
             pending == null &&
             !computerTurn &&
             blockedRemainingMillis == 0L
-    val activeHomeCount =
+    val racingPaws = if (state.rulesetId == QuickMatchPolicy.RULESET_ID) 2 else 4
+    val activeHomeCount = (
         active?.tokens
             ?.count {
                 it == LudoPathEncoding.HOME_POSITION
             }
-            ?: 0
+            ?: 0) - (4 - racingPaws)
 
     turnText?.text =
         when {
@@ -426,17 +428,17 @@ internal fun OfflineGameActivity.renderGame(
     infoText?.text =
         when {
             state.status == "FINISHED" ->
-                "4/4 PAWS HOME"
+                "$racingPaws/$racingPaws PAWS HOME"
 
             pending != null -> {
                 val legalCount = pending.legalTokenIndexes.size
                 val choiceLabel =
                     if (legalCount == 1) "CHOICE" else "CHOICES"
-                "DICE ${pending.outcome} • $legalCount $choiceLabel • $activeHomeCount/4 HOME"
+                "DICE ${pending.outcome} • $legalCount $choiceLabel • $activeHomeCount/$racingPaws HOME"
             }
 
             else ->
-                "$activeHomeCount/4 PAWS HOME"
+                "$activeHomeCount/$racingPaws PAWS HOME"
         }
 
     diceHost?.isEnabled = canRoll

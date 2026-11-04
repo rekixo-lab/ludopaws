@@ -76,6 +76,11 @@ internal fun OfflineGameActivity.showSetup() {
             // still owns its small selection/highlight treatment.
             background = null
         }
+    if (quickMatch) content.addView(android.widget.TextView(this).apply {
+        text = "QUICK MATCH · TWO PAWS EACH\nTwo players. Two racing paws each; the other slots start at home."
+        textSize = 16f; gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
+        setPadding(dp(8), dp(12), dp(8), dp(12))
+    })
     contentHost.addView(
         content,
         FrameLayout.LayoutParams(
@@ -165,7 +170,8 @@ internal fun OfflineGameActivity.showSetup() {
                 persistActiveCharacterSetup()
                 showGame(
                     session.start(
-                        playerCount = selectedPlayers,
+                        playerCount = if (quickMatch) 2 else selectedPlayers,
+                        quickMatch = quickMatch,
                         preferredColor = if (isComputerMode) selectedColor
                             else selectedColorsBySeat.first(),
                         colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,

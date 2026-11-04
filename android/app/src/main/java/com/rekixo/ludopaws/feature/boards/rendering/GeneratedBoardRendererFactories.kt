@@ -10,5 +10,6 @@ internal object GeneratedBoardRendererFactories {
         "blossom_garden" to { com.rekixo.ludopaws.feature.boards.content.spring.BlossomBoardRenderer() },
         "winter_haven" to { com.rekixo.ludopaws.feature.boards.content.winter.WinterBoardRenderer() },
         "monsoon_mire" to { com.rekixo.ludopaws.feature.boards.content.monsoon.MonsoonBoardRenderer() },
+        "meadow_grove" to { com.rekixo.ludopaws.feature.boards.content.dawn.MeadowGroveBoardRenderer() },
     )
 }

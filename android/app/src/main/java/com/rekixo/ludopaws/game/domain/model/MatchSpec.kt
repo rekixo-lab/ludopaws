@@ -27,6 +27,7 @@ object ClassicRuleset {
             V5_ID,
             V6_ID,
             V7_ID,
+            QuickMatchPolicy.RULESET_ID,
         )
 
     const val BOARD_TRACK_CELLS = 52

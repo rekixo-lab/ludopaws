@@ -300,6 +300,8 @@ class ProfileStore(
         save(
             state,
         )
+        if (fixedAccountId == null || fixedAccountId == AccountSessionStore(appContext).load()?.accountId)
+            com.rekixo.ludopaws.feature.growth.EngagementStore(appContext).completed(matchId)
         return true
 
         } finally { operationStorageKey = priorKey }

@@ -88,11 +88,13 @@ class OfflineGameEngine(
         playerCount: Int,
         preferredColor: String = "RED",
         colorsBySeat: List<String>? = null,
+        quickMatch: Boolean = false,
     ): MatchSnapshot {
         MatchSpec.classic(
             mode = mode,
             playerCount = playerCount,
         )
+        require(!quickMatch || playerCount == 2) { "Quick Match uses two players" }
         require(preferredColor in OfflinePlayerLayout.COLORS) {
             "Unsupported offline color"
         }
@@ -127,13 +129,14 @@ class OfflineGameEngine(
                                 else -> "Player ${seat + 1}"
                             },
                         color = colorOrder[seat],
-                        tokens = mutableListOf(-1, -1, -1, -1),
+                        tokens = if (quickMatch) QuickMatchPolicy.initialTokens.toMutableList() else mutableListOf(-1, -1, -1, -1),
                     )
                 }
                 .toMutableList()
 
         state =
             LocalState(
+                rulesetId = if (quickMatch) QuickMatchPolicy.RULESET_ID else LudoComebackPolicy.RULESET_ID,
                 profileOwnerKnown = true,
                 profileOwnerAccountId = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(profileContext).load()?.accountId,
                 matchId = "offline-${UUID.randomUUID()}",
@@ -178,7 +181,7 @@ class OfflineGameEngine(
         val result =
             OfflineLudoV3Binding.deriveRoll(
                 rulesetId = current.rulesetId,
-                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID))
+                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID))
                     OfflineLudoV5Binding.OPPONENT_STACK_CAPTURE else "CAPTURE_ALL_ON_UNSAFE_CELL",
                 matchId = current.matchId,
                 status = current.status,
@@ -242,7 +245,7 @@ class OfflineGameEngine(
         val result = prepared.result
         val audit = prepared.audit
         val randomOutcome = result.outcome
-        val openingRollApplied =
+        val openingRollApplied = if (current.rulesetId == QuickMatchPolicy.RULESET_ID) !current.openingRollConsumed[seat] && player.tokens == QuickMatchPolicy.initialTokens else
             LudoTurnAutomationPolicy.shouldGuaranteeOpeningSix(
                 tokens = player.tokens,
                 openingRollConsumed = current.openingRollConsumed[seat],
@@ -258,9 +261,9 @@ class OfflineGameEngine(
                 guaranteeOpeningSix = openingRollApplied,
             )
 
-        val comebackBonusApplied = current.rulesetId == LudoComebackPolicy.RULESET_ID &&
+        val comebackBonusApplied = LudoComebackPolicy.enabled(current.rulesetId) &&
             !openingRollApplied && LudoComebackPolicy.applies(player.tokens, current.comebackWaits[seat], outcome)
-        if (current.rulesetId == LudoComebackPolicy.RULESET_ID) {
+        if (LudoComebackPolicy.enabled(current.rulesetId)) {
             if (!LudoComebackPolicy.stranded(player.tokens) || openingRollApplied) current.comebackWaits[seat] = -1
             else if (current.comebackWaits[seat] >= 0 && outcome != 6 && !comebackBonusApplied) current.comebackWaits[seat] += 1
         }
@@ -388,7 +391,7 @@ class OfflineGameEngine(
         val oldPosition = player.tokens[tokenIndex]
         val comebackBonusApplied = current.history.lastOrNull { it.eventIndex == event }?.comebackBonusApplied == true
         if (comebackBonusApplied) {
-            check(current.rulesetId == LudoComebackPolicy.RULESET_ID)
+            check(LudoComebackPolicy.enabled(current.rulesetId))
             check(LudoComebackPolicy.applies(player.tokens, current.comebackWaits[seat], outcome))
             check(oldPosition == -1)
         }
@@ -399,7 +402,7 @@ class OfflineGameEngine(
             ) ?: error("Offline move exceeded the home path")
 
         player.tokens[tokenIndex] = destination
-        if (current.rulesetId == LudoComebackPolicy.RULESET_ID) current.comebackWaits[seat] = -1
+        if (LudoComebackPolicy.enabled(current.rulesetId)) current.comebackWaits[seat] = -1
         val captures =
             captureOpponents(
                 current = current,
@@ -537,7 +540,7 @@ class OfflineGameEngine(
             if (matchingTokenIndexes.size != 1) return@forEachIndexed
 
             opponent.tokens[matchingTokenIndexes.single()] = -1
-            if (current.rulesetId == LudoComebackPolicy.RULESET_ID && LudoComebackPolicy.stranded(opponent.tokens)) {
+            if (LudoComebackPolicy.enabled(current.rulesetId) && LudoComebackPolicy.stranded(opponent.tokens)) {
                 current.comebackWaits[seat] = 0
             }
             captures += 1
@@ -585,7 +588,7 @@ class OfflineGameEngine(
 
     private fun persist() {
         val active = state ?: return
-        if (active.rulesetId in setOf(OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID) && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
+        if (active.rulesetId in setOf(OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID) && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
             active.history.subList(0, active.history.size - OfflineLudoV6Binding.HISTORY_WINDOW).clear()
         }
         val current = active.frozenCopy()
@@ -894,7 +897,7 @@ class OfflineGameEngine(
     }
 
     private fun validateRestoredState(restored: LocalState) {
-        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID))
+        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID))
 
         check(restored.players.size in 2..4) {
             "Offline save has an invalid player count"

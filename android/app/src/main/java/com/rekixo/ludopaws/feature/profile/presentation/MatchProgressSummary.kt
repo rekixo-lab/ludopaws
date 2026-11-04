@@ -11,7 +11,7 @@ object MatchProgressSummary {
         val profile = store.snapshot()
         val level = ProfileProgression.levelProgress(profile.totalXp)
         return if (rankedXp && store.hasRecordedMatch(matchId)) {
-            "+${ProfileProgression.xpAward(won)} XP · Level ${level.level} · ${level.xpIntoLevel}/${level.xpForNextLevel} XP"
+            "+${ProfileProgression.xpAward(won)} XP · Level ${level.level} · ${level.xpIntoLevel}/${level.xpForNextLevel} XP\nDaily gifts & free spin are available in Home → Rewards."
         } else if (!rankedXp) {
             "Paws collection · ${profile.characterMatches.count { it.value > 0 }}/${com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions.all.size} pals played"
         } else "Your match progress is being saved"

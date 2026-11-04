@@ -18,5 +18,7 @@ internal object GeneratedBoardDefinitions {
         com.rekixo.ludopaws.feature.boards.content.pirate.PirateBoardDefinition.content,
         com.rekixo.ludopaws.feature.boards.content.alien.AlienBoardDefinition.content,
         com.rekixo.ludopaws.feature.boards.content.penguin.PenguinBoardDefinition.content,
+        com.rekixo.ludopaws.feature.boards.content.dawn.DawnMeadowBoardDefinition.content,
+        com.rekixo.ludopaws.feature.boards.content.moonlit.MoonlitGroveBoardDefinition.content,
     )
 }

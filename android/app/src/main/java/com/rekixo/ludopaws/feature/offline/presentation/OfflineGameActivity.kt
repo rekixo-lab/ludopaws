@@ -86,6 +86,8 @@ class OfflineGameActivity : ComponentActivity() {
         )
     }
 
+    internal val quickMatch: Boolean get() = intent.getBooleanExtra("QUICK_MATCH", false)
+
     internal val isComputerMode: Boolean
         get() =
             gameMode ==
@@ -179,6 +181,7 @@ class OfflineGameActivity : ComponentActivity() {
         if (savedInstanceState != null) {
             intent.putExtra(GameModeIntent.EXTRA_RESUME_SAVED_MATCH, true)
         }
+        if (quickMatch) selectedPlayers = 2
         initializeCharacterSetup()
 
         if (

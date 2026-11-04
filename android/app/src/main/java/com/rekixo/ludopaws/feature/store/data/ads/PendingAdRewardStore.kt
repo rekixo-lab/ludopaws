@@ -11,6 +11,7 @@ internal data class PendingAdReward(
     val createdAt: Long = System.currentTimeMillis(),
     val earned: Boolean = false,
     val abandoned: Boolean = false,
+    val dailyRewardDay: Long? = null,
 )
 
 /** Recovery hints, never credits: signed server receipts remain authoritative. */
@@ -47,7 +48,8 @@ internal class PendingAdRewardStore(context: Context) {
             val request = row.getString("requestId")
             check(account == accountId && UUID.matches(account) && UUID.matches(request)) { "Reward recovery data could not be read safely." }
             PendingAdReward(account, request, row.optString("cosmeticId").takeIf(String::isNotBlank),
-                row.getLong("createdAt"), row.optBoolean("earned"), row.optBoolean("abandoned"))
+                row.getLong("createdAt"), row.optBoolean("earned"), row.optBoolean("abandoned"),
+                if (row.has("dailyRewardDay") && !row.isNull("dailyRewardDay")) row.getLong("dailyRewardDay") else null)
         }.filter { record ->
             // Never expire a reported earned reward. Old abandoned/prepared
             // hints may disappear; their server-side grant can still arrive.
@@ -59,7 +61,8 @@ internal class PendingAdRewardStore(context: Context) {
         val json = JSONArray()
         records.forEach { row -> json.put(JSONObject().put("accountId", row.accountId)
             .put("requestId", row.requestId).put("cosmeticId", row.cosmeticId ?: "")
-            .put("createdAt", row.createdAt).put("earned", row.earned).put("abandoned", row.abandoned)) }
+            .put("createdAt", row.createdAt).put("earned", row.earned).put("abandoned", row.abandoned)
+            .put("dailyRewardDay", row.dailyRewardDay)) }
         val key = "rewards:$accountId"
         val previous = prefs.getString(key, null)
         if (!prefs.edit().putString(key, json.toString()).commit()) {

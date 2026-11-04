@@ -542,6 +542,7 @@ private fun setupColorGlowColor(name: String): Int =
 
 internal fun OfflineGameActivity.refreshSetupSelections() {
     playerButtons.forEach { (playerCount, tile) ->
+        if (quickMatch && playerCount != 2) { tile.visibility = android.view.View.GONE; return@forEach }
         val selected = playerCount == selectedPlayers
         if (isComputerMode) {
             tile.background = playerCountSelectionBackground(

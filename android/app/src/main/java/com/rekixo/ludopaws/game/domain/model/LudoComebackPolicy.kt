@@ -5,6 +5,8 @@ object LudoComebackPolicy {
     const val RULESET_ID = "ludoproof-standard-v7"
     const val TEAM_RULESET_ID = "ludoproof-team-v6"
 
+    fun enabled(rulesetId: String): Boolean = rulesetId in setOf(RULESET_ID, TEAM_RULESET_ID, QuickMatchPolicy.RULESET_ID)
+
     fun stranded(tokens: List<Int>): Boolean =
         tokens.any { it == -1 } && tokens.all { it == -1 || it == 57 }
 
@@ -12,7 +14,7 @@ object LudoComebackPolicy {
         stranded(tokens) && failedRolls == 2 && outcome in 1..5
 
     fun hint(state: MatchSnapshot): String? {
-        if (state.rulesetId != RULESET_ID && state.rulesetId != TEAM_RULESET_ID) return null
+        if (!enabled(state.rulesetId)) return null
         if (state.status != "ACTIVE") return null
         if (state.pendingRoll?.comebackBonusApplied == true) return "Comeback bonus • one paw returns • no extra turn"
         if (state.pendingRoll != null) return null

@@ -10,6 +10,8 @@ internal object AdBreakSession {
     private val matches = linkedSetOf<String>()
     private var lastShownAt: Long? = null
     private var reserved = false
+    private var rewardedQuietUntil = 0L
+    @Synchronized fun rewardedInteraction() { rewardedQuietUntil = android.os.SystemClock.elapsedRealtime() + 90_000L }
     private var prefs: SharedPreferences? = null
     @Synchronized fun start(context: Context) {
         if (prefs != null) return
@@ -20,7 +22,7 @@ internal object AdBreakSession {
         if (matchId.isNotBlank()) matches.add(matchId)
         while (matches.size > 64) matches.remove(matches.first())
     }
-    @Synchronized fun canShow(): Boolean = !reserved && AdBreakPolicy.eligible(System.currentTimeMillis(), startedAt, matches.size, lastShownAt)
+    @Synchronized fun canShow(): Boolean = !reserved && android.os.SystemClock.elapsedRealtime() >= rewardedQuietUntil && AdBreakPolicy.eligible(System.currentTimeMillis(), startedAt, matches.size, lastShownAt)
     @Synchronized fun reserve(): Boolean {
         if (!canShow()) return false
         reserved = true

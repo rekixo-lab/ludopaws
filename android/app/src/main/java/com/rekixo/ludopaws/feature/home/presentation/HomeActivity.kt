@@ -48,6 +48,11 @@ class HomeActivity : Activity() {
             })
     }
 
+    private val naturalReview by lazy {
+        com.rekixo.ludopaws.feature.growth.NaturalReviewController(this) {
+            isHomeReadyForPlatformConnection() && !referralPopupVisible && !startupPlayGames.authenticationBootstrapPending
+        }
+    }
     private val startupHandler = Handler(Looper.getMainLooper())
     private val startupSession get() = (application as LudoProofApplication).startupSession
     private val startupPlayGames get() = (application as LudoProofApplication).startupPlayGames
@@ -530,6 +535,7 @@ class HomeActivity : Activity() {
         if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this) ||
             startupPlayGames.authenticationBootstrapPending || promotionsStarted) return
         promotionsStarted = true
+        naturalReview.resume()
         referralPromotions.resume(home = true)
         startupHandler.removeCallbacks(deferredHomePreparation)
         startupHandler.postDelayed(deferredHomePreparation, 1200L)
@@ -539,6 +545,7 @@ class HomeActivity : Activity() {
         resumed = false
         promotionsStarted = false
         startupHandler.removeCallbacks(deferredHomePreparation)
+        naturalReview.pause()
         referralPromotions.pause()
         promotionCarousel?.setActive(false)
         super.onPause()
@@ -596,6 +603,7 @@ class HomeActivity : Activity() {
         }
         launchGate = null
         preparationGeneration += 1
+        naturalReview.pause()
         referralPromotions.pause()
         com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)
         startupSession.unsubscribe(startupObserver)

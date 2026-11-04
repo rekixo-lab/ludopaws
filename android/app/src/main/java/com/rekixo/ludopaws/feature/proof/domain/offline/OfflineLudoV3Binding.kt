@@ -99,13 +99,13 @@ object OfflineLudoV3Binding {
                             "captures" to event.captures,
                             "fairnessDigest" to event.fairnessDigest,
                         ).let { material ->
-                            if (rulesetId == LudoComebackPolicy.RULESET_ID) material + ("comebackBonusApplied" to event.comebackBonusApplied)
+                            if (LudoComebackPolicy.enabled(rulesetId)) material + ("comebackBonusApplied" to event.comebackBonusApplied)
                             else material
                         }
                     },
             )
 
-        val boundState = if (rulesetId == LudoComebackPolicy.RULESET_ID) {
+        val boundState = if (LudoComebackPolicy.enabled(rulesetId)) {
             require(comebackWaits.size == players.size && comebackWaits.all { it in -1..2 })
             authoritativeState + ("comebackWaits" to comebackWaits)
         } else authoritativeState
@@ -178,7 +178,7 @@ object OfflineLudoV3Binding {
             "singleLegalMovePolicy" to "AUTO_MOVE",
         ).let { rules ->
             if (rulesetId == OfflineLudoV6Binding.RULESET_ID) rules + ("receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW)
-            else if (rulesetId == LudoComebackPolicy.RULESET_ID) rules + mapOf(
+            else if (LudoComebackPolicy.enabled(rulesetId)) rules + mapOf(
                 "receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW,
                 "comebackPolicy" to "CAPTURE_STRANDED_THIRD_ROLL_ENTRY",
                 "comebackFailedRollsBeforeEntry" to 2,
@@ -189,6 +189,10 @@ object OfflineLudoV3Binding {
                 "comebackExtraTurn" to false,
                 "comebackCountsTimeouts" to false,
                 "comebackFinishedTokensExcluded" to true,
+                "racingTokensPerPlayer" to if (rulesetId == QuickMatchPolicy.RULESET_ID) 2 else 4,
+                "initialTokens" to if (rulesetId == QuickMatchPolicy.RULESET_ID) QuickMatchPolicy.initialTokens else listOf(-1, -1, -1, -1),
+                "openingRollRequiresAllTokensInYard" to (rulesetId != QuickMatchPolicy.RULESET_ID),
+                "quickOpeningRequiresInitialTokens" to (rulesetId == QuickMatchPolicy.RULESET_ID),
             )
             else rules
         }

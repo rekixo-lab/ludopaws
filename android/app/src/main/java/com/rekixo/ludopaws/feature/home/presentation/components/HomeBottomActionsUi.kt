@@ -18,12 +18,12 @@ internal fun HomeActivity.homeBottomActions(): LinearLayout =
 
         addView(
             bottomActionButton(
-                label = "Rate on Google",
+                label = "Rate",
                 description = getString(R.string.rate_accessibility_label),
                 iconKind = HomeIconKind.RATING,
                 secondaryText = "★★★★★",
             ) {
-                showHomeRatingDialog()
+                openPlayStoreRating(this@homeBottomActions)
             },
             bottomActionParams(),
         )
@@ -39,6 +39,9 @@ internal fun HomeActivity.homeBottomActions(): LinearLayout =
             bottomActionParams(),
         )
 
+        addView(bottomActionButton(label = "Rewards", description = "Daily gifts, free spin, goals and collections", iconKind = HomeIconKind.GEM) {
+            startActivity(android.content.Intent(this@homeBottomActions, com.rekixo.ludopaws.feature.rewards.RewardsActivity::class.java))
+        }, bottomActionParams())
         addView(
             bottomActionButton(
                 label = "Settings",
@@ -71,7 +74,7 @@ private fun HomeActivity.bottomActionButton(
     action: () -> Unit,
 ): LinearLayout =
     LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
+        orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
@@ -112,14 +115,14 @@ private fun HomeActivity.bottomActionButton(
         addView(
             actionIcon,
             LinearLayout.LayoutParams(
-                dp(if (isCompact()) 31 else 36),
-                dp(if (isCompact()) 31 else 36),
+                dp(if (isCompact()) 22 else 24),
+                dp(if (isCompact()) 22 else 24),
             ).apply {
                 marginEnd =
                     when (iconKind) {
                         HomeIconKind.SHARE -> dp(0)
-                        HomeIconKind.RATING -> dp(if (isCompact()) 3 else 5)
-                        else -> dp(if (isCompact()) 3 else 5)
+                        HomeIconKind.RATING -> dp(0)
+                        else -> dp(0)
                     }
             },
         )
@@ -145,6 +148,7 @@ private fun HomeActivity.bottomActionButton(
                         setTextColor(Color.WHITE)
                         gravity = Gravity.CENTER
                         maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
                         setShadowLayer(
                             2f,
                             0f,
@@ -184,6 +188,7 @@ private fun HomeActivity.bottomActionButton(
                                 letterSpacing = 0.01f
                                 gravity = Gravity.CENTER
                                 maxLines = 1
+                        ellipsize = android.text.TextUtils.TruncateAt.END
                                 setShadowLayer(
                                     1.5f,
                                     0f,
@@ -201,16 +206,15 @@ private fun HomeActivity.bottomActionButton(
             }.apply {
                 when (iconKind) {
                     HomeIconKind.RATING ->
-                        translationX = -dp(if (isCompact()) 2 else 3).toFloat()
+                        translationX = 0f
                     HomeIconKind.SHARE ->
-                        translationX = -dp(if (isCompact()) 4 else 5).toFloat()
+                        translationX = 0f
                     else -> Unit
                 }
             },
             LinearLayout.LayoutParams(
-                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f,
             ),
         )
     }

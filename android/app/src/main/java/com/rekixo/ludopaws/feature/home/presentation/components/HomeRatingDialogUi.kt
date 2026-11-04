@@ -404,7 +404,7 @@ internal fun HomeActivity.showHomeRatingDialog() {
     }
 }
 
-private fun openPlayStoreRating(
+internal fun openPlayStoreRating(
     activity: Activity,
 ) {
     val packageName =

@@ -149,7 +149,7 @@ internal class PostWinInterstitialAdController(
 
         ad.fullScreenContentCallback =
             object : FullScreenContentCallback() {
-                override fun onAdShowedFullScreenContent() { AdBreakSession.shown() }
+                override fun onAdShowedFullScreenContent() { AdBreakSession.shown(); com.rekixo.ludopaws.feature.growth.GrowthMetrics.increment(activity, "ad_shown") }
                 override fun onAdDismissedFullScreenContent() {
                     finishOnce(wasDismissed = true)
                 }
@@ -217,6 +217,7 @@ internal class PostWinInterstitialAdController(
                 override fun onAdLoaded(ad: InterstitialAd) {
                     adLoading = false
                     if (!closed && consentInformation.canRequestAds()) {
+                        com.rekixo.ludopaws.feature.growth.GrowthMetrics.increment(activity, "ad_loaded")
                         interstitialAd = ad
                         loadedAt = SystemClock.elapsedRealtime()
                         retryAttempt = 0
@@ -229,6 +230,7 @@ internal class PostWinInterstitialAdController(
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     adLoading = false
+                    com.rekixo.ludopaws.feature.growth.GrowthMetrics.increment(activity, "ad_load_failed")
                     Log.w(TAG, "Post-win interstitial failed to load: ${error.message}")
                     interstitialAd = null
                     scheduleRetry()

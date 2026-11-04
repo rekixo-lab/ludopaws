@@ -24,7 +24,7 @@ object OfflineMatchInvariantPolicy {
         require(state.randomEventIndex >= 0) {
             "Local match random event index must be non-negative"
         }
-        require(state.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID)) {
+        require(state.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID)) {
             "Local match is not bound to the current offline ruleset"
         }
 
@@ -140,7 +140,11 @@ object OfflineMatchInvariantPolicy {
         }
 
         val activePlayer = state.players[state.turnSeat]
-        val expectedLegal =
+        if (pending.comebackBonusApplied) {
+            require(LudoComebackPolicy.enabled(state.rulesetId))
+            require(LudoComebackPolicy.applies(activePlayer.tokens, state.comebackWaits.getOrNull(state.turnSeat) ?: -1, outcome))
+        }
+        val expectedLegal = if (pending.comebackBonusApplied) setOf(activePlayer.tokens.indexOfFirst { it == -1 }) else
             activePlayer.tokens
                 .indices
                 .filterTo(linkedSetOf()) { tokenIndex ->
@@ -160,6 +164,7 @@ object OfflineMatchInvariantPolicy {
         requireNotNull(historyEvent) {
             "Local pending roll has no matching history event"
         }
+        require(historyEvent.comebackBonusApplied == pending.comebackBonusApplied)
         require(historyEvent.playerId == activePlayer.playerId) {
             "Local pending history event belongs to a different player"
         }

@@ -23,7 +23,7 @@ class LocalMatchSession(
         )
 
     override val rulesetId: String
-        get() = engine.snapshot()?.rulesetId ?: OfflineLudoV6Binding.RULESET_ID
+        get() = engine.snapshot()?.rulesetId ?: LudoComebackPolicy.RULESET_ID
 
     override fun snapshot():
         MatchSnapshot? =
@@ -44,6 +44,7 @@ class LocalMatchSession(
         playerCount: Int,
         preferredColor: String,
         colorsBySeat: List<String>? = null,
+        quickMatch: Boolean = false,
     ): MatchSnapshot {
         MatchSpec.classic(
             mode =
@@ -60,6 +61,7 @@ class LocalMatchSession(
                 preferredColor =
                     preferredColor,
                 colorsBySeat = colorsBySeat,
+                quickMatch = quickMatch,
             ),
         )
     }

@@ -70,6 +70,7 @@
             android:name=".feature.store.presentation.StoreActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
+        <activity android:name=".feature.rewards.RewardsActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity
             android:name=".feature.referrals.ReferralActivity"
             android:exported="false"

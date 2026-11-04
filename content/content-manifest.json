@@ -251,6 +251,18 @@
       "folder": "penguin",
       "definition": "PenguinBoardDefinition",
       "rendererKey": "classic"
+    },
+    {
+      "id": "board_dawn_meadow",
+      "folder": "dawn",
+      "definition": "DawnMeadowBoardDefinition",
+      "rendererKey": "meadow_grove"
+    },
+    {
+      "id": "board_moonlit_grove",
+      "folder": "moonlit",
+      "definition": "MoonlitGroveBoardDefinition",
+      "rendererKey": "meadow_grove"
     }
   ],
   "dice": [
@@ -344,6 +356,11 @@
       "key": "monsoon_mire",
       "folder": "monsoon",
       "className": "MonsoonBoardRenderer"
+    },
+    {
+      "key": "meadow_grove",
+      "folder": "dawn",
+      "className": "MeadowGroveBoardRenderer"
     }
   ],
   "diceRenderers": [

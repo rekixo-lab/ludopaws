@@ -482,6 +482,16 @@ export async function handleAccountRequest(request, env) {
         });
       }
 
+      if (url.pathname === "/api/rewards" && ["GET", "POST"].includes(request.method)) {
+        await rateLimit(env, request, "engagement:rewards", ACCOUNT_RATE_LIMITS.walletMutation);
+        const session = await authenticate(request, env);
+        const body = request.method === "POST" ? await readJson(request) : { action: "status" };
+        return await playerResponse(env, session.accountId, "/engagement", {
+          accountId: session.accountId, sessionId: session.sessionId, action: body.action,
+          day: body.day, clientRequestId: body.clientRequestId, collectionId: body.collectionId,
+          expectedPrice: body.expectedPrice, catalogCountry: requestCatalogCountry(request),
+        });
+      }
       if (url.pathname === "/api/wallet" && request.method === "GET") {
         await rateLimit(env, request, "wallet:read", ACCOUNT_RATE_LIMITS.wallet);
         const session = await authenticate(request, env);
@@ -533,6 +543,7 @@ export async function handleAccountRequest(request, env) {
           transactionId: verified.transactionId,
           requestId: verified.requestId,
           kind: verified.kind,
+          dailyTicket: verified.dailyTicket,
           cosmeticId: verified.cosmeticId,
           catalogCountry: requestCatalogCountry(request),
         });
