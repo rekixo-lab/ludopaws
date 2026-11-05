@@ -417,6 +417,7 @@ internal fun openPlayStoreRating(
                     packageName,
             ),
         ).apply {
+            setPackage("com.android.vending")
             addFlags(
                 Intent.FLAG_ACTIVITY_NO_HISTORY or
                     Intent.FLAG_ACTIVITY_NEW_DOCUMENT or

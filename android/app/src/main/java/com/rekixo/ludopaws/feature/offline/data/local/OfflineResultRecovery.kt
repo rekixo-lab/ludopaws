@@ -41,6 +41,9 @@ internal object OfflineResultRecovery {
                 (0 until ids.length()).map { ids.optString(it) }
             }.orEmpty(),
         )
+        // This recovery path is entered only for a finished local match, never an abandoned loss.
+        com.rekixo.ludopaws.feature.growth.EngagementStore(context, owner, pinned = true).completed(
+            matchId, result.optLong("completedAt", System.currentTimeMillis()))
         if (result.has("completedAt")) com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(context, owner, pinned = true).completed(
             matchId, result.optJSONArray("characters")?.let { ids -> (0 until ids.length()).map { ids.optString(it) } }.orEmpty(),
             result.getLong("completedAt"))

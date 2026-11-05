@@ -4,7 +4,6 @@ import android.app.Activity
 import android.os.Handler
 import android.os.Looper
 import com.google.android.play.core.review.ReviewManagerFactory
-import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 
 /** Neutral eligibility: completed experience on two days, regardless of win/loss. */
 internal class NaturalReviewController(private val activity: Activity, private val available: () -> Boolean) {
@@ -23,7 +22,7 @@ internal class NaturalReviewController(private val activity: Activity, private v
         val store = EngagementStore(activity)
         val now = System.currentTimeMillis()
         val previous = store.lastReviewAttempt()
-        if (ProfileStore(activity).snapshot().totalGames < 3 || store.completedDays() < 2 ||
+        if (store.completedMatches() < 3 || store.completedDays() < 2 ||
             previous > now || (previous > 0 && now - previous < 90 * AutomaticPromptGate.DAY)) return
         if (!AutomaticPromptGate.reserve(activity, "review")) return
         ownsPrompt = true
