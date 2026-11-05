@@ -73,7 +73,10 @@ private fun HomeActivity.bottomActionButton(
         )
         elevation = dp(7).toFloat()
         val sidePadding = dp(if (compact) 5 else 6)
-        setPaddingRelative(sidePadding, dp(6), sidePadding, dp(6))
+        // The longer labels put these two icons closer to the wooden rim.
+        val insetIcon = iconKind == HomeIconKind.GEM || iconKind == HomeIconKind.SETTINGS
+        val startPadding = sidePadding + if (insetIcon) dp(6) else 0
+        setPaddingRelative(startPadding, dp(6), sidePadding, dp(6))
         setOnClickListener { action() }
 
         addView(
@@ -93,7 +96,8 @@ private fun HomeActivity.bottomActionButton(
                 addView(icon, FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER))
             },
             LinearLayout.LayoutParams(iconSlot, iconSlot).apply {
-                marginEnd = dp(if (compact) 3 else 4)
+                val iconGap = if (compact) 3 else 4
+                marginEnd = dp(if (insetIcon) iconGap - 1 else iconGap)
             },
         )
 
