@@ -764,6 +764,7 @@ class StoreActivity :
             background = LudoProofTheme.rounded(
                 0xFF16324D.toInt(), 11f, 0xFFC99A53.toInt(), 1f, this@StoreActivity,
             )
+            setPaddingRelative(dp(12), dp(6), dp(12), dp(6))
             minHeight = dp(36)
         }
         setOnClickListener {
@@ -1720,7 +1721,21 @@ class StoreActivity :
         offerContent.addView(catalogStatusLabel())
         offerContent.addView(rewardStatusLabel())
 
-        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) offerContent.addView(checkoutStatusLabel())
+        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) {
+            offerContent.addView(
+                checkoutStatusLabel(),
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                ).apply {
+                    if (selectedTab == StoreTab.GEMS) {
+                        marginStart = dp(8)
+                        marginEnd = dp(8)
+                        topMargin = dp(8)
+                    }
+                },
+            )
+        }
 
         if (BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
             offerContent.addView(
