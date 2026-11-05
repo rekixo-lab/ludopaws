@@ -1,220 +1,116 @@
 package com.rekixo.ludopaws.ui.home
 
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.HomeActivity
 import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.feature.rewards.RewardsActivity
 import com.rekixo.ludopaws.ui.dialogs.showSettingsDialog
 
 internal fun HomeActivity.homeBottomActions(): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER_VERTICAL
+        isBaselineAligned = false
 
         addView(
-            bottomActionButton(
-                label = "Rate",
-                description = getString(R.string.rate_accessibility_label),
-                iconKind = HomeIconKind.RATING,
-                secondaryText = "★★★★★",
-            ) {
+            bottomActionButton("Rate", getString(R.string.rate_accessibility_label), HomeIconKind.RATING) {
                 openPlayStoreRating(this@homeBottomActions)
             },
             bottomActionParams(),
         )
-
         addView(
-            bottomActionButton(
-                label = "Share",
-                description = "Share",
-                iconKind = HomeIconKind.SHARE,
-            ) {
-                shareLudoPaws()
+            bottomActionButton("Share", "Share", HomeIconKind.SHARE) { shareLudoPaws() },
+            bottomActionParams(),
+        )
+        addView(
+            bottomActionButton("Rewards", "Daily gifts, free spin, goals and collections", HomeIconKind.GEM) {
+                startActivity(Intent(this@homeBottomActions, RewardsActivity::class.java))
             },
             bottomActionParams(),
         )
-
-        addView(bottomActionButton(label = "Rewards", description = "Daily gifts, free spin, goals and collections", iconKind = HomeIconKind.GEM) {
-            startActivity(android.content.Intent(this@homeBottomActions, com.rekixo.ludopaws.feature.rewards.RewardsActivity::class.java))
-        }, bottomActionParams())
         addView(
-            bottomActionButton(
-                label = "Settings",
-                description = "Settings",
-                iconKind = HomeIconKind.SETTINGS,
-            ) {
-                showSettingsDialog(
-                    this@homeBottomActions,
-                )
+            bottomActionButton("Settings", "Settings", HomeIconKind.SETTINGS) {
+                showSettingsDialog(this@homeBottomActions)
             },
             bottomActionParams(),
         )
     }
 
 private fun HomeActivity.bottomActionParams(): LinearLayout.LayoutParams =
-    LinearLayout.LayoutParams(
-        0,
-        dp(if (isCompact()) 50 else 56),
-        1f,
-    ).apply {
-        leftMargin = dp(if (isCompact()) 2 else 3)
-        rightMargin = dp(if (isCompact()) 2 else 3)
+    LinearLayout.LayoutParams(0, dp(if (isCompact()) 50 else 56), 1f).apply {
+        marginStart = dp(if (isCompact()) 2 else 3)
+        marginEnd = dp(if (isCompact()) 2 else 3)
     }
 
 private fun HomeActivity.bottomActionButton(
     label: String,
     description: String,
     iconKind: HomeIconKind,
-    secondaryText: String? = null,
     action: () -> Unit,
 ): LinearLayout =
     LinearLayout(this).apply {
+        val compact = isCompact()
+        val iconSlot = dp(if (compact) 25 else 27)
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
         contentDescription = description
-        background =
-            plywoodBackground(
-                context = this@bottomActionButton,
-                cornerRadiusDp = if (isCompact()) 25f else 28f,
-            )
+        background = plywoodBackground(
+            context = this@bottomActionButton,
+            cornerRadiusDp = if (compact) 25f else 28f,
+        )
         elevation = dp(7).toFloat()
-        setPadding(
-            dp(if (isCompact()) 6 else 8),
-            dp(4),
-            dp(if (isCompact()) 6 else 8),
-            dp(4),
-        )
-        setOnClickListener {
-            action()
-        }
-
-        val actionIcon: View =
-            if (iconKind == HomeIconKind.RATING) {
-                HomeGooglePlayIconView(
-                    this@bottomActionButton,
-                )
-            } else {
-                HomeIconView(this@bottomActionButton).apply {
-                    kind = iconKind
-                    iconColor = Color.WHITE
-                    importantForAccessibility =
-                        View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                }
-            }
-
-        actionIcon.importantForAccessibility =
-            View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        setPaddingRelative(dp(4), 0, dp(4), 0)
+        setOnClickListener { action() }
 
         addView(
-            actionIcon,
-            LinearLayout.LayoutParams(
-                dp(if (isCompact()) 22 else 24),
-                dp(if (isCompact()) 22 else 24),
-            ).apply {
-                marginEnd =
-                    when (iconKind) {
-                        HomeIconKind.SHARE -> dp(0)
-                        HomeIconKind.RATING -> dp(0)
-                        else -> dp(0)
-                    }
+            FrameLayout(context).apply {
+                val icon: View = if (iconKind == HomeIconKind.RATING) {
+                    HomeGooglePlayIconView(context)
+                } else {
+                    HomeIconView(context).apply { kind = iconKind }
+                }
+                icon.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                // The gem and gear fill more of their source canvas than Share and Play.
+                val iconSize = when (iconKind) {
+                    HomeIconKind.GEM -> iconSlot - dp(4)
+                    HomeIconKind.SETTINGS -> iconSlot - dp(2)
+                    else -> iconSlot
+                }
+                addView(icon, FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER))
             },
+            LinearLayout.LayoutParams(iconSlot, iconSlot),
         )
 
         addView(
-            LinearLayout(this@bottomActionButton).apply {
-                orientation = LinearLayout.VERTICAL
+            TextView(context).apply {
+                text = label
+                setTypeface(Typeface.DEFAULT_BOLD)
+                setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
-
-                addView(
-                    TextView(this@bottomActionButton).apply {
-                        text = label
-                        textSize =
-                            when {
-                                iconKind == HomeIconKind.RATING && isCompact() -> 9.2f
-                                iconKind == HomeIconKind.RATING -> 10.4f
-                                isCompact() && label.length > 8 -> 8.5f
-                                label.length > 8 -> 9.5f
-                                isCompact() -> 11f
-                                else -> 12.5f
-                            }
-                        setTypeface(Typeface.DEFAULT_BOLD)
-                        setTextColor(Color.WHITE)
-                        gravity = Gravity.CENTER
-                        maxLines = 1
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                        setShadowLayer(
-                            2f,
-                            0f,
-                            dp(1).toFloat(),
-                            0xC0000000.toInt(),
-                        )
-                    },
-                    LinearLayout.LayoutParams(
-                        LinearLayout.LayoutParams.MATCH_PARENT,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
-                    ),
+                includeFontPadding = false
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setAutoSizeTextTypeUniformWithConfiguration(
+                    9, if (compact) 11 else 12, 1, TypedValue.COMPLEX_UNIT_SP,
                 )
-
-                if (secondaryText != null) {
-                    if (iconKind == HomeIconKind.RATING) {
-                        addView(
-                            HomeRatingStarsView(
-                                this@bottomActionButton,
-                            ).apply {
-                                importantForAccessibility =
-                                    View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                            },
-                            LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                dp(if (isCompact()) 13 else 15),
-                            ).apply {
-                                topMargin = dp(1)
-                            },
-                        )
-                    } else {
-                        addView(
-                            TextView(this@bottomActionButton).apply {
-                                text = secondaryText
-                                textSize = if (isCompact()) 8.5f else 9.5f
-                                setTypeface(Typeface.DEFAULT_BOLD)
-                                setTextColor(0xFFFFCF32.toInt())
-                                letterSpacing = 0.01f
-                                gravity = Gravity.CENTER
-                                maxLines = 1
-                        ellipsize = android.text.TextUtils.TruncateAt.END
-                                setShadowLayer(
-                                    1.5f,
-                                    0f,
-                                    dp(1).toFloat(),
-                                    0xB0000000.toInt(),
-                                )
-                            },
-                            LinearLayout.LayoutParams(
-                                LinearLayout.LayoutParams.MATCH_PARENT,
-                                LinearLayout.LayoutParams.WRAP_CONTENT,
-                            ),
-                        )
-                    }
-                }
-            }.apply {
-                when (iconKind) {
-                    HomeIconKind.RATING ->
-                        translationX = 0f
-                    HomeIconKind.SHARE ->
-                        translationX = 0f
-                    else -> Unit
-                }
+                setShadowLayer(2f, 0f, dp(1).toFloat(), 0xC0000000.toInt())
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            ),
+                dp(if (compact) 17 else 19),
+            ).apply { topMargin = dp(2) },
         )
     }
