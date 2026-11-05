@@ -32,7 +32,7 @@ internal class FeaturedPawsPreview(
     private val prominent: Boolean = false,
     private val portraitZoomMultiplier: Float = 1f,
     private val phaseOffsetMillis: Long = 0L,
-    private val frameLargePortrait: Boolean = false,
+    private val fitFullBody: Boolean = false,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
@@ -188,18 +188,20 @@ internal class FeaturedPawsPreview(
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled, id) else sampled
                     // Reserve headroom in the GL viewport itself: allowing
                     // parent overflow cannot recover pixels clipped by GL.
-                    val zoom = (if (prominent) homeSpotlightPortraitZoom(id)
+                    val footBaseline = if (fitFullBody) .90f else null
+                    val zoom = if (footBaseline != null) {
+                        val bodyHeight = com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id)
+                        val heightWithHopRoom = bodyHeight + .95f
+                        ((footBaseline - .09f) / (.30f * heightWithHopRoom)).coerceAtMost(.90f)
+                    } else {
+                        (if (prominent) homeSpotlightPortraitZoom(id)
                         else compactSpotlightPortraitZoom(id)) * portraitZoomMultiplier
+                    }
                     val framedPose = if (life.reducedMotion) com.rekixo.ludopaws.feature.characters.rendering.CharacterPose()
                         else if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
-                    val anchor = if (frameLargePortrait) {
-                        val modelTop = character.definition.groundPivotY +
-                            com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id)
-                        // The Shop camera favors the face within the unchanged artwork slot.
-                        maxOf(.69f, .09f + modelTop * .30f * zoom)
-                    } else if (prominent) .70f else .69f
                     scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,
-                        synchronizeGpu = false, verticalAnchor = anchor)
+                        synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f,
+                        footBaseline = footBaseline)
                     check(window?.swap() == true) { "Showcase buffer swap failed" }
                     if (notifyReady) post {
                         if (session === this && active && characterId == id && !failed) onReady?.invoke()

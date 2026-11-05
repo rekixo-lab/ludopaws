@@ -32,8 +32,7 @@ internal object StoreCatalogArtwork {
                     context,
                     frameIntervalMillis = 50L,
                     playful = true,
-                    portraitZoomMultiplier = 2f,
-                    frameLargePortrait = true,
+                    fitFullBody = true,
                     phaseOffsetMillis = stagger(characterId, 1800L),
                 )
                 live = pawn
