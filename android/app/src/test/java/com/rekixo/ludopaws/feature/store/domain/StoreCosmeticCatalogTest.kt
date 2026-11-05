@@ -103,6 +103,10 @@ class StoreCosmeticCatalogTest {
                 assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
                 assertEquals(if (it.id == "character_goat_lumi") 50 else 75, it.gemPrice)
                 assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS), it.unlockChannels)
+            } else if (it.id == "character_giraffe") {
+                assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
+                assertEquals(300, it.gemPrice)
+                assertEquals(listOf(CosmeticUnlockKind.GEMS), it.unlockChannels)
             } else {
                 assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
                 assertEquals(if (it.id in setOf("character_panda", "character_monkey")) 150 else 300, it.gemPrice)

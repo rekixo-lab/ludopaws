@@ -159,6 +159,19 @@
         "footstepFallback": "MOVE_STEP_CAT",
         "volume": 0.28
       }
+    },
+    {
+      "id": "giraffe",
+      "folder": "giraffe",
+      "definition": "GiraffeDefinition",
+      "renderer": "GiraffeRenderer",
+      "avatar": "GiraffeAvatarRenderer",
+      "audio": {
+        "voiceOwner": null,
+        "footstepStyle": "HOOF",
+        "footstepFallback": "MOVE_STEP_GOAT",
+        "volume": 0.42
+      }
     }
   ],
   "boards": [

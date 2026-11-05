@@ -25,6 +25,7 @@ export const COSMETIC_PRICING = Object.freeze(Object.fromEntries(
 
 export const COSMETIC_UNLOCK_PRICING = Object.freeze({
   ...COSMETIC_PRICING,
+  character_giraffe: Object.freeze({ kind: "GEMS", gemPrice: 300, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   board_dawn_meadow: Object.freeze({ kind: "GEMS", gemPrice: 250, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   board_moonlit_grove: Object.freeze({ kind: "GEMS", gemPrice: 250, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   board_sunstone_palace: Object.freeze({ kind: "GEMS", gemPrice: 300, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),

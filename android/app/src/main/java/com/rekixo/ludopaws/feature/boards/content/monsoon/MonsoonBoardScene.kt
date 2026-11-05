@@ -264,7 +264,7 @@ internal class MonsoonBoardScene {
             val heading = atan2(center.second - previous.second, center.first - previous.first) * 180f / PI.toFloat() + 90f
             val shape = when (character.definition.character.species) {
                 AnimalSpecies.GOAT, AnimalSpecies.DONKEY, AnimalSpecies.HORSE, AnimalSpecies.PIG,
-                AnimalSpecies.COW, AnimalSpecies.SHEEP, AnimalSpecies.DEER, AnimalSpecies.ZEBRA -> 1
+                AnimalSpecies.COW, AnimalSpecies.SHEEP, AnimalSpecies.DEER, AnimalSpecies.ZEBRA, AnimalSpecies.GIRAFFE -> 1
                 AnimalSpecies.COCK, AnimalSpecies.DUCK, AnimalSpecies.CHICK, AnimalSpecies.OWL -> 2
                 AnimalSpecies.TURTLE -> 3
                 else -> 0

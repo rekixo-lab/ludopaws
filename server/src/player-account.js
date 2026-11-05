@@ -23,6 +23,7 @@ const COSMETICS = Object.freeze({
   ...Object.fromEntries(PAID_CHARACTER_IDS.map((id) => [id, {
     category: "CHARACTER_PACK", available: true, ...COSMETIC_PRICING[id],
   }])),
+  character_giraffe: { category: "CHARACTER_PACK", available: true, ...COSMETIC_PRICING.character_giraffe },
   board_dawn_meadow: { category: "BOARD", available: false, ...COSMETIC_PRICING.board_dawn_meadow },
   board_moonlit_grove: { category: "BOARD", available: false, ...COSMETIC_PRICING.board_moonlit_grove },
   board_sunstone_palace: { category: "BOARD", available: true, ...COSMETIC_PRICING.board_sunstone_palace },
