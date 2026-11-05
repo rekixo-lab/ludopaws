@@ -41,6 +41,8 @@ Console. The app must always display the native Google Play
 
 Before the next release, create and activate the eight new cosmetic IDs above as one-time, non-consumable Play products. Enter the listed India prices in Play Console. Verify prices in Play checkout; the app only shows the price returned by Play. If any of these cosmetics is managed by the published server catalog, add its matching Play product to that entry while keeping its Gems price.
 
+For the existing `board_astral` purchase option, update the India price from the reported ₹40 to ₹39 in Play Console at release. Confirm the regional price in both Shop and the Play checkout before closing the pricing review.
+
 All six Gem packs remain in the app Store. **Do not rename existing product IDs.**
 The SKU `gems_1500` grants **1,200** Gems and `gems_3500` grants **3,000**
 Gems. Google Play descriptions must match fulfillment, not legacy SKU suffixes.

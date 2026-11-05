@@ -35,15 +35,15 @@ internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharS
     return StoreActionLabels.action(this, smartUnlockLabel(cosmetic, action), action)
 }
 
-/** Each available payment method is its own direct action; the card keeps its normal tap. */
+/** Show each configured payment method, including when Google Play has no price. */
 internal fun StoreActivity.cosmeticPaymentOptions(
     cosmetic: StoreCosmetic,
 ): android.widget.LinearLayout? {
     val options = listUnlockOptions(cosmetic)
-    if (options.size < 2) return null
+    if (options.isEmpty()) return null
     return android.widget.LinearLayout(this).apply {
         orientation = android.widget.LinearLayout.VERTICAL
-        options.forEach { (action, label) ->
+        options.forEach { (action, label, enabled) ->
             addView(android.widget.TextView(context).apply {
                 text = when (action) {
                     SmartUnlockAction.GEMS,
@@ -55,13 +55,24 @@ internal fun StoreActivity.cosmeticPaymentOptions(
                 textSize = 12f
                 setTextColor(0xFFFFFFFF.toInt())
                 setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-                contentDescription = "${cosmetic.title}: ${smartUnlockLabel(cosmetic, action)}"
+                val description = when {
+                    !enabled -> "Google Play price unavailable"
+                    action == SmartUnlockAction.GET_GEMS -> "$label. Open Gems shop"
+                    else -> smartUnlockLabel(cosmetic, action)
+                }
+                contentDescription = "${cosmetic.title}: $description"
                 background = android.graphics.drawable.GradientDrawable().apply {
                     cornerRadius = 12 * resources.displayMetrics.density
                     setColor(0xB3372718.toInt())
                 }
-                isFocusable = true
-                setOnClickListener { requestListedUnlock(cosmetic, action) }
+                isEnabled = enabled
+                isFocusable = enabled
+                if (enabled) {
+                    setOnClickListener { requestListedUnlock(cosmetic, action) }
+                } else {
+                    isClickable = true // Keep this tap from falling through to the card's default action.
+                    alpha = 0.72f
+                }
             }, android.widget.LinearLayout.LayoutParams(-1, -2).apply {
                 topMargin = (3 * resources.displayMetrics.density).toInt()
             })
