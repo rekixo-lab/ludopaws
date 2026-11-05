@@ -97,7 +97,7 @@ private fun HomeActivity.homeIdentityRow(): LinearLayout =
         addView(
             homeCurrencyPill(),
             LinearLayout.LayoutParams(
-                dp(if (isCompact()) 104 else 116),
+                dp(if (isCompact()) 109 else 121),
                 dp(if (isCompact()) 48 else 52),
             ),
         )
@@ -133,8 +133,8 @@ private fun HomeActivity.homeCurrencyPill(): LinearLayout =
                 cornerRadiusDp = if (isCompact()) 24f else 26f,
             )
         elevation = dp(5).toFloat()
-        setPadding(
-            dp(5),
+        setPaddingRelative(
+            dp(10),
             0,
             dp(5),
             0,
