@@ -42,6 +42,7 @@ class RewardsActivity : Activity() {
     private var owner: String? = null
     private var resumed = false
     private var busy = false
+    private var rewardsNotReleased = false
     private var generation = 0
     private data class BonusRequest(val account: String, val ticket: String, val requestId: String, val day: Long)
     private var adsAvailable = false
@@ -142,11 +143,22 @@ class RewardsActivity : Activity() {
     }
     private fun gifts(rewards: JSONObject?) {
         if (rewards == null) {
-            val empty = card("Your gifts are waiting", "Connect to check your daily gift and free spin.")
-            add(empty, GemClusterView(this, 3).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, 8)
-            empty.getChildAt(empty.childCount - 1).layoutParams = LinearLayout.LayoutParams(-1, dp(100))
-            action(empty, "Check my gifts") { load() }
-            action(empty, "Play offline", secondary = true) { openGameMode(GameMode.PASS_AND_PLAY) }
+            val status = when { busy -> "CHECKING AVAILABILITY"; rewardsNotReleased -> "COMING IN THE NEXT UPDATE"; else -> "CONNECT TO CHECK AVAILABILITY" }
+            val dailyPreview = card("Daily Gift", "A daily gift of 3 Gems for your collection.")
+            add(dailyPreview, GrowthUi.pill(this, status))
+            val gemArt = GemClusterView(this, 3).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+            dailyPreview.addView(gemArt, LinearLayout.LayoutParams(-1, dp(100)).apply { topMargin = dp(12) })
+            action(dailyPreview, if (busy) "Checking…" else if (rewardsNotReleased) "Available with the next update" else "Connect to collect", enabled = false) {}
+            add(dailyPreview, copy(if (rewardsNotReleased) "Daily gifts are not active yet. No Gems have been claimed." else "Your claim status hasn't loaded. Check your connection and refresh.", 13f))
+            val spinPreview = card("Daily Free Spin", "One free spin each day, with 1, 2, 3 or 5 Gems.")
+            add(spinPreview, GrowthUi.pill(this, "WHEEL PREVIEW · NO REWARD CLAIM"))
+            spinPreview.addView(RewardWheelView(this).apply {
+                contentDescription = "Daily spin preview. Spin is unavailable until reward status loads."
+            }, LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(10) })
+            action(spinPreview, if (busy) "Checking…" else if (rewardsNotReleased) "Available with the next update" else "Connect to spin", enabled = false) {}
+            add(spinPreview, copy("Chances: 1 Gem 50% · 2 Gems 30% · 3 Gems 15% · 5 Gems 5%. No paid spin or cash prize.", 12f))
+            action(body, "Check availability", secondary = true) { load() }
+            action(body, "See my challenges", secondary = true) { selectedTab = 1; page.scroll.scrollTo(0, 0); render() }
             return
         }
         val daily = card("A gift for today", "A few Gems to grow your collection.")
@@ -188,6 +200,14 @@ class RewardsActivity : Activity() {
         }
     }
     private fun challenges() {
+        val today = EngagementStore(this).todayMatches().coerceAtMost(1)
+        val daily = card("Daily Challenge", "TODAY'S PLAY GOAL")
+        add(daily, copy("Finish one match today", 20f, true))
+        add(daily, GrowthUi.pill(this, if (today == 1) "TODAY'S GOAL COMPLETE" else "WINS ARE OPTIONAL", today == 1))
+        daily.addView(GrowthUi.progress(this, today, 1, "Daily Challenge: $today of 1 match"), LinearLayout.LayoutParams(-1, dp(12)).apply { topMargin = dp(14) })
+        add(daily, copy("$today / 1 match completed", 16f, true))
+        add(daily, copy("All modes count. This is a play goal; daily Gems are collected separately in Gifts when available.", 13f))
+        action(daily, "Play today's challenge") { openGameMode(GameMode.PASS_AND_PLAY) }
         val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).status()
         val challenge = card(weekly.title, "THIS WEEK'S PAWS ADVENTURE")
         add(challenge, GrowthUi.pill(this, if (weekly.complete) "WEEKLY BADGE EARNED" else "WINS ARE OPTIONAL", weekly.complete))
@@ -205,7 +225,7 @@ class RewardsActivity : Activity() {
         val goals = card("Little goals, happy paws", "XP, badges and mastery grow as you play.")
         val used = profile.characterMatches.count { it.value > 0 }
         val best = profile.characterMatches.values.maxOrNull() ?: 0
-        listOf(Triple("Finish a match today", EngagementStore(this).todayMatches(), 1), Triple("Meet three pals", used, 3), Triple("Play five with a pal", best, 5)).forEach { (title, done, target) ->
+        listOf(Triple("Meet three pals", used, 3), Triple("Play five with a pal", best, 5)).forEach { (title, done, target) ->
             add(goals, copy("$title · ${done.coerceAtMost(target)}/$target", 14f, true), 14)
             goals.addView(GrowthUi.progress(this, done, target, "$title: ${done.coerceAtMost(target)} of $target"), LinearLayout.LayoutParams(-1, dp(8)).apply { topMargin = dp(6) })
         }
@@ -290,6 +310,7 @@ class RewardsActivity : Activity() {
                     if (repository.currentSession()?.accountId != account) { snapshot = null; render(); message.text = "Account changed. Refresh Rewards."; return@onSuccess }
                     val confirmed = response.getJSONObject("wallet").optJSONArray("creditedAdRequestIds")
                     if (confirmed != null) runCatching { PendingAdRewardStore(this).confirm(account, (0 until confirmed.length()).map { confirmed.getString(it) }.toSet()) }
+                    rewardsNotReleased = false
                     owner = account; snapshot = response
                     prefs.edit().putInt("$account:milestoneTier", response.getJSONObject("rewards").optInt("milestoneTier")).apply()
                     val stillPending = runCatching { PendingAdRewardStore(this).forAccount(account).any { it.dailyRewardDay != null && it.earned } }.getOrDefault(false)
@@ -313,10 +334,13 @@ class RewardsActivity : Activity() {
                         snapshot = null
                     }
                     if (request?.optString("action") == "collection" && error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status == 409) prefs.edit().remove("${expectedOwner}:collection").apply()
+                    rewardsNotReleased = error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status == 404
+                    if (rewardsNotReleased) snapshot = null
                     render()
                     message.text = when {
+                        rewardsNotReleased -> "Daily gifts and spins aren't active yet. You can explore Challenges now."
                         error is java.io.IOException -> "Couldn't connect. Your game is ready; try Refresh when you're online."
-                        error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status in setOf(404, 502, 503, 504) ->
+                        error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status in setOf(502, 503, 504) ->
                             "Gifts are taking a little break. You can still play; try Refresh later."
                         else -> error.message ?: "Couldn't check your gifts. You can still play; try Refresh later."
                     }
