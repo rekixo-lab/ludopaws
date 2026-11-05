@@ -162,8 +162,8 @@ private fun StoreActivity.pawsCharacterCard(
                 text = when {
                     owned -> "🔓 UNLOCKED"
                     offerUnavailable -> "🔒 UNAVAILABLE"
-                    unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> if (unlock == null) "UNLOCKED" else smartUnlockLabel(unlock)
+                    unlock != null -> cosmeticPurchaseLabel(unlock)
+                    else -> "UNLOCKED"
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)

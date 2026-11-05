@@ -42,6 +42,7 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
+import com.rekixo.ludopaws.feature.store.presentation.components.StoreActionLabels
 import com.rekixo.ludopaws.feature.store.presentation.components.StoreCatalogScrollView
 import com.rekixo.ludopaws.feature.store.presentation.components.storeContent
 import com.rekixo.ludopaws.feature.store.presentation.components.storeHeader
@@ -734,7 +735,8 @@ class StoreActivity :
     }
 
     private fun updateCheckoutStatus() {
-        checkoutStatusView?.text = when {
+        val view = checkoutStatusView ?: return
+        val status = when {
             !storeOnline -> "Offline · Owned items available · Connect for purchases"
             pendingCheckoutProductId != null -> "Getting your Google Play price…"
             purchaseEligibilityInProgress -> "Connecting to Google Play…"
@@ -742,8 +744,9 @@ class StoreActivity :
             removeAdsOfferState() == RemoveAdsOfferState.RESTORE_ACCOUNT ->
                 "Remove Ads belongs to an earlier Ludo Paws account · Restore that account in Profile"
             crossAccountPurchaseAwaitingRestore -> "Earlier Play purchase saved for another Ludo Paws account · Restore that game account in Profile"
-            else -> "Pay securely with Google Play"
+            else -> null
         }
+        view.text = status ?: StoreActionLabels.secureCheckout(this)
     }
 
     private fun checkoutStatusLabel(): TextView = TextView(this).apply {
@@ -754,6 +757,15 @@ class StoreActivity :
         setPadding(dp(8), dp(4), dp(8), dp(4))
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
         minHeight = dp(48)
+        if (selectedTab == StoreTab.GEMS) {
+            textSize = 13f
+            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+            setTextColor(0xFFFFF5E4.toInt())
+            background = LudoProofTheme.rounded(
+                0xFF16324D.toInt(), 11f, 0xFFC99A53.toInt(), 1f, this@StoreActivity,
+            )
+            minHeight = dp(36)
+        }
         setOnClickListener {
             val product = chosenProductId ?: return@setOnClickListener
             if (!checkoutRetryNeeded) return@setOnClickListener
@@ -1193,10 +1205,6 @@ class StoreActivity :
         SmartUnlockAction.EVENT -> "Event Unlock"
         SmartUnlockAction.UNAVAILABLE -> "Unavailable"
     }
-
-    internal fun unlockAlternativeLabel(
-        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
-    ): String? = smartUnlockDecision(cosmetic).alternative?.let { smartUnlockLabel(cosmetic, it) }
 
     internal fun requestAlternateCosmetic(
         cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
@@ -1712,6 +1720,8 @@ class StoreActivity :
         offerContent.addView(catalogStatusLabel())
         offerContent.addView(rewardStatusLabel())
 
+        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) offerContent.addView(checkoutStatusLabel())
+
         if (BuildConfig.LUDOPROOF_BILLING_ENABLED && selectedTab == StoreTab.GEMS) {
             offerContent.addView(
                 pinnedRemoveAdsContent(),
@@ -1732,8 +1742,6 @@ class StoreActivity :
         ) {
             offerContent.addView(rewardedAdCard())
         }
-
-        if (BuildConfig.LUDOPROOF_BILLING_ENABLED) offerContent.addView(checkoutStatusLabel())
 
         val scroll =
             StoreCatalogScrollView(this).apply {

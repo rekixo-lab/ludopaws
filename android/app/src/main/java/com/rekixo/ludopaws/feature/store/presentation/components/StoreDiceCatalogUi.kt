@@ -153,7 +153,7 @@ private fun StoreActivity.diceStatusBadge(
         text = when {
             selected -> "✓ EQUIPPED"
             owned -> "🔓 UNLOCKED"
-            else -> smartUnlockLabel(dice)
+            else -> cosmeticPurchaseLabel(dice)
         }
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)

@@ -10,6 +10,7 @@ import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -109,9 +110,10 @@ private fun StoreActivity.boardPanel(
             ),
         )
 
-        if (!owned && board.requiredAdViews > 0) {
+        val showAdAlternative = !owned && smartUnlockDecision(board).alternative == SmartUnlockAction.WATCH_AD
+        if (showAdAlternative) {
             addView(TextView(this@boardPanel).apply {
-                text = "or ${board.requiredAdViews} ads"
+                text = StoreActionLabels.action(context, "or ${board.requiredAdViews} ads", SmartUnlockAction.WATCH_AD, 10)
                 textSize = 9f
                 includeFontPadding = false
                 setTextColor(Color.WHITE)
@@ -121,8 +123,8 @@ private fun StoreActivity.boardPanel(
         addView(
             StoreCatalogArtwork.board(context, board.id),
             LinearLayout.LayoutParams(
-                dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
-                dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
+                dp(if (showAdAlternative) 90 else 104),
+                dp(if (showAdAlternative) 90 else 104),
             ).apply {
                 topMargin = dp(1)
                 bottomMargin = dp(1)
@@ -181,7 +183,7 @@ private fun StoreActivity.boardStatusBadge(
         text = when {
             selected -> "✓ EQUIPPED"
             owned -> "TAP TO SELECT"
-            else -> smartUnlockLabel(board)
+            else -> cosmeticPurchaseLabel(board)
         }
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)

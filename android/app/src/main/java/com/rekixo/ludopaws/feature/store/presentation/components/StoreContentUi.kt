@@ -12,6 +12,7 @@ import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
 import com.rekixo.ludopaws.feature.store.domain.RemoveAdsOfferState
 import com.rekixo.ludopaws.feature.store.domain.model.StoreProduct
@@ -348,7 +349,8 @@ private fun StoreActivity.featuredRemoveAdsCard(
             Button(
                 this@featuredRemoveAdsCard,
             ).apply {
-                text = when (removeAdsOfferState()) {
+                val state = removeAdsOfferState()
+                val label = when (state) {
                     RemoveAdsOfferState.BUY -> priceFor(product.productId, product.fallbackPrice)
                     RemoveAdsOfferState.ACTIVE -> "Ads Removed ✓"
                     RemoveAdsOfferState.VERIFYING -> "Restoring purchase…"
@@ -358,6 +360,9 @@ private fun StoreActivity.featuredRemoveAdsCard(
                     RemoveAdsOfferState.CHECKING -> "Checking Google Play…"
                     RemoveAdsOfferState.RETRY_CHECK -> "Retry Play check"
                 }
+                text = if (state == RemoveAdsOfferState.BUY) {
+                    StoreActionLabels.action(context, label, SmartUnlockAction.PLAY_PRODUCT, 16)
+                } else label
                 textSize =
                     18f
                 setTypeface(
@@ -388,7 +393,7 @@ private fun StoreActivity.featuredRemoveAdsCard(
                                 dp(15).toFloat(),
                             )
                     }
-                contentDescription = "Remove Ads: $text"
+                contentDescription = "Remove Ads: $label"
                 setOnClickListener { performRemoveAdsAction() }
                 AppFocusRing.apply(this, cornerRadiusDp = 10f)
             },
@@ -444,7 +449,7 @@ internal fun StoreActivity.rewardedAdCard():
         )
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = "WATCH AD"
+                text = StoreActionLabels.action(context, "WATCH AD", SmartUnlockAction.WATCH_AD, 11)
                 textSize = 10.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
@@ -534,11 +539,9 @@ private fun StoreActivity.gemProductCard(
             Button(
                 this@gemProductCard,
             ).apply {
-                text =
-                    priceFor(
-                        product.productId,
-                        product.fallbackPrice,
-                    )
+                val price = priceFor(product.productId, product.fallbackPrice)
+                text = StoreActionLabels.action(context, price, SmartUnlockAction.PLAY_PRODUCT, 14)
+                contentDescription = "Buy ${product.gemAmount} Gems, $price"
                 textSize =
                     13f
                 setTypeface(

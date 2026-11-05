@@ -79,7 +79,8 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         marginEnd = dp(if (pawSpotlight) 8 else 10)
     })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
-    val primary = smartUnlockDecision(item).primary
+    val decision = smartUnlockDecision(item)
+    val primary = decision.primary
     val subline = when {
         cosmetics.isOwned(item.id) -> "Owned · tap to equip"
         primary == SmartUnlockAction.GEMS ->
@@ -138,7 +139,7 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     }
     val buttonHeight = dp(if (pawSpotlight) 48 else 44)
     details.addView(Button(context).apply {
-        text = buttonLabel
+        text = StoreActionLabels.action(context, buttonLabel, primary, 14)
         if (pawSpotlight) {
             stylePawSpotlightAction(this)
             contentDescription = actionLabel
@@ -155,9 +156,11 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     ).apply {
         topMargin = dp(if (pawSpotlight) 5 else 6)
     })
-    if (!cosmetics.isOwned(item.id)) unlockAlternativeLabel(item)?.let { alternative ->
+    if (!cosmetics.isOwned(item.id)) decision.alternative?.let { action ->
+        val alternative = smartUnlockLabel(item, action)
+        val label = if (action == SmartUnlockAction.GET_GEMS) "Or get Gems ›" else "Or $alternative ›"
         details.addView(TextView(context).apply {
-            text = if (alternative == "Get Gems to Unlock") "Or get Gems ›" else "Or $alternative ›"
+            text = StoreActionLabels.action(context, label, action)
             textSize = 11.5f
             gravity = if (pawSpotlight) Gravity.START or Gravity.CENTER_VERTICAL else Gravity.CENTER
             setTextColor(0xFF5D422B.toInt())

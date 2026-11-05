@@ -29,5 +29,7 @@ internal fun StoreActivity.cosmeticPlayPrice(cosmeticId: String): String =
     StoreCatalog.cosmeticProductId(cosmeticId)?.let { priceFor(it, "Price unavailable") }
         ?: "Price unavailable"
 
-internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharSequence =
-    smartUnlockLabel(cosmetic)
+internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharSequence {
+    val action = smartUnlockDecision(cosmetic).primary
+    return StoreActionLabels.action(this, smartUnlockLabel(cosmetic, action), action)
+}
