@@ -21,6 +21,8 @@ object LumiGoatDefinition {
             voiceSet = VoiceSet("goat_lumi_default", goat.character.species),
             animationSet = AnimationSet("goat_lumi_default"),
             storeDisplayOrder = 6,
+            reactions = LumiGoatReactionMotion,
+            idleDurationMillis = 3_150L,
             // Keep foot contact aligned with the shortened, uniformly enlarged model.
             groundPivotY = -.27f * MODEL_SIZE_MULTIPLIER,
             footBaselinePerRadius = 1.18f,

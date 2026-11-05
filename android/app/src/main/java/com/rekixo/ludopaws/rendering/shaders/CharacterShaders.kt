@@ -9,9 +9,27 @@ internal object CharacterShaders {
             uniform mat4 uMvp;
             uniform mat3 uNormalMatrix;
             uniform vec2 uLimbBend;
+            uniform vec2 uMaterial;
             out vec3 vNormal;
             out vec3 vLocalPosition;
             void main() {
+                // The trunk is an unbroken tube. Its cross-sections rotate along a circular
+                // arc, and its material coordinates stay in the unbent model.
+                if (abs(uMaterial.x - 19.0) < 0.5) {
+                    float curve = max(uLimbBend.x, 0.01);
+                    float angle = max(-aPosition.y, 0.0) * curve;
+                    float s = sin(angle);
+                    float c = cos(angle);
+                    vec3 position = vec3(aPosition.x, -s / curve + aPosition.z * s,
+                        (1.0 - c) / curve + aPosition.z * c);
+                    float along = aNormal.y / max(0.55, 1.0 - aPosition.z * curve);
+                    vec3 normal = vec3(aNormal.x, along * c + aNormal.z * s,
+                        aNormal.z * c - along * s);
+                    vLocalPosition = aLocalPosition;
+                    vNormal = normalize(uNormalMatrix * normal);
+                    gl_Position = uMvp * vec4(position, 1.0);
+                    return;
+                }
                 // A continuous skin follows the solved knee without exposed rigid caps.
                 // Almost straight bone sections meet in a softly rounded knee.
                 // A narrow smooth joint avoids rubber-hose curvature along the whole leg.
@@ -47,6 +65,74 @@ internal object CharacterShaders {
                     (gl_FragCoord.x < uEntryClip.x || gl_FragCoord.x > uEntryClip.z ||
                      gl_FragCoord.y < uEntryClip.y || gl_FragCoord.y > uEntryClip.w)) discard;
                 vec3 normal = normalize(vNormal);
+                if (uMaterial.x > 17.5) {
+                    vec3 p = vLocalPosition;
+                    vec3 keyDirection = normalize(vec3(-0.48, -0.67, 0.92));
+                    vec3 fillDirection = normalize(vec3(0.62, -0.22, 0.75));
+                    float key = max(dot(normal, keyDirection), 0.0);
+                    float fill = max(dot(normal, fillDirection), 0.0);
+                    float footprint = max(length(dFdx(p)), length(dFdy(p)));
+                    float detail = 1.0 / (1.0 + footprint * footprint * 22000.0);
+                    float grain = sin(p.x * 133.0 + sin(p.y * 83.0)) *
+                        sin(p.y * 143.0 + p.z * 121.0);
+                    float sheenPower = 34.0;
+                    vec3 pigment = uColor.rgb;
+                    if (uMaterial.x < 19.5) {
+                        float fold = sin(p.y * 65.0 + sin(p.x * 18.0) * 1.4 + p.z * 14.0);
+                        float wrinkles = smoothstep(0.48, 0.96, fold) * detail;
+                        pigment *= 1.0 - wrinkles * (uMaterial.x > 18.5 ? 0.11 : 0.045);
+                        float dust = sin(p.x * 17.0 + p.y * 21.0) * sin(p.z * 23.0 - p.y * 16.0);
+                        pigment *= 1.0 + dust * 0.045 + grain * detail * 0.038;
+                    } else if (uMaterial.x < 20.5) {
+                        float dorsal = smoothstep(0.14, 0.31, p.y) *
+                            (1.0 - smoothstep(0.035, 0.125, abs(p.x)));
+                        float shoulder = smoothstep(-0.12, 0.25, p.y) *
+                            (1.0 - smoothstep(0.035, 0.14, abs(p.z - 0.14)));
+                        float belly = 1.0 - smoothstep(-0.32, -0.03, p.y);
+                        pigment *= 1.0 - max(dorsal * 0.60, shoulder * 0.28);
+                        pigment = mix(pigment, vec3(0.82, 0.77, 0.69), belly * 0.48);
+                        pigment *= 1.0 + grain * detail * 0.055;
+                    } else if (uMaterial.x < 21.5) {
+                        float coatLine = p.y + p.z * -0.18 + sin(p.z * 23.0 + p.x * 17.0) * 0.026;
+                        float mantle = smoothstep(0.23, 0.42, coatLine) *
+                            (1.0 - smoothstep(-0.10, 0.24, p.z));
+                        pigment = mix(pigment, vec3(0.47, 0.32, 0.19), mantle * 0.66);
+                        pigment *= 1.0 + grain * detail * 0.085;
+                    } else if (uMaterial.x < 22.5) {
+                        float warm = smoothstep(0.04, 0.40, p.y);
+                        pigment *= mix(vec3(0.89, 0.82, 0.84), vec3(1.0, 1.02, 1.0), warm);
+                        pigment *= 1.0 + grain * detail * 0.026;
+                        sheenPower = 42.0;
+                    } else if (uMaterial.x < 24.5) {
+                        if (uMaterial.x > 23.5) {
+                            // The narrow white blaze follows the forehead surface.
+                            float axis = 0.014 * sin(p.y * 18.0) - 0.008;
+                            float width = mix(0.025, 0.058, smoothstep(0.88, 1.23, p.y));
+                            float edge = max(0.006, min(0.022, fwidth(p.x)));
+                            float blaze = (1.0 - smoothstep(width - edge, width + edge, abs(p.x - axis))) *
+                                smoothstep(0.13, 0.23, p.z) * smoothstep(0.83, 0.93, p.y);
+                            pigment = mix(pigment, vec3(0.94, 0.87, 0.72), blaze);
+                        } else {
+                            float ridge = smoothstep(0.12, 0.39, p.y);
+                            pigment *= mix(vec3(0.72, 0.64, 0.58), vec3(1.12, 1.05, 0.95), ridge);
+                        }
+                        float fibre = sin(p.z * 105.0 + p.y * 41.0 + sin(p.x * 27.0));
+                        pigment *= 1.0 + fibre * detail * 0.045;
+                        sheenPower = 53.0;
+                    } else {
+                        float tip = smoothstep(0.19, 0.45, p.y);
+                        float ribs = sin(p.y * 145.0) * detail;
+                        pigment = mix(pigment, vec3(0.26, 0.18, 0.115), tip * 0.87);
+                        pigment *= 1.0 + ribs * 0.10;
+                        sheenPower = 48.0;
+                    }
+                    float sheen = pow(max(dot(normal, normalize(keyDirection + vec3(0.0, 0.0, 1.0))), 0.0),
+                        sheenPower) * uMaterial.y;
+                    float rim = pow(1.0 - max(normal.z, 0.0), 2.4) * 0.06;
+                    outColor = vec4(pigment * (0.47 + key * 0.52 + fill * 0.13) +
+                        vec3(sheen + rim), uColor.a * uEntryFade);
+                    return;
+                }
                 if (uMaterial.x > 15.5) {
                     vec3 light = normalize(vec3(-0.45, -0.70, 1.0));
                     float key = max(dot(normal, light), 0.0);

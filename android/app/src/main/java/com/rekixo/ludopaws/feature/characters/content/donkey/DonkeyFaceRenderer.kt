@@ -11,15 +11,21 @@ internal object DonkeyFaceRenderer {
         surface=CharacterSurface.SOFT_FUR
         donkeyMesh(parent,DonkeyGeometry.head,DONKEY_COAT)
         donkeyMesh(parent,DonkeyGeometry.mane,DONKEY_DARK)
+        surface = CharacterSurface.COAT
+        donkeyMesh(parent, DonkeyGeometry.forelock, DONKEY_DARK, x = -.035f, y = 1.26f, z = .106f, rz = -11f)
+        donkeyMesh(parent, DonkeyGeometry.forelock, DONKEY_MANELIGHT,
+            x = .019f, y = 1.245f, z = .123f, sx = .68f, sy = .88f, sz = .68f, rz = 8f)
         for(i in 0..1) {
             val side=if(i==0) -1f else 1f
             val ear=rigTransforms[3]
             System.arraycopy(parent,0,ear,0,16)
             val t=life?.timeSeconds ?: 0f
-            val flick=if(life!=null) sin(t*8f+side)*max(0f,sin(t*.65f+side)).pow(12)*6f else 0f
+            val flick = sin(t * 8f + side) * max(0f, sin(t * .65f + side)).pow(12) * 8f *
+                (life?.idleWeight ?: 0f)
             Matrix.translateM(ear,0,side*.20f,1.14f,-.045f)
             Matrix.rotateM(ear,0,-side*(13f-pose.primaryAppendageDegrees*.50f+flick+(if(side<0f) 24f else -8f)*pose.gestureWeight),0f,0f,1f)
             Matrix.rotateM(ear,0,side*5f+flick*.45f-pose.neckPitchDegrees*.45f,1f,0f,0f)
+            Matrix.rotateM(ear, 0, side * (8f + flick * .5f), 0f, 1f, 0f)
             surface=CharacterSurface.SOFT_FUR
             donkeyMesh(ear,DonkeyGeometry.ear,DONKEY_EAR_RIM)
             donkeyMesh(ear,DonkeyGeometry.ear,DONKEY_COAT,y=.009f,z=.022f,sx=.88f,sy=.97f,sz=.70f)
@@ -43,7 +49,10 @@ internal object DonkeyFaceRenderer {
             if(open>.3f) drawPart(parent,x+gx-.019f,1.048f+gy,.298f,.018f,.021f*open,.006f,WHITE)
             // Separate nostrils on a muzzle rather than a feline triangular nose.
             surface=CharacterSurface.NOSE
-            drawPart(parent,side*.142f,.738f,.618f,.026f,.018f,.007f,DONKEY_NOSE,rotateZ=side*24f)
+            drawPart(parent, side * .142f, .738f, .604f, .042f, .029f, .017f,
+                DONKEY_NOSTRIL_RIM, rotateZ = side * 24f)
+            drawPart(parent, side * .142f, .741f, .618f, .026f, .018f, .009f,
+                DONKEY_NOSE, rotateZ = side * 24f)
             surface=CharacterSurface.MATTE
             drawPart(parent,side*.083f,.590f,.603f,.083f,.004f,.005f,DONKEY_NOSE,rotateZ=side*9f)
             drawPart(parent,x,1.143f,.208f,.053f,.009f,.012f,DONKEY_DARK,rotateZ=-side*9f)

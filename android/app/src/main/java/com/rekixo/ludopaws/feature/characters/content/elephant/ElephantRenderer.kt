@@ -6,8 +6,8 @@ import com.rekixo.ludopaws.feature.characters.rendering.*
 import com.rekixo.ludopaws.feature.characters.shared.*
 import kotlin.math.*
 
-internal val ELEPHANT_SKIN = floatArrayOf(.56f, .63f, .68f, 1f)
-internal val ELEPHANT_INNER_EAR = floatArrayOf(.70f, .57f, .59f, 1f)
+internal val ELEPHANT_SKIN = floatArrayOf(.53f, .61f, .68f, 1f)
+internal val ELEPHANT_INNER_EAR = floatArrayOf(.73f, .54f, .57f, 1f)
 internal val ELEPHANT_NAIL = floatArrayOf(.80f, .81f, .77f, 1f)
 internal val ELEPHANT_IVORY = floatArrayOf(.98f, .94f, .81f, 1f)
 internal val ELEPHANT_SHADOW = floatArrayOf(.25f, .31f, .36f, 1f)
@@ -53,7 +53,7 @@ internal object ElephantRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             Matrix.rotateM(torso, 0, pose.bodyRollDegrees, 0f, 0f, 1f)
             val breath = 1f + (life?.breath ?: 0f)
-            surface = CharacterSurface.COAT
+            surface = CharacterSurface.ELEPHANT_HIDE
             drawGeometry(torso, ElephantGeometry.body, 0f, 0f, 0f, breath, 1f, breath, ELEPHANT_SKIN)
             tail(torso, pose.tertiaryAppendageDegrees)
             val neck = rigTransforms[2]
@@ -80,7 +80,7 @@ internal object ElephantRenderer : CharacterRenderer {
             val tuck = (pose.legTuckDegrees / 38f).coerceIn(0f, 1f)
             Matrix.rotateM(leg, 0, swing, 1f, 0f, 0f)
             Matrix.scaleM(leg, 0, 1f, 1f - .30f * tuck, 1f)
-            surface = CharacterSurface.COAT
+            surface = CharacterSurface.ELEPHANT_HIDE
             drawGeometry(leg, ElephantGeometry.leg, 0f, 0f, 0f, 1f, 1f, 1f, ELEPHANT_SKIN)
             drawGeometry(leg, ElephantGeometry.foot, 0f, -.545f, .02f, 1f, 1f, 1f, ELEPHANT_SKIN)
             for (nailIndex in -1..1) {
@@ -95,12 +95,16 @@ internal object ElephantRenderer : CharacterRenderer {
             val ear = rigTransforms[4]
             System.arraycopy(parent, 0, ear, 0, 16)
             Matrix.translateM(ear, 0, side * .34f, .83f, -.035f)
-            Matrix.rotateM(ear, 0, side * (12f + pose.primaryAppendageDegrees), 0f, 1f, 0f)
-            surface = CharacterSurface.COAT
+            val idle = life?.idleWeight ?: 0f
+            val flutter = sin((life?.timeSeconds ?: 0f) * 2.2f + side * .9f) * 5f * idle
+            Matrix.rotateM(ear, 0, side * (12f + pose.primaryAppendageDegrees + flutter), 0f, 1f, 0f)
+            Matrix.rotateM(ear, 0, side * (4f + flutter * .65f), 0f, 0f, 1f)
+            surface = CharacterSurface.ELEPHANT_HIDE
             drawGeometry(ear, ElephantGeometry.ear, 0f, 0f, 0f, side.toFloat(), 1f, 1f, ELEPHANT_SKIN)
             drawGeometry(ear, ElephantGeometry.ear, side * .025f, .005f, .058f,
                 side * .78f, .80f, .35f, ELEPHANT_INNER_EAR)
         }
+        surface = CharacterSurface.ELEPHANT_HIDE
         drawGeometry(parent, ElephantGeometry.head, 0f, 0f, 0f, 1f, 1f, 1f, ELEPHANT_SKIN)
         for (side in -1..1 step 2) {
             surface = CharacterSurface.EYE
@@ -120,19 +124,25 @@ internal object ElephantRenderer : CharacterRenderer {
         val trunk = rigTransforms[5]
         System.arraycopy(parent, 0, trunk, 0, 16)
         Matrix.translateM(trunk, 0, 0f, .79f, .345f)
-        Matrix.rotateM(trunk, 0, -curl * .35f, 1f, 0f, 0f)
-        surface = CharacterSurface.COAT
-        for (segment in 0..5) {
-            Matrix.rotateM(trunk, 0, -5f - curl * .20f - (if (segment > 2) 13f else 0f), 1f, 0f, 0f)
-            val radius = .145f - segment * .014f
-            drawGeometry(trunk, ElephantGeometry.trunk, 0f, -.08f, 0f,
-                radius, 1f, radius, ELEPHANT_SKIN)
-            Matrix.translateM(trunk, 0, 0f, -.145f, 0f)
+        Matrix.rotateM(trunk, 0, -curl * .16f, 1f, 0f, 0f)
+        val curve = (.91f + curl * .021f).coerceIn(.52f, 2.65f)
+        surface = CharacterSurface.ELEPHANT_TRUNK
+        limbBendY = curve
+        try {
+            drawGeometry(trunk, ElephantGeometry.trunk, 0f, 0f, 0f, 1f, 1f, 1f, ELEPHANT_SKIN)
+        } finally {
+            limbBendY = 0f
         }
-        drawPart(trunk, 0f, -.025f, 0f, .067f, .06f, .067f, ELEPHANT_SKIN)
+
+        // The nose openings share the exact end frame used by the vertex shader.
+        val angle = ElephantGeometry.TRUNK_LENGTH * curve
+        val tip = rigTransforms[7]
+        System.arraycopy(trunk, 0, tip, 0, 16)
+        Matrix.translateM(tip, 0, 0f, -sin(angle) / curve, (1f - cos(angle)) / curve)
+        Matrix.rotateM(tip, 0, -angle * 180f / PI.toFloat(), 1f, 0f, 0f)
         surface = CharacterSurface.NOSE
         for (side in -1..1 step 2) {
-            drawPart(trunk, side * .025f, -.073f, .023f, .014f, .008f, .018f, ELEPHANT_SHADOW)
+            drawPart(tip, side * .022f, -.002f, .008f, .012f, .006f, .015f, ELEPHANT_SHADOW)
         }
     }
 
@@ -141,7 +151,7 @@ internal object ElephantRenderer : CharacterRenderer {
         System.arraycopy(parent, 0, tail, 0, 16)
         Matrix.translateM(tail, 0, .29f, .10f, -.64f)
         Matrix.rotateM(tail, 0, -25f + sway, 0f, 0f, 1f)
-        surface = CharacterSurface.COAT
+        surface = CharacterSurface.ELEPHANT_HIDE
         drawPart(tail, 0f, -.15f, 0f, .028f, .18f, .028f, ELEPHANT_SKIN)
         drawPart(tail, 0f, -.32f, 0f, .055f, .08f, .04f, ELEPHANT_SHADOW)
     }

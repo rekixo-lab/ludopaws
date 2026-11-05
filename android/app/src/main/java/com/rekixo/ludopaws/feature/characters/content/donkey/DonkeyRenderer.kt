@@ -48,7 +48,7 @@ internal object DonkeyRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, roll, 0f, 0f, 1f)
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             val breath = 1f + (life?.breath ?: 0f)
-            surface = CharacterSurface.SOFT_FUR
+            surface = CharacterSurface.DONKEY_FUR
             donkeyMesh(torso, DonkeyGeometry.body, DONKEY_COAT, sx = breath, sz = breath)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)

@@ -18,7 +18,7 @@ internal object GoatFaceRenderer {
         for (side in -1..1 step 2) {
             drawEye(parent, side.toFloat())
             drawEar(parent, side.toFloat(), pose)
-            surface = CharacterSurface.HORN
+            surface = CharacterSurface.GOAT_HORN
             goatMesh(parent, GoatGeometry.horn, GOAT_HORN,
                 side * .18f, 1.245f, -.10f, sx = side.toFloat(), rx = -9f, rz = -side * 10f)
         }
@@ -52,6 +52,8 @@ internal object GoatFaceRenderer {
         surface = CharacterSurface.COAT
         drawPart(parent, x, 1.113f, .222f, .099f, .024f, .047f, GOAT_CREAM, rotateZ = -side * 8f)
         drawPart(parent, x, .976f, .235f, .081f, .013f, .025f, GOAT_IVORY)
+        drawPart(parent, side * .19f, 1.182f, .185f, .034f, .064f, .020f,
+            GOAT_FUR_SHADE, rotateZ = -side * 24f)
     }
 
     private fun CharacterDrawContext.drawEar(parent: FloatArray, side: Float, pose: CharacterPose) {

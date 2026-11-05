@@ -46,11 +46,9 @@ internal object GoatRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             Matrix.rotateM(torso, 0, pose.bodyRollDegrees, 0f, 0f, 1f)
             val breathing = 1f + (life?.breath ?: 0f)
-            surface = CharacterSurface.BODY_COAT
+            surface = CharacterSurface.GOAT_FLEECE
             goatMesh(torso, GoatGeometry.body, GOAT_CREAM, sx = breathing, sz = breathing)
             surface = CharacterSurface.COAT
-            // A darker dorsal mantle follows the barrel, leaving the front of the kid cream.
-            drawPart(torso, 0f, .16f, -.28f, .30f, .30f, .16f, GOAT_FUR_SHADE)
             val neck = rigTransforms[2]
             System.arraycopy(torso, 0, neck, 0, 16)
             Matrix.translateM(neck, 0, 0f, .43f, .025f)
@@ -60,8 +58,13 @@ internal object GoatRenderer : CharacterRenderer {
             surface = CharacterSurface.COAT
             prepareHead(neck, 1.03f, pose.headTiltDegrees)
             GoatFaceRenderer.draw(this, head, pose)
-            goatMesh(torso, GoatGeometry.tail, GOAT_IVORY,
-                .32f, .18f, -.32f, rx = -15f, rz = -44f + pose.tertiaryAppendageDegrees)
+            val tail = rigTransforms[6]
+            System.arraycopy(torso, 0, tail, 0, 16)
+            Matrix.translateM(tail, 0, .035f, .28f, -.51f)
+            Matrix.rotateM(tail, 0, -35f, 1f, 0f, 0f)
+            Matrix.rotateM(tail, 0, pose.tertiaryAppendageDegrees, 0f, 0f, 1f)
+            surface = CharacterSurface.COAT
+            goatMesh(tail, GoatGeometry.tail, GOAT_IVORY)
         } finally {
             surface = previousSurface
         }

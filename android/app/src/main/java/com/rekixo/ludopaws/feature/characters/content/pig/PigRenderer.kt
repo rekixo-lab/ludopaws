@@ -6,9 +6,9 @@ import com.rekixo.ludopaws.feature.characters.rendering.*
 import com.rekixo.ludopaws.feature.characters.shared.*
 import kotlin.math.*
 
-internal val PIG_PINK = floatArrayOf(1f, .64f, .69f, 1f)
-internal val PIG_BLUSH = floatArrayOf(.91f, .35f, .45f, 1f)
-internal val PIG_SNOUT = floatArrayOf(1f, .49f, .58f, 1f)
+internal val PIG_PINK = floatArrayOf(.97f, .61f, .65f, 1f)
+internal val PIG_BLUSH = floatArrayOf(.89f, .37f, .46f, 1f)
+internal val PIG_SNOUT = floatArrayOf(.99f, .51f, .57f, 1f)
 internal val PIG_HOOF = floatArrayOf(.30f, .20f, .24f, 1f)
 
 internal object PigRenderer : CharacterRenderer {
@@ -26,9 +26,10 @@ internal object PigRenderer : CharacterRenderer {
                 secondaryAppendageDegrees = 9f * wave, neckPitchDegrees = 2f * wave,
             )
             CharacterMotion.HOP -> CharacterPose(
-                legSwingDegrees = 22f * wave * arc, legTuckDegrees = 26f * arc,
+                legSwingDegrees = 22f * wave * arc,
+                frontLegTuckDegrees = 29f * arc, rearLegTuckDegrees = 18f * arc,
                 primaryAppendageDegrees = -18f * arc, secondaryAppendageDegrees = 15f * arc,
-                bodyPitchDegrees = -5f * arc, neckPitchDegrees = 4f * arc,
+                bodyPitchDegrees = -5f * arc, bodyRollDegrees = 3f * wave * arc, neckPitchDegrees = 4f * arc,
             )
             CharacterMotion.HOME -> CharacterPose(
                 liftY = .18f * abs(sin(phase * PI * 3.0).toFloat()) * (1f - phase),
@@ -52,7 +53,7 @@ internal object PigRenderer : CharacterRenderer {
             Matrix.rotateM(torso, 0, pose.bodyPitchDegrees, 1f, 0f, 0f)
             Matrix.rotateM(torso, 0, pose.bodyRollDegrees, 0f, 0f, 1f)
             val breath = 1f + (life?.breath ?: 0f)
-            surface = CharacterSurface.COAT
+            surface = CharacterSurface.PIG_SKIN
             drawGeometry(torso, PigGeometry.body, 0f, 0f, 0f, breath, 1f, breath, PIG_PINK)
             tail(torso, pose.secondaryAppendageDegrees)
             val neck = rigTransforms[2]
@@ -76,12 +77,13 @@ internal object PigRenderer : CharacterRenderer {
             System.arraycopy(parent, 0, leg, 0, 16)
             Matrix.translateM(leg, 0, side * .29f, -.20f, if (rear) -.38f else .27f)
             val swing = (if (rear) -side else side) * pose.legSwingDegrees
-            val tuck = (pose.legTuckDegrees / 38f).coerceIn(0f, 1f)
+            val pairTuck = if (rear) pose.rearLegTuckDegrees else pose.frontLegTuckDegrees
+            val tuck = ((pairTuck ?: pose.legTuckDegrees) / 38f).coerceIn(0f, 1f)
             Matrix.rotateM(leg, 0, swing, 1f, 0f, 0f)
             Matrix.scaleM(leg, 0, 1f, 1f - .35f * tuck - .30f * pose.bodyCrouch, 1f)
-            surface = CharacterSurface.COAT
+            surface = CharacterSurface.PIG_SKIN
             drawGeometry(leg, PigGeometry.leg, 0f, 0f, 0f, 1f, 1f, 1f, PIG_PINK)
-            surface = CharacterSurface.HORN
+            surface = CharacterSurface.HOOF
             for (toeSide in -1..1 step 2) {
                 drawGeometry(leg, PigGeometry.hoof, toeSide * .055f, -.50f, .025f,
                     1f, 1f, 1f, PIG_HOOF)
@@ -90,53 +92,46 @@ internal object PigRenderer : CharacterRenderer {
     }
 
     private fun CharacterDrawContext.face(parent: FloatArray, pose: CharacterPose) {
-        surface = CharacterSurface.COAT
+        surface = CharacterSurface.PIG_SKIN
         drawGeometry(parent, PigGeometry.head, 0f, 0f, 0f, 1f, 1f, 1f, PIG_PINK)
         for (side in -1..1 step 2) {
             val ear = rigTransforms[4]
             System.arraycopy(parent, 0, ear, 0, 16)
             Matrix.translateM(ear, 0, side * .27f, 1.01f, .015f)
-            Matrix.rotateM(ear, 0, -side * (22f + pose.primaryAppendageDegrees + side * 12f * pose.gestureWeight), 0f, 0f, 1f)
+            val perk = sin((life?.timeSeconds ?: 0f) * 2.3f + side) * (life?.idleWeight ?: 0f)
+            Matrix.rotateM(ear, 0, -side * (22f + pose.primaryAppendageDegrees + side * 12f * pose.gestureWeight + perk * 6f),
+                0f, 0f, 1f)
+            Matrix.rotateM(ear, 0, -6f + perk * 6f, 1f, 0f, 0f)
             drawGeometry(ear, PigGeometry.ear, 0f, 0f, 0f, side.toFloat(), 1f, 1f, PIG_PINK)
             drawGeometry(ear, PigGeometry.ear, 0f, .035f, .047f, side * .62f, .75f, .32f, PIG_BLUSH)
             surface = CharacterSurface.EYE
             drawLivingEye(parent, side * .21f, .86f, .34f,
                 .082f, .095f, PIG_PINK, WHITE, EYE_DARK, horizontal = false, slit = false)
-            surface = CharacterSurface.COAT
+            surface = CharacterSurface.PIG_SKIN
             drawPart(parent, side * .30f, .68f, .31f, .067f, .037f, .026f, PIG_BLUSH)
         }
         surface = CharacterSurface.NOSE
-        drawGeometry(parent, PigGeometry.snout, .012f * pose.gestureWeight * sin(pose.gesturePhase * PI.toFloat() * 6f), .70f, .30f, 1f, 1f, 1f, PIG_SNOUT, 90f)
+        val twitch = .015f * pose.gestureWeight * sin(pose.gesturePhase * PI.toFloat() * 6f)
+        drawGeometry(parent, PigGeometry.snout, twitch, .70f, .30f, 1f, 1f, 1f, PIG_SNOUT, 90f)
         for (side in -1..1 step 2) {
-            drawPart(parent, side * .085f, .70f, .558f, .034f, .046f, .010f, PIG_HOOF, rotateZ = side * 12f)
+            val x = twitch + side * .086f
+            drawPart(parent, x, .701f, .558f, .043f, .054f, .010f, PIG_BLUSH, rotateZ = side * 13f)
+            drawPart(parent, x, .704f, .566f, .028f, .038f, .008f, PIG_HOOF, rotateZ = side * 13f)
         }
         val opening = ((life?.mouthOpen ?: 0f) + pose.jawOpen).coerceIn(0f, 1f)
         surface = CharacterSurface.MATTE
         drawPart(parent, 0f, .535f, .37f, .105f, .009f + opening * .035f, .018f, PIG_HOOF)
-        surface = CharacterSurface.COAT
+        surface = CharacterSurface.PIG_SKIN
         drawPart(parent, 0f, .509f - opening * .035f, .36f, .12f, .027f, .045f, PIG_PINK)
     }
 
     private fun CharacterDrawContext.tail(parent: FloatArray, sway: Float) {
         val tail = rigTransforms[5]
         System.arraycopy(parent, 0, tail, 0, 16)
-        Matrix.translateM(tail, 0, .28f, .13f, -.55f)
-        Matrix.rotateM(tail, 0, sway, 0f, 1f, 0f)
-        surface = CharacterSurface.COAT
-        val radius = .125f
-        for (segment in 0..17) {
-            val startAngle = segment * PI.toFloat() * 3f / 18f
-            val endAngle = (segment + 1) * PI.toFloat() * 3f / 18f
-            val startX = radius * sin(startAngle)
-            val endX = radius * sin(endAngle)
-            val startY = radius * (1f - cos(startAngle))
-            val endY = radius * (1f - cos(endAngle))
-            val deltaX = endX - startX
-            val deltaY = endY - startY
-            val length = sqrt(deltaX * deltaX + deltaY * deltaY)
-            drawPart(tail, (startX + endX) * .5f, (startY + endY) * .5f, -segment * .005f,
-                .022f, length * .65f, .022f, PIG_SNOUT,
-                rotateZ = -atan2(deltaX, deltaY) * 180f / PI.toFloat())
-        }
+        Matrix.translateM(tail, 0, .22f, .105f, -.59f)
+        Matrix.rotateM(tail, 0, sway + 12f, 0f, 1f, 0f)
+        Matrix.rotateM(tail, 0, 17f + sway * .30f, 0f, 0f, 1f)
+        surface = CharacterSurface.PIG_SKIN
+        drawGeometry(tail, PigGeometry.curledTail, 0f, 0f, 0f, 1f, 1f, 1f, PIG_SNOUT)
     }
 }
