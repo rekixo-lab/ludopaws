@@ -2,7 +2,6 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -163,18 +162,11 @@ private fun StoreActivity.diceStatusBadge(
         text = cosmeticPurchaseLabel(dice)
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)
-        setTextColor(0xFF235A86.toInt())
+        setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
         includeFontPadding = false
         maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
-        background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt()),
-            ).apply {
-                cornerRadius = dp(999).toFloat()
-                setStroke(dp(1), 0xFF47B86C.toInt())
-            }
+        background = storeButtonBackground(context)
     }

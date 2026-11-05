@@ -397,6 +397,7 @@ class ReferralActivity : Activity() {
                     timedPanel.addView(timedAction, LinearLayout.LayoutParams(-1, -2))
                 }
             }
+            timedShowcase?.bindOwnership(owned)
             timedShowcase?.bindOffer(offer) { timedAction.visibility = View.GONE }
             timedShowcase?.setActive(resumed)
             timedProgress.text = when (offer.state) {

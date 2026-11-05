@@ -31,10 +31,10 @@ internal class ReferralRepository(context: Context) {
         val account = (if (createAccount) accounts.ensureGuestSession() else accounts.currentSession())
             ?: return JSONObject().put("enabled", false)
         val status = accounts.referralRequest("status", expectedAccountId = account.accountId)
-        TimedFriendshipOffer.from(status.optJSONObject("timedOffer"))
-        if (status.optString("state") == "REWARDED" || status.optJSONObject("timedOffer")?.optString("state") == "REWARDED") status.put("walletSynced", runCatching {
-            CosmeticInventoryStore(app).applyServerSnapshot(accounts.wallet(), account.accountId)
-        }.getOrDefault(false))
+        val timedOffer = TimedFriendshipOffer.from(status.optJSONObject("timedOffer"))
+        if (status.optString("state") == "REWARDED" || timedOffer != null) {
+            status.put("walletSynced", syncInventory(account.accountId))
+        }
         status.put("verificationState", if (prefs.getString("verification_account", null) == account.accountId) prefs.getString("verification_state", "NOT_STARTED") else "NOT_STARTED")
         status.put("localConsent", hasConsent(account.accountId))
         return status.put("localAccountId", account.accountId)
@@ -43,8 +43,14 @@ internal class ReferralRepository(context: Context) {
     fun showTimedOffer(accountId: String): TimedFriendshipOffer? {
         if (!FamilyAgeScreen.optionalGoogleAllowed(app)) return null
         val result = accounts.referralRequest("offer", JSONObject(), accountId)
-        return TimedFriendshipOffer.from(result.optJSONObject("timedOffer"))
+        val offer = TimedFriendshipOffer.from(result.optJSONObject("timedOffer"))
+        if (offer != null) syncInventory(accountId)
+        return offer
     }
+
+    private fun syncInventory(accountId: String): Boolean = runCatching {
+        CosmeticInventoryStore(app).applyServerSnapshot(accounts.wallet(), accountId)
+    }.getOrDefault(false)
 
     private fun hasConsent(accountId: String) = prefs.getString("consented_account", null) == accountId &&
         prefs.getString("consent_terms", null) == TERMS_VERSION

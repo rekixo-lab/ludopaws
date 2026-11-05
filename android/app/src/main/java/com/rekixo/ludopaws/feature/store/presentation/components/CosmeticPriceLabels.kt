@@ -39,7 +39,7 @@ internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharS
     return StoreActionLabels.action(this, smartUnlockLabel(cosmetic, action), action)
 }
 
-private fun storeButtonBackground(context: Context, color: Int = 0xB3372718.toInt()) =
+internal fun storeButtonBackground(context: Context, color: Int = 0xB3372718.toInt()) =
     GradientDrawable().apply {
         cornerRadius = LudoProofTheme.dp(context, 12).toFloat()
         setColor(color)
@@ -62,7 +62,7 @@ internal fun TextView.applyCosmeticOwnershipBadge(equipped: Boolean) {
     compoundDrawablePadding = LudoProofTheme.dp(context, 5)
     setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null)
     background = if (equipped) storeButtonBackground(context)
-        else storeButtonBackground(context, 0xC7DAF5E1.toInt())
+        else storeButtonBackground(context, 0xB3EDFFF0.toInt())
 }
 
 /** Show each configured payment method, including when Google Play has no price. */

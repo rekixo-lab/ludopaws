@@ -22,6 +22,8 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
     private val characterId = if (timed) "giraffe" else "rabbit"
     private val boardId = if (timed) "board_sunstone_palace" else "board_blossom_garden"
     private val diceId = if (timed) "dice_prism_royal" else "dice_pearl_paw"
+    private val ownershipLabels = linkedMapOf<String, TextView>()
+    private var ownershipRow: LinearLayout? = null
     private var timerLabel: TextView? = null
     private var offer: TimedFriendshipOffer? = null
     private var onExpired: (() -> Unit)? = null
@@ -98,6 +100,16 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         addView(art, if (compact) LayoutParams(-1, 0, 1f) else LayoutParams(-1, dp(132)))
         if (timed) {
             addView(label(TimedFriendshipOffer.REWARDS, if (compact) 10f else 13f, true), LayoutParams(-1, -2))
+            ownershipRow = LinearLayout(context).apply {
+                for (id in listOf(boardId, "character_$characterId", diceId)) {
+                    val status = label("", if (compact) 9f else 11f).apply {
+                        maxLines = 2
+                    }
+                    ownershipLabels[id] = status
+                    addView(status, LayoutParams(0, -2, 1f))
+                }
+            }.also { addView(it, LayoutParams(-1, -2).apply { topMargin = dp(3) }) }
+            bindOwnership(ownedItems)
             timerLabel = label("", 14f, true).also { addView(it, LayoutParams(-1, -2)) }
         } else {
             addView(ReferralGemRewardView(context, compact), LayoutParams(-1, -2))
@@ -180,6 +192,18 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         offer = value
         onExpired = expired
         updateCountdown()
+    }
+
+    fun bindOwnership(owned: Set<String>) {
+        ownershipRow?.visibility = if (ownershipLabels.keys.any { it in owned }) VISIBLE else GONE
+        ownershipLabels.forEach { (id, status) ->
+            val item = when (id) {
+                boardId -> "Board"
+                diceId -> "Dice"
+                else -> "Giraffe"
+            }
+            status.text = if (id in owned) "$item\nAlready owned" else "$item\nIncluded"
+        }
     }
 
     private fun updateCountdown() {

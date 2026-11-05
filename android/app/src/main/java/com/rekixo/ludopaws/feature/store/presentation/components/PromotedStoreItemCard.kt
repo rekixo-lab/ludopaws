@@ -2,7 +2,6 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.content.res.ColorStateList
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
 import android.graphics.drawable.RippleDrawable
 import android.graphics.drawable.StateListDrawable
@@ -126,10 +125,10 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     }
     val actionLabel = smartUnlockLabel(item, primary)
     val buttonLabel = if (pawSpotlight) when (primary) {
-        SmartUnlockAction.GEMS, SmartUnlockAction.CLAIM_ADS -> "Unlock"
+        SmartUnlockAction.GEMS, SmartUnlockAction.GET_GEMS -> "${item.gemPrice} Gems"
+        SmartUnlockAction.CLAIM_ADS -> "Unlock"
         SmartUnlockAction.PLAY_PRODUCT -> actionLabel.removeSuffix(" with Google Play")
         SmartUnlockAction.WATCH_AD -> "Watch Ad"
-        SmartUnlockAction.GET_GEMS -> "Get Gems"
         else -> actionLabel
     } else actionLabel
     if (item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)) {
@@ -137,10 +136,21 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         content.contentDescription = "$title. $actionLabel"
         content.setOnClickListener { activate() }
     }
-    val buttonHeight = dp(if (pawSpotlight) 48 else 44)
+    val buttonHeight = dp(if (pawSpotlight || primary == SmartUnlockAction.SELECT) 48 else 44)
     details.addView(Button(context).apply {
-        text = StoreActionLabels.action(context, buttonLabel, primary, 14)
-        if (pawSpotlight) {
+        text = when (primary) {
+            SmartUnlockAction.GEMS, SmartUnlockAction.GET_GEMS -> StoreActionLabels.gems(context, buttonLabel, 14)
+            else -> StoreActionLabels.action(context, buttonLabel, primary, 14)
+        }
+        if (primary == SmartUnlockAction.SELECT) {
+            backgroundTintList = null
+            stateListAnimator = null
+            isAllCaps = false
+            val equipped = if (character != null) {
+                com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(context).load().characterId == character.id
+            } else cosmetics.selectedId(item.category) == item.id
+            applyCosmeticOwnershipBadge(equipped)
+        } else if (pawSpotlight || primary in setOf(SmartUnlockAction.GEMS, SmartUnlockAction.GET_GEMS, SmartUnlockAction.CLAIM_ADS, SmartUnlockAction.FREE)) {
             stylePawSpotlightAction(this)
             contentDescription = actionLabel
         } else {
@@ -188,16 +198,8 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
 }
 
 private fun StoreActivity.stylePawSpotlightAction(button: Button) {
-    val enabled = GradientDrawable(
-        GradientDrawable.Orientation.TOP_BOTTOM,
-        intArrayOf(0xFF28644E.toInt(), 0xFF164333.toInt()),
-    ).apply {
-        cornerRadius = dp(11).toFloat()
-        setStroke(dp(1), 0xFFCB9C58.toInt())
-    }
-    val disabled = LudoProofTheme.rounded(
-        0xFF675B4E.toInt(), 11f, 0xFFB29A7D.toInt(), 1f, this,
-    )
+    val enabled = storeButtonBackground(this)
+    val disabled = storeButtonBackground(this, 0x80675B4E.toInt())
     val surface = StateListDrawable().apply {
         addState(intArrayOf(-android.R.attr.state_enabled), disabled)
         addState(intArrayOf(), enabled)

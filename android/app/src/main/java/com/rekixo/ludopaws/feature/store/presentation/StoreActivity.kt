@@ -610,7 +610,8 @@ class StoreActivity :
     }
 
     internal fun requestPurchase(productId: String) {
-        if (StoreCatalog.find(productId) == null) return
+        val product = StoreCatalog.find(productId) ?: return
+        if (stopOwnedCosmeticCheckout(productId)) return
         if (!connectivity.isOnline()) {
             chosenProductId = productId
             chosenProductOwner = accountRepository.currentSession()?.accountId
@@ -623,7 +624,7 @@ class StoreActivity :
             showStoreMessage("Purchases are unavailable in this build.")
             return
         }
-        if (StoreCatalog.find(productId) == null || purchaseEligibilityInProgress || !storeStarted || !canRenderStoreUi()) return
+        if (purchaseEligibilityInProgress || !storeStarted || !canRenderStoreUi()) return
         if (productId == StoreCatalog.REMOVE_ADS &&
             !RemoveAdsPurchasePolicy.canStartCheckout(wallet.adsRemoved(), removeAdsPlayOwnership)) {
             performRemoveAdsAction()
@@ -672,10 +673,11 @@ class StoreActivity :
                         showStoreMessage("Remove Ads is already active for this account.")
                         return@runOnUiThread
                     }
+                    if (stopOwnedCosmeticCheckout(productId)) return@runOnUiThread
                     billingAvailable = true
                     billingProductCatalogLoaded = false
                     chosenProductOwner = session.accountId
-                    if (StoreCatalog.find(productId)?.cosmeticId == pendingPlayEquipId) pendingPlayEquipOwner = session.accountId
+                    if (product.cosmeticId != null && product.cosmeticId == pendingPlayEquipId) pendingPlayEquipOwner = session.accountId
                     pendingCheckoutProductId = productId
                     pendingCheckoutAccountId = session.accountId
                     updateCheckoutStatus()
@@ -733,6 +735,30 @@ class StoreActivity :
         pendingCheckoutProductId = null
         pendingCheckoutAccountId = null
         updateCheckoutStatus()
+    }
+
+    private fun stopOwnedCosmeticCheckout(productId: String): Boolean {
+        val cosmeticId = StoreCatalog.find(productId)?.cosmeticId ?: return false
+        if (!cosmetics.isOwned(cosmeticId)) return false
+        val checkoutMatches = chosenProductId == productId || pendingCheckoutProductId == productId
+        if (checkoutMatches) {
+            chosenProductId = null
+            chosenProductOwner = null
+            checkoutRetryNeeded = false
+            clearPendingCheckout()
+        }
+        if (pendingPlayEquipId == cosmeticId) {
+            pendingPlayEquipId = null
+            pendingPlayEquipOwner = null
+        }
+        showAlreadyOwnedCosmetic(cosmeticId)
+        return true
+    }
+
+    private fun showAlreadyOwnedCosmetic(cosmeticId: String) {
+        renderStore()
+        val title = StoreCosmeticCatalog.find(cosmeticId)?.title
+        showCosmeticFeedback(if (title == null) "You already own this item." else "$title is already unlocked.")
     }
 
     private fun updateCheckoutStatus() {
@@ -796,6 +822,7 @@ class StoreActivity :
             showStoreMessage("The active account changed. Please try again.")
             return
         }
+        if (stopOwnedCosmeticCheckout(productId)) return
         // Google Play displays the price and handles payment authorization. Optional
         // Google account backup and local age choices do not gate checkout.
         // A late bootstrap callback may have changed the gateway binding. Pin it
@@ -836,6 +863,11 @@ class StoreActivity :
                 check(rewardWallet.optString("accountId") == session.accountId) {
                     "Your account changed. Reopen the store before watching an ad."
                 }
+                if (cosmeticId != null) {
+                    check(cosmetics.applyServerSnapshot(rewardWallet, session.accountId)) {
+                        "Your store inventory changed. Refresh the store before watching an ad."
+                    }
+                }
                 // No daily quota for updated 2-Gem rewards. Verify the account
                 // wallet and preserve pending signed-reward recovery without
                 // blocking a player based on the number of ads already viewed.
@@ -850,13 +882,20 @@ class StoreActivity :
                         showStoreMessage("The signed-in account changed. Reopen the store and try again.")
                         return@runOnUiThread
                     }
+                    if (cosmeticId != null && cosmetics.isOwned(cosmeticId)) {
+                        showAlreadyOwnedCosmetic(cosmeticId)
+                        return@runOnUiThread
+                    }
                     val record = PendingAdReward(session.accountId, rewardRequestId, cosmeticId)
                     rewardedAds.showRewardedAd(
                         userId = session.accountId,
                         customData = customData,
                         onBeforeShow = {
                             if (!storeStarted || !showcaseResumed || accountRepository.currentSession()?.accountId != record.accountId) false
-                            else if (cosmeticId != null && StoreCosmeticCatalog.find(cosmeticId)?.contentAvailable != true) {
+                            else if (cosmeticId != null && cosmetics.isOwned(cosmeticId)) {
+                                showAlreadyOwnedCosmetic(cosmeticId)
+                                false
+                            } else if (cosmeticId != null && StoreCosmeticCatalog.find(cosmeticId)?.contentAvailable != true) {
                                 showStoreMessage("This item is no longer available. No ad was shown."); false
                             } else try { pendingAdRewards.put(record); pendingAdSelectionId = cosmeticId; true }
                             catch (error: Exception) { showStoreMessage(error.message ?: "Reward recovery could not be saved. Please retry."); false }

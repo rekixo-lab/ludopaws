@@ -163,6 +163,7 @@ internal class HomePromotionCarousel(
                         spotlight.addView(it, LayoutParams(-1, -1))
                         timedBundle = it
                     }
+                    card.bindOwnership(com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(context).ownedCosmeticIds())
                     card.bindOffer(offer) {
                         timedOffer = null
                         updatePageState()

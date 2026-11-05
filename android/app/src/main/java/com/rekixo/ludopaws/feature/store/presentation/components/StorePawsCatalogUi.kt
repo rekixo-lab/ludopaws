@@ -2,7 +2,6 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -105,7 +104,6 @@ private fun StoreActivity.pawsCharacterCard(
         val unlock = availableOffer ?: StoreCosmeticCatalog.findBuiltIn("character_${character.id}")
         val owned = unlock == null || unlock.id in ownedIds
         val offerUnavailable = availableOffer == null && unlock != null && !owned
-        val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         clipChildren = false
@@ -171,28 +169,12 @@ private fun StoreActivity.pawsCharacterCard(
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(
-                    if (selected) 0xFF67430F.toInt() else 0xFF104B29.toInt(),
-                )
+                setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 includeFontPadding = false
                 letterSpacing = 0.025f
                 setPadding(dp(8), dp(5), dp(8), dp(5))
-                background =
-                    GradientDrawable(
-                        GradientDrawable.Orientation.TOP_BOTTOM,
-                        if (selected) {
-                            intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
-                        } else {
-                            intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt())
-                        },
-                    ).apply {
-                        cornerRadius = dp(999).toFloat()
-                        setStroke(
-                            dp(1),
-                            if (selected) 0xFFFFF5C9.toInt() else 0xFF47B86C.toInt(),
-                        )
-                    }
+                background = storeButtonBackground(context)
             },
             LinearLayout.LayoutParams(
                 if (paymentOptions != null) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT,
