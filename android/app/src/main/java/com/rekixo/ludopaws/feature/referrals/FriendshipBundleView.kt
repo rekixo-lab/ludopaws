@@ -206,9 +206,18 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         live?.setActive(false)
         if (canShowMotion()) postDelayed(startPreview, 250L)
     }
-    override fun onAttachedToWindow() { super.onAttachedToWindow(); updateMotion() }
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        updateMotion()
+        updateCountdown()
+    }
+
     override fun onDetachedFromWindow() {
-        removeCallbacks(countdown) removeCallbacks(startPreview); live?.setActive(false); super.onDetachedFromWindow() }
+        removeCallbacks(countdown)
+        removeCallbacks(startPreview)
+        live?.setActive(false)
+        super.onDetachedFromWindow()
+    }
     override fun onWindowFocusChanged(hasWindowFocus: Boolean) { super.onWindowFocusChanged(hasWindowFocus); if (isAttachedToWindow) updateMotion() }
     override fun onWindowVisibilityChanged(visibility: Int) { super.onWindowVisibilityChanged(visibility); if (isAttachedToWindow) updateMotion() }
     private fun dp(value: Int) = (value * resources.displayMetrics.density + .5f).toInt()
