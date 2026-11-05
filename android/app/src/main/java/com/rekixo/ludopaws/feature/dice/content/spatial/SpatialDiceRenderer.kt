@@ -12,6 +12,7 @@ import android.graphics.Shader
 import com.rekixo.ludopaws.feature.dice.domain.DicePalette
 import com.rekixo.ludopaws.feature.dice.rendering.DiceRenderFrame
 import com.rekixo.ludopaws.feature.dice.rendering.DiceRenderer
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 internal class EmberForgeDiceRenderer : SpatialDiceRenderer(SpatialDiceMaterial.FORGE)
@@ -22,25 +23,31 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
     override val usesPerimeterCountdown = false
     override val usesSpatialRoll = true
 
-    private val facets = if (material == SpatialDiceMaterial.FORGE) forgeMesh else prismMesh
+    private val forged = material == SpatialDiceMaterial.FORGE
+    private val facets = if (forged) forgeMesh else prismMesh
+    private val surface = SpatialDiceSurfaces.forMaterial(material)
     private val rotation = FloatArray(9)
     private val projection = FloatArray(8)
     private val faceMatrix = Matrix()
     private val path = Path()
+    private val faceBounds = RectF(-1f, -1f, 1f, 1f)
     private val body = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val details = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val details = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val rim = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = .025f
         strokeCap = Paint.Cap.ROUND
         strokeJoin = Paint.Join.ROUND
     }
-    private val faceLight = LinearGradient(-1f, -1f, 1f, 1f,
-        intArrayOf(material.light, material.mid, material.dark), null, Shader.TileMode.CLAMP)
+    private val reflection = LinearGradient(-1f, -.46f, 1f, .46f,
+        if (forged) intArrayOf(0x00FFD7A2, 0x4AFFB86F, 0x9AFFDBB0.toInt(), 0x23FFC388, 0x00FFD7A2)
+        else intArrayOf(0x00D6FFFF, 0x52D1A9FF, 0xE0F4FFFF.toInt(), 0x62A0EDFF, 0x00D6FFFF),
+        if (forged) floatArrayOf(0f, .31f, .48f, .70f, 1f) else floatArrayOf(0f, .43f, .50f, .56f, 1f),
+        Shader.TileMode.CLAMP)
     private val pitLight = LinearGradient(-.16f, -.16f, .16f, .16f,
         0xFF161322.toInt(), material.metal, Shader.TileMode.CLAMP)
     private val pipLight = RadialGradient(-.045f, -.065f, .22f,
-        Color.WHITE, material.pip, Shader.TileMode.CLAMP)
+        if (forged) 0xFFFFE3A2.toInt() else Color.WHITE, material.pip, Shader.TileMode.CLAMP)
     private val shadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         shader = RadialGradient(0f, 0f, 1f, 0x630E1018, 0x000E1018, Shader.TileMode.CLAMP)
     }
@@ -84,48 +91,77 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
         if (nz * CAMERA <= facet.planeDistance) return
 
         path.rewind()
-        facet.vertices.forEachIndexed { i, vertex ->
+        facet.vertices.forEachIndexed { index, vertex ->
             val depth = CAMERA / (CAMERA - transform(6, vertex))
             val x = transform(0, vertex) * depth
             val y = transform(3, vertex) * depth
-            projection[i * 2] = x
-            projection[i * 2 + 1] = y
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
         }
         path.close()
-        val light = (-.42f * nx - .55f * ny + .71f * nz).coerceIn(0f, 1f)
-        body.color = lit(if (facet.face == 0) material.metal else material.mid, .55f + light * .63f)
-        canvas.drawPath(path, body)
-        if (facet.face == 0 || !faceMatrix.setPolyToPoly(faceSquare, 0, projection, 0, 4)) return
 
-        val surface = canvas.save()
+        val light = (-.42f * nx - .55f * ny + .71f * nz).coerceIn(0f, 1f)
+        val reflectionStrength = (-.22f * nx - .30f * ny + .928f * nz)
+            .coerceIn(0f, 1f).pow(if (forged) 7 else 19)
+        val bevelColor = lit(material.metal, .42f + light * .78f)
+        body.color = if (facet.face == 0) {
+            mix(bevelColor, if (forged) 0xFFFFE0A7.toInt() else 0xFFE8FDFF.toInt(), reflectionStrength * .72f)
+        } else material.mid
+        canvas.drawPath(path, body)
+
+        val corners = facet.faceCorners ?: return
+        corners.forEachIndexed { index, vertex ->
+            val depth = CAMERA / (CAMERA - transform(6, vertex))
+            projection[index * 2] = transform(0, vertex) * depth
+            projection[index * 2 + 1] = transform(3, vertex) * depth
+        }
+        if (!faceMatrix.setPolyToPoly(faceSquare, 0, projection, 0, 4)) return
+
+        val layer = canvas.save()
+        canvas.clipPath(path)
         canvas.concat(faceMatrix)
         details.color = Color.WHITE
-        details.shader = faceLight
-        canvas.drawRect(-1f, -1f, 1f, 1f, details)
+        canvas.drawBitmap(surface, null, faceBounds, details)
+        details.color = (76f * (1f - light)).toInt() shl 24
+        canvas.drawRect(faceBounds, details)
+
+        // The strip reflects the fixed key light as the surface turns.
+        val shiftX = nx * .68f
+        val shiftY = ny * .47f
+        val highlight = canvas.save()
+        canvas.translate(shiftX, shiftY)
+        details.color = Color.WHITE
+        val peakReflection = if (forged) 202f else 255f
+        details.alpha = (reflectionStrength * peakReflection).toInt()
+        details.shader = reflection
+        canvas.drawRect(-1f - shiftX, -1f - shiftY, 1f - shiftX, 1f - shiftY, details)
         details.shader = null
+        canvas.restoreToCount(highlight)
         drawInlay(canvas, facet.face)
-        details.color = ((57f * (1f - light)).toInt() shl 24)
-        canvas.drawRect(-1f, -1f, 1f, 1f, details)
-        canvas.restoreToCount(surface)
+        canvas.restoreToCount(layer)
     }
 
     private fun drawInlay(canvas: Canvas, face: Int) {
         rim.color = material.metal
-        if (material == SpatialDiceMaterial.FORGE) {
-            canvas.drawRoundRect(-.91f, -.91f, .91f, .91f, .12f, .12f, rim)
-            canvas.drawLine(-.79f, -.76f, -.56f, -.76f, rim)
-            canvas.drawLine(.56f, .76f, .79f, .76f, rim)
+        if (forged) {
+            canvas.drawRoundRect(-.91f, -.91f, .91f, .91f, .19f, .19f, rim)
+            for (x in rivetPositions) for (y in rivetPositions) {
+                details.color = 0xFF211620.toInt()
+                canvas.drawCircle(x, y, .073f, details)
+                details.color = material.metal
+                canvas.drawCircle(x - .009f, y - .015f, .049f, details)
+                details.color = 0xFFFFD59C.toInt()
+                canvas.drawCircle(x - .023f, y - .03f, .014f, details)
+            }
         } else {
             path.rewind()
-            path.moveTo(-.91f, -.52f)
-            path.lineTo(-.91f, -.78f)
-            path.lineTo(-.78f, -.91f)
-            path.lineTo(-.52f, -.91f)
-            path.moveTo(.91f, .52f)
-            path.lineTo(.91f, .78f)
-            path.lineTo(.78f, .91f)
-            path.lineTo(.52f, .91f)
+            path.moveTo(-.90f, -.28f)
+            path.lineTo(-.90f, -.50f)
+            path.lineTo(-.50f, -.90f)
+            path.lineTo(-.28f, -.90f)
+            path.moveTo(.90f, .28f)
+            path.lineTo(.90f, .50f)
+            path.lineTo(.50f, .90f)
+            path.lineTo(.28f, .90f)
             canvas.drawPath(path, rim)
         }
         val dots = pips[face - 1]
@@ -134,7 +170,7 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
             canvas.translate(dots[index], dots[index + 1])
             details.color = Color.WHITE
             details.shader = pitLight
-            if (material == SpatialDiceMaterial.FORGE) {
+            if (forged) {
                 canvas.drawCircle(0f, 0f, .165f, details)
                 details.shader = pipLight
                 canvas.drawCircle(0f, 0f, .113f, details)
@@ -170,6 +206,12 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
         (Color.blue(color) * light).toInt().coerceIn(0, 255),
     )
 
+    private fun mix(from: Int, to: Int, amount: Float): Int = Color.rgb(
+        (Color.red(from) + (Color.red(to) - Color.red(from)) * amount).toInt(),
+        (Color.green(from) + (Color.green(to) - Color.green(from)) * amount).toInt(),
+        (Color.blue(from) + (Color.blue(to) - Color.blue(from)) * amount).toInt(),
+    )
+
     private data class Point(val x: Float, val y: Float, val z: Float) {
         operator fun plus(other: Point) = Point(x + other.x, y + other.y, z + other.z)
         operator fun times(scale: Float) = Point(x * scale, y * scale, z * scale)
@@ -177,13 +219,19 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
         fun unit() = this * (1f / sqrt(dot(this)))
     }
 
-    private data class Facet(val normal: Point, val vertices: List<Point>, val face: Int = 0) {
+    private data class Facet(
+        val normal: Point,
+        val vertices: List<Point>,
+        val face: Int = 0,
+        val faceCorners: List<Point>? = null,
+    ) {
         val planeDistance = normal.dot(vertices.first())
     }
 
     private companion object {
         private const val CAMERA = 6.5f
         private val faceSquare = floatArrayOf(-1f, -1f, 1f, -1f, 1f, 1f, -1f, 1f)
+        private val rivetPositions = floatArrayOf(-.75f, .75f)
         private val pips = listOf(
             floatArrayOf(0f, 0f),
             floatArrayOf(-.46f, -.46f, .46f, .46f),
@@ -196,18 +244,18 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
         private val x = Point(1f, 0f, 0f)
         private val y = Point(0f, 1f, 0f)
         private val z = Point(0f, 0f, 1f)
-        private val forgeMesh = mesh(.86f)
-        private val prismMesh = mesh(.73f)
+        private val forgeMesh = mesh(edge = .86f, corner = .77f)
+        private val prismMesh = mesh(edge = .81f, corner = .47f)
 
-        private fun mesh(inner: Float): List<Facet> = buildList {
+        private fun mesh(edge: Float, corner: Float): List<Facet> = buildList {
             val axes = listOf(x, y, z)
             val signs = listOf(-1f, 1f)
             for (i in axes.indices) for (j in i + 1..2) for (a in signs) for (b in signs) {
                 val u = axes[i] * a
                 val v = axes[j] * b
-                val span = axes[3 - i - j] * inner
-                val first = u + v * inner
-                val second = u * inner + v
+                val span = axes[3 - i - j] * corner
+                val first = u + v * edge
+                val second = u * edge + v
                 add(Facet((u + v).unit(), listOf(first + span, first + span * -1f,
                     second + span * -1f, second + span)))
             }
@@ -215,26 +263,33 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
                 val u = x * a
                 val v = y * b
                 val w = z * c
-                add(Facet((u + v + w).unit(), listOf(u + v * inner + w * inner,
-                    u * inner + v + w * inner, u * inner + v * inner + w)))
+                add(Facet((u + v + w).unit(), listOf(
+                    u + v * edge + w * corner,
+                    u * edge + v + w * corner,
+                    u * corner + v + w * edge,
+                    u * corner + v * edge + w,
+                    u * edge + v * corner + w,
+                    u + v * corner + w * edge,
+                )))
             }
-            add(face(z, x, y, 1, inner))
-            add(face(y, x, z * -1f, 2, inner))
-            add(face(x, z * -1f, y, 3, inner))
-            add(face(x * -1f, z, y, 4, inner))
-            add(face(y * -1f, x, z, 5, inner))
-            add(face(z * -1f, x * -1f, y, 6, inner))
+            add(face(z, x, y, 1, edge, corner))
+            add(face(y, x, z * -1f, 2, edge, corner))
+            add(face(x, z * -1f, y, 3, edge, corner))
+            add(face(x * -1f, z, y, 4, edge, corner))
+            add(face(y * -1f, x, z, 5, edge, corner))
+            add(face(z * -1f, x * -1f, y, 6, edge, corner))
         }
 
-        private fun face(normal: Point, horizontal: Point, vertical: Point, number: Int, inner: Float): Facet {
-            val u = horizontal * inner
-            val v = vertical * inner
+        private fun face(normal: Point, horizontal: Point, vertical: Point, number: Int, edge: Float, corner: Float): Facet {
+            fun point(x: Float, y: Float) = normal + horizontal * x + vertical * y
             return Facet(normal, listOf(
-                normal + u * -1f + v * -1f,
-                normal + u + v * -1f,
-                normal + u + v,
-                normal + u * -1f + v,
-            ), number)
+                point(-corner, -edge), point(corner, -edge),
+                point(edge, -corner), point(edge, corner),
+                point(corner, edge), point(-corner, edge),
+                point(-edge, corner), point(-edge, -corner),
+            ), number, listOf(
+                point(-edge, -edge), point(edge, -edge), point(edge, edge), point(-edge, edge),
+            ))
         }
     }
 }
