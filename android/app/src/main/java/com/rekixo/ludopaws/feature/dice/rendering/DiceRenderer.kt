@@ -12,6 +12,8 @@ internal data class DiceRenderFrame(
 
 /** Appearance receives a resolved face; it cannot select or alter the dice outcome. */
 internal interface DiceRenderer {
+    val usesPerimeterCountdown: Boolean get() = true
+
     /** Called once when this renderer is created, before its first draw. */
     fun prepare(resources: Resources) = Unit
     fun draw(canvas: Canvas, size: Float, palette: DicePalette, frame: DiceRenderFrame): RectF

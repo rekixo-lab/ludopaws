@@ -9,15 +9,18 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
-import com.rekixo.ludopaws.LudoPaws3DSceneView
+import com.rekixo.ludopaws.LudoPaws3DSceneState
 import com.rekixo.ludopaws.LudoPawsBoardChromeView
 import com.rekixo.ludopaws.LudoPawsBoardPalette
+import com.rekixo.ludopaws.LudoPawsCharacterPortraitBitmapCache
 import com.rekixo.ludopaws.MatchSnapshot
 import com.rekixo.ludopaws.PlayerSnapshot
+import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
 import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
 import com.rekixo.ludopaws.feature.dice.rendering.DiceRendererRegistry
 import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
@@ -58,25 +61,23 @@ internal object StoreCatalogArtwork {
     }
 
     fun board(context: Context, boardId: String): View {
-        val host = CatalogArtworkHost(context)
+        val host = CatalogArtworkHost(context, needsHardware = false)
+        val definition = BoardRegistry.resolve(boardId)
         var live: FrameLayout? = null
+        var complete = false
         host.onActiveChanged = { active ->
-            if (active) {
+            if (active && live == null) {
                 val base = LudoBoardView(context).apply {
                     setBoardThemeOverride(boardId)
                     setClassicTokenDrawingEnabled(false)
                     setLudoPawsYardFootprintsEnabled(true)
                     bind(boardDisplayState, playerId = null, characterIdsBySeat = boardCharacters)
                 }
-                val chrome = LudoPawsBoardChromeView(context).apply {
+                val chrome = LudoPawsBoardChromeView(context, maxArtworkPixels = 256).apply {
                     setBoardThemeOverride(boardId)
                     setFootprintSource(base)
                 }
-                val scene = LudoPaws3DSceneView(context, catalogArtwork = true).apply {
-                    setBoardThemeOverride(boardId)
-                    bind(boardDisplayState, playerId = null, perspectiveColor = null,
-                        characterIdsBySeat = boardCharacters)
-                }
+                val scene = ImageView(context).apply { scaleType = ImageView.ScaleType.FIT_XY }
                 val board = FrameLayout(context).apply {
                     addView(base, FrameLayout.LayoutParams(-1, -1))
                     addView(chrome, FrameLayout.LayoutParams(-1, -1))
@@ -84,31 +85,52 @@ internal object StoreCatalogArtwork {
                 }
                 live = board
                 var sceneReady = false
+                fun unavailable() {
+                    live = null
+                    complete = false
+                    host.showUnavailable()
+                }
                 fun revealWhenReady() {
-                    if (live === board && chrome.artworkReady && sceneReady) host.reveal(board)
+                    if (live === board && chrome.hasArtwork && sceneReady) {
+                        complete = true
+                        host.reveal(board)
+                    }
                 }
                 chrome.onArtworkReadyChanged = { ready ->
-                    if (live === board && ready && !chrome.hasArtwork) {
-                        live = null
-                        host.showUnavailable()
-                    } else if (ready) {
-                        revealWhenReady()
-                    } else {
-                        host.cover(board)
-                    }
-                }
-                scene.onOperationalChanged = { ready ->
-                    sceneReady = ready
-                    if (ready) revealWhenReady() else host.cover(board)
-                }
-                scene.onStartupFailure = {
                     if (live === board) {
-                        live = null
-                        host.showUnavailable()
+                        when {
+                            !ready -> {
+                                complete = false
+                                host.cover(board)
+                            }
+                            !chrome.hasArtwork -> unavailable()
+                            else -> revealWhenReady()
+                        }
                     }
                 }
-                host.prepare(board, listOf(base, chrome, scene))
-            } else {
+                host.prepare(board)
+                LudoPawsCharacterPortraitBitmapCache.requestShopBoardLayer(
+                    LudoPaws3DSceneState(
+                        snapshot = boardDisplayState,
+                        stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled,
+                        classicRoadReliefEnabled = definition.classicRoadReliefEnabled,
+                        monsoonEffectsEnabled = definition.monsoonEffectsEnabled,
+                        monsoonAnimationEnabled = false,
+                        characterIdsBySeat = boardCharacters,
+                        reducedMotion = true,
+                    ),
+                ) { bitmap ->
+                    if (live === board) {
+                        if (bitmap == null) {
+                            unavailable()
+                        } else {
+                            scene.setImageBitmap(bitmap)
+                            sceneReady = true
+                            revealWhenReady()
+                        }
+                    }
+                }
+            } else if (!active && !complete) {
                 live = null
                 host.clearArtwork()
             }
@@ -220,7 +242,6 @@ private class CatalogArtworkHost(
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private var artwork: View? = null
-    private var artworkLayers = emptyList<View>()
     private var observer: ViewTreeObserver? = null
     private var active = false
     private var startPosted = false
@@ -230,7 +251,7 @@ private class CatalogArtworkHost(
         startPosted = false
         if (eligible()) setArtworkActive(true)
     }
-    private val scrollListener = ViewTreeObserver.OnScrollChangedListener { reconcile() }
+    private val scrollListener = ViewTreeObserver.OnScrollChangedListener { reconcile(scrolling = true) }
     private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { reconcile() }
 
     init {
@@ -239,31 +260,28 @@ private class CatalogArtworkHost(
         addView(loading, LayoutParams(indicatorSize, indicatorSize, Gravity.CENTER))
     }
 
-    fun prepare(view: View, layers: List<View> = listOf(view)) {
+    fun prepare(view: View) {
         clearArtwork()
         artwork = view
-        artworkLayers = layers
-        // Keep the board container attached so its TextureView can prepare a frame.
-        artworkLayers.forEach { it.alpha = 0f }
+        view.alpha = 0f
         addView(view, 0, LayoutParams(-1, -1))
     }
 
     fun reveal(view: View) {
         if (artwork !== view) return
-        artworkLayers.forEach { it.alpha = 1f }
+        view.alpha = 1f
         loading.visibility = View.INVISIBLE
     }
 
     fun cover(view: View) {
         if (artwork !== view) return
-        artworkLayers.forEach { it.alpha = 0f }
+        view.alpha = 0f
         loading.visibility = if (active) View.VISIBLE else View.INVISIBLE
     }
 
     fun clearArtwork() {
         artwork?.let { removeView(it) }
         artwork = null
-        artworkLayers = emptyList()
         loading.visibility = if (active) View.VISIBLE else View.INVISIBLE
     }
 
@@ -290,14 +308,17 @@ private class CatalogArtworkHost(
         startPosted = false
     }
 
-    private fun reconcile() {
+    private fun reconcile(scrolling: Boolean = false) {
         if (!eligible()) {
             cancelStart()
             setArtworkActive(false)
-        } else if (!active && !startPosted) {
-            // Start on the next UI turn, without postponing on later layout events.
-            startPosted = true
-            post(start)
+        } else if (!active) {
+            // First layout starts immediately. During a fling, skip cards that only flash by.
+            if (scrolling) cancelStart()
+            if (!startPosted) {
+                startPosted = true
+                if (scrolling) postDelayed(start, 80L) else post(start)
+            }
         }
     }
 

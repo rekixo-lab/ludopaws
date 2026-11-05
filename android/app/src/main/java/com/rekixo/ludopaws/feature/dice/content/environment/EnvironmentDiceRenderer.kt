@@ -65,9 +65,10 @@ private object EnvironmentDiceArtwork {
 
 /** Photorealistic body + material-aware pips projected onto its actual front face. */
 internal open class EnvironmentDiceRenderer(private val theme: EnvironmentDiceTheme) : DiceRenderer {
+    override val usesPerimeterCountdown = false
+
     private var artwork: Bitmap? = null
     private val artworkBounds = RectF(0f, 0f, 100f, 100f)
-    private val outline = RectF(4.5f, 4.5f, 95.5f, 95.5f)
     private val controlBounds = RectF()
     private val imagePaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val faceProjection = Matrix().apply {
@@ -76,7 +77,6 @@ internal open class EnvironmentDiceRenderer(private val theme: EnvironmentDiceTh
             theme.faceCorners, 0, 4,
         )) { "Invalid dice face projection: ${theme.key}" }
     }
-    private val teamPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private val pipShadow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         shader = RadialGradient(0f, 1.5f, 8f,
             intArrayOf(0x66091120, 0x00091120), null, Shader.TileMode.CLAMP)
@@ -124,7 +124,7 @@ internal open class EnvironmentDiceRenderer(private val theme: EnvironmentDiceTh
         val saved = canvas.save()
         canvas.scale(size / 100f, size / 100f)
         val body = canvas.save()
-        // Leave space around the moon/leaf, so team feedback does not cross the ornament.
+        // Leave room for the ornaments and the in-match countdown below.
         canvas.translate(5f, 5f)
         canvas.scale(.9f, .9f)
         artwork?.let { canvas.drawBitmap(it, null, artworkBounds, imagePaint) }
@@ -141,15 +141,6 @@ internal open class EnvironmentDiceRenderer(private val theme: EnvironmentDiceTh
         canvas.restoreToCount(projected)
         canvas.restoreToCount(body)
 
-        teamPaint.color = palette.borderColor
-        val active = frame.rolling || frame.settling || frame.attentionPulsing
-        teamPaint.strokeWidth = if (active) 2.4f else 1.2f
-        teamPaint.alpha = when {
-            frame.hasTurnDeadline && !frame.rolling && !frame.settling -> 72
-            active -> (145f + frame.borderPulse.coerceIn(0f, 1f) * 110f).toInt()
-            else -> 150
-        }
-        canvas.drawRoundRect(outline, 17f, 17f, teamPaint)
         canvas.restoreToCount(saved)
         controlBounds.set(size * .045f, size * .045f, size * .955f, size * .955f)
         return controlBounds

@@ -465,7 +465,7 @@ class DiceView @JvmOverloads constructor(
         renderFrame.borderPulse = borderPulse
         renderFrame.hasTurnDeadline = turnDeadlineElapsedRealtimeMillis != null
         val rect = currentRenderer.draw(canvas, size, palette, renderFrame)
-        drawTurnCountdown(canvas, rect, size, palette.borderColor)
+        drawTurnCountdown(canvas, rect, size, palette.borderColor, currentRenderer.usesPerimeterCountdown)
 
         canvas.restoreToCount(saveCount)
     }
@@ -475,6 +475,7 @@ class DiceView @JvmOverloads constructor(
         rect: RectF,
         size: Float,
         teamColor: Int,
+        usePerimeter: Boolean,
     ) {
         val deadline = turnDeadlineElapsedRealtimeMillis ?: return
         val fraction = DiceTurnCountdownPolicy.remainingFraction(
@@ -482,6 +483,22 @@ class DiceView @JvmOverloads constructor(
             nowElapsedRealtimeMillis = SystemClock.elapsedRealtime(),
             timeoutDurationMillis = turnCountdownDurationMillis,
         ) ?: return
+
+        turnTimerTrackPaint.color = teamColor
+        turnTimerProgressPaint.color = teamColor
+        turnTimerTrackPaint.alpha = 62
+        turnTimerProgressPaint.alpha = if (fraction <= 0f) 0 else 255
+
+        if (!usePerimeter) {
+            val left = size * .34f
+            val right = size * .66f
+            val y = size * .97f
+            canvas.drawLine(left, y, right, y, turnTimerTrackPaint)
+            if (fraction > 0f) {
+                canvas.drawLine(left, y, left + (right - left) * fraction, y, turnTimerProgressPaint)
+            }
+            return
+        }
 
         val radius = (size * .17f - dp(2.2f)).coerceAtLeast(0f)
         // Geometry depends only on the dice bounds. Build the outline once per
@@ -507,10 +524,6 @@ class DiceView @JvmOverloads constructor(
         val length = turnTimerPathLength
         if (length <= 0f) return
 
-        turnTimerTrackPaint.color = teamColor
-        turnTimerProgressPaint.color = teamColor
-        turnTimerTrackPaint.alpha = 62
-        turnTimerProgressPaint.alpha = if (fraction <= 0f) 0 else 255
         canvas.drawPath(turnTimerPath, turnTimerTrackPaint)
 
         if (fraction > 0f) {

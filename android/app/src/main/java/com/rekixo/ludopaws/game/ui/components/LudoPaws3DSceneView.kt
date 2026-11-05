@@ -62,7 +62,6 @@ internal data class LudoPaws3DSceneState(
 internal class LudoPaws3DSceneView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    private val catalogArtwork: Boolean = false,
 ) : TextureView(context, attrs), TextureView.SurfaceTextureListener {
     private val settingsStore = GameSettingsStore(context)
     private var authoritativeSnapshot: MatchSnapshot? = null
@@ -104,7 +103,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
 
         // Prewarm every SFX that can occur during pawn travel so the render-time
         // audio clock does not incur a first-play SoundPool load delay.
-        if (!catalogArtwork) GameSoundFeedback.preloadMovementEventSfx(context)
+        GameSoundFeedback.preloadMovementEventSfx(context)
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         surfaceTextureListener = this
     }
@@ -221,7 +220,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         val previousState = sceneState
         val previousSnapshot = authoritativeSnapshot
-        if (!catalogArtwork && state?.status == "FINISHED" && previousSnapshot?.status == "ACTIVE" && previousSnapshot.matchId == state.matchId) {
+        if (state?.status == "FINISHED" && previousSnapshot?.status == "ACTIVE" && previousSnapshot.matchId == state.matchId) {
             com.rekixo.ludopaws.feature.store.data.ads.AdBreakSession.completed(state.matchId)
         }
         val previewEventIndex = previousState.pendingPreviewEventIndex
@@ -438,8 +437,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         sceneState =
             LudoPaws3DSceneState(
                 snapshot = state,
-                reducedMotion = settings.reducedMotion ||
-                    (catalogArtwork && !android.animation.ValueAnimator.areAnimatorsEnabled()),
+                reducedMotion = settings.reducedMotion,
                 stoneRoadOverlayEnabled = previousState.stoneRoadOverlayEnabled,
                 classicRoadReliefEnabled = previousState.classicRoadReliefEnabled,
                 monsoonEffectsEnabled = previousState.monsoonEffectsEnabled,
@@ -650,9 +648,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled,
             classicRoadReliefEnabled = definition.classicRoadReliefEnabled,
             monsoonEffectsEnabled = definition.monsoonEffectsEnabled,
-            monsoonAnimationEnabled = (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
-                android.animation.ValueAnimator.areAnimatorsEnabled()) &&
-                (!catalogArtwork || !settingsStore.snapshot().reducedMotion),
+            monsoonAnimationEnabled = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+                android.animation.ValueAnimator.areAnimatorsEnabled(),
         )
     }
 
@@ -779,12 +776,9 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         fun onDisplayFrame(frameTimeNanos: Long, refreshPeriodNanos: Long) {
             visibilityLock.withLock {
                 if (!running || !presentationVisible) return
-                val delay = LudoPaws3DRenderCadencePolicy.frameDelayMillis(
+                val frameDelay = LudoPaws3DRenderCadencePolicy.frameDelayMillis(
                     sceneState, frameTimeNanos / 1_000_000L,
                 )
-                val frameDelay = if (catalogArtwork) {
-                    delay.coerceAtLeast(if (sceneState.reducedMotion) 500L else 66L)
-                } else delay
                 if (displayPacer.shouldRender(frameTimeNanos, refreshPeriodNanos, frameDelay)) {
                     pendingFrameNanos = frameTimeNanos
                     visibilityChanged.signalAll()
@@ -991,7 +985,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                         state = frameState,
                         nowMillis = frameStartedAtMillis,
                     )
-                    if (!catalogArtwork) emitMovementStepSounds(
+                    emitMovementStepSounds(
                         state = frameState,
                         nowMillis = frameStartedAtMillis,
                     )

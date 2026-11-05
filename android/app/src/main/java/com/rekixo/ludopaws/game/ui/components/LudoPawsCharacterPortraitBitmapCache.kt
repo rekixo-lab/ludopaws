@@ -48,7 +48,11 @@ internal object LudoPawsCharacterPortraitBitmapCache {
     private val pendingCallbacks =
         HashMap<String, MutableList<(Bitmap?) -> Unit>>()
 
-    // These objects are created and used only on the single portrait worker.
+    // Board themes with the same 3D flags share a single transparent layer.
+    private val shopBoardLayers = LruCache<LudoPaws3DSceneState, Bitmap>(4)
+    private val pendingShopBoards = HashMap<LudoPaws3DSceneState, MutableList<(Bitmap?) -> Unit>>()
+
+    // These objects are created and used only on the single offscreen worker.
     private var eglSession: OffscreenEglSession? = null
     private var renderer: LudoPaws3DSceneRenderer? = null
 
@@ -176,7 +180,6 @@ internal object LudoPawsCharacterPortraitBitmapCache {
                             .onFailure { Log.w(TAG, "Portrait cache write skipped for $resolvedCharacterId", it) }
                     }
             } catch (error: Exception) {
-                runCatching { renderer?.clearPortraitMeshes() }
                 Log.w(TAG, "Actual 3D portrait unavailable for $resolvedCharacterId; no substitute art will be shown", error)
                 null
             }
@@ -208,38 +211,72 @@ internal object LudoPawsCharacterPortraitBitmapCache {
             ?.takeIf { LudoPawsCharacterCatalog.character(it) != null }
             ?: LudoPawsCharacterCatalog.DEFAULT_CHARACTER_ID
 
-    private fun render(
-        characterId: String,
-        teamColor: String,
-    ): Bitmap? {
-        val activeRenderer =
-            renderer
-                ?: run {
-                    // Lazily create one ES3 pbuffer on the portrait worker and
-                    // reuse that context for every subsequent cache miss.
-                    eglSession =
-                        OffscreenEglSession.create(PORTRAIT_SIZE)
-                    LudoPaws3DSceneRenderer().also {
-                        it.onPortraitSurfaceCreated()
-                        it.onPortraitSurfaceChanged(
-                            PORTRAIT_SIZE,
-                            PORTRAIT_SIZE,
-                        )
-                        renderer = it
-                    }
+    /** Called by Shop on the main thread. Render each gameplay layer once, offscreen. */
+    fun requestShopBoardLayer(state: LudoPaws3DSceneState, onReady: (Bitmap?) -> Unit) {
+        val cached = synchronized(lock) {
+            shopBoardLayers.get(state) ?: run {
+                pendingShopBoards[state]?.let { callbacks ->
+                    callbacks.add(onReady)
+                    return
                 }
+                pendingShopBoards[state] = mutableListOf(onReady)
+                null
+            }
+        }
+        if (cached != null) {
+            onReady(cached)
+            return
+        }
 
-        activeRenderer.onPortraitSurfaceChanged(
-            PORTRAIT_SIZE,
-            PORTRAIT_SIZE,
-        )
-        activeRenderer.drawPortrait(
-            characterId = characterId,
-            teamColorName = teamColor,
-        )
+        executor.execute {
+            val bitmap = runCatching {
+                val activeRenderer = offscreenRenderer()
+                try {
+                    activeRenderer.onSurfaceChanged(PORTRAIT_SIZE, PORTRAIT_SIZE)
+                    LudoPaws3DCharacterPolicy.bindRenderAssignments(state.snapshot, state.characterIdsBySeat)
+                    activeRenderer.drawFrame(state, nowMillis = 0L)
+                    readFrame()
+                } finally {
+                    LudoPaws3DCharacterPolicy.clearRenderAssignments()
+                    activeRenderer.clearPortraitMeshes()
+                }
+            }.onFailure { Log.w(TAG, "Shop board layer render failed", it) }.getOrNull()
+
+            val callbacks = synchronized(lock) {
+                if (bitmap != null) shopBoardLayers.put(state, bitmap)
+                pendingShopBoards.remove(state).orEmpty()
+            }
+            mainHandler.post {
+                callbacks.forEach { it(bitmap) }
+            }
+        }
+    }
+
+    private fun offscreenRenderer(): LudoPaws3DSceneRenderer =
+        renderer ?: run {
+            // One ES3 pbuffer is reused by both portraits and Shop board layers.
+            if (eglSession == null) eglSession = OffscreenEglSession.create(PORTRAIT_SIZE)
+            LudoPaws3DSceneRenderer().also {
+                it.onPortraitSurfaceCreated()
+                renderer = it
+            }
+        }
+
+    private fun render(characterId: String, teamColor: String): Bitmap? {
+        val activeRenderer = offscreenRenderer()
+        return try {
+            activeRenderer.onPortraitSurfaceChanged(PORTRAIT_SIZE, PORTRAIT_SIZE)
+            activeRenderer.drawPortrait(characterId = characterId, teamColorName = teamColor)
+            readFrame()
+        } finally {
+            activeRenderer.clearPortraitMeshes()
+        }
+    }
+
+    private fun readFrame(): Bitmap? {
         val drawError = GLES30.glGetError()
         check(drawError == GLES30.GL_NO_ERROR) {
-            "3D portrait draw failed for $characterId (0x" + drawError.toString(16) + ")"
+            "Offscreen 3D draw failed (0x${drawError.toString(16)})"
         }
 
         val rgba =
@@ -258,12 +295,9 @@ internal object LudoPawsCharacterPortraitBitmapCache {
         )
         val glError = GLES30.glGetError()
         check(glError == GLES30.GL_NO_ERROR) {
-            "glReadPixels failed for character portrait (0x${glError.toString(16)})"
+            "Offscreen glReadPixels failed (0x${glError.toString(16)})"
         }
 
-        // Readback is finished; no need to retain every animal's GPU meshes
-        // when warming the whole catalog. The bitmap is the reusable result.
-        activeRenderer.clearPortraitMeshes()
         val argb = IntArray(PORTRAIT_SIZE * PORTRAIT_SIZE)
         var paintedPixels = 0
         for (y in 0 until PORTRAIT_SIZE) {
@@ -285,8 +319,7 @@ internal object LudoPawsCharacterPortraitBitmapCache {
             }
         }
 
-        // A successful GL call that produced a blank canvas must not replace
-        // an actual character portrait.
+        // A successful GL call can still produce a blank frame.
         if (paintedPixels < 128) return null
         return Bitmap.createBitmap(
             argb,
