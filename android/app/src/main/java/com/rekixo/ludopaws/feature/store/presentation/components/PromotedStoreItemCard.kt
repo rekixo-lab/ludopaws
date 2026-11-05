@@ -1,9 +1,12 @@
 package com.rekixo.ludopaws.feature.store.presentation.components
 
+import android.content.res.ColorStateList
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.InsetDrawable
+import android.graphics.drawable.RippleDrawable
+import android.graphics.drawable.StateListDrawable
 import android.text.TextUtils
-import android.util.TypedValue
 import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
@@ -39,13 +42,20 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     val details = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER_VERTICAL
+        if (pawSpotlight) setPaddingRelative(0, 0, dp(6), 0)
     }
+    val character = if (item.category == CosmeticCategory.CHARACTER_PACK) {
+        CharacterDefinitions.all.firstOrNull {
+            StoreCosmeticCatalog.characterUnlock(it.character.id)?.id == item.id
+        }?.character
+    } else null
+    val title = if (pawSpotlight) character?.displayName ?: item.title else item.title
     val titleSize = when {
-        pawSpotlight -> 14f
+        pawSpotlight -> 20f
         compact -> 15f
         else -> 16f
     }
-    details.addView(label(item.title, titleSize), LinearLayout.LayoutParams(-1, -2))
+    details.addView(label(title, titleSize), LinearLayout.LayoutParams(-1, -2))
     val preview = when {
         !item.contentAvailable -> label("Preview unavailable", 14f)
         item.category == CosmeticCategory.BOARD &&
@@ -54,13 +64,12 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         item.category == CosmeticCategory.DICE &&
             com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(item.id) != null ->
             StoreCatalogArtwork.dice(context, item.id)
-        else -> {
-            val id = CharacterDefinitions.all.firstOrNull { StoreCosmeticCatalog.characterUnlock(it.character.id)?.id == item.id }?.character?.id
-            if (id == null) label("Preview unavailable", 14f)
-            else StoreCatalogArtwork.paw(context, id)
-        }
+        character != null -> StoreCatalogArtwork.paw(context, character.id)
+        else -> label("Preview unavailable", 14f)
     }
+    val screenWidthDp = resources.configuration.screenWidthDp
     val previewSize = dp(when {
+        pawSpotlight && screenWidthDp in 1..299 -> screenWidthDp * 2 / 5
         pawSpotlight && LudoProofTheme.isCompactWidth(context) -> 120
         pawSpotlight -> 136
         compact -> 82
@@ -74,7 +83,7 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     val subline = when {
         cosmetics.isOwned(item.id) -> "Owned · tap to equip"
         primary == SmartUnlockAction.GEMS ->
-            if (pawSpotlight) "${item.gemPrice} Gems" else "${item.gemPrice} Gems · instant unlock"
+            if (pawSpotlight) "${item.gemPrice} Gems to unlock" else "${item.gemPrice} Gems · instant unlock"
         primary == SmartUnlockAction.PLAY_PRODUCT -> if (pawSpotlight) "Google Play purchase" else "Permanent Google Play unlock"
         primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS ->
             "$done / ${item.requiredAdViews} ads watched"
@@ -82,10 +91,11 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
             if (pawSpotlight) "${item.gemPrice} Gems needed" else "${item.gemPrice} Gems · earn or buy"
         else -> "Choose your unlock"
     }
-    details.addView(label(subline, 11f).apply {
+    details.addView(label(subline, if (pawSpotlight) 12f else 11f).apply {
         setTextColor(0xFF60452D.toInt())
-        maxLines = 1
-    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
+        maxLines = if (pawSpotlight) 2 else 1
+        if (pawSpotlight) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(if (pawSpotlight) 4 else 2) })
     if (item.requiredAdViews > 0 && !cosmetics.isOwned(item.id) &&
         (primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS)) {
         val progress = LinearLayout(context).apply {
@@ -123,32 +133,27 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
     } else actionLabel
     if (item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)) {
         content.isFocusable = true
-        content.contentDescription = "${item.title}. $actionLabel"
+        content.contentDescription = "$title. $actionLabel"
         content.setOnClickListener { activate() }
     }
     val buttonHeight = dp(if (pawSpotlight) 48 else 44)
     details.addView(Button(context).apply {
         text = buttonLabel
-        LudoProofTheme.positive(this)
         if (pawSpotlight) {
-            // Keep the compact button face inside a full-height touch target.
-            background = InsetDrawable(background, 0, dp(6), 0, dp(6))
-            setPaddingRelative(dp(12), dp(6), dp(12), dp(6))
-            minWidth = dp(80)
-            minimumWidth = dp(80)
-            textSize = 13f
-            maxLines = 1
-            ellipsize = TextUtils.TruncateAt.END
-            setAutoSizeTextTypeUniformWithConfiguration(10, 13, 1, TypedValue.COMPLEX_UNIT_SP)
+            stylePawSpotlightAction(this)
             contentDescription = actionLabel
-            elevation = dp(2).toFloat()
+        } else {
+            LudoProofTheme.positive(this)
         }
         minHeight = buttonHeight
         minimumHeight = buttonHeight
         isEnabled = item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
         setOnClickListener { activate() }
-    }, LinearLayout.LayoutParams(if (pawSpotlight) -2 else -1, buttonHeight).apply {
-        topMargin = dp(if (pawSpotlight) 2 else 6)
+    }, LinearLayout.LayoutParams(
+        if (pawSpotlight) -2 else -1,
+        if (pawSpotlight) -2 else buttonHeight,
+    ).apply {
+        topMargin = dp(if (pawSpotlight) 5 else 6)
     })
     if (!cosmetics.isOwned(item.id)) unlockAlternativeLabel(item)?.let { alternative ->
         details.addView(TextView(context).apply {
@@ -156,14 +161,15 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
             textSize = 11.5f
             gravity = if (pawSpotlight) Gravity.START or Gravity.CENTER_VERTICAL else Gravity.CENTER
             setTextColor(0xFF5D422B.toInt())
-            maxLines = 1
+            maxLines = if (pawSpotlight) 2 else 1
             ellipsize = TextUtils.TruncateAt.END
-            minHeight = dp(30)
+            minHeight = dp(if (pawSpotlight) 32 else 30)
+            if (pawSpotlight) setPaddingRelative(0, dp(3), 0, dp(3))
             contentDescription = "Alternative unlock: $alternative"
             setOnClickListener {
                 StoreCosmeticCatalog.find(item.id)?.let { requestAlternateCosmetic(it) }
             }
-        }, LinearLayout.LayoutParams(-1, dp(30)))
+        }, LinearLayout.LayoutParams(-1, if (pawSpotlight) -2 else dp(30)))
     }
     content.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
     addView(content, LinearLayout.LayoutParams(-1, -2))
@@ -176,4 +182,41 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         contentDescription = "Back to full catalog"
         setOnClickListener { promotedCosmeticId = null; renderStore() }
     }, LinearLayout.LayoutParams(-1, dp(32)))
+}
+
+private fun StoreActivity.stylePawSpotlightAction(button: Button) {
+    val enabled = GradientDrawable(
+        GradientDrawable.Orientation.TOP_BOTTOM,
+        intArrayOf(0xFF28644E.toInt(), 0xFF164333.toInt()),
+    ).apply {
+        cornerRadius = dp(11).toFloat()
+        setStroke(dp(1), 0xFFCB9C58.toInt())
+    }
+    val disabled = LudoProofTheme.rounded(
+        0xFF675B4E.toInt(), 11f, 0xFFB29A7D.toInt(), 1f, this,
+    )
+    val surface = StateListDrawable().apply {
+        addState(intArrayOf(-android.R.attr.state_enabled), disabled)
+        addState(intArrayOf(), enabled)
+    }
+    button.apply {
+        isAllCaps = false
+        textSize = 14f
+        typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+        setTextColor(0xFFFFF1D8.toInt())
+        gravity = Gravity.CENTER
+        includeFontPadding = false
+        maxLines = 2
+        ellipsize = TextUtils.TruncateAt.END
+        minWidth = dp(112)
+        maxWidth = dp(180)
+        background = InsetDrawable(
+            RippleDrawable(ColorStateList.valueOf(0x40FFE0A0), surface, null),
+            0, dp(3), 0, dp(3),
+        )
+        backgroundTintList = null
+        stateListAnimator = null
+        elevation = dp(2).toFloat()
+        setPaddingRelative(dp(10), dp(9), dp(10), dp(9))
+    }
 }
