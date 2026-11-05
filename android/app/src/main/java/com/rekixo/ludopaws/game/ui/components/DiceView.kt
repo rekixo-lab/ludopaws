@@ -2,6 +2,7 @@ package com.rekixo.ludopaws
 
 import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
 import com.rekixo.ludopaws.feature.dice.rendering.*
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -73,6 +74,8 @@ class DiceView @JvmOverloads constructor(
     private var rolling = false
     private var settling = false
     private var rollStartedAtMillis = 0L
+    private var rollStartFace = 1
+    private var rollMillisAtSettle = 0L
     private var settleStartedAtMillis = 0L
     private var settleStartRotationDegrees = 18f
     private var targetOutcome = 1
@@ -95,26 +98,15 @@ class DiceView @JvmOverloads constructor(
                 val now = SystemClock.uptimeMillis()
                 when {
                     rolling -> {
-                        val elapsed =
-                            now - rollStartedAtMillis
-                        applyFrame(
-                            DiceRollAnimationPolicy
-                                .rollingFrame(elapsed),
-                        )
+                        if (!usesSpatialRoll) applyFrame(DiceRollAnimationPolicy.rollingFrame(now - rollStartedAtMillis))
                     }
 
                     settling -> {
-                        val frame =
-                            DiceRollAnimationPolicy
-                                .settleFrame(
-                                    elapsedMillis =
-                                        now - settleStartedAtMillis,
-                                    outcome = targetOutcome,
-                                    startRotationDegrees =
-                                        settleStartRotationDegrees,
-                                )
-                        applyFrame(frame)
-                        if (frame.finished) {
+                        val elapsed = now - settleStartedAtMillis
+                        if (!usesSpatialRoll) {
+                            applyFrame(DiceRollAnimationPolicy.settleFrame(elapsed, targetOutcome, settleStartRotationDegrees))
+                        }
+                        if (elapsed >= DiceRollAnimationPolicy.SETTLE_DURATION_MILLIS) {
                             settling = false
                             resetTransform()
                         }
@@ -228,6 +220,9 @@ class DiceView @JvmOverloads constructor(
         }
     }
 
+    internal val usesSpatialRoll: Boolean get() = styleRenderer().usesSpatialRoll
+    internal val isPresentingSpatialRoll: Boolean get() = (rolling || settling) && usesSpatialRoll
+
     fun startRolling() {
         if (rolling) return
         cancelDeferredSettle()
@@ -235,6 +230,7 @@ class DiceView @JvmOverloads constructor(
         cancelAnimationTicker()
         rolling = true
         settling = false
+        rollStartFace = face
         rollStartedAtMillis =
             SystemClock.uptimeMillis()
         contentDescription =
@@ -271,9 +267,6 @@ class DiceView @JvmOverloads constructor(
 
         // Keep offline Robot / Pass & Play transitions intact.
         if (eventKey == null) {
-            targetOutcome = outcome
-            face = outcome
-            contentDescription = "Dice outcome $outcome."
             beginSettle(outcome)
             return
         }
@@ -321,6 +314,9 @@ class DiceView @JvmOverloads constructor(
 
     private fun beginSettle(outcome: Int) {
         val wasRolling = rolling
+        val now = SystemClock.uptimeMillis()
+        rollMillisAtSettle = if (wasRolling) (now - rollStartedAtMillis).coerceAtLeast(0L) else 0L
+        if (!wasRolling) rollStartFace = face
         rolling = false
         cancelAnimationTicker()
         targetOutcome = outcome
@@ -333,7 +329,7 @@ class DiceView @JvmOverloads constructor(
                 18f
             }
         settling = true
-        settleStartedAtMillis = SystemClock.uptimeMillis()
+        settleStartedAtMillis = now
         scheduleAnimationTicker()
     }
 
@@ -433,34 +429,26 @@ class DiceView @JvmOverloads constructor(
             ).toFloat()
         if (size <= 0f) return
 
-        val center = size * .5f
+        val currentRenderer = styleRenderer()
+        val spatial = currentRenderer.usesSpatialRoll
         val saveCount = canvas.save()
-        canvas.translate(
-            0f,
-            size * translationYFraction,
-        )
-        canvas.scale(
-            scale,
-            scale,
-            center,
-            center,
-        )
-        canvas.rotate(
-            rotationDegrees,
-            center,
-            center,
-        )
-
-        val definition = DiceRegistry.resolve(diceStyleId)
-        val currentRenderer = renderer?.takeIf { rendererKey == definition.rendererKey }
-            ?: DiceRendererRegistry.create(definition, resources).also {
-                renderer = it
-                rendererKey = definition.rendererKey
-            }
+        if (!spatial || (!rolling && !settling)) {
+            val center = size * .5f
+            canvas.translate(0f, size * translationYFraction)
+            canvas.scale(scale, scale, center, center)
+            canvas.rotate(rotationDegrees, center, center)
+        }
         val palette = dicePalette()
-        renderFrame.face = face
-        renderFrame.rolling = rolling
-        renderFrame.settling = settling
+        val animate = !spatial || ValueAnimator.areAnimatorsEnabled()
+        renderFrame.face = if (spatial && rolling) rollStartFace else face
+        renderFrame.rolling = rolling && animate
+        renderFrame.settling = settling && animate
+        if (spatial) {
+            val now = SystemClock.uptimeMillis()
+            renderFrame.rollStartFace = rollStartFace
+            renderFrame.rollElapsedMillis = if (rolling) (now - rollStartedAtMillis).coerceAtLeast(0L) else rollMillisAtSettle
+            renderFrame.settleProgress = (now - settleStartedAtMillis).toFloat() / DiceRollAnimationPolicy.SETTLE_DURATION_MILLIS
+        }
         renderFrame.attentionPulsing = attentionPulsing
         renderFrame.borderPulse = borderPulse
         renderFrame.hasTurnDeadline = turnDeadlineElapsedRealtimeMillis != null
@@ -468,6 +456,15 @@ class DiceView @JvmOverloads constructor(
         drawTurnCountdown(canvas, rect, size, palette.borderColor, currentRenderer.usesPerimeterCountdown)
 
         canvas.restoreToCount(saveCount)
+    }
+
+    private fun styleRenderer(): DiceRenderer {
+        val definition = DiceRegistry.resolve(diceStyleId)
+        return renderer?.takeIf { rendererKey == definition.rendererKey }
+            ?: DiceRendererRegistry.create(definition, resources).also {
+                renderer = it
+                rendererKey = definition.rendererKey
+            }
     }
 
     private fun drawTurnCountdown(

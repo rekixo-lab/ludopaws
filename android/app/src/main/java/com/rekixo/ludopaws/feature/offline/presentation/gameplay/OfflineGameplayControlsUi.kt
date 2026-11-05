@@ -376,11 +376,15 @@ internal fun OfflineGameActivity.renderGame(
 
     renderPlayerRails(state)
 
+    val die = diceView
+    val spatialRoll = die?.usesSpatialRoll == true
     val pending = state.pendingRoll
     val latest = state.history.lastOrNull()
     val latestForActive =
         latest?.takeIf {
-            it.playerId == activePlayerId
+            // During the hold the rail still shows the player who just rolled,
+            // including rolls that already passed the turn.
+            it.playerId == activePlayerId || (spatialRoll && blockedRemainingMillis > 0L)
         }
     val presentedEventIndex =
         pending?.eventIndex
@@ -398,9 +402,10 @@ internal fun OfflineGameActivity.renderGame(
             "${state.matchId}:$presentedEventIndex"
         val shouldAnimate =
             presentedDiceEventKey != eventKey
-        diceView?.showOutcome(
+        die?.showOutcome(
             outcome = outcome,
             animate = shouldAnimate,
+            eventKey = eventKey.takeIf { spatialRoll },
         )
         presentedDiceEventKey = eventKey
     } else {

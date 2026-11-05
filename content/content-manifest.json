@@ -309,6 +309,18 @@
       "rendererKey": "starlight"
     },
     {
+      "id": "dice_ember_forge",
+      "folder": "spatial",
+      "definition": "EmberForgeDiceDefinition",
+      "rendererKey": "ember_forge"
+    },
+    {
+      "id": "dice_prism_royal",
+      "folder": "spatial",
+      "definition": "PrismRoyalDiceDefinition",
+      "rendererKey": "prism_royal"
+    },
+    {
       "id": "dice_pumpkin",
       "folder": "pumpkin",
       "definition": "PumpkinDiceDefinition",
@@ -433,6 +445,18 @@
       "key": "starlight",
       "folder": "environment",
       "className": "StarlightDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "ember_forge",
+      "folder": "spatial",
+      "className": "EmberForgeDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "prism_royal",
+      "folder": "spatial",
+      "className": "PrismRoyalDiceRenderer",
       "densityArg": false
     }
   ]

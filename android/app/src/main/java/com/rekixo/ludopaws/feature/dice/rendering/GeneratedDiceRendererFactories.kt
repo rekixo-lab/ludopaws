@@ -9,5 +9,7 @@ internal object GeneratedDiceRendererFactories {
         "lagoon_pearl" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.LagoonDiceRenderer() },
         "frost_crystal" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.FrostDiceRenderer() },
         "starlight" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.StarlightDiceRenderer() },
+        "ember_forge" to { density -> com.rekixo.ludopaws.feature.dice.content.spatial.EmberForgeDiceRenderer() },
+        "prism_royal" to { density -> com.rekixo.ludopaws.feature.dice.content.spatial.PrismRoyalDiceRenderer() },
     )
 }

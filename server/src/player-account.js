@@ -47,6 +47,8 @@ const COSMETICS = Object.freeze({
   dice_lagoon_pearl: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_lagoon_pearl },
   dice_frost_crystal: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_frost_crystal },
   dice_starlight: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_starlight },
+  dice_ember_forge: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_ember_forge },
+  dice_prism_royal: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_prism_royal },
   dice_pumpkin: { category: "DICE", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
   dice_diwali: { category: "DICE", kind: "GEMS", available: false, gemPrice: 50, level: 0, ads: 0 },
   dice_football: { category: "DICE", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },

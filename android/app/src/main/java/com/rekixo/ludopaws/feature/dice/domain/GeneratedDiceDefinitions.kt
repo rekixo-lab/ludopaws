@@ -9,6 +9,8 @@ internal object GeneratedDiceDefinitions {
         com.rekixo.ludopaws.feature.dice.content.environment.LagoonDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.environment.FrostDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.environment.StarlightDiceDefinition.content,
+        com.rekixo.ludopaws.feature.dice.content.spatial.EmberForgeDiceDefinition.content,
+        com.rekixo.ludopaws.feature.dice.content.spatial.PrismRoyalDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.pumpkin.PumpkinDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.diwali.DiwaliDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.football.FootballDiceDefinition.content,
