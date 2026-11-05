@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.friends.presentation
 
 import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
+import com.rekixo.ludopaws.feature.sharing.GAME_SHARE_URL
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
 import android.content.ClipData
@@ -1606,7 +1607,7 @@ class FriendsActivity : Activity() {
             return
         }
         shareText(
-            "Add me on Ludo Paws\nFriend ID: $id\n\n${playStoreUrl()}",
+            "Add me on Ludo Paws\nFriend ID: $id\n\n$GAME_SHARE_URL",
             "Share Friend ID",
         )
     }
@@ -1651,9 +1652,6 @@ class FriendsActivity : Activity() {
         }
         startActivity(Intent.createChooser(intent, chooserTitle))
     }
-
-    private fun playStoreUrl(): String =
-        "https://play.google.com/store/apps/details?id=$packageName"
 
     private fun activeFriendSession(): PlayerSession? =
         sessionStore.load()?.takeIf {

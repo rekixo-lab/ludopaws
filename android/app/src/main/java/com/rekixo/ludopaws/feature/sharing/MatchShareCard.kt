@@ -94,7 +94,7 @@ internal object MatchShareCard {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "image/png"
                     putExtra(Intent.EXTRA_STREAM, uri)
-                    putExtra(Intent.EXTRA_TEXT, "$headline · $subtitle\n$message\nhttps://play.google.com/store/apps/details?id=${activity.packageName}")
+                    putExtra(Intent.EXTRA_TEXT, "$headline · $subtitle\n$message\n$GAME_SHARE_URL")
                     clipData = ClipData.newUri(activity.contentResolver, "Ludo Paws card", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }

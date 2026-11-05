@@ -17,6 +17,8 @@ import android.widget.Toast
 import android.os.Handler
 import android.os.Looper
 import com.rekixo.ludopaws.LudoProofTheme
+import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.feature.sharing.GAME_SHARE_URL
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
@@ -412,8 +414,8 @@ class ReferralActivity : Activity() {
         openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_SUBJECT, "Play Ludo Paws with me")
-            putExtra(Intent.EXTRA_TEXT, "Play Ludo Paws with me!\nhttps://play.google.com/store/apps/details?id=com.rekixo.ludopaws")
-        }, "Share Ludo Paws"))
+            putExtra(Intent.EXTRA_TEXT, getString(R.string.share_game_invite, GAME_SHARE_URL))
+        }, getString(R.string.share_chooser_title)))
     }
 
     private fun act(grant: ConsentGrant? = null) {

@@ -8,6 +8,7 @@
     <string name="home_hero_supporting_copy">Race with talking animal pawns and Verified Fair Dice — online or locally.</string>
     <string name="share_subject" translatable="false">Ludo Paws</string>
     <string name="share_chooser_title">Share Ludo Paws</string>
+    <string name="share_game_invite">Want to play Ludo Paws with me?\n%1$s</string>
     <string name="share_message">Play Ludo Paws — Roll. Race. Roar! Talking animal pawns with Verified Fair Dice online or locally.</string>
     <string name="rate_accessibility_label">Rate Ludo Paws</string>
     <string name="rate_dialog_title">RATE LUDO PAWS</string>
