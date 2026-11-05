@@ -244,11 +244,18 @@ class RewardsActivity : Activity() {
             action(intro, "Recover pending purchase", secondary = true) { perform(JSONObject(pending)) }
         } }
         val rows = snapshot?.optJSONArray("collections")
-        if (rows == null || rows.length() == 0) {
+        val visibleCollections = (0 until (rows?.length() ?: 0)).mapNotNull { index ->
+            rows?.optJSONObject(index)?.takeUnless { collection ->
+                val ids = collection.getJSONArray("items")
+                (0 until ids.length()).any { position ->
+                    com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.isRetiredBoard(ids.getString(position))
+                }
+            }
+        }
+        if (visibleCollections.isEmpty()) {
             val empty = card("Collections are taking a little break", "Connect and refresh to see the items and your current prices.")
             action(empty, "Refresh collections") { load() }
-        } else for (i in 0 until rows.length()) {
-            val item = rows.getJSONObject(i)
+        } else for (item in visibleCollections) {
             val ids = item.getJSONArray("items")
             val missing = item.getJSONArray("missing")
             val collection = card(item.getString("title"))

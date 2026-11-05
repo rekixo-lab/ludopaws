@@ -14,6 +14,7 @@ import baseWorker, {
 } from "./index-forfeit.js";
 import { AccountDirectory } from "./account-directory.js";
 import { PlayerAccount } from "./player-account.js";
+import { RETIRED_BOARD_IDS } from "./cosmetic-pricing.js";
 import {
   billingAccountId,
   hashGoogleSubject,
@@ -594,20 +595,21 @@ export async function handleAccountRequest(request, env) {
         const state = await catalogRequest(env, "/catalog/current");
         const country = requestCatalogCountry(request);
         const now = Date.now();
-        const items = state.items.filter((item) => isCatalogItemAvailable(item, country, now));
+        const items = state.items.filter((item) => !RETIRED_BOARD_IDS.includes(item.id) &&
+          isCatalogItemAvailable(item, country, now));
         // Send item IDs which exist in the canonical catalog but must not be
         // resurrected from the Android's legacy bundled catalog. This exposes no
         // draft details, only opaque stable IDs, and lets archive/schedule/region
         // decisions safely suppress stale built-in offers on clients.
         const visibleIds = new Set(items.map((item) => item.id));
-        const suppressedIds = [...new Set(state.items
-          .filter((item) => !visibleIds.has(item.id))
-          .map((item) => item.id))].sort();
-        // The same catalog version can expose different items when a scheduled
-        // availability window opens or closes. Include the visible ID set so
-        // conditional requests cannot preserve a stale filtered catalog forever.
-        const visibleIdsHash = (await sha256Hex(items.map((item) => item.id).sort().join("\n"))).slice(0, 16);
-        const etag = '"ludopaws-catalog-v' + String(state.catalogVersion) + "-" + country + "-" + visibleIdsHash + '"';
+        const suppressedIds = [...new Set([
+          ...RETIRED_BOARD_IDS,
+          ...state.items.filter((item) => !visibleIds.has(item.id)).map((item) => item.id),
+        ])].sort();
+        // Include both visibility lists so schedule and retirement changes
+        // invalidate cached catalog responses even at the same catalog version.
+        const availabilityHash = (await sha256Hex(JSON.stringify([[...visibleIds].sort(), suppressedIds]))).slice(0, 16);
+        const etag = '"ludopaws-catalog-v' + String(state.catalogVersion) + "-" + country + "-" + availabilityHash + '"';
         const headers = catalogHeaders(etag);
         const supplied = String(request.headers.get("if-none-match") ?? "")
           .split(",").map((value) => value.trim());

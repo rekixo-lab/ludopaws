@@ -137,14 +137,12 @@ class CosmeticInventoryStore(
             null,
         )
             ?.takeIf {
-                StoreCosmeticCatalog
-                    .find(
-                        it,
-                    )
-                    ?.let { item ->
-                        item.category == category &&
-                            item.contentAvailable
-                    } == true
+                val item = if (category == CosmeticCategory.BOARD && StoreCosmeticCatalog.isRetiredBoard(it)) {
+                    StoreCosmeticCatalog.findBuiltIn(it)
+                } else {
+                    StoreCosmeticCatalog.find(it)
+                }
+                item?.let { it.category == category && it.contentAvailable } == true
             }
             ?.takeIf { isOwned(it) }
             ?: StoreCosmeticCatalog

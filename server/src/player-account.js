@@ -5,7 +5,7 @@ import {
   issueAccessToken, newRefreshToken, SESSION_TTL_MS, validRefreshToken, sha256Hex,
 } from "./account-security.js";
 import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
-import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS, LEGACY_PAID_CHARACTER_IDS, INTRODUCTORY_CHARACTER_IDS } from "./cosmetic-pricing.js";
+import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS, LEGACY_PAID_CHARACTER_IDS, INTRODUCTORY_CHARACTER_IDS, RETIRED_BOARD_IDS } from "./cosmetic-pricing.js";
 import { REFERRAL_CAMPAIGN, REFERRAL_REWARD } from "./referral-config.js";
 
 import { createRewardsSchema, rewardsStatus, claimReward, COLLECTIONS, collectionQuote } from "./engagement-rewards.js";
@@ -23,8 +23,9 @@ const COSMETICS = Object.freeze({
   ...Object.fromEntries(PAID_CHARACTER_IDS.map((id) => [id, {
     category: "CHARACTER_PACK", available: true, ...COSMETIC_PRICING[id],
   }])),
-  board_dawn_meadow: { category: "BOARD", available: true, ...COSMETIC_PRICING.board_dawn_meadow },
-  board_moonlit_grove: { category: "BOARD", available: true, ...COSMETIC_PRICING.board_moonlit_grove },
+  board_dawn_meadow: { category: "BOARD", available: false, ...COSMETIC_PRICING.board_dawn_meadow },
+  board_moonlit_grove: { category: "BOARD", available: false, ...COSMETIC_PRICING.board_moonlit_grove },
+  board_sunstone_palace: { category: "BOARD", available: true, ...COSMETIC_PRICING.board_sunstone_palace },
   board_classic: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_astral: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_cloud_lagoon: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
@@ -772,7 +773,10 @@ export class PlayerAccount {
     this.#requireActiveSession(accountId, sessionId);
     const cosmeticId = String(body?.cosmeticId ?? "");
     const cosmetic = await this.#resolveCosmetic(cosmeticId, body?.catalogCountry);
-    if (!cosmetic || !cosmetic.available) throw httpError(400, "COSMETIC_UNAVAILABLE", "this cosmetic is not currently available");
+    // Retired boards keep their existing owners' equip rights.
+    if (!cosmetic || (!cosmetic.available && !RETIRED_BOARD_IDS.includes(cosmeticId))) {
+      throw httpError(400, "COSMETIC_UNAVAILABLE", "this cosmetic is not currently available");
+    }
     this.#requireSupportedCosmeticCategory(cosmetic);
     if ([...this.ctx.storage.sql.exec("SELECT cosmetic_id FROM owned_cosmetics WHERE cosmetic_id = ? LIMIT 1", cosmeticId)].length !== 1) throw httpError(403, "COSMETIC_NOT_OWNED", "this cosmetic is not owned by this account");
     this.ctx.storage.sql.exec("INSERT INTO selected_cosmetics (category, cosmetic_id, updated_at) VALUES (?, ?, ?) ON CONFLICT(category) DO UPDATE SET cosmetic_id = excluded.cosmetic_id, updated_at = excluded.updated_at", cosmetic.category, cosmeticId, Date.now());

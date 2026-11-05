@@ -16,8 +16,11 @@ object StoreCosmeticCatalog {
     const val DEFAULT_CHARACTER_PACK =
         "character_pack_starter_paws"
 
+    private val retiredBoardIds = setOf("board_dawn_meadow", "board_moonlit_grove")
     private val builtInBoards = BoardRegistry.all.map { CosmeticPricing.apply(it.offer) }
     private val builtInDice = DiceRegistry.all.map { CosmeticPricing.apply(it.offer) }
+
+    internal fun isRetiredBoard(id: String): Boolean = id in retiredBoardIds
 
     val characterUnlocks = listOf(
         cosmetic("character_goat_lumi", "LUMI GOAT", CosmeticCategory.CHARACTER_PACK,
@@ -167,7 +170,7 @@ object StoreCosmeticCatalog {
         val visibleBuiltIns = builtIns
             .filterNot { builtIn ->
                 val serverItem = remote[builtIn.id]
-                builtIn.id in hiddenIds ||
+                isRetiredBoard(builtIn.id) || builtIn.id in hiddenIds ||
                     (serverItem != null && serverItem.category != builtIn.category)
             }
             .map { builtIn ->

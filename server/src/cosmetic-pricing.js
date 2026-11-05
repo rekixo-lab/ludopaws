@@ -7,6 +7,8 @@ export const PAID_CHARACTER_IDS = Object.freeze([
   ...INTRODUCTORY_CHARACTER_IDS, ...LEGACY_PAID_CHARACTER_IDS,
 ]);
 
+export const RETIRED_BOARD_IDS = Object.freeze(["board_dawn_meadow", "board_moonlit_grove"]);
+
 export const PAID_BOARD_IDS = Object.freeze([
   "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden",
   "board_winter_haven", "board_monsoon_mire",
@@ -25,6 +27,7 @@ export const COSMETIC_UNLOCK_PRICING = Object.freeze({
   ...COSMETIC_PRICING,
   board_dawn_meadow: Object.freeze({ kind: "GEMS", gemPrice: 250, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   board_moonlit_grove: Object.freeze({ kind: "GEMS", gemPrice: 250, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
+  board_sunstone_palace: Object.freeze({ kind: "GEMS", gemPrice: 300, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   dice_forest_dew: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   dice_lagoon_pearl: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   dice_frost_crystal: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),

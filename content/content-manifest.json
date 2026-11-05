@@ -253,6 +253,12 @@
       "rendererKey": "classic"
     },
     {
+      "id": "board_sunstone_palace",
+      "folder": "sunstone",
+      "definition": "SunstonePalaceBoardDefinition",
+      "rendererKey": "sunstone_palace"
+    },
+    {
       "id": "board_dawn_meadow",
       "folder": "dawn",
       "definition": "DawnMeadowBoardDefinition",
@@ -380,6 +386,11 @@
       "key": "monsoon_mire",
       "folder": "monsoon",
       "className": "MonsoonBoardRenderer"
+    },
+    {
+      "key": "sunstone_palace",
+      "folder": "sunstone",
+      "className": "SunstonePalaceBoardRenderer"
     },
     {
       "key": "meadow_grove",
