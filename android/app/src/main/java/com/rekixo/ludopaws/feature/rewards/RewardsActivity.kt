@@ -5,18 +5,21 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.content.Intent
-import android.graphics.Typeface
 import android.view.Gravity
-import android.widget.Button
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
+import android.view.View
+import android.widget.FrameLayout
+import android.text.Editable
+import android.text.TextWatcher
+import com.rekixo.ludopaws.feature.growth.GrowthUi
+import com.rekixo.ludopaws.feature.growth.GrowthPage
+import com.rekixo.ludopaws.feature.store.presentation.art.GemClusterView
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import com.rekixo.ludopaws.*
-import com.rekixo.ludopaws.feature.account.data.AccountRepository
 import com.rekixo.ludopaws.feature.growth.EngagementStore
 import com.rekixo.ludopaws.feature.growth.GrowthMetrics
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
-import com.rekixo.ludopaws.feature.profile.domain.CharacterMasteryPolicy
 import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
 import com.rekixo.ludopaws.feature.store.data.ads.*
 import com.rekixo.ludopaws.feature.store.data.local.GemWalletStore
@@ -32,6 +35,8 @@ class RewardsActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private val prefs by lazy { getSharedPreferences("reward_requests_v1", MODE_PRIVATE) }
     private lateinit var body: LinearLayout
+    private lateinit var page: GrowthPage
+    private var selectedTab = 0
     private lateinit var message: TextView
     private var snapshot: JSONObject? = null
     private var owner: String? = null
@@ -55,107 +60,201 @@ class RewardsActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
-        val scroll = ScrollView(this).apply { setBackgroundColor(0xFF143B3F.toInt()); isFillViewport = true }
-        body = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(24), dp(20), dp(28)) }
-        scroll.addView(body); setContentView(scroll); render()
+        selectedTab = savedInstanceState?.getInt("rewards_tab", 0)?.coerceIn(0, 2) ?: 0
+        page = GrowthPage(this, "Rewards", onBack = { finish() }, onRefresh = { load() })
+        body = page.body
+        render()
     }
     override fun onResume() { super.onResume(); resumed = true; generation++; ad?.onHostResumed(); load() }
     override fun onPause() { resumed = false; generation++; busy = false; ad?.cancelPendingShow(); handler.removeCallbacks(refresh); handler.removeCallbacks(rollover); super.onPause() }
     override fun onDestroy() { ad?.close(); handler.removeCallbacksAndMessages(null); executor.shutdownNow(); super.onDestroy() }
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
-    private fun text(value: String, size: Float = 15f): TextView = TextView(this).apply {
-        text = value; textSize = size; setTextColor(0xFFFFF1D8.toInt()); setPadding(0, dp(8), 0, dp(8))
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putInt("rewards_tab", selectedTab)
+        super.onSaveInstanceState(outState)
     }
-    private fun button(label: String, enabled: Boolean = true, action: () -> Unit) {
-        body.addView(Button(this).apply {
-            text = label; isAllCaps = false; minHeight = dp(48); isEnabled = enabled && !busy
-            setOnClickListener { action() }
-        }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(5) })
+    private fun copy(value: String, size: Float = 14f, bold: Boolean = false) = GrowthUi.copy(this, value, size, bold)
+    private fun add(parent: LinearLayout, view: View, gap: Int = 10) = GrowthUi.add(parent, view, gap)
+    private fun action(parent: LinearLayout, label: String, enabled: Boolean = true, secondary: Boolean = false, callback: () -> Unit) {
+        add(parent, GrowthUi.button(this, label, primary = !secondary, enabled = enabled && !busy, action = { if (!busy) callback() }))
     }
+    private fun card(title: String, subtitle: String? = null): LinearLayout = GrowthUi.card(this).also {
+        GrowthUi.heading(it, title, subtitle)
+        add(body, it, 14)
+    }
+    private fun timestamp(value: Long) = java.text.DateFormat.getDateTimeInstance(
+        java.text.DateFormat.SHORT, java.text.DateFormat.SHORT).format(java.util.Date(value))
     private fun render() {
+        val previousScroll = page.scroll.scrollY
         body.removeAllViews()
-        body.addView(text("REWARDS & COLLECTIONS", 23f).apply { typeface = Typeface.DEFAULT_BOLD })
-        body.addView(text("Free gifts are optional. Gameplay stays available without claims or ads."))
-        message = text(if (busy) "Checking your rewards…" else "")
-        body.addView(message)
-        if (owner != null && repository.currentSession()?.accountId != owner) {
-            owner = null; snapshot = null
-        }
+        if (owner != null && repository.currentSession()?.accountId != owner) { owner = null; snapshot = null }
         val rewards = snapshot?.optJSONObject("rewards")
         val wallet = snapshot?.optJSONObject("wallet")
-        body.addView(text("Gems: ${wallet?.optInt("balance") ?: GemWalletStore(this).balance()}", 20f))
-        button("Refresh / retry") { load() }
-        owner?.let { account ->
-            prefs.getString("$account:collection", null)?.let { pending ->
-                button("Recover pending collection purchase") { perform(JSONObject(pending)) }
-            }
+        val hero = GrowthUi.card(this)
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        val intro = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        add(intro, GrowthUi.pill(this, "PLAY · COLLECT · ENJOY"), 0)
+        add(intro, copy("Little gifts.\nBig adventures.", 25f, true), 10)
+        add(intro, copy("A little something for your next game.", 13f), 6)
+        row.addView(intro, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(GrowthUi.portrait(this, com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load().characterId),
+            LinearLayout.LayoutParams(dp(88), dp(108)).apply { marginStart = dp(8) })
+        add(hero, row, 0)
+        val balance = wallet?.optInt("balance") ?: GemWalletStore(this).balance()
+        val walletRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        walletRow.addView(GemClusterView(this, 1).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
+        walletRow.addView(copy("$balance Gems", 18f, true), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(6) })
+        walletRow.addView(GrowthUi.pill(this, "YOUR GEMS"), LinearLayout.LayoutParams(-2, -2))
+        add(hero, walletRow, 14); add(body, hero, 0)
+        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        listOf("Gifts", "Challenges", "Collections").forEachIndexed { index, title ->
+            val tab = GrowthUi.button(this, title, primary = selectedTab == index, enabled = !busy && ad?.isBusy != true) {
+                if (!busy && ad?.isBusy != true) { selectedTab = index; page.scroll.scrollTo(0, 0); render() }
+            }.apply { textSize = 13f; isSelected = selectedTab == index; contentDescription = "$title, " + if (selectedTab == index) "selected" else "tab" }
+            tabs.addView(tab, LinearLayout.LayoutParams(0, -2, 1f).apply { if (index > 0) marginStart = dp(5) })
         }
-        if (rewards != null) {
-            val reset = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
-                .format(java.util.Date(rewards.getLong("resetsAt")))
-            body.addView(text("Next free gifts: $reset (your local time)"))
-            button(if (rewards.optBoolean("dailyClaimed")) "Daily gift claimed" else "Claim free daily gift · 3 Gems", !rewards.optBoolean("dailyClaimed")) { claim("daily") }
-            val total = rewards.optInt("dailyClaims")
-            val tier = rewards.optInt("milestoneTier")
-            body.addView(text("$total gifts collected · next milestone at ${rewards.optInt("nextMilestone")}\n" +
-                if (tier > 0) "Garden Friend badge · tier $tier · progress never resets" else "Collect 7 daily gifts for your Garden Friend badge. Missed days do not erase progress."))
-            body.addView(text("DAILY FREE SPIN", 20f))
-            val wheel = RewardWheelView(this).apply { contentDescription = "Reward wheel. Outcomes and chances are listed below. Every free spin wins Gems." }
-            body.addView(wheel, LinearLayout.LayoutParams(-1, dp(220)))
-            button(if (rewards.optBoolean("spinClaimed")) "Spin claimed · ${rewards.optInt("spinGems")} Gems" else "Spin free · once today", !rewards.optBoolean("spinClaimed")) { claim("spin", wheel) }
-            body.addView(text("Every spin wins Gems. Chances: 1 Gem 50% · 2 Gems 30% · 3 Gems 15% · 5 Gems 5%. No money, entry fee or cash prize."))
-            val bonusPending = owner?.let { account -> runCatching { PendingAdRewardStore(this).forAccount(account).any {
-                it.dailyRewardDay == rewards.optLong("day") && !it.abandoned
-            } }.getOrDefault(true) } ?: false
-            button(when { rewards.optBoolean("bonusClaimed") -> "Today's ad bonus claimed"; bonusPending -> "Ad bonus verification pending · Refresh to check"; else -> "Optional: watch one ad for +${rewards.optInt("bonusGems", 2)} Gems" },
-                !rewards.optBoolean("bonusClaimed") && !bonusPending) { bonus() }
-            body.addView(text("Your free gifts do not require an ad. Remove Ads owners can still choose rewarded ads."))
+        add(body, tabs, 16)
+        message = copy(if (busy) "Checking your rewards…" else "", 13f).apply {
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            background = com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground(this@RewardsActivity, 14f)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            visibility = if (text.isBlank()) View.GONE else View.VISIBLE
+            addTextChangedListener(object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE }
+                override fun afterTextChanged(s: Editable?) = Unit
+            })
         }
-        val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).status()
-        body.addView(text("THIS WEEK · ${weekly.title}", 20f))
-        val end = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
-            .format(java.util.Date(weekly.endsAt))
-        body.addView(text("${weekly.goal} · ${weekly.progress}/${weekly.target}\n" +
-            (if (weekly.complete) "Weekly Paws badge earned!" else "Earn a Weekly Paws badge. Wins are optional; all modes count.") +
-            "\nNext challenge: $end (your local time). Badges stay on this device. No fee, ad or purchase required."))
-        button("Share weekly challenge") { com.rekixo.ludopaws.feature.sharing.MatchShareCard.weekly(this, weekly.title, weekly.complete) }
-        button("Play this challenge · Pass & Play") { launchPlayerScreen(Intent(this, OfflineGameActivity::class.java)
-            .putExtra(OfflineGameActivity.EXTRA_GAME_MODE, "PASS_AND_PLAY")) }
-        button("Play with friends") { openGameMode(GameMode.FRIENDS) }
-        val profile = ProfileStore(this).snapshot()
-        val today = EngagementStore(this).todayMatches()
-        val used = profile.characterMatches.count { it.value > 0 }
-        val best = profile.characterMatches.values.maxOrNull() ?: 0
-        body.addView(text("PLAY GOALS", 20f))
-        body.addView(text("Today: complete one match · ${today.coerceAtMost(1)}/1\nMeet three pals · ${used.coerceAtMost(3)}/3\nPlay five matches with a pal · ${best.coerceAtMost(5)}/5\n" +
-            "All modes count. Wins are optional. Build XP, badges and mastery frames as you play. Free gifts are claimed separately."))
-        button("View mastery & badges") { launchPlayerScreen(Intent(this, com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity::class.java)) }
-        body.addView(text("CURATED COLLECTIONS", 20f))
-        body.addView(text("Keep every item you already own. Pay only the discounted cost of missing items. All items are visual; dice odds are unchanged."))
-        snapshot?.optJSONArray("collections")?.let { rows ->
-            for (i in 0 until rows.length()) {
-                val item = rows.getJSONObject(i); val missing = item.getJSONArray("missing")
-                body.addView(text((if (rewards?.optString("featuredCollectionId") == item.optString("id")) "Featured this month · " else "") + item.getString("title"), 18f))
-                body.addView(text((0 until item.getJSONArray("items").length()).joinToString(" · ") { index ->
-                    com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(item.getJSONArray("items").getString(index))?.title
-                        ?: item.getJSONArray("items").getString(index).replace('_', ' ')
-                }))
-                button(if (missing.length() == 0) "Collection owned" else "Unlock missing items · ${item.getInt("price")} Gems", missing.length() > 0) { buy(item) }
-                button("Preview / equip in Shop") {
-                    launchPlayerScreen(Intent(this, StoreActivity::class.java).putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID,
-                        item.getJSONArray("items").getString(0)))
-                }
-            }
+        add(body, message, 10)
+        when (selectedTab) {
+            0 -> gifts(rewards)
+            1 -> challenges()
+            else -> collections(rewards)
         }
-        button("Open Shop · cosmetics, Gems & Remove Ads") { launchPlayerScreen(Intent(this, StoreActivity::class.java)) }
-        button("Quick Match · two paws each") { chooseQuickMatch() }
-        button("Share / invitation progress") { launchPlayerScreen(Intent(this, com.rekixo.ludopaws.feature.referrals.ReferralActivity::class.java)) }
-        button("Back to game menu") { finish() }
+        add(body, copy("Play your way. Gifts and sharing are always optional.", 12f).apply { gravity = Gravity.CENTER }, 20)
         handler.removeCallbacks(rollover)
         if (resumed) {
+            val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).status()
             val next = minOf(weekly.endsAt, rewards?.optLong("resetsAt")?.takeIf { it > 0L } ?: weekly.endsAt)
             handler.postDelayed(rollover, (next - System.currentTimeMillis()).coerceIn(1000L, 86_400_000L))
         }
+        page.scroll.post { if (!isDestroyed) page.scroll.scrollTo(0, previousScroll) }
+    }
+    private fun gifts(rewards: JSONObject?) {
+        if (rewards == null) {
+            val empty = card("Your gifts are waiting", "Connect to check your daily gift and free spin.")
+            add(empty, GemClusterView(this, 3).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, 8)
+            empty.getChildAt(empty.childCount - 1).layoutParams = LinearLayout.LayoutParams(-1, dp(100))
+            action(empty, "Check my gifts") { load() }
+            action(empty, "Play offline", secondary = true) { openGameMode(GameMode.PASS_AND_PLAY) }
+            return
+        }
+        val daily = card("A gift for today", "A few Gems to grow your collection.")
+        val giftRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        giftRow.addView(GemClusterView(this, 3).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(86), dp(82)))
+        val numbers = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        add(numbers, copy("+${rewards.optInt("dailyGems", 3)} Gems", 30f, true), 0)
+        add(numbers, GrowthUi.pill(this, if (rewards.optBoolean("dailyClaimed")) "COLLECTED TODAY" else "FREE DAILY GIFT", rewards.optBoolean("dailyClaimed")), 5)
+        giftRow.addView(numbers, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(12) }); add(daily, giftRow)
+        action(daily, if (rewards.optBoolean("dailyClaimed")) "Gift collected" else "Collect my gift", !rewards.optBoolean("dailyClaimed")) { claim("daily") }
+        val total = rewards.optInt("dailyClaims")
+        val remaining = 7 - total % 7
+        add(daily, copy(if (total > 0 && total % 7 == 0) "Garden Friend badge earned · tier ${rewards.optInt("milestoneTier")}" else "$remaining more daily gifts to your next Garden Friend badge", 13f, true), 14)
+        val progress = GrowthUi.progress(this, if (total > 0 && total % 7 == 0) 7 else total % 7, 7, "$total daily gifts collected")
+        daily.addView(progress, LinearLayout.LayoutParams(-1, dp(10)).apply { topMargin = dp(8) })
+        add(daily, copy("Miss a day? Your badge progress stays.", 12f), 7)
+        val spin = card("Take a little spin", "One free spin each day. Every spin wins Gems.")
+        val wheel = RewardWheelView(this).apply { contentDescription = "Free reward wheel. Possible prizes are 1, 2, 3 or 5 Gems." }
+        if (rewards.optBoolean("spinClaimed")) wheel.stopAt(rewards.optInt("spinGems"), animated = false) {}
+        spin.addView(wheel, LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(8) })
+        action(spin, if (rewards.optBoolean("spinClaimed")) "Collected · ${rewards.optInt("spinGems")} Gems" else "Spin for free", !rewards.optBoolean("spinClaimed")) { claim("spin", wheel) }
+        val odds = LinearLayout(this).apply { gravity = Gravity.CENTER }
+        listOf("1 Gem · 50%", "2 · 30%", "3 · 15%", "5 · 5%").forEach { label ->
+            odds.addView(copy(label, 11f, true).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
+        }
+        add(spin, odds, 12)
+        add(spin, copy("Next free gifts: ${timestamp(rewards.getLong("resetsAt"))} (your time).", 12f), 10)
+        val bonusPending = owner?.let { account -> runCatching { PendingAdRewardStore(this).forAccount(account).any {
+            it.dailyRewardDay == rewards.optLong("day") && !it.abandoned
+        } }.getOrDefault(true) } ?: false
+        val extra = card("A little extra", "An optional ad. Your free gift and spin need no ads.")
+        action(extra, when { rewards.optBoolean("bonusClaimed") -> "Today's bonus collected"; bonusPending -> "Checking your ad reward…"; else -> "Watch an ad · +${rewards.optInt("bonusGems", 2)} Gems" },
+            !rewards.optBoolean("bonusClaimed") && !bonusPending, secondary = true) { bonus() }
+        add(extra, copy("Once per day. Remove Ads owners may also choose this bonus.", 12f), 8)
+        action(extra, "Reward details", secondary = true) {
+            PlywoodAlertDialogBuilder(this).setTitle("Your free gifts")
+                .setMessage("Daily gift: 3 Gems. Free spin chances: 1 Gem 50%, 2 Gems 30%, 3 Gems 15%, 5 Gems 5%. Every spin wins. No entry fee, paid spin or cash prize. Your gift and free spin do not require an ad or purchase.")
+                .setPositiveButton("Got it", null).show()
+        }
+    }
+    private fun challenges() {
+        val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).status()
+        val challenge = card(weekly.title, "THIS WEEK'S PAWS ADVENTURE")
+        add(challenge, GrowthUi.pill(this, if (weekly.complete) "WEEKLY BADGE EARNED" else "WINS ARE OPTIONAL", weekly.complete))
+        add(challenge, copy(weekly.goal, 20f, true), 16)
+        val achievement = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        achievement.addView(com.rekixo.ludopaws.feature.growth.PawsBadgeView(this, weekly.complete), LinearLayout.LayoutParams(dp(90), dp(94)))
+        achievement.addView(copy("${weekly.progress} / ${weekly.target}", 32f, true), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(16) })
+        add(challenge, achievement, 8)
+        challenge.addView(GrowthUi.progress(this, weekly.progress, weekly.target, "${weekly.goal}: ${weekly.progress} of ${weekly.target}"),
+            LinearLayout.LayoutParams(-1, dp(12)).apply { topMargin = dp(8) })
+        add(challenge, copy("All modes count. Earn a Weekly Paws badge for this device.\nNext adventure: ${timestamp(weekly.endsAt)} (your time).", 13f), 12)
+        action(challenge, "Let's play · Pass & Play") { openGameMode(GameMode.PASS_AND_PLAY) }
+        action(challenge, "Share this adventure", secondary = true) { com.rekixo.ludopaws.feature.sharing.MatchShareCard.weekly(this, weekly.title, weekly.complete) }
+        val profile = ProfileStore(this).snapshot()
+        val goals = card("Little goals, happy paws", "XP, badges and mastery grow as you play.")
+        val used = profile.characterMatches.count { it.value > 0 }
+        val best = profile.characterMatches.values.maxOrNull() ?: 0
+        listOf(Triple("Finish a match today", EngagementStore(this).todayMatches(), 1), Triple("Meet three pals", used, 3), Triple("Play five with a pal", best, 5)).forEach { (title, done, target) ->
+            add(goals, copy("$title · ${done.coerceAtMost(target)}/$target", 14f, true), 14)
+            goals.addView(GrowthUi.progress(this, done, target, "$title: ${done.coerceAtMost(target)} of $target"), LinearLayout.LayoutParams(-1, dp(8)).apply { topMargin = dp(6) })
+        }
+        action(goals, "My badges & pals", secondary = true) { launchPlayerScreen(Intent(this, com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity::class.java)) }
+        val play = card("A quick game together", "Two players. Two racing paws each. The same playful Ludo.")
+        val pals = LinearLayout(this).apply { gravity = Gravity.CENTER }
+        listOf("dog", "duck").forEach { pals.addView(GrowthUi.portrait(this, it), LinearLayout.LayoutParams(dp(88), dp(88))) }
+        add(play, pals)
+        action(play, "Quick Match") { chooseQuickMatch() }
+        action(play, "Open Friends", secondary = true) { openGameMode(GameMode.FRIENDS) }
+    }
+    private fun collections(rewards: JSONObject?) {
+        val intro = card("Find your next favourites", "A pal, a board and a little sparkle. Keep what you own; pay only for missing items.")
+        add(intro, GrowthUi.pill(this, "COSMETICS ONLY · SAME DICE ODDS"))
+        owner?.let { account -> prefs.getString("$account:collection", null)?.let { pending ->
+            action(intro, "Recover pending purchase", secondary = true) { perform(JSONObject(pending)) }
+        } }
+        val rows = snapshot?.optJSONArray("collections")
+        if (rows == null || rows.length() == 0) {
+            val empty = card("Collections are taking a little break", "Connect and refresh to see the items and your current prices.")
+            action(empty, "Refresh collections") { load() }
+        } else for (i in 0 until rows.length()) {
+            val item = rows.getJSONObject(i)
+            val ids = item.getJSONArray("items")
+            val missing = item.getJSONArray("missing")
+            val collection = card(item.getString("title"))
+            if (rewards?.optString("featuredCollectionId") == item.optString("id")) add(collection, GrowthUi.pill(this, "IN THE SPOTLIGHT"), 8)
+            val gallery = LinearLayout(this).apply { gravity = Gravity.TOP }
+            for (n in 0 until ids.length()) {
+                val id = ids.getString(n)
+                val tile = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL }
+                val frame = FrameLayout(this).apply {
+                    background = com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground(this@RewardsActivity, 14f)
+                    setPadding(dp(5), dp(5), dp(5), dp(5))
+                    addView(GrowthUi.preview(this@RewardsActivity, id), FrameLayout.LayoutParams(-1, -1))
+                }
+                tile.addView(frame, LinearLayout.LayoutParams(-1, dp(84)))
+                add(tile, copy(com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(id)?.title ?: id.replace('_', ' '), 11f, true).apply { gravity = Gravity.CENTER }, 6)
+                gallery.addView(tile, LinearLayout.LayoutParams(0, -2, 1f).apply { if (n > 0) marginStart = dp(7) })
+            }
+            add(collection, gallery, 14)
+            add(collection, copy("${ids.length() - missing.length()} of ${ids.length()} already yours", 13f), 12)
+            action(collection, if (missing.length() == 0) "Collection complete" else "Unlock missing · ${item.getInt("price")} Gems", missing.length() > 0) { buy(item) }
+            action(collection, "Preview in Shop", secondary = true) {
+                launchPlayerScreen(Intent(this, StoreActivity::class.java).putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, ids.getString(0)))
+            }
+        }
+        action(body, "Explore the Shop", secondary = true) { launchPlayerScreen(Intent(this, StoreActivity::class.java)) }
+        action(body, "Share & friendship rewards", secondary = true) { launchPlayerScreen(Intent(this, com.rekixo.ludopaws.feature.referrals.ReferralActivity::class.java)) }
     }
     private fun load() {
         if (!resumed || busy) return
@@ -169,7 +268,7 @@ class RewardsActivity : Activity() {
         }
         busy = true
         val expectedGeneration = generation
-        if (wheel == null) render()
+        if (wheel == null) render() else message.text = "Preparing your free spin…"
         executor.execute {
             val result = runCatching {
                 val session = repository.ensureGuestSession()
@@ -214,7 +313,13 @@ class RewardsActivity : Activity() {
                         snapshot = null
                     }
                     if (request?.optString("action") == "collection" && error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status == 409) prefs.edit().remove("${expectedOwner}:collection").apply()
-                    render(); message.text = error.message ?: "Rewards are unavailable. Your game remains playable; retry when online."
+                    render()
+                    message.text = when {
+                        error is java.io.IOException -> "Couldn't connect. Your game is ready; try Refresh when you're online."
+                        error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status in setOf(404, 502, 503, 504) ->
+                            "Gifts are taking a little break. You can still play; try Refresh later."
+                        else -> error.message ?: "Couldn't check your gifts. You can still play; try Refresh later."
+                    }
                     if (dayChanged) load()
                 }
             }
@@ -233,7 +338,7 @@ class RewardsActivity : Activity() {
     private fun buy(collection: JSONObject) {
         val quoteOwner = owner ?: return
         val cost = collection.getInt("price")
-        android.app.AlertDialog.Builder(this).setTitle(collection.getString("title"))
+        PlywoodAlertDialogBuilder(this).setTitle(collection.getString("title"))
             .setMessage("Unlock the missing items for $cost Gems? Owned items stay yours.")
             .setNegativeButton("Later", null).setPositiveButton("Unlock") { _, _ ->
                 if (quoteOwner != owner || repository.currentSession()?.accountId != quoteOwner) {
@@ -285,8 +390,8 @@ class RewardsActivity : Activity() {
         }
     }
     private fun chooseQuickMatch() {
-        android.app.AlertDialog.Builder(this).setTitle("Quick Match · two paws per player")
-            .setMessage("A separate local mode. Two players, two racing paws each; the normal board and dice rules stay the same. No wager or wallet reward.")
+        PlywoodAlertDialogBuilder(this).setTitle("Quick Match · two paws per player")
+            .setMessage("Race two paws each. Share this phone with a friend, or play with a Robot. Same fair dice, no entry fee or Gem prize.")
             .setNegativeButton("Later", null)
             .setNeutralButton("Pass & Play") { _, _ -> quick(false) }
             .setPositiveButton("Play with Robot") { _, _ -> quick(true) }.show()

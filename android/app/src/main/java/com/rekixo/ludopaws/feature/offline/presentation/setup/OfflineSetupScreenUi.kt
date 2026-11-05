@@ -76,11 +76,13 @@ internal fun OfflineGameActivity.showSetup() {
             // still owns its small selection/highlight treatment.
             background = null
         }
-    if (quickMatch) content.addView(android.widget.TextView(this).apply {
-        text = "QUICK MATCH · TWO PAWS EACH\nTwo players. Two racing paws each; the other slots start at home."
-        textSize = 16f; gravity = Gravity.CENTER; setTextColor(android.graphics.Color.WHITE)
-        setPadding(dp(8), dp(12), dp(8), dp(12))
-    })
+    if (quickMatch) {
+        val quickIntro = com.rekixo.ludopaws.feature.growth.GrowthUi.card(this)
+        com.rekixo.ludopaws.feature.growth.GrowthUi.heading(quickIntro, "Quick Match", "Two paws race; two start at home. Bring both racing paws home to win.")
+        com.rekixo.ludopaws.feature.growth.GrowthUi.add(quickIntro,
+            com.rekixo.ludopaws.feature.growth.GrowthUi.pill(this, "2 PLAYERS · 2 RACING PAWS EACH"), 10)
+        content.addView(quickIntro, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+    }
     contentHost.addView(
         content,
         FrameLayout.LayoutParams(

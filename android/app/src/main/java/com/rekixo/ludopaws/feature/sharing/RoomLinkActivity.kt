@@ -15,24 +15,32 @@ class RoomLinkActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
-        fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
-        val body = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(36), dp(24), dp(24))
-            setBackgroundColor(0xFF143F43.toInt())
+        val page = com.rekixo.ludopaws.feature.growth.GrowthPage(this, "Play together", onBack = { finish() })
+        val ui = com.rekixo.ludopaws.feature.growth.GrowthUi
+        val card = ui.card(this)
+        val friends = LinearLayout(this).apply { gravity = android.view.Gravity.CENTER }
+        listOf("dog", "duck").forEach { id ->
+            friends.addView(ui.portrait(this, id), LinearLayout.LayoutParams(ui.dp(this, 108), ui.dp(this, 120)))
         }
-        setContentView(ScrollView(this).apply { addView(body) })
-        fun label(value: String) { body.addView(TextView(this).apply {
-            text = value; textSize = 20f; setTextColor(-1); setPadding(0, dp(12), 0, dp(12))
-        }) }
-        label(if (link == null) "This room link is invalid." else "Play together · ${link?.room}")
-        if (link != null) {
-            label("Open your friend's invitation. Full, started or expired rooms may no longer accept players.")
-            body.addView(Button(this).apply {
-                text = "Continue to room"
-                setOnClickListener { FamilyAgeScreen.ensureEntryChoice(this@RoomLinkActivity) { continueToRoom() } }
+        ui.add(card, friends, 0)
+        ui.heading(card, if (link == null) "This invitation needs a refresh" else "Your next game starts with a friend",
+            if (link == null) "Ask your friend for a fresh room link, then open it here." else "A few friendly paws. One happy game together.")
+        link?.let { invitation ->
+            ui.add(card, ui.pill(this, "FRIENDS · PRIVATE ROOM"), 18)
+            ui.add(card, ui.copy(this, invitation.room, 28f, true).apply {
+                gravity = android.view.Gravity.CENTER; typeface = android.graphics.Typeface.MONOSPACE
+                setPadding(0, ui.dp(this@RoomLinkActivity, 12), 0, ui.dp(this@RoomLinkActivity, 12))
+                contentDescription = "Room code: " + invitation.room.toCharArray().joinToString(" ")
+                setTextIsSelectable(true)
             })
+            ui.add(card, ui.button(this, "Open my friend's room") {
+                FamilyAgeScreen.ensureEntryChoice(this@RoomLinkActivity) { continueToRoom() }
+            })
+            ui.add(card, ui.copy(this, "Your invitation will appear in Friends. New friends need the host's approval first.", 13f), 14)
+            ui.add(card, ui.copy(this, "Rooms can fill up, start or expire. Ask for a fresh invitation if this one is no longer available.", 12f), 10)
         }
-        body.addView(Button(this).apply { text = "Close"; setOnClickListener { finish() } })
+        ui.add(card, ui.button(this, "Maybe later", primary = false) { finish() }, 14)
+        ui.add(page.body, card, 10)
     }
     private fun continueToRoom() {
         val target = link ?: return
