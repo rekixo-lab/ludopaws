@@ -295,20 +295,37 @@ internal class GamePawsPromotionView(
             setPadding(dp(12), dp(10), dp(12), dp(10))
             rightCopy.removeAllViews()
             leftCopy.gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            leftCopy.setPadding(dp(2), 0, dp(5), 0)
+            leftCopy.background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF263E4E.toInt(), 0xFF132935.toInt()),
+            ).apply {
+                cornerRadius = dp(15).toFloat()
+                setStroke(dp(1), 0xFFD6AE70.toInt())
+            }
+            leftCopy.setPaddingRelative(dp(10), dp(12), dp(10), dp(12))
             listOf(categoryLabel, name, priceLabel).forEach {
                 it.gravity = Gravity.START or Gravity.CENTER_VERTICAL
             }
-            categoryLabel.letterSpacing = .08f
-            categoryLabel.typeface = Typeface.DEFAULT_BOLD
-            name.typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
-            name.setPadding(0, dp(4), 0, 0)
-            priceLabel.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-            leftCopy.addView(priceLabel, LayoutParams(-1, -2).apply { topMargin = dp(7) })
+            categoryLabel.apply {
+                letterSpacing = .08f
+                typeface = Typeface.DEFAULT_BOLD
+                setTextColor(0xFFF6CE83.toInt())
+            }
+            name.apply {
+                typeface = Typeface.create(Typeface.DEFAULT, 800, false)
+                letterSpacing = -.015f
+                setTextColor(0xFFFFF5DF.toInt())
+                setPadding(0, dp(6), 0, 0)
+            }
+            priceLabel.apply {
+                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+                setTextColor(0xFFC0F0DA.toInt())
+            }
+            leftCopy.addView(priceLabel, LayoutParams(-1, -2).apply { topMargin = dp(8) })
             leftCopy.addView(adProgress.apply {
                 textSize = 11.5f
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                setTextColor(0xFF5C422D.toInt())
+                setTextColor(0xFFE6C998.toInt())
                 maxLines = 1
             }, LayoutParams(-1, -2).apply { topMargin = dp(7) })
             leftCopy.addView(adMeter.apply {
@@ -318,7 +335,9 @@ internal class GamePawsPromotionView(
                 orientation = HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
             }
-            heroRow.addView(leftCopy, LayoutParams(0, -1, 0.55f))
+            heroRow.addView(leftCopy, LayoutParams(0, -2, 0.55f).apply {
+                marginStart = dp(2)
+            })
             heroRow.addView(artwork, LayoutParams(0, -1, 0.45f))
             addView(heroRow, LayoutParams(-1, 0, 1f))
             storeLabel.apply {
@@ -332,11 +351,6 @@ internal class GamePawsPromotionView(
         isClickable = true
         isFocusable = true
         AppFocusRing.apply(this, cornerRadiusDp = 12f)
-        if (!gameplay) {
-            name.setTextColor(0xFF422B1C.toInt())
-            priceLabel.setTextColor(0xFF422B1C.toInt())
-            categoryLabel.setTextColor(0xFF60452D.toInt())
-        }
         applyEnvironmentStyle()
         setOnClickListener {
             val offer = candidates.getOrNull(index) ?: return@setOnClickListener
@@ -592,7 +606,7 @@ internal class GamePawsPromotionView(
             storeLabel.visibility = VISIBLE
         } else {
             name.textSize = if (availableWidth >= dp(315)) 23f else 19f
-            storeLabel.textSize = 15f
+            storeLabel.textSize = 16f
             categoryLabel.textSize = 10f
             priceLabel.textSize = 13f
         }
