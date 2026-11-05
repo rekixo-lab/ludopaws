@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.friends.presentation
 
+import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
 import android.content.ClipData
@@ -1330,11 +1331,14 @@ class FriendsActivity : Activity() {
         runRequest(
             working = working,
             action = {
+                val character = RemoteCharacterAccountSelection.current(this@FriendsActivity, friendToken = auth.friendToken)
                 api.createFriendRoom(
                     friendToken = auth.friendToken,
                     displayName = displayName,
                     clientRequestId = requestId,
                     playerCount = playerCount,
+                    characterId = character.characterId,
+                    characterAccountToken = character.accountToken,
                 )
             },
             onSuccess = success@ { response ->
@@ -1445,11 +1449,14 @@ class FriendsActivity : Activity() {
                 if (authorizedMatchId != matchId) {
                     throw IllegalStateException("Accepted invite does not match the selected room.")
                 }
+                val character = RemoteCharacterAccountSelection.current(this@FriendsActivity, friendToken = auth.friendToken)
                 api.joinMatch(
                     matchId = matchId,
                     displayName = displayName,
                     clientRequestId = requestId,
                     friendJoinToken = accepted.getString("friendJoinToken"),
+                    characterId = character.characterId,
+                    characterAccountToken = character.accountToken,
                 )
             },
             onSuccess = success@ { response ->

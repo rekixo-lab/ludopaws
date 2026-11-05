@@ -59,28 +59,16 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
-    fun shippedBoardsAreAvailableAndDraftBoardsRemainLocked() {
+    fun shippedBoardsOnlyAppearInStore() {
         val boards = StoreCosmeticCatalog.boards
-        assertEquals(15, boards.size)
-        assertEquals(setOf("board_classic", "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"), boards.filter { it.contentAvailable }.map { it.id }.toSet())
-
-        val classic =
-            requireNotNull(
-                StoreCosmeticCatalog.find(StoreCosmeticCatalog.DEFAULT_BOARD),
-            )
-        assertEquals("CLASSIC", classic.title)
-        assertTrue(classic.contentAvailable)
-
-        val lockedBoards =
-            boards.filter {
-                !it.contentAvailable
-            }
-        assertEquals(8, lockedBoards.size)
-        assertTrue(
-            lockedBoards.all {
-                !it.contentAvailable && it.title == "LOCKED BOARD"
-            },
+        assertEquals(7, boards.size)
+        assertEquals(
+            setOf("board_classic", "board_astral", "board_cloud_lagoon",
+                "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"),
+            boards.map { it.id }.toSet(),
         )
+        assertTrue(boards.all { it.contentAvailable })
+        assertEquals("CLASSIC", requireNotNull(StoreCosmeticCatalog.find(StoreCosmeticCatalog.DEFAULT_BOARD)).title)
     }
 
     @Test
@@ -112,10 +100,12 @@ class StoreCosmeticCatalogTest {
         StoreCosmeticCatalog.characterUnlocks.forEach {
             assertTrue(it.contentAvailable)
             if (it.id in setOf("character_goat_lumi", "character_donkey")) {
-                assertEquals(CosmeticUnlockKind.REWARDED_ADS, it.unlockKind)
+                assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
+                assertEquals(if (it.id == "character_goat_lumi") 50 else 75, it.gemPrice)
+                assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS), it.unlockChannels)
             } else {
                 assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
-                assertEquals(300, it.gemPrice)
+                assertEquals(if (it.id in setOf("character_panda", "character_monkey")) 150 else 300, it.gemPrice)
                 assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.PLAY_PRODUCT), it.unlockChannels)
             }
             assertTrue(it.id !in StoreCosmeticCatalog.defaultOwnedIds)
@@ -123,15 +113,55 @@ class StoreCosmeticCatalogTest {
     }
 
     @Test
-    fun starterPawsHasSixReservedFuturePacksThatRemainLocked() {
-        val futurePacks =
-            StoreCosmeticCatalog.characterPacks.filter {
-                it.characterPackId != "starter_paws"
-            }
+    fun unpublishedBoardsDicePawsAndAvatarsAreNotInTheShop() {
+        assertTrue(StoreCosmeticCatalog.boards.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.dice.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.characterPacks.all { it.contentAvailable })
+        assertTrue(StoreCosmeticCatalog.avatars.isEmpty())
+        assertTrue(StoreCosmeticCatalog.all.none { it.category == CosmeticCategory.AVATAR })
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("avatar_2"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("avatar_4"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("board_chess"))
+        assertEquals(null, StoreCosmeticCatalog.findShopItem("dice_diwali"))
+        assertTrue(StoreCosmeticCatalog.findShopItem("board_classic") != null)
+        assertTrue(StoreCosmeticCatalog.findShopItem("character_pack_starter_paws") != null)
+        assertTrue(StoreCosmeticCatalog.boards.none { it.id in setOf("board_chess", "board_diwali", "board_neon") })
+        assertTrue(StoreCosmeticCatalog.dice.none { it.id in setOf("dice_diwali", "dice_heart", "dice_cricket") })
+        assertTrue(StoreCosmeticCatalog.characterPacks.none {
+            it.id.startsWith("character_pack_") && it.id != StoreCosmeticCatalog.DEFAULT_CHARACTER_PACK
+        })
+        // Existing ownership IDs are intentionally recognized, not advertised.
+        assertEquals(100, StoreCosmeticCatalog.findBuiltIn("avatar_2")?.gemPrice)
+        assertEquals(100, StoreCosmeticCatalog.findBuiltIn("avatar_10")?.gemPrice)
+        assertTrue(StoreCosmeticCatalog.DEFAULT_AVATAR in StoreCosmeticCatalog.defaultOwnedIds)
+    }
 
-        assertEquals(6, futurePacks.size)
-        assertTrue(futurePacks.all { !it.contentAvailable })
-        assertTrue(futurePacks.any { it.id == "character_pack_jungle_paws" })
+    @Test
+    fun archivedPaidPawsNeverBecomeFreeAndKeepStableEntitlementIds() {
+        try {
+            StoreCosmeticCatalog.replaceRemoteCatalog(
+                emptyList(),
+                setOf("character_panda", "character_monkey", "character_rabbit", "character_donkey"),
+            )
+            for (id in listOf("panda", "monkey", "rabbit", "donkey")) {
+                assertEquals(null, StoreCosmeticCatalog.characterUnlock(id))
+                assertEquals("character_$id", StoreCosmeticCatalog.characterEntitlementId(id))
+            }
+            for (id in listOf("dog", "cat", "goat", "duck")) {
+                assertEquals(null, StoreCosmeticCatalog.characterEntitlementId(id))
+            }
+        } finally {
+            StoreCosmeticCatalog.clearRemoteCatalog()
+        }
+    }
+
+    @Test
+    fun starterPawsIsTheOnlyPackUntilNewContentShips() {
+        val packIds = StoreCosmeticCatalog.characterPacks.mapNotNull {
+            it.id.takeIf { id -> id.startsWith("character_pack_") }
+        }
+        assertEquals(listOf(StoreCosmeticCatalog.DEFAULT_CHARACTER_PACK), packIds)
+        assertTrue(StoreCosmeticCatalog.findBuiltIn("character_pack_jungle_paws") == null)
     }
 
     @Test
@@ -161,9 +191,8 @@ class StoreCosmeticCatalogTest {
             StoreCosmeticCatalog
                 .all
                 .filter {
-                    it.unlockKind ==
-                        CosmeticUnlockKind
-                            .REWARDED_ADS
+                    it.unlockKind == CosmeticUnlockKind.REWARDED_ADS ||
+                        CosmeticUnlockKind.REWARDED_ADS in it.unlockChannels
                 }
 
         assertTrue(

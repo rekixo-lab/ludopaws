@@ -136,8 +136,7 @@ class StoreCatalogParserTest {
 
             val dynamicItem = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
                 .dice.firstOrNull { it.id == "dice_safari_01" }
-            assertNotNull(dynamicItem)
-            assertFalse(requireNotNull(dynamicItem).contentAvailable)
+            assertEquals(null, dynamicItem) // Coming Soon is not a product listing
             assertFalse(com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find("dice_pumpkin") != null)
             assertNotNull(com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find("dice_classic"))
         } finally {
@@ -169,8 +168,7 @@ class StoreCatalogParserTest {
             )
             val remote = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterPacks
                 .firstOrNull { it.id == "dice_heart" }
-            assertNotNull(remote)
-            assertFalse(requireNotNull(remote).contentAvailable)
+            assertEquals(null, remote) // Unknown assets cannot become Shop cards
         } finally {
             com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.clearRemoteCatalog()
         }

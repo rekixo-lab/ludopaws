@@ -59,7 +59,7 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   }
   const rewardItem = String(environment.LUDOPROOF_ADMOB_REWARD_ITEM ?? "gems").trim() || "gems";
   if (rewardItem !== "gems") {
-    throw new Error('LUDOPROOF_ADMOB_REWARD_ITEM must be "gems"; the Worker only grants the configured five-gem reward.');
+    throw new Error('LUDOPROOF_ADMOB_REWARD_ITEM must be "gems"; the Worker requires a single signed 2-Gem unit.');
   }
   const androidRewardedAdUnitId = String(environment.ADMOB_REWARDED_AD_UNIT_ID ?? "").trim();
   const androidAppId = String(environment.ADMOB_APP_ID ?? "").trim();
@@ -104,6 +104,8 @@ export function buildCloudflareRuntimeVars(existingVars, environment) {
   else delete vars.GOOGLE_PLAY_SERVICE_ACCOUNT_EMAIL;
   if (rewardedAdUnitId) vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID = rewardedAdUnitId;
   else delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID;
+  // Drop any obsolete two-unit configuration from the deployed worker.
+  delete vars.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2;
 
   // Emit a public, non-secret deployment identity so signed releases and
   // smoke tests cannot silently validate an older Cloudflare Worker.

@@ -102,13 +102,11 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
             .apply {
                 visibility = View.GONE
             }
+    // Finished-match scrim and centered card cover the board without
+    // disturbing the established board, rails or action geometry.
     host.addView(
         resultPanel,
-        FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            dp(if (isCompactSetup()) 188 else 220),
-            Gravity.CENTER,
-        ),
+        FrameLayout.LayoutParams(-1, -1, Gravity.CENTER),
     )
 
     boardView =
@@ -209,6 +207,7 @@ internal fun OfflineGameActivity.showGame(snapshot: MatchSnapshot?) {
                 protect(listOfNotNull(topPlayerRail, bottomPlayerRail, boardView))
             }
         } else null,
+        centerContentBelowActions = state.status == "ACTIVE",
         onSettings = {
             showSettingsDialog(
                 this,
@@ -319,63 +318,17 @@ internal fun OfflineGameActivity.gameplayHud(): LinearLayout =
         addView(requireNotNull(infoText))
     }
 
-internal fun OfflineGameActivity.offlineResultPanel(): FrameLayout =
-    FrameLayout(this).apply {
-        clipChildren = false
-        clipToPadding = false
-
-        addView(
-            GameResultArtView(
-                this@offlineResultPanel,
-            ).apply {
-                mode = GameResultArtView.Mode.OFFLINE
-                contentDescription = "Match celebration"
-            },
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-            ),
-        )
-
-        resultTitleText =
-            TextView(
-                this@offlineResultPanel,
-            ).apply {
-                text = "PLAYER WINS"
-                LudoProofTheme.title(
-                    this,
-                    if (isCompactSetup()) 22f else 28f,
-                    gold = true,
-                )
-                gravity = Gravity.CENTER
-                includeFontPadding = false
-                setShadowLayer(
-                    dp(5).toFloat(),
-                    0f,
-                    dp(2).toFloat(),
-                    0xB0000000.toInt(),
-                )
-                contentDescription = "Winner"
-            }
-
-        addView(
-            android.widget.ScrollView(this@offlineResultPanel).apply {
-                isFillViewport = true
-                addView(resultTitleText, FrameLayout.LayoutParams(-1, -2))
-            },
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                Gravity.CENTER,
-            ).apply {
-                leftMargin = dp(18)
-                rightMargin = dp(18)
-                topMargin = dp(12)
-                bottomMargin = dp(12)
-            },
-        )
+internal fun OfflineGameActivity.offlineResultPanel(): FrameLayout {
+    resultCard = LudoPawsResultCard(this)
+    resultTitleText = resultCard.titleView
+    return resultCardOverlay(this, resultCard).apply {
+        // Short original celebration only; the opaque card keeps text legible.
+        addView(GameResultArtView(this@offlineResultPanel).apply {
+            mode = GameResultArtView.Mode.OFFLINE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, 0, FrameLayout.LayoutParams(-1, -1))
     }
-
+}
 
 /** Low-gloss HUD surface tuned for the Pass & Play and Computer game viewport. */
 private fun OfflineGameActivity.offlineGameplayHudBackground(): GradientDrawable =

@@ -232,7 +232,8 @@ jobs:
             const status = JSON.parse(process.argv[1]);
             const billing = process.argv[2] === "true";
             const ads = process.argv[3] === "true";
-            if (status.billingAvailable !== billing || status.rewardedAdsAvailable !== ads) {
+            if (status.billingAvailable !== billing || status.rewardedAdsAvailable !== ads ||
+                status.rewardedAdsV2Available !== ads) {
               console.error("Worker store-status flags do not match the signed Android build configuration.");
               process.exit(2);
             }

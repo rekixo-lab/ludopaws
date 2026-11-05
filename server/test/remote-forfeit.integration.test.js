@@ -347,11 +347,13 @@ test(
     assert.equal(result.response.status, 200, JSON.stringify(result.body));
     assert.equal(result.body.state.status, "ACTIVE");
     assert.equal(result.body.state.turnSeat, 1);
-    assert.ok(result.body.state.turnDeadlineAt > oldDeadline);
+    // Date.now() has millisecond precision; a same-tick exit may reset to the same timestamp.
+    // The next deadline seat must advance, while its deadline must not move backwards.
+    assert.ok(result.body.state.turnDeadlineAt >= oldDeadline);
 
     const stored = await ctx.storage.get("match-state");
     assert.equal(stored.turnDeadlineSeat, 1);
-    assert.ok(stored.turnDeadlineAt > oldDeadline);
+    assert.ok(stored.turnDeadlineAt >= oldDeadline);
   },
 );
 

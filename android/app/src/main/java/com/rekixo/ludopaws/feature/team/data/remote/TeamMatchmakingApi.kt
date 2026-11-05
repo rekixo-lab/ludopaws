@@ -18,10 +18,12 @@ class TeamMatchmakingApi(
         displayName: String,
         clientRequestId: String,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
+        characterAccountToken: String? = null,
     ): JSONObject =
         request(
             path = "/api/team-matchmaking/search",
             profileToken = profileToken,
+            characterAccountToken = characterAccountToken,
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
@@ -55,6 +57,7 @@ class TeamMatchmakingApi(
         path: String,
         profileToken: String,
         body: JSONObject,
+        characterAccountToken: String? = null,
     ): JSONObject {
         require(baseUrl.startsWith("https://")) {
             "LudoProof API must use HTTPS"
@@ -79,6 +82,9 @@ class TeamMatchmakingApi(
                 "User-Agent",
                 "LudoProof-Android/" + BuildConfig.VERSION_NAME,
             )
+            if (characterAccountToken != null) {
+                connection.setRequestProperty("X-LudoProof-Character-Account-Token", characterAccountToken)
+            }
 
             val bytes = body.toString().toByteArray(Charsets.UTF_8)
             require(bytes.size <= MAX_REQUEST_BYTES) {

@@ -96,7 +96,24 @@ export default {
     const startedAt = Date.now();
     try {
       const response = await handleAccountRequest(request, env);
-      return withAccountWebCors(request, await familyResponse(response, env), env);
+      const result = withAccountWebCors(request, await familyResponse(response, env), env);
+      if (result.status >= 500) {
+        // Privacy-safe operational diagnostics; never log query strings, bodies,
+        // authentication headers, Play purchase tokens, or account identifiers.
+        const pathClass = url.pathname === "/api/store/purchases/verify" ? "store.purchase-verify"
+          : url.pathname === "/api/store/status" ? "store.status"
+            : url.pathname === "/api/store/catalog" ? "store.catalog"
+              : ["account", "store", "referrals", "friends", "matches", "leaderboard"]
+                .find(name => url.pathname.startsWith("/api/" + name)) ?? "other";
+        console.error(JSON.stringify({
+          event: "api-server-error",
+          pathClass,
+          method: request.method,
+          status: result.status,
+          elapsedMs: Date.now() - startedAt,
+        }));
+      }
+      return result;
     } finally {
       const elapsedMs = Date.now() - startedAt;
       if (elapsedMs >= 1500) {
@@ -504,6 +521,17 @@ export async function handleAccountRequest(request, env) {
         });
       }
 
+      // Authenticated read only; never accepts an amount/rank or credits currency.
+      if (url.pathname === "/api/wallet/match-reward/status" && request.method === "GET") {
+        await rateLimit(env, request, "wallet:read", ACCOUNT_RATE_LIMITS.wallet);
+        const session = await authenticate(request, env);
+        return await playerResponse(env, session.accountId, "/wallet/match-reward/status", {
+          accountId: session.accountId,
+          sessionId: session.sessionId,
+          matchId: url.searchParams.get("matchId"),
+        });
+      }
+
       if (url.pathname === "/api/wallet/cosmetics/purchase" && request.method === "POST") {
         await rateLimit(env, request, "wallet:cosmetic:purchase", ACCOUNT_RATE_LIMITS.walletMutation);
         const session = await authenticate(request, env);
@@ -514,6 +542,7 @@ export async function handleAccountRequest(request, env) {
           cosmeticId: body.cosmeticId,
           clientRequestId: body.clientRequestId,
           ...(body.unlockChannel != null ? { unlockChannel: body.unlockChannel } : {}),
+          ...(body.expectedGemPrice != null ? { expectedGemPrice: body.expectedGemPrice } : {}),
           catalogCountry: requestCatalogCountry(request),
         });
       }
@@ -534,19 +563,22 @@ export async function handleAccountRequest(request, env) {
         if (env?.LUDOPROOF_ADMOB_SSV_ENABLED !== "true" || !env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID) {
           throw httpError(503, "ADMOB_SSV_NOT_ENABLED", "server-verified ad rewards are not enabled");
         }
-        // The outer account-handler catch logs only safe SSV error code/status on failure.
-        await rateLimit(env, request, "admob:ssv", 120);
+        // Verify Google's ECDSA signature before assigning any player-specific
+        // rate limit. A single shared Google callback IP must never exhaust one
+        // global bucket for unrelated players in 177 supported countries.
         const verified = await verifyAdMobSsvRequest(request, env);
         // AdMob console URL verification must succeed without granting production value.
         if (verified.isTest === true) {
           return json(200, { ok: true, verified: true, test: true, rewardGranted: false });
         }
+        await rateLimitSignedAdMobCallback(env, request, verified.accountId);
         const response = await playerResponse(env, verified.accountId, "/wallet/reward-ad", {
           accountId: verified.accountId,
           transactionId: verified.transactionId,
           requestId: verified.requestId,
           kind: verified.kind,
           dailyTicket: verified.dailyTicket,
+          gemAmount: verified.gemAmount,
           cosmeticId: verified.cosmeticId,
           catalogCountry: requestCatalogCountry(request),
         });
@@ -657,11 +689,14 @@ export async function handleAccountRequest(request, env) {
         const adsReady = capabilities.advertising && env?.LUDOPROOF_ADMOB_SSV_ENABLED === "true" &&
           Boolean(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID) &&
           (env?.LUDOPROOF_ADMOB_REWARD_ITEM == null || env.LUDOPROOF_ADMOB_REWARD_ITEM === "gems");
+        // Backward-compatible v2 flag represents this same 2-Gem placement.
+        const rewardedAdsV2Available = adsReady;
         return json(200, {
           ok: true,
           billingAvailable: billingReady,
           billingChecks,
           rewardedAdsAvailable: adsReady,
+          rewardedAdsV2Available,
         });
       }
 
@@ -1008,10 +1043,25 @@ async function parseInternalResponse(response, fallbackCode) {
   return value;
 }
 
-async function rateLimit(env, request, scope, limit) {
+/**
+ * Invoked only after AdMob's signed user_id has been cryptographically verified.
+ * Keeps unrelated players isolated even when Google delivers SSV from a shared IP.
+ * Failed signatures are never allowed to select rate-limit keys.
+ */
+export async function rateLimitSignedAdMobCallback(env, request, verifiedAccountId) {
+  if (typeof verifiedAccountId !== "string" ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(verifiedAccountId)) {
+    throw httpError(400, "SSV_ACCOUNT_INVALID", "signed reward account is invalid");
+  }
+  return rateLimit(env, request, "admob:ssv", 120, verifiedAccountId.toLowerCase());
+}
+
+async function rateLimit(env, request, scope, limit, verifiedSubject = null) {
   if (!env?.LUDOPROOF_API_GATE) throw httpError(503, "RATE_LIMITER_NOT_CONFIGURED", "API rate limiter is not configured");
-  const ip = request.headers.get("cf-connecting-ip") ?? "unknown";
-  const key = await sha256Hex("ludoproof:api-rate:v1:" + scope + ":" + ip);
+  // Anonymous API traffic remains IP-scoped. A cryptographically signed
+  // callback uses its verified player ID instead of Google's shared IP.
+  const subject = verifiedSubject ?? request.headers.get("cf-connecting-ip") ?? "unknown";
+  const key = await sha256Hex("ludoproof:api-rate:v1:" + scope + ":" + subject);
   const id = env.LUDOPROOF_API_GATE.idFromName(key);
   const target = env.LUDOPROOF_API_GATE.get(id);
   let response;

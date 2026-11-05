@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Typeface
+import android.text.TextUtils
 import android.view.Gravity
 import android.widget.Button
 import android.widget.FrameLayout
@@ -12,9 +13,8 @@ import com.rekixo.ludopaws.LudoPawsBoardChromeView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
-import com.rekixo.ludopaws.core.ui.art.plywoodBackground
-import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind
@@ -26,23 +26,25 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolean = false): LinearLayout = LinearLayout(this).apply {
     orientation = LinearLayout.VERTICAL
     gravity = Gravity.CENTER_HORIZONTAL
-    setPadding(dp(16), dp(12), dp(16), dp(12))
-    background = recessedPlywoodBackground(this@promotedItemCard, outerCornerRadiusDp = 20f)
+    setPadding(dp(10), dp(8), dp(10), dp(8))
+    background = recessedPlywoodBackground(this@promotedItemCard, outerCornerRadiusDp = 16f)
     fun label(value: CharSequence, size: Float) = TextView(context).apply {
-        text = value; textSize = size; gravity = Gravity.CENTER
+        text = value; textSize = size; gravity = Gravity.START or Gravity.CENTER_VERTICAL
+        maxLines = 2; ellipsize = TextUtils.TruncateAt.END; includeFontPadding = false
         setTextColor(0xFF422B1C.toInt())
         typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
     }
-    val horizontal = compact && resources.configuration.screenWidthDp >= 320 && resources.configuration.fontScale < 1.3f
+    // Always use a gallery-style horizontal row: the catalog must stay visible.
+    val horizontal = true
     val content = LinearLayout(context).apply {
         orientation = if (horizontal) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
-        gravity = Gravity.CENTER
+        gravity = Gravity.CENTER_VERTICAL
     }
     val details = LinearLayout(context).apply {
         orientation = LinearLayout.VERTICAL
-        gravity = Gravity.CENTER_HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
     }
-    if (compact) details.addView(label(item.title, 18f), LinearLayout.LayoutParams(-1, -2))
+    details.addView(label(item.title, if (compact) 15f else 16f), LinearLayout.LayoutParams(-1, -2))
     val preview = when {
         !item.contentAvailable -> label("Preview unavailable", 14f)
         item.category == CosmeticCategory.BOARD && com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(item.id) != null -> FrameLayout(context).apply {
@@ -60,48 +62,82 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
             else LudoPawsCharacterAvatarView(context).apply { bind(id, showCircularChrome = false) }
         }
     }
-    if (!compact) {
-        addView(label(item.title, 22f), LinearLayout.LayoutParams(-1, -2))
-    }
-    content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 100 else 150), dp(if (compact) 100 else 150)).apply {
-        topMargin = dp(8); bottomMargin = dp(8)
-        if (horizontal) marginEnd = dp(12)
+    content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 82 else 92), dp(if (compact) 82 else 92)).apply {
+        if (horizontal) marginEnd = dp(10)
     })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
-    if (item.requiredAdViews > 0) details.addView(label("$done / ${item.requiredAdViews} verified ads completed", 14f))
-    if (item.gemPrice > 0) details.addView(label(CosmeticPriceLabels.gems(context, item.gemPrice), 16f))
-    if (item.unlockKind == CosmeticUnlockKind.PLAY_PRODUCT || CosmeticUnlockKind.PLAY_PRODUCT in item.unlockChannels)
-        details.addView(label("Google Play: ${cosmeticPlayPrice(item.id)}", 14f))
-    val adsOnlyUnavailable = item.requiredAdViews > done && item.gemPrice == 0 &&
-        item.unlockChannels.size <= 1 && !BuildConfig.LUDOPROOF_ADS_ENABLED && !cosmetics.isOwned(item.id)
-    details.addView(Button(context).apply {
-        text = when {
-            !item.contentAvailable -> "Unavailable"
-            cosmetics.isOwned(item.id) -> "Select item"
-            !item.purchaseAvailable || !com.rekixo.ludopaws.ConnectivityMonitor(context) { }.isOnline() -> "Connect to unlock"
-            adsOnlyUnavailable -> "Ads unavailable"
-            item.unlockChannels.size > 1 -> "Unlock options"
-            item.requiredAdViews > done -> "Watch ad · ${item.requiredAdViews - done} remaining"
-            else -> "Unlock item"
+    val primary = smartUnlockDecision(item).primary
+    val subline = when {
+        cosmetics.isOwned(item.id) -> "Owned · tap to equip"
+        primary == SmartUnlockAction.GEMS -> "${item.gemPrice} Gems · instant unlock"
+        primary == SmartUnlockAction.PLAY_PRODUCT -> "Permanent Google Play unlock"
+        primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS ->
+            "$done / ${item.requiredAdViews} ads watched"
+        primary == SmartUnlockAction.GET_GEMS -> "${item.gemPrice} Gems · earn or buy"
+        else -> "Choose your unlock"
+    }
+    details.addView(label(subline, 11f).apply {
+        setTextColor(0xFF60452D.toInt())
+        maxLines = 1
+    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) })
+    if (item.requiredAdViews > 0 && !cosmetics.isOwned(item.id) &&
+        (primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS)) {
+        val progress = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFFD7B68B.toInt())
+                cornerRadius = dp(4).toFloat()
+            }
         }
+        progress.addView(android.view.View(context).apply {
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xFF5AA63D.toInt())
+                cornerRadius = dp(4).toFloat()
+            }
+        }, LinearLayout.LayoutParams(0, dp(4), done.toFloat()))
+        progress.addView(android.view.View(context), LinearLayout.LayoutParams(
+            0, dp(4), (item.requiredAdViews - done).coerceAtLeast(0).toFloat(),
+        ))
+        details.addView(progress, LinearLayout.LayoutParams(-1, dp(4)).apply { topMargin = dp(5) })
+    }
+    details.addView(Button(context).apply {
+        text = smartUnlockLabel(item)
         isAllCaps = false
+        textSize = 13f
         LudoProofTheme.positive(this)
-        minHeight = dp(48)
-        isEnabled = item.contentAvailable && !adsOnlyUnavailable
+        minHeight = dp(44)
+        minimumHeight = dp(44)
+        isEnabled = item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
         setOnClickListener {
             val current = StoreCosmeticCatalog.find(item.id)
-            if (current == null || !current.contentAvailable) showStoreMessage("This item is no longer available. Refresh the catalog.")
+            if (current == null || !current.contentAvailable) showStoreMessage("This item is unavailable. Refresh the catalog.")
             else handleCosmeticTap(current)
         }
-    }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
+    }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
+    if (!cosmetics.isOwned(item.id)) unlockAlternativeLabel(item)?.let { alternative ->
+        details.addView(TextView(context).apply {
+            text = if (alternative == "Get Gems to Unlock") "Or get Gems ›" else "Or $alternative ›"
+            textSize = 11.5f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF5D422B.toInt())
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            minHeight = dp(30)
+            contentDescription = "Alternative unlock: $alternative"
+            setOnClickListener {
+                StoreCosmeticCatalog.find(item.id)?.let { requestAlternateCosmetic(it) }
+            }
+        }, LinearLayout.LayoutParams(-1, dp(30)))
+    }
     content.addView(details, if (horizontal) LinearLayout.LayoutParams(0, -2, 1f) else LinearLayout.LayoutParams(-1, -2))
     addView(content, LinearLayout.LayoutParams(-1, -2))
-    if (!compact) addView(Button(context).apply {
-        text = "Back to catalog"; isAllCaps = false
-        setTextColor(0xFF422B1C.toInt())
-        backgroundTintList = null
-        background = plywoodBackground(context, cornerRadiusDp = 14f)
-        minHeight = dp(48)
+    if (!compact) addView(TextView(context).apply {
+        text = "All items ›"
+        textSize = 12f
+        gravity = Gravity.CENTER
+        setTextColor(0xFF60452D.toInt())
+        minHeight = dp(32)
+        contentDescription = "Back to full catalog"
         setOnClickListener { promotedCosmeticId = null; renderStore() }
-    }, LinearLayout.LayoutParams(-1, -2))
+    }, LinearLayout.LayoutParams(-1, dp(32)))
 }

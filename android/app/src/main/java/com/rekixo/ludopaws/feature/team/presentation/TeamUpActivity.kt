@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.team.presentation
 
+import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import android.content.Intent
@@ -828,11 +829,13 @@ class TeamUpActivity : ComponentActivity() {
             action = {
                 val credential = ensureLeaderboardCredential()
                 ticketStore.bindOwner(ticket.requestId)
+                val character = RemoteCharacterAccountSelection.current(this@TeamUpActivity, leaderboardProfileToken = credential.profileToken)
                 api.search(
                     profileToken = credential.profileToken,
                     displayName = ticket.displayName,
                     clientRequestId = ticket.requestId,
-                    characterId = selectedCharacterId,
+                    characterId = character.characterId,
+                    characterAccountToken = character.accountToken,
                 )
             },
             onSuccess = ::applyMatchmakingResponse,

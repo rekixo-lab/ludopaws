@@ -175,6 +175,7 @@ internal fun OfflineGameActivity.showSetup() {
                         preferredColor = if (isComputerMode) selectedColor
                             else selectedColorsBySeat.first(),
                         colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
+                        humanCount = if (isComputerMode) selectedHumans else selectedPlayers,
                     ),
                 )
             }
@@ -273,7 +274,7 @@ internal fun OfflineGameActivity.setupHero(): FrameLayout =
             TextView(this@setupHero).apply {
                 text =
                     if (isComputerMode) {
-                        "Pick a paw and challenge the computer"
+                        "Choose your paw and each computer opponent"
                     } else {
                         "Pick your paws and play together"
                     }

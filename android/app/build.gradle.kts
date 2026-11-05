@@ -50,11 +50,11 @@ val admobAppId =
         .get()
 val admobRewardedAdUnitId =
     providers.gradleProperty("ADMOB_REWARDED_AD_UNIT_ID")
-        .orElse("ca-app-pub-9987799703505828/9430436252")
+        .orElse("ca-app-pub-9987799703505828/2670544646")
         .get()
 val admobInterstitialAdUnitId =
     providers.gradleProperty("ADMOB_INTERSTITIAL_AD_UNIT_ID")
-        .orElse("")
+        .orElse("ca-app-pub-9987799703505828/9874247247")
         .get()
 require(admobAppId.isNotBlank()) {
     "ADMOB_APP_ID must not be blank."

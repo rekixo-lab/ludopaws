@@ -13,12 +13,12 @@ function rawToDer(raw) {
   const body = Buffer.concat([part(raw.subarray(0, raw.length / 2)), part(raw.subarray(raw.length / 2))]);
   return Buffer.concat([Buffer.from([0x30, body.length]), body]);
 }
-async function signedRequest({ privateKey, keyId, accountId, adUnit, customData, timestamp, transactionId }) {
+async function signedRequest({ privateKey, keyId, accountId, adUnit, customData, timestamp, transactionId, rewardAmount = 2 }) {
   const params = new URLSearchParams();
   params.append("ad_network", "5450213213286189855");
   params.append("ad_unit", adUnit);
   params.append("custom_data", customData);
-  params.append("reward_amount", "5");
+  params.append("reward_amount", String(rewardAmount));
   params.append("reward_item", "gems");
   params.append("timestamp", String(timestamp));
   params.append("transaction_id", transactionId);
@@ -47,10 +47,10 @@ test("AdMob SSV accepts the numeric ad_unit identifier corresponding to the conf
   const result = await verifyAdMobSsvRequest(
     request, { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-123/456" }, fetchImpl, now,
   );
-  assert.deepEqual(result, { accountId, transactionId: tx, kind: "gems", cosmeticId: null, timestamp: now });
+  assert.deepEqual(result, { accountId, transactionId: tx, gemAmount: 2, kind: "gems", cosmeticId: null, timestamp: now });
 
   await assert.rejects(
-    verifyAdMobSsvRequest(new Request(request.url.replace("reward_amount=5", "reward_amount=50")),
+    verifyAdMobSsvRequest(new Request(request.url.replace("reward_amount=2", "reward_amount=50")),
       { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-123/456" }, fetchImpl, now),
   );
   await assert.rejects(
@@ -65,6 +65,27 @@ test("AdMob SSV accepts the numeric ad_unit identifier corresponding to the conf
     ),
     (error) => error.code === "SSV_REWARD_INVALID",
   );
+});
+
+test("single 2-Gem unit rejects deleted 5-Gem placement and signed amount mismatches", async () => {
+  const pair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const spki = await crypto.subtle.exportKey("spki", pair.publicKey);
+  const fetchImpl = async () => Response.json({ keys: [{ keyId: 700, base64: base64(spki) }] });
+  const now = Date.now(), accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const env = { LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-1234567890123456/0000000002" };
+  const sign = (adUnit, rewardAmount, transactionId) => signedRequest({
+    privateKey: pair.privateKey, keyId: 700, accountId, adUnit, rewardAmount,
+    customData: JSON.stringify({ kind: "cosmetic", cosmeticId: "character_goat_lumi" }),
+    timestamp: now, transactionId,
+  });
+  const result = await verifyAdMobSsvRequest(await sign("0000000002", 2, "a".repeat(32)), env, fetchImpl, now);
+  assert.equal(result.gemAmount, 2);
+  assert.equal(result.kind, "cosmetic");
+  assert.equal(result.cosmeticId, "character_goat_lumi");
+  await assert.rejects(verifyAdMobSsvRequest(await sign("0000000002", 5, "b".repeat(32)),
+    env, fetchImpl, now), error => error.code === "SSV_REWARD_INVALID");
+  await assert.rejects(verifyAdMobSsvRequest(await sign("0000000005", 2, "c".repeat(32)),
+    env, fetchImpl, now), error => error.code === "SSV_AD_UNIT_INVALID");
 });
 
 test("AdMob SSV refuses callback from a different configured ad unit", async () => {

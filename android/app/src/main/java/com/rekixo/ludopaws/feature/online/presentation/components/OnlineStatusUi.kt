@@ -66,104 +66,24 @@ internal fun MainActivity.onlineMatchStatusPanel(): LinearLayout =
         addView(playersText)
     }
 
-internal fun MainActivity.onlineResultPanel(): FrameLayout =
-    FrameLayout(this).apply {
-        val height =
-            dp(
-                if (isCompactOnline()) {
-                    190
-                } else {
-                    210
-                },
-            )
+internal fun MainActivity.onlineResultPanel(): FrameLayout {
+    resultCard = LudoPawsResultCard(this)
+    resultTitleText = resultCard.titleView
+    resultSubtitleText = resultCard.subtitleView
+    return resultCardOverlay(this, resultCard, reserveBottomDp = 96).apply {
+        addView(GameResultArtView(this@onlineResultPanel).apply {
+            mode = GameResultArtView.Mode.ONLINE
+            importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }, 0, FrameLayout.LayoutParams(-1, -1))
 
-        addView(
-            GameResultArtView(
-                this@onlineResultPanel,
-            ).apply {
-                mode = GameResultArtView.Mode.ONLINE
-            },
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                height,
-            ),
-        )
-
-        val copy =
-            LinearLayout(
-                this@onlineResultPanel,
-            ).apply {
-                orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(
-                    dp(if (isCompactOnline()) 108 else 142),
-                    dp(12),
-                    dp(12),
-                    dp(12),
-                )
-
-                addView(
-                    TextView(
-                        this@onlineResultPanel,
-                    ).apply {
-                        text = "MATCH COMPLETE"
-                        LudoProofTheme.body(
-                            this,
-                            9.5f,
-                            bright = true,
-                        )
-                        setTextColor(0xFF68E8FF.toInt())
-                    },
-                )
-
-                resultTitleText =
-                    TextView(
-                        this@onlineResultPanel,
-                    ).apply {
-                        text = "WINNER"
-                        LudoProofTheme.title(
-                            this,
-                            if (isCompactOnline()) 20f else 23f,
-                            gold = true,
-                        )
-                        gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                        setPadding(0, dp(3), 0, 0)
-                    }
-                addView(resultTitleText)
-
-                resultSubtitleText =
-                    TextView(
-                        this@onlineResultPanel,
-                    ).apply {
-                        text = "Verified result"
-                        LudoProofTheme.body(
-                            this,
-                            if (isCompactOnline()) 10f else 11f,
-                            bright = true,
-                        )
-                        gravity = Gravity.START
-                        setPadding(0, dp(3), 0, 0)
-                    }
-                addView(resultSubtitleText)
-            }
-
-        addView(
-            android.widget.ScrollView(this@onlineResultPanel).apply {
-                isFillViewport = true
-                addView(copy, FrameLayout.LayoutParams(-1, -2))
-            },
-            FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                height,
-            ),
-        )
         val actions = LinearLayout(this@onlineResultPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(4), dp(4), dp(4), 0)
+            setPadding(dp(4), 0, dp(4), 0)
         }
         actions.addView(android.widget.Button(this@onlineResultPanel).apply {
             text = "SHARE"
+            isAllCaps = false
             LudoProofTheme.secondary(this)
             setOnClickListener {
                 currentState?.let { state -> com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(
@@ -171,22 +91,34 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout =
                         "TEAM_UP" -> "Team Up"; "FRIENDS" -> "Friends"; else -> "Online"
                     }, playerId) }
             }
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(5) })
         actions.addView(android.widget.Button(this@onlineResultPanel).apply {
             text = if (gameMode == GameMode.FRIENDS) "INVITE AGAIN" else "PLAY AGAIN"
+            isAllCaps = false
             LudoProofTheme.positive(this)
             setOnClickListener {
                 if (currentState?.status != "FINISHED" || !canSubmitOnlineGameplayAction()) return@setOnClickListener
                 val mode = gameMode
-                openGameMode(mode, resumeSavedMatch = false,
-                    beforeLaunch = { runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false) },
-                    onLaunched = { finish() })
+                openGameMode(
+                    mode,
+                    resumeSavedMatch = false,
+                    beforeLaunch = {
+                        runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false)
+                    },
+                    onLaunched = { finish() },
+                )
             }
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(7) })
         actions.addView(android.widget.Button(this@onlineResultPanel).apply {
             text = "HOME"
+            isAllCaps = false
             LudoProofTheme.secondary(this)
             setOnClickListener { requestRemoteExitAfterWinInterstitial() }
-        }, LinearLayout.LayoutParams(0, dp(48), 1f))
-        addView(actions, FrameLayout.LayoutParams(-1, dp(56)).apply { topMargin = height })
+        }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        addView(actions, FrameLayout.LayoutParams(
+            minOf(dp(360), resources.displayMetrics.widthPixels - dp(28)),
+            dp(52),
+            Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL,
+        ).apply { bottomMargin = dp(36) })
     }
+}

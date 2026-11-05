@@ -44,6 +44,7 @@ class LocalMatchSession(
         playerCount: Int,
         preferredColor: String,
         colorsBySeat: List<String>? = null,
+        humanCount: Int = 1,
         quickMatch: Boolean = false,
     ): MatchSnapshot {
         MatchSpec.classic(
@@ -62,6 +63,7 @@ class LocalMatchSession(
                     preferredColor,
                 colorsBySeat = colorsBySeat,
                 quickMatch = quickMatch,
+                humanCount = humanCount,
             ),
         )
     }

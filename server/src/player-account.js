@@ -5,7 +5,7 @@ import {
   issueAccessToken, newRefreshToken, SESSION_TTL_MS, validRefreshToken, sha256Hex,
 } from "./account-security.js";
 import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
-import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS } from "./cosmetic-pricing.js";
+import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS, LEGACY_PAID_CHARACTER_IDS, INTRODUCTORY_CHARACTER_IDS } from "./cosmetic-pricing.js";
 import { REFERRAL_CAMPAIGN, REFERRAL_REWARD } from "./referral-config.js";
 
 import { createRewardsSchema, rewardsStatus, claimReward, COLLECTIONS, collectionQuote } from "./engagement-rewards.js";
@@ -33,22 +33,22 @@ const COSMETICS = Object.freeze({
   board_winter_haven: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_monsoon_mire: { category: "BOARD", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   board_checkers: { category: "BOARD", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
-  board_chess: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
-  board_diwali: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
-  board_denim: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
-  board_neon: { category: "BOARD", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 10, ads: 20 },
-  board_pirate: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 200, level: 16, ads: 0 },
-  board_alien: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 22, ads: 0 },
+  board_chess: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 50, level: 0, ads: 0 },
+  board_diwali: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },
+  board_denim: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },
+  board_neon: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 150, level: 0, ads: 0 },
+  board_pirate: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
+  board_alien: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   board_penguin: { category: "BOARD", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
   dice_classic: { category: "DICE", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   dice_pearl_paw: { category: "DICE", available: true, ...COSMETIC_PRICING.dice_pearl_paw },
   dice_pumpkin: { category: "DICE", kind: "FREE", available: false, gemPrice: 0, level: 0, ads: 0 },
-  dice_diwali: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 5 },
-  dice_football: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
-  dice_cricket: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 20 },
-  dice_summers: { category: "DICE", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 30 },
-  dice_colors: { category: "DICE", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
-  dice_heart: { category: "DICE", kind: "GEMS", available: false, gemPrice: 250, level: 0, ads: 0 },
+  dice_diwali: { category: "DICE", kind: "GEMS", available: false, gemPrice: 50, level: 0, ads: 0 },
+  dice_football: { category: "DICE", kind: "GEMS", available: false, gemPrice: 75, level: 0, ads: 0 },
+  dice_cricket: { category: "DICE", kind: "GEMS", available: false, gemPrice: 100, level: 0, ads: 0 },
+  dice_summers: { category: "DICE", kind: "GEMS", available: false, gemPrice: 150, level: 0, ads: 0 },
+  dice_colors: { category: "DICE", kind: "GEMS", available: false, gemPrice: 150, level: 0, ads: 0 },
+  dice_heart: { category: "DICE", kind: "GEMS", available: false, gemPrice: 200, level: 0, ads: 0 },
   avatar_9: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_4: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_3: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
@@ -57,14 +57,14 @@ const COSMETICS = Object.freeze({
   avatar_7: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_1: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   avatar_8: { category: "AVATAR", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
-  avatar_2: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 500, level: 0, ads: 0 },
-  avatar_10: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 500, level: 0, ads: 0 },
-  character_goat_lumi: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 10 },
-  character_donkey: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: true, gemPrice: 0, level: 0, ads: 15 },
+  avatar_2: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 100, level: 0, ads: 0 },
+  avatar_10: { category: "AVATAR", kind: "GEMS", available: true, gemPrice: 100, level: 0, ads: 0 },
+  character_goat_lumi: { category: "CHARACTER_PACK", kind: "GEMS", available: true, gemPrice: 50, level: 0, ads: 10, channels: ["GEMS", "REWARDED_ADS"] },
+  character_donkey: { category: "CHARACTER_PACK", kind: "GEMS", available: true, gemPrice: 75, level: 0, ads: 15, channels: ["GEMS", "REWARDED_ADS"] },
   character_pack_starter_paws: { category: "CHARACTER_PACK", kind: "FREE", available: true, gemPrice: 0, level: 0, ads: 0 },
   character_pack_safari_paws: { category: "CHARACTER_PACK", kind: "LEVEL", available: false, gemPrice: 0, level: 8, ads: 0 },
   character_pack_farm_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 300, level: 0, ads: 0 },
-  character_pack_cozy_paws: { category: "CHARACTER_PACK", kind: "REWARDED_ADS", available: false, gemPrice: 0, level: 0, ads: 10 },
+  character_pack_cozy_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 100, level: 0, ads: 0 },
   character_pack_wild_paws: { category: "CHARACTER_PACK", kind: "EVENT", available: false, gemPrice: 0, level: 0, ads: 0 },
   character_pack_pet_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 450, level: 0, ads: 0 },
   character_pack_jungle_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 550, level: 0, ads: 0 },
@@ -111,10 +111,20 @@ export class PlayerAccount {
         if ([...sql.exec("SELECT account_id FROM account_meta LIMIT 1")].length &&
             ![...sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 1 LIMIT 1")].length) {
           const now = Date.now();
-          for (const id of PAID_CHARACTER_IDS) {
+          for (const id of LEGACY_PAID_CHARACTER_IDS) {
             sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
           }
           sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (1, ?)", now);
+        }
+        // Panda and Monkey were freely selectable in previous Android releases.
+        // Existing accounts retain that access; newly created accounts must unlock.
+        if ([...sql.exec("SELECT account_id FROM account_meta LIMIT 1")].length &&
+            ![...sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 2 LIMIT 1")].length) {
+          const now = Date.now();
+          for (const id of INTRODUCTORY_CHARACTER_IDS) {
+            sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
+          }
+          sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (2, ?)", now);
         }
       });
     });
@@ -133,6 +143,7 @@ export class PlayerAccount {
       if (request.method === "POST" && url.pathname === "/profile/update") return await this.#updateProfile(request);
       if (request.method === "POST" && url.pathname === "/engagement") return await this.#engagement(request);
       if (request.method === "POST" && url.pathname === "/wallet/get") return await this.#getWallet(request);
+      if (request.method === "POST" && url.pathname === "/wallet/match-reward/status") return await this.#matchRewardStatus(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-revoke") return await this.#revokePlayPurchase(request);
       if (request.method === "POST" && url.pathname === "/wallet/referral-bundle") return await this.#grantReferralBundle(request);
       if (request.method === "POST" && url.pathname === "/wallet/play-purchase") return await this.#grantPlayPurchase(request);
@@ -354,6 +365,29 @@ export class PlayerAccount {
     return json(200, { ok: true, wallet: this.#walletSnapshot(accountId) });
   }
 
+  // Read-only, account-scoped receipt. A planned match reward is NOT proof of
+  // delivery; never report Credited until the wallet ledger actually contains it.
+  async #matchRewardStatus(request) {
+    const body = await readJson(request);
+    const accountId = requireAccountId(body?.accountId);
+    const sessionId = requireSessionId(body?.sessionId);
+    this.#requireActiveSession(accountId, sessionId);
+    const matchId = String(body?.matchId ?? "");
+    if (!/^LP[A-Z2-9]{8}$/.test(matchId)) {
+      throw httpError(400, "MATCH_REWARD_ID_INVALID", "match ID is invalid");
+    }
+    const row = [...this.ctx.storage.sql.exec(
+      "SELECT kind, delta FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1",
+      "match-reward:" + matchId,
+    )][0];
+    const status = row == null ? "PENDING"
+      : row.kind === "MATCH_REWARD_FRIENDS_LIMIT" && Number(row.delta) === 0 ? "LIMIT_REACHED"
+      : /^MATCH_REWARD_(ONLINE|FRIENDS|TEAM_UP)$/.test(String(row.kind)) &&
+        Number(row.delta) > 0 ? "CREDITED" : "UNAVAILABLE";
+    return json(200, { ok: true, matchId, status,
+      creditedGems: status === "CREDITED" ? Number(row.delta) : 0 });
+  }
+
   async #enrollLegacyPurchases(accountId) {
     if (!this.env?.LUDOPROOF_STORE_PURCHASES) return;
     const pendingSql = "SELECT t.source_ref_hash, t.idempotency_key FROM wallet_transactions t LEFT JOIN purchase_ledger_ownership o ON o.ledger_id = t.source_ref_hash WHERE t.kind IN ('PLAY_GEM_PURCHASE', 'PLAY_REMOVE_ADS', 'PLAY_COSMETIC') AND o.ledger_id IS NULL";
@@ -524,7 +558,7 @@ export class PlayerAccount {
             ? item.unlock.rewardedAds.requiredCompletedAds : 0,
           level: Number.isSafeInteger(item.unlock?.level?.minimumLevel) ? item.unlock.level.minimumLevel : 0,
           rendererReady,
-          ...(COSMETIC_PRICING[item.id] ?? {}),
+          // Published catalog values win; fallback overrides belong only to legacy offers.
         };
       }
     }
@@ -545,7 +579,7 @@ export class PlayerAccount {
       ...legacy,
       id: cosmeticId,
       catalogManaged: false,
-      channels: channel ? [channel] : [],
+      channels: Array.isArray(legacy.channels) ? [...legacy.channels] : channel ? [channel] : [],
       ...(COSMETIC_PRICING[cosmeticId] ?? {}),
     };
   }
@@ -567,9 +601,14 @@ export class PlayerAccount {
     this.#profileSnapshot(accountId);
     const transactionId = String(body?.transactionId ?? ""), kind = String(body?.kind ?? "");
     const cosmeticId = body?.cosmeticId == null ? null : String(body.cosmeticId);
+    // Only this internal PlayerAccount binding receives the amount resolved
+    // from Google's signed ad_unit + reward_amount. Missing means legacy v1
+    // so old internal callers and previously shown ads retain the 5-Gem grant.
+    const gemAmount = body?.gemAmount == null ? 5 : body.gemAmount;
+    if (gemAmount !== 2 && gemAmount !== 5) throw httpError(400, "AD_REWARD_INVALID", "reward amount is invalid");
     if (!/^[A-Fa-f0-9]{16,128}$/.test(transactionId)) throw httpError(400, "AD_REWARD_INVALID", "reward transaction is invalid");
     const transactionHash = await sha256Hex("ludoproof:admob-transaction:v1:" + transactionId);
-    const payloadHash = await sha256Hex(JSON.stringify({ kind, cosmeticId, transactionId }));
+    const payloadHash = await sha256Hex(JSON.stringify({ kind, cosmeticId, transactionId, ...(gemAmount !== 5 ? { gemAmount } : {}) }));
     const idempotencyKey = "admob:" + transactionHash;
     if (kind === "gems" && body.dailyTicket != null) {
       const ticket = [...this.ctx.storage.sql.exec("SELECT day, expires_at FROM engagement_ad_tickets WHERE ticket = ?", String(body.dailyTicket))][0];
@@ -580,15 +619,15 @@ export class PlayerAccount {
         this.#requireAccountNotDeleting(accountId);
         const prior = [...this.ctx.storage.sql.exec("SELECT amount FROM engagement_claims WHERE day = ? AND action = 'bonus'", day)][0];
         if (prior) { result = { replay: true }; this.#recordAdReceipt(body.requestId); return; }
-        result = this.#applyWalletTransaction({ accountId, idempotencyKey: key, payloadHash: key, kind: "DAILY_AD_BONUS", delta: 5,
+        result = this.#applyWalletTransaction({ accountId, idempotencyKey: key, payloadHash: key, kind: "DAILY_AD_BONUS", delta: gemAmount,
           sourceRefHash: transactionHash, removeAds: false, inTransaction: true });
-        this.ctx.storage.sql.exec("INSERT INTO engagement_claims (day, action, amount, request_id, created_at) VALUES (?, 'bonus', 5, ?, ?)", day, String(body.requestId ?? body.dailyTicket), Date.now());
+        this.ctx.storage.sql.exec("INSERT INTO engagement_claims (day, action, amount, request_id, created_at) VALUES (?, 'bonus', ?, ?, ?)", day, gemAmount, String(body.requestId ?? body.dailyTicket), Date.now());
         this.#recordAdReceipt(body.requestId);
       });
       return json(200, { ok: true, ...result, wallet: this.#walletSnapshot(accountId) });
     }
     if (kind === "gems") {
-      const result = this.#applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind: "REWARDED_AD_GEMS", delta: 5, sourceRefHash: transactionHash, removeAds: false });
+      const result = this.#applyWalletTransaction({ accountId, idempotencyKey, payloadHash, kind: "REWARDED_AD_GEMS", delta: gemAmount, sourceRefHash: transactionHash, removeAds: false });
       this.#recordAdReceipt(body.requestId);
       return json(200, { ok: true, ...result, wallet: this.#walletSnapshot(accountId) });
     }
@@ -611,9 +650,9 @@ export class PlayerAccount {
         const walletRows = [...this.ctx.storage.sql.exec("SELECT balance FROM wallet WHERE account_id = ? LIMIT 1", accountId)];
         if (!walletRows.length) throw httpError(404, "WALLET_NOT_FOUND", "wallet was not found");
         const balance = Number(walletRows[0].balance);
-        // The configured AdMob unit promises 5 gems. Cosmetic-targeted views also earn
-        // their requested progress, but must not suppress the ad unit's declared reward.
-        const nextBalance = balance + 5;
+        // Cosmetic-targeted views retain legacy progress, but the Gem grant
+        // always matches the separate signed 5-Gem or 2-Gem ad unit.
+        const nextBalance = balance + gemAmount;
         if (!Number.isSafeInteger(nextBalance) || nextBalance < 0 || nextBalance > MAX_BALANCE) {
           throw httpError(409, "WALLET_BALANCE_LIMIT", "wallet balance cannot safely be updated");
         }
@@ -621,8 +660,10 @@ export class PlayerAccount {
         const next = Math.min(cosmetic.ads, current + 1), now = Date.now();
         this.ctx.storage.sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", nextBalance, now, accountId);
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_ad_progress (cosmetic_id, progress, updated_at) VALUES (?, ?, ?) ON CONFLICT(cosmetic_id) DO UPDATE SET progress = excluded.progress, updated_at = excluded.updated_at", cosmeticId, next, now);
-        this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", 5, nextBalance, transactionHash, now);
-        if (next >= cosmetic.ads && ["character_goat_lumi", "character_donkey", "dice_pearl_paw"].includes(cosmeticId)) {
+        this.ctx.storage.sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", crypto.randomUUID().toLowerCase(), idempotencyKey, payloadHash, "REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS", gemAmount, nextBalance, transactionHash, now);
+        // Every server-approved ad cosmetic is fulfilled on the final signed ad.
+        // Ownership, progress, gem credit and idempotency share one transaction.
+        if (next >= cosmetic.ads) {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
         }
       });
@@ -671,6 +712,13 @@ export class PlayerAccount {
     }
     if (purchaseKind === "GEMS") {
       if (!Number.isSafeInteger(cosmetic.gemPrice) || cosmetic.gemPrice < 1) throw httpError(400, "COSMETIC_PRICE_INVALID", "cosmetic price is invalid");
+      // Modern clients pin the price displayed on their action button. If a
+      // remote catalog changes before checkout, reject instead of deducting a
+      // different amount. Legacy clients without this field remain compatible.
+      if (body?.expectedGemPrice != null &&
+          (!Number.isSafeInteger(body.expectedGemPrice) || body.expectedGemPrice !== cosmetic.gemPrice)) {
+        throw httpError(409, "COSMETIC_PRICE_CHANGED", "Gem price changed; refresh the offer and confirm the new price");
+      }
       const idem = "cosmetic-purchase:" + requestId;
       const payloadHash = await sha256Hex(JSON.stringify({ cosmeticId, gemPrice: cosmetic.gemPrice }));
       const sourceRefHash = await sha256Hex("ludoproof:cosmetic-purchase:v1:" + requestId);
@@ -905,10 +953,16 @@ export class PlayerAccount {
       this.#requireAccountNotDeleting(accountId);
       const exists = [...this.ctx.storage.sql.exec("SELECT account_id FROM account_meta WHERE account_id = ? LIMIT 1", accountId)];
       if (![...this.ctx.storage.sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 1 LIMIT 1")].length) {
-        if (exists.length) for (const id of PAID_CHARACTER_IDS) {
+        if (exists.length) for (const id of LEGACY_PAID_CHARACTER_IDS) {
           this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
         }
         this.ctx.storage.sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (1, ?)", now);
+      }
+      if (![...this.ctx.storage.sql.exec("SELECT id FROM cosmetic_pricing_migrations WHERE id = 2 LIMIT 1")].length) {
+        if (exists.length) for (const id of INTRODUCTORY_CHARACTER_IDS) {
+          this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)", id, now);
+        }
+        this.ctx.storage.sql.exec("INSERT INTO cosmetic_pricing_migrations (id, applied_at) VALUES (2, ?)", now);
       }
       if (!exists.length) this.ctx.storage.sql.exec("INSERT INTO account_meta (account_id, display_name, created_at, updated_at) VALUES (?, ?, ?, ?)", accountId, normalizeDisplayName(displayName, this.env), now, now);
       this.ctx.storage.sql.exec("INSERT OR IGNORE INTO wallet (account_id, balance, ads_removed, updated_at) VALUES (?, 0, 0, ?)", accountId, now);
@@ -966,6 +1020,14 @@ export class PlayerAccount {
       selectedCosmetics,
       rewardedAdProgress,
       creditedAdRequestIds: [...this.ctx.storage.sql.exec("SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100")].map(row => String(row.request_id)),
+      // Legacy Android builds still use this optional 10/day preflight field.
+      // The updated 2-Gem app does not read or enforce any daily ad cap.
+      // Signed SSV callbacks are always credited, including delayed callbacks.
+      rewardedAdsToday: Number([...this.ctx.storage.sql.exec(
+        "SELECT COUNT(*) AS n FROM wallet_transactions WHERE kind IN ('REWARDED_AD_GEMS', 'REWARDED_AD_COSMETIC_PROGRESS_AND_GEMS') AND created_at >= ?",
+        Math.floor(Date.now() / 86_400_000) * 86_400_000,
+      )][0]?.n ?? 0),
+      rewardedAdsDailyLimit: 10,
     };
   }
 }

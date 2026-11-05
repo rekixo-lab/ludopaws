@@ -8,7 +8,7 @@ object CheckersBoardDefinition {
     val content = BoardDefinition(
         offer = cosmetic(
                 id = "board_checkers",
-                title = "LOCKED BOARD",
+                title = "CHECKERS",
                 category = CosmeticCategory.BOARD,
                 unlockKind = CosmeticUnlockKind.FREE,
                 previewSymbol = "",

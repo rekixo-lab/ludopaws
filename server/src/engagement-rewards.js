@@ -1,4 +1,5 @@
 import { httpError } from "./crypto.js";
+import { UPDATED_REWARDED_AD_GEMS } from "./admob-ssv.js";
 
 export const DAY_MS = 86_400_000;
 export const DAILY_GEMS = 3;
@@ -43,7 +44,7 @@ export function rewardsStatus(sql, now = Date.now()) {
   return { day, resetsAt: (day + 1) * DAY_MS, dailyGems: DAILY_GEMS,
     dailyClaimed: claims.some(row => row.action === "daily"), spinClaimed: claims.some(row => row.action === "spin"),
     spinGems: Number(claims.find(row => row.action === "spin")?.amount ?? 0),
-    bonusClaimed: claims.some(row => row.action === "bonus"),
+    bonusClaimed: claims.some(row => row.action === "bonus"), bonusGems: UPDATED_REWARDED_AD_GEMS,
     dailyClaims: total, nextMilestone: (Math.floor(total / 7) + 1) * 7,
     milestoneTier: Math.floor(total / 7), spinOutcomes: SPIN_OUTCOMES,
     featuredCollectionId: COLLECTIONS[new Date(now).getUTCMonth() % COLLECTIONS.length].id,

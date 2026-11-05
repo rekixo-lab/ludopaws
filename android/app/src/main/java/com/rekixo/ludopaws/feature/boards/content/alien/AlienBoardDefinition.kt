@@ -8,14 +8,13 @@ object AlienBoardDefinition {
     val content = BoardDefinition(
         offer = cosmetic(
                 id = "board_alien",
-                title = "LOCKED BOARD",
+                title = "ALIEN",
                 category = CosmeticCategory.BOARD,
                 unlockKind = CosmeticUnlockKind.GEMS,
                 previewSymbol = "",
                 previewPrimary = 0xFFF7F4EC.toInt(),
                 previewSecondary = 0xFFF7F4EC.toInt(),
                 gems = 250,
-                level = 22,
                 contentAvailable = false,
             ),
         surfaceColor = 0xFF18243B.toInt(),

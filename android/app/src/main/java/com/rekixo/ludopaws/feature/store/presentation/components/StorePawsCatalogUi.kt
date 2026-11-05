@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
@@ -18,7 +19,7 @@ import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
-internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
+internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
         // Shipped Starter Paws characters; Lumi and Donkey have individual verified-ad entitlements.
@@ -26,7 +27,7 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
                 .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
         addView(
-            this@pawsCatalogContent.pawsCharacterGrid(starterCharacters),
+            this@pawsCatalogContent.pawsCharacterGrid(starterCharacters, friendshipEntry),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -37,6 +38,7 @@ internal fun StoreActivity.pawsCatalogContent(): LinearLayout =
 
 private fun StoreActivity.pawsCharacterGrid(
     characters: List<AnimalCharacter>,
+    friendshipEntry: View? = null,
 ): LinearLayout =
     LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
@@ -84,6 +86,12 @@ private fun StoreActivity.pawsCharacterGrid(
                     if (rowIndex > 0) topMargin = dp(10)
                 },
             )
+            if (rowIndex == 0 && friendshipEntry != null) {
+                addView(friendshipEntry, LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(8)
+                    bottomMargin = dp(8)
+                })
+            }
         }
     }
 
@@ -93,8 +101,10 @@ private fun StoreActivity.pawsCharacterCard(
     ownedIds: Set<String>,
 ): LinearLayout =
     LinearLayout(this).apply {
-        val unlock = StoreCosmeticCatalog.characterUnlock(character.id)
+        val availableOffer = StoreCosmeticCatalog.characterUnlock(character.id)
+        val unlock = availableOffer ?: StoreCosmeticCatalog.findBuiltIn("character_${character.id}")
         val owned = unlock == null || unlock.id in ownedIds
+        val offerUnavailable = availableOffer == null && unlock != null && !owned
         val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
@@ -117,8 +127,9 @@ private fun StoreActivity.pawsCharacterCard(
         isFocusable = true
         contentDescription =
             if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
-            else if ((unlock?.unlockChannels?.size ?: 0) > 1) "${character.displayName}, 300 Gems or Google Play purchase"
-            else "${character.displayName}, locked, $progress of ${unlock?.requiredAdViews} rewarded ads"
+            else if (offerUnavailable) "${character.displayName}, currently unavailable"
+            else if (unlock != null) "${character.displayName}, ${smartUnlockLabel(unlock)}"
+            else "${character.displayName}, unlocked"
 
         addView(
             LudoPawsCharacterAvatarView(this@pawsCharacterCard).apply {
@@ -160,8 +171,9 @@ private fun StoreActivity.pawsCharacterCard(
             TextView(this@pawsCharacterCard).apply {
                 text = when {
                     owned -> "🔓 UNLOCKED"
+                    offerUnavailable -> "🔒 UNAVAILABLE"
                     unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> "🔒 $progress/${unlock?.requiredAdViews} ADS"
+                    else -> if (unlock == null) "UNLOCKED" else smartUnlockLabel(unlock)
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)

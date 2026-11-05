@@ -71,6 +71,39 @@ test("match creation rejects the wrong method", async () => {
   );
 });
 
+test("plain HTTP match-events requests reject upgrade before touching room or rate limiter", async () => {
+  let roomCalls = 0;
+  let gateCalls = 0;
+  const env = {
+    LUDOPROOF_MATCHES: {
+      idFromName: (name) => name,
+      get: () => {
+        roomCalls += 1;
+        throw new Error("ordinary HTTP must never create a WebSocket");
+      },
+    },
+    LUDOPROOF_API_GATE: {
+      idFromName: (name) => name,
+      get: () => {
+        gateCalls += 1;
+        throw new Error("ordinary HTTP must reject before rate limiting");
+      },
+    },
+  };
+  for (const headers of [{}, { Upgrade: "not-websocket" }]) {
+    const response = await worker.fetch(
+      new Request("https://ludoproof.example/api/matches/LPABCDEFGH/events", {
+        headers,
+      }),
+      env,
+    );
+    assert.equal(response.status, 426);
+    assert.equal((await response.json()).error, "WEBSOCKET_REQUIRED");
+  }
+  assert.equal(roomCalls, 0);
+  assert.equal(gateCalls, 0);
+});
+
 test("POST endpoints require application/json", async () => {
   const result =
     await body(

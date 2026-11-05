@@ -8,14 +8,13 @@ object NeonBoardDefinition {
     val content = BoardDefinition(
         offer = cosmetic(
                 id = "board_neon",
-                title = "LOCKED BOARD",
+                title = "NEON",
                 category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
+                unlockKind = CosmeticUnlockKind.GEMS,
                 previewSymbol = "",
                 previewPrimary = 0xFFF7F4EC.toInt(),
                 previewSecondary = 0xFFF7F4EC.toInt(),
-                level = 10,
-                ads = 20,
+                gems = 150,
                 contentAvailable = false,
             ),
         surfaceColor = 0xFF10131C.toInt(),

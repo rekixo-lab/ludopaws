@@ -190,6 +190,17 @@ class AccountRepository(context: Context) {
             .getJSONObject("wallet")
     }
 
+    /** Confirm a completed match reward from the server wallet ledger only. */
+    fun matchRewardStatus(matchId: String): JSONObject {
+        require(Regex("^LP[A-Z2-9]{8}$").matches(matchId)) { "Invalid match ID" }
+        val session = requireSession()
+        return request(
+            "GET",
+            "/api/wallet/match-reward/status?matchId=$matchId",
+            token = session.accessToken,
+        )
+    }
+
     fun profile(): JSONObject {
         val session = requireSession()
         return request("GET", "/api/account/me", token = session.accessToken)
@@ -236,12 +247,16 @@ class AccountRepository(context: Context) {
         )
     }
 
-    fun purchaseCosmetic(cosmeticId: String, unlockChannel: String? = null): JSONObject {
+    fun purchaseCosmetic(cosmeticId: String, unlockChannel: String? = null, expectedGemPrice: Int? = null): JSONObject {
         val session = requireSession()
         val body = JSONObject()
             .put("cosmeticId", cosmeticId)
             .put("clientRequestId", UUID.randomUUID().toString().lowercase())
         if (unlockChannel != null) body.put("unlockChannel", unlockChannel)
+        if (expectedGemPrice != null) {
+            require(unlockChannel == "GEMS" && expectedGemPrice > 0) { "Expected Gems price is invalid." }
+            body.put("expectedGemPrice", expectedGemPrice)
+        }
         return request(
             "POST",
             "/api/wallet/cosmetics/purchase",

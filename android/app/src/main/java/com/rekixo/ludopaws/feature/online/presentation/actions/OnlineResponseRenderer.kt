@@ -301,35 +301,22 @@ internal fun MainActivity.updateTurnBanner(
 
         "FINISHED" -> {
             turnText.text = "MATCH COMPLETE"
-            if (state.matchMode == "TEAM_UP") {
-                val me = state.players.find { it.playerId == playerId }
-                val winnerTeam = state.winnerTeamId
-                val won = winnerTeam != null && me?.teamId == winnerTeam
-                val winners =
-                    state.players
-                        .filter { it.teamId == winnerTeam }
-                        .joinToString(" + ") { it.displayName }
-                        .ifBlank { "Team ${winnerTeam ?: "—"}" }
-
-                resultTitleText.text =
-                    if (won) "YOUR TEAM WON" else "TEAM ${winnerTeam ?: "—"} WINS"
-                val reward = playerId?.let(state.matchGemRewards::get)
-                resultSubtitleText.text =
-                    "$winners • server-authoritative team result • match complete" +
-                    (if (reward != null && reward > 0) "\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit" else "")
-            } else {
-                val rank = playerId?.let { LudoPawsFinishPresentation.ranks(state)[it] }
-                val standings = LudoPawsFinishPresentation.standings(state)
-                resultTitleText.text = LudoPawsFinishPresentation.headline(rank)
-                resultSubtitleText.text = buildString {
-                    if (rank == 4) append("WELL PLAYED!\n")
-                    append(standings.ifBlank { "Match complete • verified result" })
-                    val reward = playerId?.let(state.matchGemRewards::get)
-                    if (reward != null && reward > 0) append("\nPlacement reward: up to +$reward Gems • check Wallet for confirmed credit")
-                }
+            if (gemRewardStatusMatchId != state.matchId) {
+                gemRewardLedgerStatus = null
+                gemRewardConfirmedAmount = 0
             }
-            resultSubtitleText.append("\n" + com.rekixo.ludopaws.feature.profile.presentation.MatchProgressSummary.text(
-                this, state.matchId, state.winnerPlayerId == playerId, rankedXp = gameMode.ranked))
+            resultCard.render(
+                LudoPawsResultPresentation.model(
+                    context = this,
+                    match = state,
+                    mode = gameMode,
+                    viewerId = playerId,
+                    gemLedgerStatus = if (gemRewardStatusMatchId == state.matchId)
+                        gemRewardLedgerStatus else null,
+                    creditedGems = if (gemRewardStatusMatchId == state.matchId)
+                        gemRewardConfirmedAmount else 0,
+                ),
+            )
         }
 
         else -> {

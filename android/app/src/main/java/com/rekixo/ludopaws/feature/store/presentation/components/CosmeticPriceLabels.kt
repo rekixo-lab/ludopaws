@@ -36,4 +36,4 @@ internal fun StoreActivity.cosmeticPlayPrice(cosmeticId: String): String =
         ?: "Price unavailable"
 
 internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharSequence =
-    CosmeticPriceLabels.gems(this, cosmetic.gemPrice, "\nBUY · ${cosmeticPlayPrice(cosmetic.id)}")
+    smartUnlockLabel(cosmetic)

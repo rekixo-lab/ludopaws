@@ -8,13 +8,13 @@ object DiwaliBoardDefinition {
     val content = BoardDefinition(
         offer = cosmetic(
                 id = "board_diwali",
-                title = "LOCKED BOARD",
+                title = "DIWALI",
                 category = CosmeticCategory.BOARD,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
+                unlockKind = CosmeticUnlockKind.GEMS,
                 previewSymbol = "",
                 previewPrimary = 0xFFF7F4EC.toInt(),
                 previewSecondary = 0xFFF7F4EC.toInt(),
-                ads = 10,
+                gems = 75,
                 contentAvailable = false,
             ),
         surfaceColor = 0xFFFFE7A0.toInt(),

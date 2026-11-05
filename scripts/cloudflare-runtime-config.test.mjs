@@ -94,6 +94,21 @@ test("Reviewed family V2 enables matching ads and validates reward settings", ()
   );
 });
 
+test("one 2-Gem unit matches Android and Worker and clears stale v2 bindings", () => {
+  const config = { ...valid,
+    LUDOPROOF_ADMOB_SSV_ENABLED: "true", LUDOPROOF_ADS_ENABLED: "true",
+    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: adUnit, ADMOB_REWARDED_AD_UNIT_ID: adUnit,
+    ADMOB_APP_ID: "ca-app-pub-1234567890123456~1234567890",
+    LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true",
+  };
+  const prepared = buildCloudflareRuntimeVars({ LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2: "stale" }, config);
+  assert.equal(prepared.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID, adUnit);
+  assert.equal("LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID_V2" in prepared, false);
+  assert.throws(() => buildCloudflareRuntimeVars({}, {
+    ...config, ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-1234567890123456/0000000005",
+  }), /must both be valid and match/);
+});
+
 test("Worker and Android store flags must match before deployment", () => {
   assert.throws(
     () => buildCloudflareRuntimeVars({}, { ...valid, GOOGLE_PLAY_BILLING_ENABLED: "true" }),

@@ -11,9 +11,16 @@ class CharacterSelectionStore(
 
     fun isUnlocked(characterId: String): Boolean {
         val canonical = LudoPawsCharacterCatalog.canonicalCharacterId(characterId) ?: return false
-        val offer = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.characterUnlock(canonical)
-            ?: return LudoPawsCharacterCatalog.character(canonical) != null
-        return com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(appContext).isOwned(offer.id)
+        if (LudoPawsCharacterCatalog.character(canonical) == null) return false
+        if (canonical in LudoPawsCharacterCatalog.FREE_HUMAN_CHARACTER_IDS) return true
+
+        // Newly registered characters are LOCKED by default, not silently
+        // free if an offer has not been published yet. Only server-owned
+        // entitlement snapshots can unlock paid or archived Paws.
+        val protectedId = com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
+            .characterEntitlementId(canonical) ?: return false
+        return com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(appContext)
+            .isOwned(protectedId)
     }
 
     fun unlockedCharacterIds(): Set<String> =

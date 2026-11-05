@@ -2,6 +2,7 @@ const KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys.json";
 const TEST_KEY_URL = "https://www.gstatic.com/admob/reward/verifier-keys-test.json";
 const keyCache = new WeakMap();
 const MAX_KEY_TTL_MS = 24 * 60 * 60 * 1000;
+export const UPDATED_REWARDED_AD_GEMS = 2;
 
 export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, nowMs = Date.now()) {
   const url = new URL(request.url);
@@ -45,7 +46,7 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     throw ssvError(400, "SSV_ACCOUNT_INVALID", "reward account is invalid");
   }
   const configuredRewardItem = String(env?.LUDOPROOF_ADMOB_REWARD_ITEM ?? "gems");
-  if (configuredRewardItem !== "gems" || rewardAmount !== "5" || rewardItem !== "gems") {
+  if (configuredRewardItem !== "gems" || rewardAmount !== "2" || rewardItem !== "gems") {
     // These values are non-sensitive; omit the account identifier and callback payload.
     console.warn("admob-ssv-rejected", {
       code: "SSV_REWARD_INVALID",
@@ -123,18 +124,18 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     throw ssvError(400, "SSV_TRANSACTION_INVALID", "reward transaction ID is invalid");
   }
 
+  const gemAmount = UPDATED_REWARDED_AD_GEMS;
   if (!isTest) {
-    const configuredAdUnit = String(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID ?? "").trim();
-    // AdMob sends the numeric ad unit identifier, while the SDK setting includes
-    // the publisher prefix. Only production-signed callbacks reach the wallet.
-    const configuredAdUnitId = configuredAdUnit.split("/").at(-1);
-    if (!configuredAdUnit || ![configuredAdUnit, configuredAdUnitId].includes(adUnit)) {
-      console.warn("admob-ssv-rejected", { code: "SSV_AD_UNIT_INVALID", receivedAdUnit: adUnit, configuredAdUnitId });
+    const configured = String(env?.LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID ?? "").trim();
+    if (!configured || ![configured, configured.split("/").at(-1)].includes(adUnit)) {
       throw ssvError(403, "SSV_AD_UNIT_INVALID", "reward callback came from an unexpected ad unit");
+    }
+    if (Number(rewardAmount) !== gemAmount) {
+      throw ssvError(403, "SSV_REWARD_INVALID", "reward amount did not match the signed ad unit");
     }
   }
 
-  return { accountId, transactionId, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), ...(customData.dailyTicket != null ? { dailyTicket: customData.dailyTicket } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
+  return { accountId, transactionId, gemAmount, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), ...(customData.dailyTicket != null ? { dailyTicket: customData.dailyTicket } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
 }
 
 async function getKeys(fetchImpl, nowMs, refresh, keyUrl = KEY_URL) {

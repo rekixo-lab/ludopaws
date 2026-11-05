@@ -127,7 +127,7 @@ const colorTests = read(
 for (const [source, markers, label] of [
   [colorPolicy, ["normalizeColorsForSeats(", "selectColorForSeat(", "colors[owner] = previousColor"], "color selection policy"],
   [store, ["colorsBySeat: List<String> = emptyList()", "setupColorsKey(mode)", "putString(setupColorsKey(mode)"], "color persistence"],
-  [ui, ["selectedColorsBySeat = saved.colorsBySeat", "selectedColorsBySeat[selectedCharacterSlot]", "selectColorForActiveSlot("], "player slot selection"],
+  [ui, ["selectedColorsBySeat = saved.colorsBySeat", "selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]", "selectColorForActiveSlot("], "player slot selection"],
   [selection, ["selectColorForActiveSlot(entry.key)", "colorSelectionStatus?.text"], "color picker"],
   [screen, ["colorsBySeat = if (isComputerMode) null else selectedColorsBySeat"], "game start"],
   [session, ["colorsBySeat: List<String>? = null", "colorsBySeat = colorsBySeat"], "session contract"],
@@ -184,7 +184,9 @@ if (colorPolicy.includes("listOf(result.first(), oppositeColor(result.first()))"
 if (/AlertDialog|setPositiveButton\("SWAP"\)|setTitle\("Color already assigned"\)/.test(ui)) {
   throw new Error("Selection UX gate: automatic Pass & Play color swap must not open a confirmation dialog");
 }
-requireText(ui, "selectedColorsBySeat = OfflinePlayerLayout.selectColorForSeat(", "automatic seat assignment");
+requireText(ui, "selectedColorsBySeat = if (isComputerMode) {", "Robot and Pass & Play color branching");
+requireText(ui, "OfflinePlayerLayout.colorsFor(selectedPlayers, color)", "Robot color assignment");
+requireText(ui, "OfflinePlayerLayout.selectColorForSeat(", "Pass & Play color swapping");
 requireText(ui, "persistCharacterSetup()", "persistent automatic swaps");
 // Details are no longer shown under the Color heading in either mode.
 if (selection.includes("Choose each P1–P4 color.") ||
@@ -210,7 +212,7 @@ requireText(commonHeader, "RobotTitleIconView(", "Robot header icon");
 requireText(commonHeader, "FrameLayout.LayoutParams.MATCH_PARENT,", "responsive Robot title width");
 requireText(selection, "Same inset and breathing room around all three headings", "matched heading padding");
 for (const marker of [
-  'selectionPanel(\n        "CHOOSE YOUR PAW",\n        "",',
+  'selectionPanel(\n        if (isComputerMode) "CHOOSE YOUR PAWS" else "CHOOSE YOUR PAW",\n        "",',
   'selectionPanel(\n        "SELECT PLAYERS",\n        "",',
   'selectionPanel(\n        "CHOOSE YOUR COLOR",\n        "",',
 ]) {
@@ -271,13 +273,13 @@ if (ui.includes("embeddedInCombinedPanel") ||
   throw new Error("Selection UX gate: obsolete combined setup panel mode remains");
 }
 for (const required of [
-  "selectedSeat = if (isComputerMode) 0 else selectedCharacterSlot",
-  "selectedColor = selectedColorsBySeat[selectedCharacterSlot]",
+  "selectedSeat = selectedCharacterSlot",
+  "selectedColor = selectedColorsBySeat[if (isComputerMode) 0 else selectedCharacterSlot]",
   "persistCharacterSetup()",
 ]) {
   requireText(ui, required, "Robot color selection and persistence");
 }
-if (!colorTests.includes("robotColorPickerKeepsHumanChoiceForTwoThreeAndFourPlayers")) {
+if (!colorTests.includes("robotColorPickerMatchesActualCpuSeatOrderForTwoThreeAndFourPlayers")) {
   throw new Error("Selection UX gate: Robot two-, three-, four-player regression test missing");
 }
 

@@ -19,6 +19,7 @@ internal fun addGameTopActions(
     onBack: () -> Unit,
     onSettings: () -> Unit,
     centerContent: View? = null,
+    centerContentBelowActions: Boolean = false,
 ): FrameLayout {
     val buttonSize = LudoProofTheme.dp(context, 52)
     val sideMargin = LudoProofTheme.dp(context, 16)
@@ -79,14 +80,17 @@ internal fun addGameTopActions(
     )
 
     centerContent?.let { center ->
+        // Match promotions use a full-width row below the navigation controls.
+        // Setup/lobby titles continue using their original centered 52dp row.
         bar.addView(center, FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
-            buttonSize,
+            if (centerContentBelowActions) LudoProofTheme.dp(context, 84) else buttonSize,
             Gravity.TOP or Gravity.CENTER_HORIZONTAL,
         ).apply {
-            leftMargin = sideMargin + buttonSize + LudoProofTheme.dp(context, 8)
+            leftMargin = if (centerContentBelowActions) LudoProofTheme.dp(context, 12)
+                else sideMargin + buttonSize + LudoProofTheme.dp(context, 8)
             rightMargin = leftMargin
-            topMargin = actionTopMargin
+            topMargin = if (centerContentBelowActions) LudoProofTheme.dp(context, 70) else actionTopMargin
         })
     }
 

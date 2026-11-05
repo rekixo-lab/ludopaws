@@ -1,4 +1,10 @@
 import { assertCatalogCanPublish, validateCatalog, validateCatalogItem } from "./store-catalog.js";
+import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
+
+// Publish only SKUs whose receipt verifier already grants the exact cosmetic.
+const verifiedCosmeticProducts = Object.keys(GOOGLE_PLAY_PRODUCTS).filter(
+  (productId) => typeof GOOGLE_PLAY_PRODUCTS[productId].cosmeticId === "string",
+);
 
 const STATE_KEY = "store-catalog:state:v1";
 const SNAPSHOT_PREFIX = "store-catalog:snapshot:v1:";
@@ -128,10 +134,14 @@ export class StoreCatalogStore {
     const draft = state.drafts[itemId];
     if (!draft) return json(404, { error: "CATALOG_DRAFT_NOT_FOUND", message: "save a draft before publishing" });
     if (draft.unlock?.channels?.includes("PLAY_PRODUCT")) {
-      return json(409, {
-        error: "CATALOG_PLAY_PURCHASE_NOT_READY",
-        message: "direct cosmetic checkout cannot be published until the Google Play verifier grants item ownership",
-      });
+      const productId = draft.unlock?.playProduct?.productId;
+      if (!verifiedCosmeticProducts.includes(productId) ||
+          GOOGLE_PLAY_PRODUCTS[productId]?.cosmeticId !== draft.id) {
+        return json(409, {
+          error: "CATALOG_PLAY_PURCHASE_NOT_READY",
+          message: "the Play SKU must already be verified and grant ownership of this exact cosmetic",
+        });
+      }
     }
     if (draft.category === "BUNDLE") {
       return json(409, {
@@ -151,7 +161,7 @@ export class StoreCatalogStore {
     const nextVersion = state.publishedVersion + 1;
     let published;
     try {
-      published = assertCatalogCanPublish({ ...clone(draft), status: "PUBLISHED", catalogVersion: nextVersion });
+      published = assertCatalogCanPublish({ ...clone(draft), status: "PUBLISHED", catalogVersion: nextVersion }, { playProducts: verifiedCosmeticProducts });
     } catch (error) {
       return json(422, {
         error: error?.code ?? "CATALOG_ITEM_INVALID",
@@ -161,7 +171,7 @@ export class StoreCatalogStore {
     }
     const items = state.items.filter((item) => item.id !== itemId);
     items.push(published);
-    const validation = validateCatalog(items, { playProducts: [] });
+    const validation = validateCatalog(items, { playProducts: verifiedCosmeticProducts });
     if (!validation.valid) {
       return json(422, { error: "CATALOG_INVALID", message: "published catalog failed validation", details: validation.errors });
     }
@@ -210,7 +220,7 @@ export class StoreCatalogStore {
         restoredIds.add(current.id);
       }
     }
-    const validation = validateCatalog(items, { playProducts: [] });
+    const validation = validateCatalog(items, { playProducts: verifiedCosmeticProducts });
     if (!validation.valid) {
       return json(409, { error: "CATALOG_ROLLBACK_INVALID", message: "saved catalog version failed current validation", details: validation.errors });
     }

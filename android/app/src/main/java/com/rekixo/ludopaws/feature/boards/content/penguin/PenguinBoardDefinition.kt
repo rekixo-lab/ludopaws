@@ -8,7 +8,7 @@ object PenguinBoardDefinition {
     val content = BoardDefinition(
         offer = cosmetic(
                 id = "board_penguin",
-                title = "LOCKED BOARD",
+                title = "PENGUIN",
                 category = CosmeticCategory.BOARD,
                 unlockKind = CosmeticUnlockKind.GEMS,
                 previewSymbol = "",

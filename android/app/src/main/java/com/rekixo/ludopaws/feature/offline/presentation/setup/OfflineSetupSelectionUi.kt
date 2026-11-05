@@ -11,12 +11,14 @@ import android.graphics.Typeface
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.util.TypedValue
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
+import com.rekixo.ludopaws.feature.offline.domain.engine.RobotTeamComposition
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
@@ -49,12 +51,24 @@ internal fun OfflineGameActivity.playersPanel(): LinearLayout =
                 setShadowLayer(2f, 0f, dp(1).toFloat(), 0x7A00112D)
             }
             val label = TextView(this@playersPanel).apply {
-                text = "PLAYERS"
+                text = if (isComputerMode) {
+                    RobotTeamComposition.tileLabel(playerCount, 1, selected = false)
+                } else "PLAYERS"
                 textSize = if (isCompactSetup()) 10f else 11.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 includeFontPadding = false
+                if (isComputerMode) {
+                    maxLines = 2
+                    // Fit complete HUMAN/ROBOT words without enlarging any tile.
+                    setAutoSizeTextTypeUniformWithConfiguration(
+                        8,
+                        if (isCompactSetup()) 10 else 11,
+                        1,
+                        TypedValue.COMPLEX_UNIT_SP,
+                    )
+                }
             }
             val tile = LinearLayout(this@playersPanel).apply {
                 orientation = LinearLayout.VERTICAL
@@ -92,6 +106,21 @@ internal fun OfflineGameActivity.playersPanel(): LinearLayout =
                 setOnClickListener { clicked ->
                     clicked.playSelectionPopAnimation()
                     updateSelectedPlayerCount(playerCount)
+                    // One brief discovery hint, never an extra section or button.
+                    if (isComputerMode && playerCount > 2) {
+                        val preferences = this@playersPanel.getSharedPreferences(
+                            "robot_player_tile_hints",
+                            android.content.Context.MODE_PRIVATE,
+                        )
+                        if (!preferences.getBoolean("composition_cycle_shown", false)) {
+                            preferences.edit().putBoolean("composition_cycle_shown", true).apply()
+                            android.widget.Toast.makeText(
+                                this@playersPanel,
+                                "Tap this tile again to change Humans and Robots.",
+                                android.widget.Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
                 }
             }
             playerMap[playerCount] = tile
@@ -304,6 +333,10 @@ internal fun OfflineGameActivity.selectionPanel(
         background = null
         elevation = 0f
 
+        // Character picker already has its player tabs and paw cards.
+        // Omit only its decorative PAW/PAWS heading and adjacent paw icon
+        // in both Robot and Pass & Play; keep all other section headings.
+        if (title != "CHOOSE YOUR PAW" && title != "CHOOSE YOUR PAWS") {
         val heading = LinearLayout(this@selectionPanel).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -338,6 +371,7 @@ internal fun OfflineGameActivity.selectionPanel(
 
             val highlightedWord = when (title) {
                 "CHOOSE YOUR PAW" -> "PAW"
+                "CHOOSE YOUR PAWS" -> "PAWS"
                 "SELECT PLAYERS" -> "PLAYERS"
                 "CHOOSE YOUR COLOR" -> "COLOR"
                 else -> null
@@ -365,6 +399,7 @@ internal fun OfflineGameActivity.selectionPanel(
             )
         }
         addView(heading)
+        }
 
         if (subtitle.isNotBlank()) {
             addView(
@@ -571,7 +606,23 @@ internal fun OfflineGameActivity.refreshSetupSelections() {
             (content.getChildAt(0) as? ModeArtView)?.playerCountSelected = selected
             val countTextColor = if (selected) 0xFFFFD45E.toInt() else Color.WHITE
             (content.getChildAt(1) as? TextView)?.setTextColor(countTextColor)
-            (content.getChildAt(2) as? TextView)?.setTextColor(countTextColor)
+            (content.getChildAt(2) as? TextView)?.apply {
+                setTextColor(countTextColor)
+                if (isComputerMode) {
+                    text = RobotTeamComposition.tileLabel(
+                        playerCount,
+                        if (selected) selectedHumans else 1,
+                        selected = selected,
+                    )
+                }
+            }
+            if (isComputerMode) {
+                val humans = if (selected) selectedHumans else 1
+                val description = "$playerCount players: $humans humans and ${playerCount - humans} robots."
+                tile.contentDescription = if (playerCount > 2) {
+                    "$description ${if (selected) "Tap again" else "Select, then tap again"} to change the mix."
+                } else description
+            }
         }
     }
 

@@ -107,7 +107,7 @@ class RewardsActivity : Activity() {
             val bonusPending = owner?.let { account -> runCatching { PendingAdRewardStore(this).forAccount(account).any {
                 it.dailyRewardDay == rewards.optLong("day") && !it.abandoned
             } }.getOrDefault(true) } ?: false
-            button(when { rewards.optBoolean("bonusClaimed") -> "Today's ad bonus claimed"; bonusPending -> "Ad bonus verification pending · Refresh to check"; else -> "Optional: watch one ad for +5 Gems" },
+            button(when { rewards.optBoolean("bonusClaimed") -> "Today's ad bonus claimed"; bonusPending -> "Ad bonus verification pending · Refresh to check"; else -> "Optional: watch one ad for +${rewards.optInt("bonusGems", 2)} Gems" },
                 !rewards.optBoolean("bonusClaimed") && !bonusPending) { bonus() }
             body.addView(text("Your free gifts do not require an ad. Remove Ads owners can still choose rewarded ads."))
         }
@@ -251,11 +251,11 @@ class RewardsActivity : Activity() {
         if (busy || !resumed || ad?.isBusy == true) return
         val expectedOwner = owner ?: return
         if (repository.currentSession()?.accountId != expectedOwner) { snapshot = null; render(); return }
-        busy = true; message.text = "Preparing optional +5 Gems ad…"
+        busy = true; message.text = "Preparing optional +2 Gems ad…"
         val expectedGeneration = generation
         executor.execute {
             val result = runCatching {
-                check(BuildConfig.LUDOPROOF_ADS_ENABLED && repository.storeStatus().optBoolean("rewardedAdsAvailable")) { "No rewarded ad is available. Free gifts stay yours." }
+                check(BuildConfig.LUDOPROOF_ADS_ENABLED && repository.storeStatus().optBoolean("rewardedAdsV2Available")) { "No rewarded ad is available. Free gifts stay yours." }
                 val session = repository.ensureGuestSession()
                 check(session.accountId == expectedOwner) { "Account changed. Refresh Rewards." }
                 val ticket = repository.engagementRewards(JSONObject().put("action", "bonus-ticket"), expectedOwner).getJSONObject("receipt")

@@ -76,9 +76,15 @@ assert.match(topBar, /gameMode == GameMode\.ONLINE \|\| gameMode == GameMode\.TE
 assert.match(topBar, /onlineFixedTitle\(\)/, "title is attached to fixed top bar");
 assert.match(topBar, /centerContent = .*GamePawsPromotionSlot\(/, "promotion slot retains the online title fallback");
 const sharedActions = read("game/ui/components/GameTopActionsUi.kt");
-assert.match(sharedActions, /Gravity\.TOP or Gravity\.CENTER_HORIZONTAL/, "shared slot is centered between Back and Settings");
-assert.match(sharedActions, /topMargin = actionTopMargin/, "slot aligns with Back/Settings vertically");
-assert.match(sharedActions, /leftMargin = sideMargin \+ buttonSize/, "slot reserves space for actions");
+assert.match(sharedActions, /Gravity\.TOP or Gravity\.CENTER_HORIZONTAL/, "shared slot stays horizontally centered");
+assert.match(sharedActions, /centerContentBelowActions: Boolean = false/, "lobby title stays in the original action row by default");
+assert.match(sharedActions, /if \(centerContentBelowActions\) LudoProofTheme\.dp\(context, 70\) else actionTopMargin/,
+  "match advertisement moves below Back and Settings without moving the lobby title");
+assert.match(sharedActions, /else sideMargin \+ buttonSize \+ LudoProofTheme\.dp\(context, 8\)/,
+  "lobby title still reserves the full Back and Settings touch targets");
+assert.match(sharedActions, /if \(centerContentBelowActions\) LudoProofTheme\.dp\(context, 12\)/,
+  "in-match promotional strip uses the wider centered row");
+assert.match(onlineScreen, /GamePawsPromotionSlot\(/, "online modes keep the title-aware promotion slot");
 assert.match(onlineScreen, /topActionsBar\.translationY = safeTopInset\.toFloat\(\)/, "title follows safe cutout inset");
 const scrollingHeader = region(online, "private fun MainActivity.onlineModePanelHeader()", "internal fun MainActivity.onlineLobbyPanel()", "scrolling header");
 assert.doesNotMatch(scrollingHeader, /ModeArtView|text = "TEAM UP"/, "Neither mode repeats its title in scrolling content");

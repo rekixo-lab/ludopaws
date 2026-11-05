@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import accountWorker, { handleAccountRequest } from "../src/index-account.js";
+import accountWorker, { handleAccountRequest, rateLimitSignedAdMobCallback } from "../src/index-account.js";
 import { issueAccessToken } from "../src/account-security.js";
 import { sha256Hex } from "../src/crypto.js";
 
@@ -92,6 +92,57 @@ function makeCatalogNamespace(defaultResponse, calls = []) {
     },
   };
 }
+
+test("signed AdMob callbacks use isolated player buckets, not Google's shared IP", async () => {
+  const requestsPerPlayer = new Map();
+  const env = {
+    LUDOPROOF_API_GATE: {
+      idFromName: key => key,
+      get: key => ({
+        async fetch(request) {
+          assert.equal(new URL(request.url).pathname, "/check");
+          const n = (requestsPerPlayer.get(key) ?? 0) + 1;
+          requestsPerPlayer.set(key, n);
+          return n === 1
+            ? Response.json({ allowed: true, remaining: 119 })
+            : Response.json({ allowed: false, remaining: 0 }, {
+              status: 429, headers: { "retry-after": "60" },
+            });
+        },
+      }),
+    },
+  };
+  const sharedIp = "203.0.113.90";
+  const source = ip => new Request("https://api.example.test/api/admob/ssv", {
+    headers: { "cf-connecting-ip": ip },
+  });
+  await rateLimitSignedAdMobCallback(env, source(sharedIp), ACCOUNT_A);
+  await rateLimitSignedAdMobCallback(env, source(sharedIp), ACCOUNT_B);
+  assert.equal(requestsPerPlayer.size, 2, "distinct verified players need distinct buckets");
+  await assert.rejects(rateLimitSignedAdMobCallback(env, source("198.51.100.66"), ACCOUNT_A),
+    error => error.status === 429 && error.code === "RATE_LIMITED");
+  assert.equal(requestsPerPlayer.size, 2, "rotating Google source IP must not reset a player's limit");
+  await assert.rejects(rateLimitSignedAdMobCallback(env, source(sharedIp), "not-a-signed-player"),
+    error => error.status === 400 && error.code === "SSV_ACCOUNT_INVALID");
+  assert.equal(requestsPerPlayer.size, 2);
+});
+
+test("malformed unsigned AdMob SSV is rejected before a signed-player quota is touched", async () => {
+  let gateChecks = 0;
+  const env = {
+    LUDOPROOF_ADMOB_SSV_ENABLED: "true",
+    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-9987799703505828/5052207546",
+    LUDOPROOF_API_GATE: {
+      idFromName: () => { gateChecks++; throw new Error("must not allocate an account gate for unsigned traffic"); },
+    },
+  };
+  const response = await handleAccountRequest(new Request(
+    "https://api.example.test/api/admob/ssv?reward_amount=5&user_id=" + ACCOUNT_A,
+  ), env);
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "SSV_SIGNATURE_MISSING");
+  assert.equal(gateChecks, 0);
+});
 
 test("account wallet API derives the account from the verified bearer token, not URL input", async () => {
   const player = makePlayerNamespace();
@@ -338,6 +389,22 @@ test("store status disables rewarded ads when configured reward item is not gems
   assert.equal(status.rewardedAdsAvailable, false);
 });
 
+test("store status reports single 2-Gem readiness through backward-compatible v2 flag", async () => {
+  const request = new Request("https://api.example.test/api/store/status");
+  const config = {
+    LUDOPROOF_AGE_SAFETY_MODE: "FAMILY_V2",
+    LUDOPAWS_AD_SAFETY_REVIEW_APPROVED: "true",
+    LUDOPROOF_ADMOB_SSV_ENABLED: "true",
+    LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-1234567890123456/0000000002",
+  };
+  const active = await (await accountWorker.fetch(request, config)).json();
+  assert.equal(active.rewardedAdsAvailable, true);
+  assert.equal(active.rewardedAdsV2Available, true);
+  const disabled = await (await accountWorker.fetch(request, { ...config, LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "" })).json();
+  assert.equal(disabled.rewardedAdsAvailable, false);
+  assert.equal(disabled.rewardedAdsV2Available, false);
+});
+
 test("store status explains why Play Billing is disabled without returning secrets", async () => {
   const privateKey = "-----BEGIN PRIVATE KEY-----\\n" + "A".repeat(256) + "\\n-----END PRIVATE KEY-----";
   const response = await accountWorker.fetch(
@@ -388,8 +455,10 @@ test("store status requires credentials, purchase ledger, and account bindings b
 
 
 
-test("AdMob SSV rate limiting runs before signature/key verification", async () => {
+test("unsigned AdMob callbacks fail validation without consuming a legitimate player's quota", async () => {
   const env = {
+    // Even a fully exhausted bucket must not be consulted before the callback
+    // has passed Google's signature verification.
     LUDOPROOF_API_GATE: makeRateGate(false),
     LUDOPROOF_ADMOB_SSV_ENABLED: "true",
     LUDOPROOF_ADMOB_REWARDED_AD_UNIT_ID: "ca-app-pub-123/456",
@@ -398,9 +467,9 @@ test("AdMob SSV rate limiting runs before signature/key verification", async () 
     new Request("https://api.example.test/api/admob/ssv?invalid=signature"),
     env,
   );
-  assert.equal(response.status, 429);
-  assert.equal((await response.json()).error, "RATE_LIMITED");
-  assert.equal(response.headers.get("retry-after"), "60");
+  assert.equal(response.status, 400);
+  assert.equal((await response.json()).error, "SSV_SIGNATURE_MISSING");
+  assert.equal(response.headers.get("retry-after"), null);
 });
 
 

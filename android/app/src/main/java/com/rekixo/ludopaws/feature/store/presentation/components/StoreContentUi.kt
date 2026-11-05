@@ -13,6 +13,7 @@ import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
+import com.rekixo.ludopaws.feature.store.domain.RemoveAdsOfferState
 import com.rekixo.ludopaws.feature.store.domain.model.StoreProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -29,32 +30,25 @@ internal fun StoreActivity.pinnedRemoveAdsContent(): LinearLayout {
 }
 
 internal fun StoreActivity.storeContent(): LinearLayout {
-    val catalog = when (selectedTab) {
-        StoreTab.GEMS ->
-            gemsContent()
-
-        StoreTab.PAWS ->
-            pawsCatalogContent()
-
-        StoreTab.BOARD ->
-            boardCatalogContent()
-
-        StoreTab.DICE ->
-            diceCatalogContent()
-
+    // The collection must be visible before cross-promotion.
+    // Insert a small optional friendship banner after its first product row.
+    val referralEntry = when (selectedTab) {
+        StoreTab.PAWS -> referralPromotions.storeEntry("character_rabbit")
+        StoreTab.BOARD -> referralPromotions.storeEntry("board_blossom_garden")
+        StoreTab.DICE -> referralPromotions.storeEntry("dice_pearl_paw")
+        StoreTab.GEMS -> null
     }
-    val bundleItem = when (selectedTab) {
-        StoreTab.PAWS -> "character_rabbit"
-        StoreTab.BOARD -> "board_blossom_garden"
-        StoreTab.DICE -> "dice_pearl_paw"
-        else -> null
+    val catalog = when (selectedTab) {
+        StoreTab.GEMS -> gemsContent()
+        StoreTab.PAWS -> pawsCatalogContent(referralEntry)
+        StoreTab.BOARD -> boardCatalogContent(referralEntry)
+        StoreTab.DICE -> diceCatalogContent(referralEntry)
     }
     return LinearLayout(this).apply {
         orientation = LinearLayout.VERTICAL
-        promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(it) }
+        promotedCosmeticId?.let { com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.findShopItem(it) }
             ?.takeIf { com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.tabFor(it) == selectedTab }
-            ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) }) }
-        bundleItem?.let { addView(referralPromotions.storeEntry(it), LinearLayout.LayoutParams(-1, -2)) }
+            ?.let { addView(promotedItemCard(it), LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }) }
         val category = when (selectedTab) {
             StoreTab.PAWS -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.CHARACTER_PACK
             StoreTab.BOARD -> com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory.BOARD
@@ -68,7 +62,7 @@ internal fun StoreActivity.storeContent(): LinearLayout {
             } else null
             val spotlight = StoreLockedSpotlightView(this@storeContent, category, initial) { spotlightPositions[tab] = it }
             storeSpotlight = spotlight
-            addView(spotlight, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+            addView(spotlight, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
             spotlight.setActive(showcaseResumed)
         }
         addView(catalog, LinearLayout.LayoutParams(-1, -2))
@@ -336,15 +330,17 @@ private fun StoreActivity.featuredRemoveAdsCard(
                 1f,
             ),
         )
-        body.addView(
-            rewardedAdCard(),
-            LinearLayout.LayoutParams(
-                dp(122),
-                dp(42),
-            ).apply {
-                marginStart = dp(4)
-            },
-        )
+        if (BuildConfig.LUDOPROOF_ADS_ENABLED) {
+            body.addView(
+                rewardedAdCard(),
+                LinearLayout.LayoutParams(
+                    dp(122),
+                    dp(42),
+                ).apply {
+                    marginStart = dp(4)
+                },
+            )
+        }
         addView(
             body,
         )
@@ -353,11 +349,16 @@ private fun StoreActivity.featuredRemoveAdsCard(
             Button(
                 this@featuredRemoveAdsCard,
             ).apply {
-                text =
-                    priceFor(
-                        product.productId,
-                        product.fallbackPrice,
-                    )
+                text = when (removeAdsOfferState()) {
+                    RemoveAdsOfferState.BUY -> priceFor(product.productId, product.fallbackPrice)
+                    RemoveAdsOfferState.ACTIVE -> "Ads Removed ✓"
+                    RemoveAdsOfferState.VERIFYING -> "Restoring purchase…"
+                    RemoveAdsOfferState.RESTORE_ACCOUNT -> "Restore Original Account"
+                    RemoveAdsOfferState.CONTACT_SUPPORT -> "Purchase needs support"
+                    RemoveAdsOfferState.PAYMENT_PENDING -> "Payment pending"
+                    RemoveAdsOfferState.CHECKING -> "Checking Google Play…"
+                    RemoveAdsOfferState.RETRY_CHECK -> "Retry Play check"
+                }
                 textSize =
                     18f
                 setTypeface(
@@ -388,11 +389,8 @@ private fun StoreActivity.featuredRemoveAdsCard(
                                 dp(15).toFloat(),
                             )
                     }
-                setOnClickListener {
-                    requestPurchase(
-                        product.productId,
-                    )
-                }
+                contentDescription = "Remove Ads: $text"
+                setOnClickListener { performRemoveAdsAction() }
                 AppFocusRing.apply(this, cornerRadiusDp = 10f)
             },
             LinearLayout.LayoutParams(
@@ -409,7 +407,7 @@ internal fun StoreActivity.rewardedAdCard():
         gravity = Gravity.CENTER
         isClickable = true
         isFocusable = true
-        contentDescription = "Watch ad to earn 5 gems"
+        contentDescription = "Watch ad to earn 2 gems"
         setPadding(dp(7), 0, dp(7), 0)
         background =
             LudoProofTheme.rounded(
@@ -426,7 +424,7 @@ internal fun StoreActivity.rewardedAdCard():
 
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = "5"
+                text = com.rekixo.ludopaws.feature.store.domain.StoreCatalog.REWARDED_AD_GEMS.toString()
                 textSize = 12f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)

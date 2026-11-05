@@ -6,7 +6,7 @@ import com.rekixo.ludopaws.feature.store.domain.model.*
 
 object DiwaliDiceDefinition {
     val content = DiceDefinition(
-        offer = cosmetic("dice_diwali","DIWALI",CosmeticCategory.DICE,CosmeticUnlockKind.REWARDED_ADS,"6",0xFFB21C32.toInt(),0xFFFFC832.toInt(),ads=5,contentAvailable=false),
+        offer = cosmetic("dice_diwali","DIWALI",CosmeticCategory.DICE,CosmeticUnlockKind.GEMS,"6",0xFFB21C32.toInt(),0xFFFFC832.toInt(),gems=50,contentAvailable=false),
         paletteFactory = { DicePalette(
                 intArrayOf(0xFFFFE8A0.toInt(), 0xFFFFC832.toInt(), 0xFFB21C32.toInt()),
                 0xFFB21C32.toInt(),

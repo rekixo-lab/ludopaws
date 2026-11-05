@@ -89,7 +89,7 @@ function makeAccount(envOverrides = {}) {
     LUDOPROOF_SESSION_HMAC_KEY: "test-session-hmac-key-that-is-long-enough-123456",
     ...envOverrides,
   };
-  return { account: new PlayerAccount(ctx, env), sql };
+  return { account: new PlayerAccount(ctx, env), sql, ctx, env };
 }
 
 async function post(account, path, body) {
@@ -172,7 +172,7 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
   const firstResponse = await post(account, "/wallet/cosmetic/purchase", purchase);
   assert.equal(firstResponse.status, 200);
   const first = await firstResponse.json();
-  assert.equal(first.wallet.balance, 250);
+  assert.equal(first.wallet.balance, 650);
   assert.equal(first.wallet.ownedCosmetics.includes("avatar_2"), true);
   assert.equal(first.wallet.selectedCosmetics.AVATAR, "avatar_2");
   assert.equal(sql.walletTransactions.size, 1);
@@ -181,10 +181,114 @@ test("cosmetic wallet purchase atomically debits gems, owns/selects once, and is
   assert.equal(replayResponse.status, 200);
   const replay = await replayResponse.json();
   assert.equal(replay.replay, true);
-  assert.equal(replay.wallet.balance, 250);
+  assert.equal(replay.wallet.balance, 650);
   assert.equal(sql.walletTransactions.size, 1);
 });
 
+
+test("verified Gem-pack delivery is idempotent; a refund reverses Gems once and blocks replay", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Gem Buyer" })).json();
+  const details = {
+    accountId, sessionId: session.sessionId, productId: "gems_1500",
+    purchaseTokenHash: "a".repeat(64), purchaseLedgerId: "b".repeat(64),
+  };
+  const first = await post(account, "/wallet/play-purchase", details);
+  assert.equal(first.status, 200);
+  assert.equal((await first.json()).wallet.balance, 1_200);
+  const replay = await post(account, "/wallet/play-purchase", details);
+  assert.equal(replay.status, 200);
+  assert.equal((await replay.json()).wallet.balance, 1_200);
+  assert.equal(sql.walletTransactions.size, 1);
+
+  const refund = await post(account, "/wallet/play-revoke", {
+    accountId, purchaseLedgerId: details.purchaseLedgerId,
+  });
+  assert.equal(refund.status, 200);
+  const restored = await (await post(account, "/wallet/get", {
+    accountId, sessionId: session.sessionId,
+  })).json();
+  assert.equal(restored.wallet.balance, 0);
+  assert.equal(sql.walletTransactions.size, 2);
+  const repeatedRefund = await post(account, "/wallet/play-revoke", {
+    accountId, purchaseLedgerId: details.purchaseLedgerId,
+  });
+  assert.equal((await repeatedRefund.json()).replay, true);
+  assert.equal(sql.walletTransactions.size, 2);
+  const retry = await post(account, "/wallet/play-purchase", details);
+  assert.equal(retry.status, 409);
+  assert.equal((await retry.json()).error, "PLAY_PURCHASE_REVOKED");
+});
+
+test("Remove Ads refund removes entitlement and the five bonus Gems without affecting independent rewards", async () => {
+  const { account } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Ad Buyer" })).json();
+  const adCredit = await post(account, "/wallet/reward-ad", {
+    accountId, kind: "gems", transactionId: "1".repeat(32),
+  });
+  assert.equal(adCredit.status, 200);
+  assert.equal((await adCredit.json()).wallet.balance, 5);
+  const purchase = {
+    accountId, sessionId: session.sessionId, productId: "remove_ads",
+    purchaseTokenHash: "c".repeat(64), purchaseLedgerId: "d".repeat(64),
+  };
+  const granted = await post(account, "/wallet/play-purchase", purchase);
+  assert.equal(granted.status, 200);
+  const active = (await granted.json()).wallet;
+  assert.equal(active.adsRemoved, true);
+  assert.equal(active.balance, 10);
+  assert.equal((await post(account, "/wallet/play-revoke", {
+    accountId, purchaseLedgerId: purchase.purchaseLedgerId,
+  })).status, 200);
+  const revoked = (await (await post(account, "/wallet/get", {
+    accountId, sessionId: session.sessionId,
+  })).json()).wallet;
+  assert.equal(revoked.adsRemoved, false);
+  assert.equal(revoked.balance, 5);
+  const retry = await post(account, "/wallet/play-purchase", purchase);
+  assert.equal(retry.status, 409);
+  assert.equal((await retry.json()).error, "PLAY_PURCHASE_REVOKED");
+});
+
+test("refunding a direct-Panda Play purchase revokes only Play ownership, never verified legacy ownership", async () => {
+  for (const legacyOwner of [false, true]) {
+    const { account, sql } = makeAccount();
+    const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+    const session = await (await post(account, "/session/create", {
+      accountId, displayName: "Panda Buyer",
+    })).json();
+    if (legacyOwner) {
+      sql.exec(
+        "INSERT INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, 'CHARACTER_PACK', 'LEGACY_FREE', ?, NULL)",
+        "character_panda", Date.now(),
+      );
+    }
+    const purchase = {
+      accountId, sessionId: session.sessionId, productId: "character_panda",
+      purchaseTokenHash: "e".repeat(64), purchaseLedgerId: "f".repeat(64),
+    };
+    const grant = await post(account, "/wallet/play-purchase", purchase);
+    assert.equal(grant.status, 200);
+    const grantedWallet = (await grant.json()).wallet;
+    assert.equal(grantedWallet.balance, 0, "a paid cosmetic must never grant cash-equivalent Gems");
+    assert.ok(grantedWallet.ownedCosmetics.includes("character_panda"));
+    const refund = await post(account, "/wallet/play-revoke", {
+      accountId, purchaseLedgerId: purchase.purchaseLedgerId,
+    });
+    assert.equal(refund.status, 200);
+    const after = (await (await post(account, "/wallet/get", {
+      accountId, sessionId: session.sessionId,
+    })).json()).wallet;
+    assert.equal(after.ownedCosmetics.includes("character_panda"), legacyOwner);
+    if (!legacyOwner) assert.notEqual(after.selectedCosmetics.CHARACTER_PACK, "character_panda");
+    else assert.equal(sql.ownedCosmetics.get("character_panda").source, "LEGACY_FREE");
+    const retry = await post(account, "/wallet/play-purchase", purchase);
+    assert.equal(retry.status, 409);
+    assert.equal((await retry.json()).error, "PLAY_PURCHASE_REVOKED");
+  }
+});
 
 test("content-ready cosmetic purchases do not require client-only level progression", async () => {
   const { account, sql } = makeAccount();
@@ -201,7 +305,7 @@ test("content-ready cosmetic purchases do not require client-only level progress
 
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.wallet.balance, 300);
+  assert.equal(body.wallet.balance, 700);
   assert.equal(body.wallet.ownedCosmetics.includes("avatar_10"), true);
   assert.equal(body.wallet.selectedCosmetics.AVATAR, "avatar_10");
 });
@@ -536,6 +640,107 @@ for (const [cosmeticId, required] of [["character_goat_lumi", 10], ["character_d
     assert.equal(equip.status, 200);
   });
 }
+
+test("new accounts must buy Panda and Monkey, and cannot bypass 150-Gem price", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Paw Buyer" })).json();
+  assert.equal(session.wallet.ownedCosmetics.includes("character_panda"), false);
+  assert.equal(session.wallet.ownedCosmetics.includes("character_monkey"), false);
+  sql.exec("UPDATE wallet SET balance = 200 WHERE account_id = ?", accountId);
+  const success = await post(account, "/wallet/cosmetic/purchase", {
+    accountId, sessionId: session.sessionId, cosmeticId: "character_panda",
+    clientRequestId: crypto.randomUUID(), unlockChannel: "GEMS",
+  });
+  assert.equal(success.status, 200);
+  assert.equal((await success.json()).wallet.balance, 50);
+  assert.equal(sql.ownedCosmetics.has("character_panda"), true);
+  const rejected = await post(account, "/wallet/cosmetic/purchase", {
+    accountId, sessionId: session.sessionId, cosmeticId: "character_monkey",
+    clientRequestId: crypto.randomUUID(), unlockChannel: "GEMS",
+  });
+  assert.equal(rejected.status, 409);
+  assert.equal((await rejected.json()).error, "INSUFFICIENT_GEMS");
+  assert.equal(sql.ownedCosmetics.has("character_monkey"), false);
+});
+
+test("accounts active before Panda/Monkey repricing retain both old free entitlements", async () => {
+  const { account, sql, ctx, env } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Legacy Player" });
+  sql.exec("DELETE FROM cosmetic_pricing_migrations WHERE id = 2");
+  const reopened = new PlayerAccount(ctx, env);
+  const session = await (await post(reopened, "/session/create", { accountId, displayName: "Legacy Player" })).json();
+  assert.equal(session.wallet.ownedCosmetics.includes("character_panda"), true);
+  assert.equal(session.wallet.ownedCosmetics.includes("character_monkey"), true);
+  assert.equal(sql.ownedCosmetics.get("character_panda").source, "LEGACY_FREE");
+});
+
+test("published dynamic cosmetic prices override legacy built-in price defaults", async () => {
+  const item = catalogItem({
+    id: "character_panda",
+    category: "PAW",
+    unlock: { channels: ["GEMS"], gems: { enabled: true, price: 90 } },
+  });
+  const { account, sql } = makeAccount({
+    LUDOPROOF_STORE_CATALOG: makeCatalogNamespace([item]),
+  });
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  const session = await (await post(account, "/session/create", { accountId, displayName: "Catalog Buyer" })).json();
+  sql.exec("UPDATE wallet SET balance = 100 WHERE account_id = ?", accountId);
+  const purchase = await post(account, "/wallet/cosmetic/purchase", {
+    accountId, sessionId: session.sessionId, cosmeticId: "character_panda",
+    clientRequestId: crypto.randomUUID(), unlockChannel: "GEMS",
+  });
+  assert.equal(purchase.status, 200);
+  assert.equal((await purchase.json()).wallet.balance, 10);
+});
+
+test("2-Gem signed rewards have no daily grant limit and are replay-safe, preserving cosmetic progress", async () => {
+  const { account, sql } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Updated Ad Player" });
+  for (let i = 1; i <= 14; i++) {
+    const item = { accountId, kind: "gems", gemAmount: 2, transactionId: i.toString(16).padStart(32, "0") };
+    const result = await post(account, "/wallet/reward-ad", item);
+    assert.equal(result.status, 200);
+    const wallet = (await result.json()).wallet;
+    assert.equal(wallet.balance, i * 2);
+    assert.equal(wallet.rewardedAdsToday, i);
+    const replay = (await (await post(account, "/wallet/reward-ad", item)).json()).wallet;
+    assert.equal(replay.balance, i * 2);
+  }
+  const cosmetic = await post(account, "/wallet/reward-ad", {
+    accountId, kind: "cosmetic", cosmeticId: "character_goat_lumi",
+    gemAmount: 2, transactionId: "e".repeat(32),
+  });
+  assert.equal(cosmetic.status, 200);
+  const snapshot = (await cosmetic.json()).wallet;
+  assert.equal(snapshot.balance, 30);
+  assert.equal(snapshot.rewardedAdProgress.character_goat_lumi, 1);
+  assert.equal(sql.walletTransactions.size, 15);
+  const invalid = await post(account, "/wallet/reward-ad", {
+    accountId, kind: "gems", gemAmount: 99, transactionId: "f".repeat(32),
+  });
+  assert.equal(invalid.status, 400);
+  assert.equal((await invalid.json()).error, "AD_REWARD_INVALID");
+});
+
+test("verified rewarded ads report UTC daily progress without rejecting delayed SSV rewards", async () => {
+  const { account } = makeAccount();
+  const accountId = "0a2c3a83-e0fb-4abc-8ac4-581a6d994fe7";
+  await post(account, "/session/create", { accountId, displayName: "Ad Player" });
+  for (let i = 1; i <= 3; i++) {
+    const result = await post(account, "/wallet/reward-ad", {
+      accountId, kind: "gems", transactionId: i.toString(16).padStart(32, "0"),
+    });
+    assert.equal(result.status, 200);
+    const wallet = (await result.json()).wallet;
+    assert.equal(wallet.rewardedAdsToday, i);
+    assert.equal(wallet.rewardedAdsDailyLimit, 10);
+    assert.equal(wallet.balance, i * 5);
+  }
+});
 
 test("only Classic dice are granted; Coming Soon dice cannot consume gems or ads", async () => {
   const { account, sql } = makeAccount();

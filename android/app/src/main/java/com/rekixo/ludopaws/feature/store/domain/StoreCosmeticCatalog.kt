@@ -22,20 +22,38 @@ object StoreCosmeticCatalog {
     val characterUnlocks = listOf(
         cosmetic("character_goat_lumi", "LUMI GOAT", CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFF4E4CD.toInt(), 0xFF806249.toInt(),
-            ads = 10, characterPackId = "starter_paws"),
+            ads = 10, characterPackId = "starter_paws").copy(
+            unlockKind = CosmeticUnlockKind.GEMS, gemPrice = 50,
+            unlockChannels = listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS),
+        ),
         cosmetic("character_donkey", "DONKEY", CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.REWARDED_ADS, "PAW", 0xFFC7C6C3.toInt(), 0xFF555862.toInt(),
-            ads = 15, characterPackId = "starter_paws"),
+            ads = 15, characterPackId = "starter_paws").copy(
+            unlockKind = CosmeticUnlockKind.GEMS, gemPrice = 75,
+            unlockChannels = listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS),
+        ),
     ) + CosmeticPricing.paidCharacterIds.map { characterId ->
         CosmeticPricing.apply(cosmetic(
             "character_$characterId", characterId.uppercase(), CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.GEMS, "PAW", 0xFFD9C9A7.toInt(), 0xFF63513B.toInt(),
-            gems = 300, characterPackId = "starter_paws",
+            gems = if (characterId == "panda" || characterId == "monkey") 150 else 300, characterPackId = "starter_paws",
         ))
     }
 
     fun characterUnlock(characterId: String): StoreCosmetic? =
-        characterUnlocks.firstOrNull { it.id == "character_$characterId" }
+        // A suppressed or archived offer is intentionally not for sale.
+        characterPacks.firstOrNull { it.id == "character_$characterId" }
+
+    /**
+     * Character ownership is independent from whether the offer is currently
+     * published. If a paid Paw is archived, do not mistake a missing offer for
+     * a free Starter Paw. Previously owned entitlements still work.
+     */
+    fun characterEntitlementId(characterId: String): String? =
+        characterUnlock(characterId)?.id
+            ?: findBuiltIn("character_$characterId")
+                ?.takeIf { it.category == CosmeticCategory.CHARACTER_PACK }
+                ?.id
 
     private val builtInAvatars =
         listOf(
@@ -47,101 +65,23 @@ object StoreCosmeticCatalog {
             cosmetic("avatar_7","Avatar 7",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A7",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
             cosmetic("avatar_1","Avatar 1",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A1",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
             cosmetic("avatar_8","Avatar 8",CosmeticCategory.AVATAR,CosmeticUnlockKind.FREE,"A8",0xFF1E91E8.toInt(),0xFF073F97.toInt()),
-            cosmetic("avatar_2","Avatar 2",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A2",0xFF7D3FC1.toInt(),0xFF33206E.toInt(),gems=500),
-            cosmetic("avatar_10","Avatar 10",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A10",0xFFE14F7C.toInt(),0xFF79203D.toInt(),gems=500),
+            cosmetic("avatar_2","Avatar 2",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A2",0xFF7D3FC1.toInt(),0xFF33206E.toInt(),gems=100),
+            cosmetic("avatar_10","Avatar 10",CosmeticCategory.AVATAR,CosmeticUnlockKind.GEMS,"A10",0xFFE14F7C.toInt(),0xFF79203D.toInt(),gems=100),
         )
 
-    /**
-     * Only Starter Paws is content-ready today. The remaining offers reserve
-     * stable store IDs and demonstrate every supported progression channel,
-     * but cannot consume gems/progress or become selected until their complete
-     * art/reaction/animation/voice pack is registered in the character catalog.
-     */
-    private val builtInCharacterPacks =
-        listOf(
-            cosmetic(
-                id = DEFAULT_CHARACTER_PACK,
-                title = "STARTER PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.FREE,
-                previewSymbol = "PAW",
-                previewPrimary = 0xFF20A86B.toInt(),
-                previewSecondary = 0xFF075B72.toInt(),
-                characterPackId = "starter_paws",
-            ),
-            cosmetic(
-                id = "character_pack_safari_paws",
-                title = "SAFARI PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.LEVEL,
-                previewSymbol = "SA",
-                previewPrimary = 0xFFE0A12A.toInt(),
-                previewSecondary = 0xFF8A4C18.toInt(),
-                level = 8,
-                characterPackId = "safari_paws",
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "character_pack_farm_paws",
-                title = "FARM PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.GEMS,
-                previewSymbol = "FA",
-                previewPrimary = 0xFF5EB34D.toInt(),
-                previewSecondary = 0xFF2B6C36.toInt(),
-                gems = 300,
-                characterPackId = "farm_paws",
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "character_pack_cozy_paws",
-                title = "COZY PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.REWARDED_ADS,
-                previewSymbol = "CO",
-                previewPrimary = 0xFF7E74D9.toInt(),
-                previewSecondary = 0xFF463A94.toInt(),
-                ads = 10,
-                characterPackId = "cozy_paws",
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "character_pack_wild_paws",
-                title = "WILD PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.EVENT,
-                previewSymbol = "WI",
-                previewPrimary = 0xFFD95A36.toInt(),
-                previewSecondary = 0xFF7B2B37.toInt(),
-                characterPackId = "wild_paws",
-                eventKey = "wild_paws_event_v1",
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "character_pack_pet_paws",
-                title = "PET PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.GEMS,
-                previewSymbol = "PE",
-                previewPrimary = 0xFF3D9BE9.toInt(),
-                previewSecondary = 0xFF3155A7.toInt(),
-                gems = 450,
-                characterPackId = "pet_paws",
-                contentAvailable = false,
-            ),
-            cosmetic(
-                id = "character_pack_jungle_paws",
-                title = "JUNGLE PAWS",
-                category = CosmeticCategory.CHARACTER_PACK,
-                unlockKind = CosmeticUnlockKind.GEMS,
-                previewSymbol = "JU",
-                previewPrimary = 0xFF5A9E3B.toInt(),
-                previewSecondary = 0xFF234D30.toInt(),
-                gems = 550,
-                characterPackId = "jungle_paws",
-                contentAvailable = false,
-            ),
-        )
+    // Only shipped packs appear in the Shop. Future items are added on release.
+    private val builtInCharacterPacks = listOf(
+        cosmetic(
+            id = DEFAULT_CHARACTER_PACK,
+            title = "STARTER PAWS",
+            category = CosmeticCategory.CHARACTER_PACK,
+            unlockKind = CosmeticUnlockKind.FREE,
+            previewSymbol = "PAW",
+            previewPrimary = 0xFF20A86B.toInt(),
+            previewSecondary = 0xFF075B72.toInt(),
+            characterPackId = "starter_paws",
+        ),
+    )
 
     @Volatile
     private var remoteItemsById: Map<String, StoreCosmetic> = emptyMap()
@@ -155,8 +95,9 @@ object StoreCosmeticCatalog {
     val dice: List<StoreCosmetic>
         get() = mergedForCategory(CosmeticCategory.DICE)
 
+    // Retire Avatar collectibles from Shop without erasing old account IDs.
     val avatars: List<StoreCosmetic>
-        get() = mergedForCategory(CosmeticCategory.AVATAR)
+        get() = emptyList()
 
     val characterPacks: List<StoreCosmetic>
         get() = mergedForCategory(CosmeticCategory.CHARACTER_PACK)
@@ -196,12 +137,15 @@ object StoreCosmeticCatalog {
         (builtInBoards + builtInDice + builtInAvatars + builtInCharacterPacks + characterUnlocks)
             .firstOrNull { it.id == id }
 
+    /** Retail entry points use ONLY visible, released catalog items. */
+    fun findShopItem(id: String): StoreCosmetic? =
+        all.firstOrNull { it.id == id }
+
     fun find(
         id: String,
     ): StoreCosmetic? =
-        all.firstOrNull {
-            it.id == id
-        }
+        all.firstOrNull { it.id == id }
+            ?: builtInAvatars.firstOrNull { it.id == id } // Historic account compatibility only
 
     fun forCategory(
         category: CosmeticCategory,
@@ -211,6 +155,7 @@ object StoreCosmeticCatalog {
     private fun mergedForCategory(
         category: CosmeticCategory,
     ): List<StoreCosmetic> {
+        if (category == CosmeticCategory.AVATAR) return emptyList()
         val builtIns = when (category) {
             CosmeticCategory.BOARD -> builtInBoards
             CosmeticCategory.DICE -> builtInDice
@@ -246,7 +191,9 @@ object StoreCosmeticCatalog {
         val newRemoteItems = remote.values
             .filter { it.category == category && it.id !in builtInIds }
             .map { it.copy(contentAvailable = false) }
-        return (visibleBuiltIns + newRemoteItems).map(CosmeticPricing::apply)
+        // Only locally shipped and renderable products can appear in Shop.
+        // Published server prices still win for released content.
+        return (visibleBuiltIns + newRemoteItems).filter { it.contentAvailable }
     }
 
     fun defaultId(
