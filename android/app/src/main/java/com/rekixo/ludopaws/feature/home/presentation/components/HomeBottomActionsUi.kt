@@ -60,9 +60,10 @@ private fun HomeActivity.bottomActionButton(
 ): LinearLayout =
     LinearLayout(this).apply {
         val compact = isCompact()
-        val iconSlot = dp(if (compact) 25 else 27)
-        orientation = LinearLayout.VERTICAL
+        val iconSlot = dp(if (compact) 16 else 18)
+        orientation = LinearLayout.HORIZONTAL
         gravity = Gravity.CENTER
+        isBaselineAligned = false
         isClickable = true
         isFocusable = true
         contentDescription = description
@@ -71,7 +72,8 @@ private fun HomeActivity.bottomActionButton(
             cornerRadiusDp = if (compact) 25f else 28f,
         )
         elevation = dp(7).toFloat()
-        setPaddingRelative(dp(4), 0, dp(4), 0)
+        val sidePadding = dp(if (compact) 5 else 6)
+        setPaddingRelative(sidePadding, dp(6), sidePadding, dp(6))
         setOnClickListener { action() }
 
         addView(
@@ -84,13 +86,15 @@ private fun HomeActivity.bottomActionButton(
                 icon.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 // The gem and gear fill more of their source canvas than Share and Play.
                 val iconSize = when (iconKind) {
-                    HomeIconKind.GEM -> iconSlot - dp(4)
-                    HomeIconKind.SETTINGS -> iconSlot - dp(2)
+                    HomeIconKind.GEM -> iconSlot - dp(2)
+                    HomeIconKind.SETTINGS -> iconSlot - dp(1)
                     else -> iconSlot
                 }
                 addView(icon, FrameLayout.LayoutParams(iconSize, iconSize, Gravity.CENTER))
             },
-            LinearLayout.LayoutParams(iconSlot, iconSlot),
+            LinearLayout.LayoutParams(iconSlot, iconSlot).apply {
+                marginEnd = dp(if (compact) 3 else 4)
+            },
         )
 
         addView(
@@ -103,14 +107,14 @@ private fun HomeActivity.bottomActionButton(
                 maxLines = 1
                 ellipsize = TextUtils.TruncateAt.END
                 setAutoSizeTextTypeUniformWithConfiguration(
-                    9, if (compact) 11 else 12, 1, TypedValue.COMPLEX_UNIT_SP,
+                    8, if (compact) 10 else 11, 1, TypedValue.COMPLEX_UNIT_SP,
                 )
                 setShadowLayer(2f, 0f, dp(1).toFloat(), 0xC0000000.toInt())
                 importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
                 dp(if (compact) 17 else 19),
-            ).apply { topMargin = dp(2) },
+            ),
         )
     }

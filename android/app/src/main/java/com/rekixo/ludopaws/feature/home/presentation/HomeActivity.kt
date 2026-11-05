@@ -427,10 +427,8 @@ class HomeActivity : Activity() {
                 Gravity.BOTTOM or
                     Gravity.CENTER_HORIZONTAL,
             ).apply {
-                leftMargin =
-                    dp(if (isCompact()) 18 else 24)
-                rightMargin =
-                    dp(if (isCompact()) 18 else 24)
+                marginStart = dp(if (isCompact()) 12 else 18)
+                marginEnd = dp(if (isCompact()) 12 else 18)
                 bottomMargin =
                     dp(if (isCompact()) 46 else 54)
             },
