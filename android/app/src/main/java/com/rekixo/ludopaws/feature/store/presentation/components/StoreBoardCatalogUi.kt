@@ -10,11 +10,10 @@ import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 
 internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
@@ -45,7 +44,7 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
                     boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(208),
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -85,6 +84,7 @@ private fun StoreActivity.boardPanel(
     selectionUpdates: MutableMap<String, (Boolean, Boolean) -> Unit>,
 ): LinearLayout =
     LinearLayout(this).apply {
+        minimumHeight = dp(208)
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(8), dp(6), dp(8))
@@ -119,13 +119,9 @@ private fun StoreActivity.boardPanel(
                 gravity = Gravity.CENTER
             })
         }
+        val preview = checkNotNull(CosmeticPreview.board(board.id))
         addView(
-            BoardIconView(this@boardPanel, board.id).apply {
-                isClickable = false
-                isFocusable = false
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = "${board.title} board preview"
-            },
+            preview.artwork(context),
             LinearLayout.LayoutParams(
                 dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
                 dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
@@ -135,7 +131,13 @@ private fun StoreActivity.boardPanel(
             },
         )
 
-        val statusBadge = boardStatusBadge(board = board, owned = owned, selected = selected)
+        var primary = smartUnlockDecision(board).primary
+        val statusBadge = boardStatusBadge(board = board, owned = owned, selected = selected).apply {
+            minHeight = dp(44)
+            isFocusable = true
+            setOnClickListener { activateCatalogOffer(board, primary) }
+        }
+        addPreviewCue()
         addView(
             statusBadge,
             LinearLayout.LayoutParams(
@@ -163,19 +165,19 @@ private fun StoreActivity.boardPanel(
                 )
             }
             elevation = dp(if (currentSelected) 4 else 2).toFloat()
-            contentDescription = when {
-                !currentOwned -> "${board.title}, available to unlock"
-                currentSelected -> "${board.title}, selected"
-                else -> "${board.title}, unlocked, tap to select"
-            }
+            contentDescription = "Preview ${board.title}" + if (currentSelected) ", equipped" else ""
+            primary = smartUnlockDecision(board).primary
+            statusBadge.isClickable = !currentSelected
+            statusBadge.isFocusable = !currentSelected
             boardStatusBadge(board, currentOwned, currentSelected, statusBadge)
         }
         selectionUpdates[board.id] = updateSelection
         updateSelection(owned, selected)
 
-        setOnClickListener { clicked ->
-            handleCosmeticTap(board)
-            clicked.playSelectionPopAnimation {}
+        setOnClickListener {
+            val label = statusBadge.text.takeUnless { isSelected }
+            val expectedAction = primary
+            preview.show(context, label) { activateCatalogOffer(board, expectedAction) }
         }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
@@ -189,7 +191,7 @@ private fun StoreActivity.boardStatusBadge(
     badge.apply {
         text = when {
             selected -> "✓ EQUIPPED"
-            owned -> "TAP TO SELECT"
+            owned -> "Select"
             else -> smartUnlockLabel(board)
         }
         textSize = 9.5f
@@ -226,26 +228,3 @@ private fun StoreActivity.boardStatusBadge(
                 )
             }
     }
-
-
-private class BoardIconView(
-    context: android.content.Context,
-    previewThemeId: String,
-) : android.widget.FrameLayout(context) {
-    init {
-        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        contentDescription = "Gameplay board artwork preview"
-        addView(com.rekixo.ludopaws.LudoBoardView(context).apply {
-            setBoardThemeOverride(previewThemeId)
-            setClassicTokenDrawingEnabled(false)
-            isClickable = false
-            isFocusable = false
-        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        addView(com.rekixo.ludopaws.LudoPawsBoardChromeView(context).apply {
-            setBoardThemeOverride(previewThemeId)
-        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-    }
-
-    // The store card owns the tap; this is a passive preview, with no selectable pawns.
-    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean = false
-}

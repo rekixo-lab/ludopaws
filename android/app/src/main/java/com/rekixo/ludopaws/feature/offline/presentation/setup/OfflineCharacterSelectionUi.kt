@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.ui.offline.setup
 
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -426,7 +427,14 @@ private fun OfflineGameActivity.characterChoiceCard(
             },
         )
 
-        contentDescription = "Choose ${character.displayName}"
+        val preview = CosmeticPreview.character(character.id)
+        if (preview != null) {
+            setOnLongClickListener {
+                preview.show(context)
+                true
+            }
+        }
+        contentDescription = "Choose ${character.displayName}. Hold to preview."
         setOnClickListener { clicked ->
             clicked.playSelectionPopAnimation()
             selectCharacterForActiveSlot(character.id)

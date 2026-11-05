@@ -7,17 +7,15 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 
 internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
@@ -105,7 +103,6 @@ private fun StoreActivity.pawsCharacterCard(
         val unlock = availableOffer ?: StoreCosmeticCatalog.findBuiltIn("character_${character.id}")
         val owned = unlock == null || unlock.id in ownedIds
         val offerUnavailable = availableOffer == null && unlock != null && !owned
-        val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         clipChildren = false
@@ -125,24 +122,11 @@ private fun StoreActivity.pawsCharacterCard(
         elevation = dp(if (selected) 5 else 3).toFloat()
         isClickable = true
         isFocusable = true
-        contentDescription =
-            if (owned) "${character.displayName}, unlocked${if (selected) ", selected" else ""}"
-            else if (offerUnavailable) "${character.displayName}, currently unavailable"
-            else if (unlock != null) "${character.displayName}, ${smartUnlockLabel(unlock)}"
-            else "${character.displayName}, unlocked"
+        contentDescription = "Preview ${character.displayName}" + if (selected) ", equipped" else ""
 
+        val preview = checkNotNull(CosmeticPreview.character(character.id))
         addView(
-            LudoPawsCharacterAvatarView(this@pawsCharacterCard).apply {
-                // Reuse the same production 3D portrait as gameplay and character selection.
-                bind(
-                    characterId = character.id,
-                    ringColor = 0xFF5BE0FF.toInt(),
-                    highlighted = false,
-                    showCircularChrome = false,
-                )
-                importantForAccessibility =
-                    android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },
+            preview.artwork(context),
             LinearLayout.LayoutParams(
                 dp(96),
                 dp(96),
@@ -167,13 +151,26 @@ private fun StoreActivity.pawsCharacterCard(
             ),
         )
 
+        val primary = availableOffer?.let { smartUnlockDecision(it).primary }
+        val label = when {
+            selected -> "✓ Equipped"
+            owned -> "Select"
+            offerUnavailable -> "Unavailable"
+            availableOffer != null -> smartUnlockLabel(availableOffer)
+            else -> "Unavailable"
+        }
+        val activate: () -> Unit = {
+            if (owned) showFeaturedCharacter(character.id)
+            else if (availableOffer != null && primary != null) activateCatalogOffer(availableOffer, primary)
+        }
+        addPreviewCue()
         addView(
             TextView(this@pawsCharacterCard).apply {
-                text = when {
-                    owned -> "🔓 UNLOCKED"
-                    offerUnavailable -> "🔒 UNAVAILABLE"
-                    unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> if (unlock == null) "UNLOCKED" else smartUnlockLabel(unlock)
+                text = label
+                minHeight = dp(44)
+                if (!offerUnavailable && !selected) {
+                    isFocusable = true
+                    setOnClickListener { activate() }
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
@@ -206,10 +203,8 @@ private fun StoreActivity.pawsCharacterCard(
             ),
         )
 
-        setOnClickListener { clicked ->
-            clicked.playSelectionPopAnimation {
-                showFeaturedCharacter(character.id)
-            }
+        setOnClickListener {
+            preview.show(context, label.takeUnless { offerUnavailable || selected }, activate)
         }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }

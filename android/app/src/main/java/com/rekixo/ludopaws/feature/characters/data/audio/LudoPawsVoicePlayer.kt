@@ -6,6 +6,8 @@ import android.os.Looper
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsReactionAudioProfile
 import com.rekixo.ludopaws.feature.characters.domain.audio.LudoPawsCharacterAudioProfiles
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
+import com.rekixo.ludopaws.feature.characters.domain.model.AnimationCue
+import com.rekixo.ludopaws.feature.characters.domain.model.VoiceCue
 import com.rekixo.ludopaws.feature.characters.domain.reaction.GameMomentType
 import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsReaction
 import com.rekixo.ludopaws.feature.settings.data.local.GameMusicController
@@ -26,10 +28,28 @@ class LudoPawsVoicePlayer(
     private val scheduled = mutableSetOf<Runnable>()
     private var closed = false
 
+    internal fun playPreview(characterId: String) {
+        val character = LudoPawsCharacterCatalog.character(characterId) ?: return
+        val voiceSet = LudoPawsCharacterCatalog.voiceSet(character.voiceSetId) ?: return
+        val cue = listOf(VoiceCue.HOME, VoiceCue.YARD_EXIT, VoiceCue.SIX)
+            .firstOrNull { it in voiceSet.supportedCues } ?: return
+        cancelPending()
+        playHighestPriority(
+            reactions = listOf(LudoPawsReaction(
+                playerId = "preview", seat = 0, voiceCue = cue,
+                animationCue = AnimationCue.HOME, priority = 1,
+                reactionKey = "preview:$characterId:${cue.wireName}",
+            )),
+            characterIdsBySeat = listOf(characterId),
+            explicitPreview = true,
+        )
+    }
+
     fun playHighestPriority(
         reactions: List<LudoPawsReaction>,
         characterIdsBySeat: List<String>,
         captureContactDelayMillis: Long = 0L,
+        explicitPreview: Boolean = false,
     ) {
         if (closed || reactions.isEmpty()) return
         if (
@@ -73,7 +93,7 @@ class LudoPawsVoicePlayer(
                     "${reaction.matchId}:${reaction.eventIndex}:${reaction.playerId}:${reaction.voiceCue.wireName}"
                 }
             if (
-                !LudoPawsReactionAudioProfile.shouldPlay(
+                !explicitPreview && !LudoPawsReactionAudioProfile.shouldPlay(
                     plan = plan,
                     reactionKey = reactionKey,
                 )

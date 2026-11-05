@@ -40,6 +40,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
     private val legalPulse = LudoPaws3DLegalPulseView(context)
     private val gameFxOverlay = LudoPawsGameFxOverlayView(context)
     private val voicePlayer = LudoPawsVoicePlayer(context)
+    internal var cosmeticPreview = false
     private var sceneReady = false
     private val startupCover = FrameLayout(context).apply {
         setBackgroundColor(LudoPawsBoardPalette.maple)
@@ -254,7 +255,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             current = state,
             derivedReactions = derivedReactions,
         )
-        val reactions =
+        val reactions = if (cosmeticPreview) emptyList() else
             LudoPawsReactionEngine.detect(
                 previous = previous,
                 current = state,
@@ -291,7 +292,7 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
             characterIdsBySeat = characterIdsBySeat,
             captureContactDelayMillis = captureContactDelayFor(reactions),
         )
-        scheduleIdleReaction(
+        if (!cosmeticPreview) scheduleIdleReaction(
             state = state,
             nowMillis = nowMillis,
         )

@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.referrals
 
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.content.Context
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -8,10 +9,6 @@ import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.DiceView
-import com.rekixo.ludopaws.LudoBoardView
-import com.rekixo.ludopaws.LudoPawsBoardChromeView
-import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 
 /** Local transparent 3D reward artwork, with native readable condition text. */
 internal class ReferralGemRewardView(
@@ -32,7 +29,6 @@ internal class ReferralGemRewardView(
         if (includeBundleItems) {
             val art = LinearLayout(context).apply {
                 gravity = Gravity.CENTER_VERTICAL
-                importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
             }
             fun slot(view: android.view.View) {
                 art.addView(object : FrameLayout(context) {
@@ -49,25 +45,13 @@ internal class ReferralGemRewardView(
                 }, LayoutParams(0, size, 1f))
             }
             // Full-width top tier: board, character, dice in equal squares.
-            slot(FrameLayout(context).apply {
-                addView(LudoBoardView(context).apply {
-                    setBoardThemeOverride("board_blossom_garden")
-                    setClassicTokenDrawingEnabled(false)
-                }, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-                addView(LudoPawsBoardChromeView(context).apply {
-                    setBoardThemeOverride("board_blossom_garden")
-                }, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
-                contentDescription = "Blossom Garden board"
-            })
-            slot(LudoPawsCharacterAvatarView(context).apply {
-                bind("rabbit", showCircularChrome = false, showTeamBadge = false)
-            })
-            slot(DiceView(context).apply {
-                setPreviewStyle("dice_pearl_paw")
-                showOutcome(1, animate = false)
-                setPlayerTeamColor(null)
-                contentDescription = "Pearl Paw dice"
-            })
+            listOfNotNull(
+                CosmeticPreview.board("board_blossom_garden"),
+                CosmeticPreview.character("rabbit"),
+                CosmeticPreview.dice("dice_pearl_paw"),
+            ).forEach { target ->
+                slot(target.artwork(context).also { target.attachTo(it) })
+            }
             addView(art, LayoutParams(-1, size))
         }
         val rewardRow = if (includeBundleItems) LinearLayout(context).apply {

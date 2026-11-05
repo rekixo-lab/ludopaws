@@ -4,23 +4,15 @@ import android.graphics.Typeface
 import android.text.TextUtils
 import android.view.Gravity
 import android.widget.Button
-import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.DiceView
-import com.rekixo.ludopaws.LudoBoardView
-import com.rekixo.ludopaws.LudoPawsBoardChromeView
-import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
-import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
-import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
-import com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 
 /** Exact selected item, above the catalog; displaying it never starts an ad/payment. */
 internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolean = false): LinearLayout = LinearLayout(this).apply {
@@ -45,30 +37,27 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         gravity = Gravity.CENTER_VERTICAL
     }
     details.addView(label(item.title, if (compact) 15f else 16f), LinearLayout.LayoutParams(-1, -2))
-    val preview = when {
-        !item.contentAvailable -> label("Preview unavailable", 14f)
-        item.category == CosmeticCategory.BOARD && com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(item.id) != null -> FrameLayout(context).apply {
-            addView(LudoBoardView(context).apply {
-                setBoardThemeOverride(item.id); setClassicTokenDrawingEnabled(false)
-            }, FrameLayout.LayoutParams(-1, -1))
-            addView(LudoPawsBoardChromeView(context).apply { setBoardThemeOverride(item.id) }, FrameLayout.LayoutParams(-1, -1))
-        }
-        item.category == CosmeticCategory.DICE && com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(item.id) != null -> DiceView(context).apply {
-            setPreviewStyle(item.id); showOutcome(1, animate = false); setPlayerTeamColor(null)
-        }
-        else -> {
-            val id = CharacterDefinitions.all.firstOrNull { StoreCosmeticCatalog.characterUnlock(it.character.id)?.id == item.id }?.character?.id
-            if (id == null) label("Preview unavailable", 14f)
-            else LudoPawsCharacterAvatarView(context).apply { bind(id, showCircularChrome = false) }
+    val primary = smartUnlockDecision(item).primary
+    val target = CosmeticPreview.forOffer(item)
+    val preview = target?.artwork(context, animatePaw = true) ?: label("Preview unavailable", 14f)
+    val actionLabel = smartUnlockLabel(item).takeIf {
+        item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
+    }
+    val artwork = LinearLayout(context).apply {
+        orientation = LinearLayout.VERTICAL
+        val side = dp(if (compact) 82 else 92)
+        addView(preview, LinearLayout.LayoutParams(side, side))
+        if (target != null) {
+            addPreviewCue()
+            target.attachTo(this, actionLabel) { activateCatalogOffer(item, primary) }
         }
     }
-    content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 82 else 92), dp(if (compact) 82 else 92)).apply {
+    content.addView(artwork, LinearLayout.LayoutParams(-2, -2).apply {
         if (horizontal) marginEnd = dp(10)
     })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
-    val primary = smartUnlockDecision(item).primary
     val subline = when {
-        cosmetics.isOwned(item.id) -> "Owned · tap to equip"
+        cosmetics.isOwned(item.id) -> "Owned · Select to equip"
         primary == SmartUnlockAction.GEMS -> "${item.gemPrice} Gems · instant unlock"
         primary == SmartUnlockAction.PLAY_PRODUCT -> "Permanent Google Play unlock"
         primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS ->
@@ -108,11 +97,7 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         minHeight = dp(44)
         minimumHeight = dp(44)
         isEnabled = item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
-        setOnClickListener {
-            val current = StoreCosmeticCatalog.find(item.id)
-            if (current == null || !current.contentAvailable) showStoreMessage("This item is unavailable. Refresh the catalog.")
-            else handleCosmeticTap(current)
-        }
+        setOnClickListener { activateCatalogOffer(item, primary) }
     }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
     if (!cosmetics.isOwned(item.id)) unlockAlternativeLabel(item)?.let { alternative ->
         details.addView(TextView(context).apply {

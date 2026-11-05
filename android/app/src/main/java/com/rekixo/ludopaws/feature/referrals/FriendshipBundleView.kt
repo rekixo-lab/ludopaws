@@ -1,18 +1,15 @@
 package com.rekixo.ludopaws.feature.referrals
 
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.content.Context
 import android.graphics.Typeface
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Button
 import android.graphics.drawable.GradientDrawable
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.DiceView
-import com.rekixo.ludopaws.LudoBoardView
-import com.rekixo.ludopaws.LudoPawsBoardChromeView
 import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.feature.store.presentation.components.FeaturedPawsPreview
@@ -47,9 +44,7 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         addView(label(if (compact) "FRIENDSHIP BUNDLE" else "YOUR FRIENDSHIP BUNDLE", if (compact) 16f else 11f, true).apply {
             if (!compact) letterSpacing = 0.12f
         }, LayoutParams(-1, -2))
-        val art = object : LinearLayout(context) {
-            override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
-        }.apply {
+        val art = LinearLayout(context).apply {
             gravity = Gravity.CENTER_VERTICAL
             // Keep the artwork clear of the recessed panel's inner rim on
             // both the Home carousel and the full Share/popup layout.
@@ -67,22 +62,12 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         }.apply {
             addView(view, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
         }
-        val board = FrameLayout(context).apply {
-            addView(LudoBoardView(context).apply {
-                setBoardThemeOverride("board_blossom_garden")
-                setClassicTokenDrawingEnabled(false)
-            }, FrameLayout.LayoutParams(-1, -1))
-            addView(LudoPawsBoardChromeView(context).apply { setBoardThemeOverride("board_blossom_garden") }, FrameLayout.LayoutParams(-1, -1))
-            contentDescription = "Blossom Garden Board"
-        }
+        val boardTarget = checkNotNull(CosmeticPreview.board("board_blossom_garden"))
+        val board = boardTarget.artwork(context).also { boardTarget.attachTo(it) }
         rabbit.addView(avatar, FrameLayout.LayoutParams(-1, -1))
-        rabbit.contentDescription = "Rabbit character"
-        val dice = DiceView(context).apply {
-            setPreviewStyle("dice_pearl_paw")
-            showOutcome(1, animate = false)
-            setPlayerTeamColor(null)
-            contentDescription = "Pearl Paw Dice"
-        }
+        CosmeticPreview.character("rabbit")?.attachTo(rabbit)
+        val diceTarget = checkNotNull(CosmeticPreview.dice("dice_pearl_paw"))
+        val dice = diceTarget.artwork(context).also { diceTarget.attachTo(it) }
         art.addView(artworkSlot(board), LayoutParams(0, dp(if (compact) 76 else 84), 1f))
         art.addView(rabbit, LayoutParams(0, -1, 1.3f))
         art.addView(artworkSlot(dice), LayoutParams(0, dp(if (compact) 76 else 84), 1f))

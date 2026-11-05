@@ -7,15 +7,13 @@ import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 
 internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
@@ -37,7 +35,7 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
                     dicePanel(dice, dice.id in ownedIds, dice.id in ownedIds && selectedId == dice.id),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(208),
+                        LinearLayout.LayoutParams.WRAP_CONTENT,
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -76,6 +74,7 @@ private fun StoreActivity.dicePanel(
     selected: Boolean,
 ): LinearLayout =
     LinearLayout(this).apply {
+        minimumHeight = dp(208)
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(8), dp(6), dp(8))
@@ -121,17 +120,9 @@ private fun StoreActivity.dicePanel(
             ),
         )
 
+        val preview = checkNotNull(CosmeticPreview.dice(dice.id))
         addView(
-            DiceView(this@dicePanel).apply {
-                // Preview this offer's actual renderer palette without equipping it.
-                setPreviewStyle(dice.id)
-                showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(dice.id).previewFace, animate = false)
-                setPlayerTeamColor(null)
-                isClickable = false
-                isFocusable = false
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = "${dice.title} dice preview"
-            },
+            preview.artwork(context),
             LinearLayout.LayoutParams(
                 dp(104),
                 dp(104),
@@ -141,8 +132,17 @@ private fun StoreActivity.dicePanel(
             },
         )
 
+        val primary = smartUnlockDecision(dice).primary
+        val badge = diceStatusBadge(dice = dice, owned = owned, selected = selected).apply {
+            minHeight = dp(44)
+            if (!selected) {
+                isFocusable = true
+                setOnClickListener { activateCatalogOffer(dice, primary) }
+            }
+        }
+        addPreviewCue()
         addView(
-            diceStatusBadge(dice = dice, owned = owned, selected = selected),
+            badge,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -151,8 +151,8 @@ private fun StoreActivity.dicePanel(
             },
         )
 
-        setOnClickListener { clicked ->
-            clicked.playSelectionPopAnimation { handleCosmeticTap(dice) }
+        setOnClickListener {
+            preview.show(context, badge.text.takeUnless { selected }) { activateCatalogOffer(dice, primary) }
         }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
@@ -165,7 +165,7 @@ private fun StoreActivity.diceStatusBadge(
     TextView(this).apply {
         text = when {
             selected -> "✓ EQUIPPED"
-            owned -> "🔓 UNLOCKED"
+            owned -> "Select"
             else -> smartUnlockLabel(dice)
         }
         textSize = 9.5f

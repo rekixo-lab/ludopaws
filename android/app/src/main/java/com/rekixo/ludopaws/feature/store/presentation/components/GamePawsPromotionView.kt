@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.store.presentation.components
 
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.SharedPreferences
@@ -11,7 +12,6 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.text.TextUtils
 import android.view.Gravity
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
@@ -61,7 +61,6 @@ internal class GamePawsPromotionView(
                 }
             }
         }
-        override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
     }
     // Gameplay art is anchored to the middle of this frame, independent of the copy widths.
     private val gameplayFrame = FrameLayout(context)
@@ -336,30 +335,44 @@ internal class GamePawsPromotionView(
             categoryLabel.setTextColor(0xFF60452D.toInt())
         }
         applyEnvironmentStyle()
-        setOnClickListener {
+        setOnClickListener { candidates.getOrNull(index)?.let(::activateOffer) }
+        artwork.setOnClickListener {
             val offer = candidates.getOrNull(index) ?: return@setOnClickListener
-            if (CosmeticInventoryStore(context).isOwned(offer.cosmetic.id)) {
-                refreshCandidates()
-                return@setOnClickListener
+            val target = CosmeticPreview.forOffer(offer.cosmetic) ?: return@setOnClickListener
+            val action = if (gameplay) "Save for after match" else storeLabel.text
+            target.show(context, action) {
+                if (StoreCosmeticCatalog.findShopItem(offer.cosmetic.id) == offer.cosmetic) {
+                    activateOffer(offer)
+                } else refreshCandidates()
             }
-            if (!gameplay) {
-                onExplore?.invoke(when (offer.cosmetic.category) {
-                    CosmeticCategory.BOARD -> "BOARD"
-                    CosmeticCategory.DICE -> "DICE"
-                    else -> "PAWS"
-                }, offer.cosmetic.id)
-                return@setOnClickListener
-            }
-            com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.save(context, offer.cosmetic.id)
-            savedOfferId = offer.cosmetic.id
+        }
+        artwork.isFocusable = true
+    }
+
+    private fun activateOffer(offer: Offer) {
+        if (CosmeticInventoryStore(context).isOwned(offer.cosmetic.id)) {
+            refreshCandidates()
+            return
+        }
+        if (!gameplay) {
+            onExplore?.invoke(when (offer.cosmetic.category) {
+                CosmeticCategory.BOARD -> "BOARD"
+                CosmeticCategory.DICE -> "DICE"
+                else -> "PAWS"
+            }, offer.cosmetic.id)
+            return
+        }
+        com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.save(context, offer.cosmetic.id)
+        savedOfferId = offer.cosmetic.id
+        if (candidates.getOrNull(index)?.cosmetic?.id == offer.cosmetic.id) {
             storeLabel.text = "Saved ✓"
             saveHintFrame?.setHintActive(false)
             storeLabel.contentDescription = "${offer.title} saved for after the match"
             contentDescription = "${offer.title} saved for after the match"
-            notice?.cancel()
-            notice = Toast.makeText(context, "${offer.title} saved. We’ll offer its details after the match.",
-                Toast.LENGTH_SHORT).also { it.show() }
         }
+        notice?.cancel()
+        notice = Toast.makeText(context, "${offer.title} saved. We’ll offer its details after the match.",
+            Toast.LENGTH_SHORT).also { it.show() }
     }
 
     private fun applyEnvironmentStyle() {
@@ -458,6 +471,7 @@ internal class GamePawsPromotionView(
         preview?.visibility = GONE
         extraPreview?.let { artwork.removeView(it) }
         extraPreview = null
+        artwork.contentDescription = "Preview ${offer.title}"
         avatar.visibility = if (offer.characterId != null) VISIBLE else GONE
         if (offer.characterId != null) {
             if (!gameplay) {
@@ -477,23 +491,7 @@ internal class GamePawsPromotionView(
                 highlighted = false, showCircularChrome = false)
             preview?.characterId = offer.characterId
         } else {
-            extraPreview = when (offer.cosmetic.category) {
-                CosmeticCategory.BOARD -> FrameLayout(context).apply {
-                    addView(com.rekixo.ludopaws.LudoBoardView(context).apply {
-                        setBoardThemeOverride(offer.cosmetic.id)
-                        setClassicTokenDrawingEnabled(false)
-                    }, FrameLayout.LayoutParams(-1, -1))
-                    addView(com.rekixo.ludopaws.LudoPawsBoardChromeView(context).apply {
-                        setBoardThemeOverride(offer.cosmetic.id)
-                    }, FrameLayout.LayoutParams(-1, -1))
-                }
-                CosmeticCategory.DICE -> com.rekixo.ludopaws.DiceView(context).apply {
-                    setPreviewStyle(offer.cosmetic.id)
-                    showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(offer.cosmetic.id).previewFace, animate = false)
-                    setPlayerTeamColor(null)
-                }
-                else -> null
-            }?.also { view ->
+            extraPreview = CosmeticPreview.forOffer(offer.cosmetic)?.artwork(context)?.also { view ->
                 view.isClickable = false
                 view.isFocusable = false
                 view.importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS

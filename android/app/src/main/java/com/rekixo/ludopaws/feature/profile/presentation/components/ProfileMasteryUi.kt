@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.profile.presentation.components
 
+import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.graphics.Typeface
 import android.view.Gravity
 import android.widget.LinearLayout
@@ -44,6 +45,7 @@ internal fun ProfileActivity.profileMasteryPanel(profile: ProfileSnapshot): Line
         row.addView(LudoPawsCharacterAvatarView(this@profileMasteryPanel).apply {
             bind(id, CharacterMasteryPolicy.frameColor(matches), highlighted = false)
             contentDescription = definition.character.displayName + " portrait frame"
+            CosmeticPreview.character(id)?.attachTo(this)
         }, LinearLayout.LayoutParams(dp(52), dp(52)))
         row.addView(TextView(this@profileMasteryPanel).apply {
             text = "${definition.character.displayName} · ${CharacterMasteryPolicy.tier(matches)}\n$matches matches" +
