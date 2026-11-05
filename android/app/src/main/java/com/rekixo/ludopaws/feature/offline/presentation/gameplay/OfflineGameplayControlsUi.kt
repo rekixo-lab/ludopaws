@@ -68,7 +68,11 @@ private fun OfflineGameActivity.ensureOfflineResultActions(
         LudoProofTheme.secondary(this)
         setOnClickListener {
             engine.snapshot()?.let { latest ->
-                com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(this@ensureOfflineResultActions, latest,
+                val characters = resolveOfflineCharacterIds(latest)
+                val shareState = latest.copy(players = latest.players.mapIndexed { seat, player ->
+                    player.copy(characterId = characters.getOrNull(seat))
+                })
+                com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(this@ensureOfflineResultActions, shareState,
                     (if (quickMatch) "Quick Match · " else "") + (if (isComputerMode) "Vs Robot" else "Pass & Play"),
                     if (isComputerMode) latest.players.firstOrNull()?.playerId else null)
             }

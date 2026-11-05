@@ -19,6 +19,7 @@ internal class NaturalReviewController(private val activity: Activity, private v
     }
     private fun request() {
         if (!available() || !activity.hasWindowFocus() || activity.isFinishing || activity.isDestroyed) return
+        val account = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(activity).load()?.accountId
         val store = EngagementStore(activity)
         val now = System.currentTimeMillis()
         val previous = store.lastReviewAttempt()
@@ -31,7 +32,8 @@ internal class NaturalReviewController(private val activity: Activity, private v
             AutomaticPromptGate.release("review"); ownsPrompt = false; return
         }
         manager.requestReviewFlow().addOnCompleteListener { task ->
-            if (generation != expected || !available() || !activity.hasWindowFocus() || !task.isSuccessful) {
+            if (generation != expected || com.rekixo.ludopaws.feature.account.data.AccountSessionStore(activity).load()?.accountId != account ||
+                !available() || !activity.hasWindowFocus() || !task.isSuccessful) {
                 if (generation == expected && ownsPrompt) { AutomaticPromptGate.release("review"); ownsPrompt = false }
                 return@addOnCompleteListener
             }

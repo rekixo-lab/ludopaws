@@ -27,7 +27,8 @@ internal object AutomaticPromptGate {
             .putLong("last_at", System.currentTimeMillis()).apply()
     }
     @Synchronized fun release(kind: String) {
-        if (active == kind) active = null
+        if (active != kind) return
+        active = null
         quietFor()
     }
     const val DAY = 86_400_000L

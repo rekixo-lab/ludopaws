@@ -43,6 +43,14 @@ class RewardsActivity : Activity() {
     private var ad: RewardedAdsController? = null
     private var confirmationRefreshes = 0
     private val refresh = Runnable { if (confirmationRefreshes < 5) { confirmationRefreshes++; load() } }
+    private val rollover = Runnable { refreshOnRollover() }
+    private fun refreshOnRollover() {
+        if (!resumed) return
+        if (busy || ad?.isBusy == true) { handler.postDelayed(rollover, 1000L); return }
+        snapshot = null
+        render()
+        load()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +60,7 @@ class RewardsActivity : Activity() {
         scroll.addView(body); setContentView(scroll); render()
     }
     override fun onResume() { super.onResume(); resumed = true; generation++; ad?.onHostResumed(); load() }
-    override fun onPause() { resumed = false; generation++; busy = false; ad?.cancelPendingShow(); handler.removeCallbacks(refresh); super.onPause() }
+    override fun onPause() { resumed = false; generation++; busy = false; ad?.cancelPendingShow(); handler.removeCallbacks(refresh); handler.removeCallbacks(rollover); super.onPause() }
     override fun onDestroy() { ad?.close(); handler.removeCallbacksAndMessages(null); executor.shutdownNow(); super.onDestroy() }
     private fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
     private fun text(value: String, size: Float = 15f): TextView = TextView(this).apply {
@@ -143,6 +151,11 @@ class RewardsActivity : Activity() {
         button("Quick Match · two paws each") { chooseQuickMatch() }
         button("Share / invitation progress") { launchPlayerScreen(Intent(this, com.rekixo.ludopaws.feature.referrals.ReferralActivity::class.java)) }
         button("Back to game menu") { finish() }
+        handler.removeCallbacks(rollover)
+        if (resumed) {
+            val next = minOf(weekly.endsAt, rewards?.optLong("resetsAt")?.takeIf { it > 0L } ?: weekly.endsAt)
+            handler.postDelayed(rollover, (next - System.currentTimeMillis()).coerceIn(1000L, 86_400_000L))
+        }
     }
     private fun load() {
         if (!resumed || busy) return
@@ -150,15 +163,18 @@ class RewardsActivity : Activity() {
     }
     private fun perform(request: JSONObject?, wheel: RewardWheelView? = null) {
         if (busy || !resumed) return
+        val expectedOwner = repository.currentSession()?.accountId
+        if (request != null && (owner == null || owner != expectedOwner)) {
+            snapshot = null; owner = null; render(); message.text = "Account changed. Refresh Rewards."; return
+        }
         busy = true
         val expectedGeneration = generation
-        val expectedOwner = repository.currentSession()?.accountId
         if (wheel == null) render()
         executor.execute {
             val result = runCatching {
                 val session = repository.ensureGuestSession()
                 if (expectedOwner != null) check(session.accountId == expectedOwner) { "Account changed. Reopen Rewards." }
-                val response = repository.engagementRewards(request)
+                val response = repository.engagementRewards(request, session.accountId)
                 val rewards = response.getJSONObject("rewards")
                 check(rewards.getLong("day") >= 0 && rewards.getLong("resetsAt") > 0) { "Reward status could not be read. Retry." }
                 response.getJSONArray("collections")
@@ -181,7 +197,7 @@ class RewardsActivity : Activity() {
                     if (stillPending && confirmationRefreshes < 5) { handler.removeCallbacks(refresh); handler.postDelayed(refresh, 2000L) }
                     if (request != null) prefs.edit().remove("$account:${request.optString("action")}").apply()
                     val receipt = response.optJSONObject("receipt")
-                    if (wheel != null && receipt != null) {
+                    if (wheel != null && receipt != null && wheel.isAttachedToWindow) {
                         busy = true
                         val amount = receipt.optInt("amount")
                         wheel.stopAt(amount, !GameSettingsStore(this).snapshot().reducedMotion && android.animation.ValueAnimator.areAnimatorsEnabled()) {
@@ -192,11 +208,14 @@ class RewardsActivity : Activity() {
                     if (request?.optString("action") == "spin" && receipt?.optBoolean("replay") == false) GrowthMetrics.increment(this, "spin_claim")
                     if (request?.optString("action") == "collection" && receipt?.optBoolean("replay") == false) GrowthMetrics.increment(this, "collection_purchase")
                 }.onFailure { error ->
-                    if (request != null && error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.code == "REWARD_DAY_CHANGED") {
-                        prefs.edit().remove("${expectedOwner}:${request.optString("action")}").apply()
+                    val dayChanged = request != null && error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.code == "REWARD_DAY_CHANGED"
+                    if (dayChanged) {
+                        prefs.edit().remove("${expectedOwner}:${request?.optString("action")}").apply()
+                        snapshot = null
                     }
                     if (request?.optString("action") == "collection" && error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status == 409) prefs.edit().remove("${expectedOwner}:collection").apply()
                     render(); message.text = error.message ?: "Rewards are unavailable. Your game remains playable; retry when online."
+                    if (dayChanged) load()
                 }
             }
         }
@@ -212,11 +231,15 @@ class RewardsActivity : Activity() {
         perform(request, wheel)
     }
     private fun buy(collection: JSONObject) {
+        val quoteOwner = owner ?: return
         val cost = collection.getInt("price")
         android.app.AlertDialog.Builder(this).setTitle(collection.getString("title"))
             .setMessage("Unlock the missing items for $cost Gems? Owned items stay yours.")
             .setNegativeButton("Later", null).setPositiveButton("Unlock") { _, _ ->
-                val account = owner ?: return@setPositiveButton
+                if (quoteOwner != owner || repository.currentSession()?.accountId != quoteOwner) {
+                    snapshot = null; render(); message.text = "Account changed. Refresh the collection before purchasing."; return@setPositiveButton
+                }
+                val account = quoteOwner
                 val key = "$account:collection"
                 val request = prefs.getString(key, null)?.let(::JSONObject) ?: JSONObject().put("action", "collection")
                     .put("collectionId", collection.getString("id")).put("expectedPrice", cost).put("clientRequestId", UUID.randomUUID().toString())
@@ -226,20 +249,23 @@ class RewardsActivity : Activity() {
     }
     private fun bonus() {
         if (busy || !resumed || ad?.isBusy == true) return
+        val expectedOwner = owner ?: return
+        if (repository.currentSession()?.accountId != expectedOwner) { snapshot = null; render(); return }
         busy = true; message.text = "Preparing optional +5 Gems ad…"
         val expectedGeneration = generation
         executor.execute {
             val result = runCatching {
                 check(BuildConfig.LUDOPROOF_ADS_ENABLED && repository.storeStatus().optBoolean("rewardedAdsAvailable")) { "No rewarded ad is available. Free gifts stay yours." }
                 val session = repository.ensureGuestSession()
-                val ticket = repository.engagementRewards(JSONObject().put("action", "bonus-ticket")).getJSONObject("receipt")
+                check(session.accountId == expectedOwner) { "Account changed. Refresh Rewards." }
+                val ticket = repository.engagementRewards(JSONObject().put("action", "bonus-ticket"), expectedOwner).getJSONObject("receipt")
                 BonusRequest(session.accountId, ticket.getString("ticket"), UUID.randomUUID().toString(), ticket.getLong("day"))
             }
             handler.post {
                 if (!resumed || generation != expectedGeneration || isFinishing || isDestroyed) return@post
                 busy = false
                 result.onSuccess { (account, ticket, requestId, day) ->
-                    if (repository.currentSession()?.accountId != account) return@onSuccess
+                    if (repository.currentSession()?.accountId != account) { snapshot = null; render(); return@onSuccess }
                     adsAvailable = true
                     confirmationRefreshes = 0
                     val controller = ad ?: RewardedAdsController(activity = this, enabled = { adsAvailable }, adUnitId = BuildConfig.ADMOB_REWARDED_AD_UNIT_ID, onMessage = { message.text = it }, canPresent = { resumed && !isFinishing && !isDestroyed }).also { ad = it }
@@ -248,11 +274,11 @@ class RewardsActivity : Activity() {
                         onBeforeShow = { if (resumed && repository.currentSession()?.accountId == account) { PendingAdRewardStore(this).put(pending); true } else false },
                         onFinished = { earned ->
                             if (!earned) runCatching { PendingAdRewardStore(this).put(pending.copy(abandoned = true)) }
-                            handler.postDelayed(refresh, 1000L)
+                            if (resumed) { render(); handler.postDelayed(refresh, 1000L) }
                         }, onRewardEarned = {
                             runCatching { PendingAdRewardStore(this).put(pending.copy(earned = true)) }
                             GrowthMetrics.increment(this, "rewarded_earned")
-                            handler.postDelayed(refresh, 1500L)
+                            if (resumed) handler.postDelayed(refresh, 1500L)
                         })
                 }.onFailure { message.text = it.message ?: "Ad unavailable. Free rewards are unchanged." }
             }

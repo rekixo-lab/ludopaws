@@ -28,6 +28,17 @@ object OfflineMatchInvariantPolicy {
             "Local match is not bound to the current offline ruleset"
         }
 
+        if (state.rulesetId == QuickMatchPolicy.RULESET_ID) {
+            require(state.players.size == 2 && state.players.all { it.tokens.size == 4 && it.tokens.drop(2).all { position -> position == LudoPathEncoding.HOME_POSITION } }) {
+                "Quick Match requires two players and two inactive home slots each"
+            }
+        }
+        if (LudoComebackPolicy.enabled(state.rulesetId)) {
+            require(state.comebackWaits.size == state.players.size && state.comebackWaits.all { it in -1..2 }) {
+                "Local comeback counters are invalid"
+            }
+        }
+
         val ids = state.players.map { it.playerId }
         require(ids.all { it.isNotBlank() } && ids.distinct().size == ids.size) {
             "Local match player identities must be non-empty and unique"

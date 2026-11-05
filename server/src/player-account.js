@@ -793,15 +793,21 @@ export class PlayerAccount {
         });
       }
     } else if (body.action !== "status") throw httpError(400, "REWARD_ACTION_INVALID", "Unknown reward action.");
-    const wallet = this.#walletSnapshot(accountId);
-    const collections = [];
+    const availableCollections = [];
     for (const collection of COLLECTIONS) {
       let items;
       try { items = await Promise.all(collection.items.map(resolve)); } catch { continue; }
       if (items.some(item => !item?.available || !item.channels.includes("GEMS"))) continue;
       const prices = Object.fromEntries(collection.items.map((id, i) => [id, items[i].gemPrice]));
-      collections.push({ ...collection, ...collectionQuote(collection, wallet.ownedCosmetics, prices) });
+      availableCollections.push({ collection, prices });
     }
+    // Catalog reads yield to other requests. Recheck logout/deletion and use the
+    // latest wallet after all awaits, so ownership and displayed quotes agree.
+    this.#requireActiveSession(accountId, sessionId);
+    const wallet = this.#walletSnapshot(accountId);
+    const collections = availableCollections.map(({ collection, prices }) => ({
+      ...collection, ...collectionQuote(collection, wallet.ownedCosmetics, prices),
+    }));
     return json(200, { ok: true, rewards: status(), collections, receipt, wallet });
   }
 

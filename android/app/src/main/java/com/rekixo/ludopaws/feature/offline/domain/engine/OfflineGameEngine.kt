@@ -889,6 +889,7 @@ class OfflineGameEngine(
                 revision = json.optInt("revision", 1),
             ).also { restored ->
                 validateRestoredState(restored)
+                OfflineMatchInvariantPolicy.requireValid(restored.toSnapshot())
             }
         }.getOrElse {
             prefs.edit().clear().apply()

@@ -16,7 +16,8 @@ internal data class PendingAdReward(
 
 /** Recovery hints, never credits: signed server receipts remain authoritative. */
 internal class PendingAdRewardStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("pending_ad_rewards_v1", Context.MODE_PRIVATE)
+    private val app = context.applicationContext
+    private val prefs = app.getSharedPreferences("pending_ad_rewards_v1", Context.MODE_PRIVATE)
 
     fun forAccount(accountId: String): List<PendingAdReward> = synchronized(LOCK) {
         read(accountId)
@@ -24,6 +25,8 @@ internal class PendingAdRewardStore(context: Context) {
 
     fun put(record: PendingAdReward) = synchronized(LOCK) {
         require(UUID.matches(record.accountId) && UUID.matches(record.requestId))
+        if (record.accountId in app.getSharedPreferences("ludoproof_profile", Context.MODE_PRIVATE)
+                .getStringSet("deleted_profile_accounts", emptySet()).orEmpty()) return@synchronized
         val all = read(record.accountId).filterNot { it.requestId == record.requestId }.toMutableList()
         check(all.size < 64) { "Previous ad rewards still need verification. Retry their status before watching more ads." }
         all += record
