@@ -259,7 +259,7 @@ internal class LudoPaws3DSceneRenderer {
         val modelScale = size * 0.30f * previewZoom.coerceIn(.6f, 1.5f)
         prepareRoot(
             x = width * 0.5f,
-            y = height * verticalAnchor.coerceIn(.5f, .75f),
+            y = height * verticalAnchor.coerceIn(.5f, 1.25f),
             scale = modelScale,
             liftY = pose.liftY,
             bodyYawDegrees = pose.bodyYawDegrees,

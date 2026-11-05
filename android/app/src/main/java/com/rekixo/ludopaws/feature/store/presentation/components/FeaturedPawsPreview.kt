@@ -32,6 +32,7 @@ internal class FeaturedPawsPreview(
     private val prominent: Boolean = false,
     private val portraitZoomMultiplier: Float = 1f,
     private val phaseOffsetMillis: Long = 0L,
+    private val frameLargePortrait: Boolean = false,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
@@ -191,8 +192,14 @@ internal class FeaturedPawsPreview(
                         else compactSpotlightPortraitZoom(id)) * portraitZoomMultiplier
                     val framedPose = if (life.reducedMotion) com.rekixo.ludopaws.feature.characters.rendering.CharacterPose()
                         else if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
+                    val anchor = if (frameLargePortrait) {
+                        val modelTop = character.definition.groundPivotY +
+                            com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id)
+                        // The Shop camera favors the face within the unchanged artwork slot.
+                        maxOf(.69f, .09f + modelTop * .30f * zoom)
+                    } else if (prominent) .70f else .69f
                     scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,
-                        synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f)
+                        synchronizeGpu = false, verticalAnchor = anchor)
                     check(window?.swap() == true) { "Showcase buffer swap failed" }
                     if (notifyReady) post {
                         if (session === this && active && characterId == id && !failed) onReady?.invoke()

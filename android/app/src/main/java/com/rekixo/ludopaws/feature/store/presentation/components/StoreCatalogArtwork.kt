@@ -2,18 +2,20 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.Canvas
-import android.graphics.Paint
+import android.content.res.ColorStateList
 import android.graphics.Rect
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.LudoPaws3DSceneView
 import com.rekixo.ludopaws.LudoPawsBoardChromeView
+import com.rekixo.ludopaws.LudoPawsBoardPalette
 import com.rekixo.ludopaws.MatchSnapshot
 import com.rekixo.ludopaws.PlayerSnapshot
 import com.rekixo.ludopaws.feature.dice.domain.DiceRegistry
@@ -22,7 +24,7 @@ import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
 
 internal object StoreCatalogArtwork {
     fun paw(context: Context, characterId: String): View {
-        val host = CatalogArtworkHost(context, ArtworkShape.PAW)
+        val host = CatalogArtworkHost(context)
         var live: FeaturedPawsPreview? = null
         host.onActiveChanged = { active ->
             if (active) {
@@ -30,6 +32,8 @@ internal object StoreCatalogArtwork {
                     context,
                     frameIntervalMillis = 50L,
                     playful = true,
+                    portraitZoomMultiplier = 2f,
+                    frameLargePortrait = true,
                     phaseOffsetMillis = stagger(characterId, 1800L),
                 )
                 live = pawn
@@ -55,7 +59,7 @@ internal object StoreCatalogArtwork {
     }
 
     fun board(context: Context, boardId: String): View {
-        val host = CatalogArtworkHost(context, ArtworkShape.BOARD)
+        val host = CatalogArtworkHost(context)
         var live: FrameLayout? = null
         host.onActiveChanged = { active ->
             if (active) {
@@ -104,7 +108,7 @@ internal object StoreCatalogArtwork {
                         host.showUnavailable()
                     }
                 }
-                host.prepare(board)
+                host.prepare(board, listOf(base, chrome, scene))
             } else {
                 live = null
                 host.clearArtwork()
@@ -115,7 +119,7 @@ internal object StoreCatalogArtwork {
 
     fun dice(context: Context, diceId: String): View {
         val definition = DiceRegistry.resolve(diceId)
-        val host = CatalogArtworkHost(context, ArtworkShape.DICE, needsHardware = false)
+        val host = CatalogArtworkHost(context, needsHardware = false)
         var die: DiceView? = null
         var preparation: java.util.concurrent.Future<*>? = null
         var generation = 0
@@ -138,6 +142,7 @@ internal object StoreCatalogArtwork {
                 if (die != null) {
                     if (host.motionAllowed) roll.run()
                 } else {
+                    host.clearArtwork()
                     val requested = generation
                     val resources = context.resources
                     preparation = dicePreparation.submit {
@@ -202,45 +207,21 @@ internal object StoreCatalogArtwork {
     private fun stagger(key: String, range: Long): Long = key.hashCode().toUInt().toLong() % range
 }
 
-private enum class ArtworkShape { PAW, BOARD, DICE }
-
-/** A quiet silhouette, replaced only when the selected item's artwork is ready. */
-private class ArtworkSkeleton(context: Context, private val shape: ArtworkShape) : View(context) {
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x2E6D4C34 }
-
-    override fun onDraw(canvas: Canvas) {
-        val size = minOf(width, height).toFloat()
-        if (size <= 0f) return
-        val saved = canvas.save()
-        canvas.translate((width - size) / 2f, (height - size) / 2f)
-        canvas.scale(size / 100f, size / 100f)
-        when (shape) {
-            ArtworkShape.PAW -> {
-                canvas.drawOval(30f, 43f, 70f, 85f, paint)
-                canvas.drawOval(22f, 20f, 78f, 59f, paint)
-                canvas.drawOval(20f, 13f, 37f, 39f, paint)
-                canvas.drawOval(63f, 13f, 80f, 39f, paint)
-            }
-            ArtworkShape.BOARD -> canvas.drawRoundRect(4f, 4f, 96f, 96f, 9f, 9f, paint)
-            ArtworkShape.DICE -> canvas.drawRoundRect(13f, 13f, 87f, 87f, 18f, 18f, paint)
-        }
-        canvas.restoreToCount(saved)
-    }
-}
-
 private class CatalogArtworkHost(
     context: Context,
-    shape: ArtworkShape,
     private val needsHardware: Boolean = true,
 ) : FrameLayout(context) {
     private val visible = Rect()
     private val settings = GameSettingsStore(context)
     private var reducedMotion = settings.snapshot().reducedMotion
-    private val skeleton = ArtworkSkeleton(context, shape).apply {
-        // Cover incomplete board layers while keeping their GL surface drawable.
-        setBackgroundColor(0xFFF0D8B5.toInt())
+    private val loading = ProgressBar(context, null, android.R.attr.progressBarStyleSmall).apply {
+        isIndeterminate = true
+        indeterminateTintList = ColorStateList.valueOf(LudoPawsBoardPalette.woodShade)
+        visibility = View.INVISIBLE
+        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private var artwork: View? = null
+    private var artworkLayers = emptyList<View>()
     private var observer: ViewTreeObserver? = null
     private var active = false
     private var startPosted = false
@@ -255,27 +236,36 @@ private class CatalogArtworkHost(
 
     init {
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        addView(skeleton, LayoutParams(-1, -1))
+        val indicatorSize = (18f * resources.displayMetrics.density + .5f).toInt()
+        addView(loading, LayoutParams(indicatorSize, indicatorSize, Gravity.CENTER))
     }
 
-    fun prepare(view: View) {
+    fun prepare(view: View, layers: List<View> = listOf(view)) {
         clearArtwork()
         artwork = view
+        artworkLayers = layers
+        // Keep the board container attached so its TextureView can prepare a frame.
+        artworkLayers.forEach { it.alpha = 0f }
         addView(view, 0, LayoutParams(-1, -1))
     }
 
     fun reveal(view: View) {
-        if (artwork === view) skeleton.visibility = View.INVISIBLE
+        if (artwork !== view) return
+        artworkLayers.forEach { it.alpha = 1f }
+        loading.visibility = View.INVISIBLE
     }
 
     fun cover(view: View) {
-        if (artwork === view) skeleton.visibility = View.VISIBLE
+        if (artwork !== view) return
+        artworkLayers.forEach { it.alpha = 0f }
+        loading.visibility = if (active) View.VISIBLE else View.INVISIBLE
     }
 
     fun clearArtwork() {
         artwork?.let { removeView(it) }
         artwork = null
-        skeleton.visibility = View.VISIBLE
+        artworkLayers = emptyList()
+        loading.visibility = if (active) View.VISIBLE else View.INVISIBLE
     }
 
     fun showUnavailable() {
@@ -315,6 +305,7 @@ private class CatalogArtworkHost(
     private fun setArtworkActive(value: Boolean) {
         if (active == value) return
         active = value
+        if (!value) loading.visibility = View.INVISIBLE
         if (value && needsHardware && !isHardwareAccelerated) showUnavailable()
         else onActiveChanged(value)
     }
