@@ -1,35 +1,32 @@
-# Environment dice — next update
+# Photorealistic environment dice — next update
 
-Four native Canvas skins are registered in the existing Dice registry and Shop → Dice:
+Four distinct prerendered 3D body sprites replace the flat Canvas body illustrations. These are photo-style assets drawn by the existing Android Canvas dice view, not real-time mesh rendering. The existing roll/settle transform still animates the complete body and its pips together.
 
-| Shop name / ID | Artwork | Matching environments |
+| Shop name / existing ID | Material and geometry | Matching environments |
 | --- | --- | --- |
-| FOREST DEW / `dice_forest_dew` | Front-facing carved wooden block, bark base, grain and leaf sprig | Autumn Forest, Dawn Meadow, Blossom Garden |
-| LAGOON PEARL / `dice_lagoon_pearl` | Organic scalloped shell silhouette, edge ribs and raised pearl pips | Cloud Lagoon, Monsoon Mire |
-| FROST CRYSTAL / `dice_frost_crystal` | Eight-sided cut crystal with broad angular facets and diamond pips | Winter Haven |
-| STARLIGHT / `dice_starlight` | Domed moon cushion with a thick gold bezel, raised gold pips and crown crescent | Astral, Moonlit Grove |
+| FOREST DEW / `dice_forest_dew` | Chunky oak block with real grain, leaf and recessed dark pips | Autumn Forest, Dawn Meadow, Blossom Garden |
+| LAGOON PEARL / `dice_lagoon_pearl` | Thick scalloped mother-of-pearl shell with aqua refractions and raised pearl pips | Cloud Lagoon, Monsoon Mire |
+| FROST CRYSTAL / `dice_frost_crystal` | Eight-sided clear blue crystal, broad cut facets and dark diamond inlays | Winter Haven |
+| STARLIGHT / `dice_starlight` | Plump amethyst cushion, real gold bezel/crescent and raised golden pips | Astral, Moonlit Grove |
 
-These are manually selectable cosmetics on any board; selecting a board does not replace the player's chosen die. Each costs 100 Gems, matching the existing Pearl Paw price, through the existing account-authoritative unlock path. No new Play product, direct purchase, ad unlock, collection change or automatic ownership grant is introduced. Published remote catalog values retain their existing precedence.
+[Artwork reference](environment-dice-preview.svg) uses the actual shipped PNGs and the same face/pip geometry on face five. It is an artwork reference, not an Android screenshot. [Asset paths and full generation prompts](environment-dice-art-prompts.md) record the built-in imagegen workflow.
 
-The renderer draws the face supplied by `DiceView`; it has no outcome-selection logic. Every face uses the conventional 1–6 pip layout, including a single pip for one. Decorative motifs stay near the edges/top, away from the pip grid. Each has its own body geometry, material paints and pip drawing implementation: wood, shell, cut crystal and moon cushion. There is no shared cube body. Only conventional pip positions and team/turn feedback are shared. Paints, paths, pip arrays and shaders are allocated once per renderer, not per frame. Artwork scales with the existing view without bitmap assets or animation timers. The player's team color and the existing rolling/attention/deadline frame remain visible around the die, and the returned bounds feed the existing countdown drawing.
+## Runtime integration
 
-## Review and release boundary
+- Each raw sprite is a 1254×1254 RGBA PNG with alpha transparency in `android/app/src/main/res/drawable-nodpi/`. No generated pips are baked into its body: the game draws exactly the resolved face's 1–6 pips at runtime.
+- Each material has a calibrated front-face quadrilateral. A cached `Matrix.setPolyToPoly` projects the conventional pip grid and material-specific cavity/pearl/crystal/gold shading onto that face. Pips and artwork share the existing roll transform. No dice outcome, capture/comeback or turn rule changes.
+- `DiceRenderer.prepare(Resources)` is called at creation by `DiceRendererRegistry`. Existing classic and Pearl Paw renderers inherit its no-op implementation. Both registry callers in `DiceView` now supply Resources, keeping its existing density-based factory contract intact.
+- An application-wide, synchronized four-entry bitmap cache shares each decoded sprite across Shop previews and game views without retaining an Activity. Decode uses `inScaled=false`, `inSampleSize=4` and ARGB_8888: about 314×314 per texture and roughly 1.5 MiB for all four decoded textures. Original PNGs total about 7.8 MiB of source assets. A cold decode occurs once on first use; draw does not decode images or allocate shaders, matrices, paths, paints or pip arrays per frame.
+- The existing team outline, attention/rolling pulse and deadline/countdown bounds are preserved. Five percent internal art padding protects the leaf and crescent from the team outline. No new animation timers or reduced-motion exceptions.
 
-Source review covered definitions → manifest → generated factories → Shop previews → selected in-game renderer, all six pip coordinate layouts, canvas save/restore balance, paint-state resets, matching Android/server IDs, categories and 100-Gem pricing. Generated sources were refreshed with the existing authoring script. Server JavaScript syntax and diff whitespace were checked. No tests, Android build, installation, CI, merge to main, backend deploy or Play release was run.
+## Ownership and release
 
-The app update contains the preview/renderers. The matching server update must also ship before the live backend can unlock these new IDs; until then, a new-ID purchase is rejected by server validation. Existing owned dice and referral/collection rewards are preserved.
+All four keep their existing IDs, preview faces and 100-Gem prices. Already-owned/selected skins update in place. They are manually selectable on any board; selecting a board does not replace the player's die. No new Play product, ad unlock, automatic ownership grant or collection/referral change. Published server catalog values retain their existing precedence.
 
-Device checks still pending, after the user builds the update branch:
+The matching server entries from the earlier dice commit still need to ship with the next release before the live backend can unlock these IDs. This artwork revision does not deploy or change the backend.
 
-1. Open Shop → Dice; confirm all four real previews, names and 100-Gem offers. An older installed APK will not contain these renderers.
-2. With the matching backend and sufficient Gems, unlock one, select it, reopen the app and confirm ownership/selection persistence. Verify an unlock spends only the shown price once.
-3. Play local and online matches using the selected die; check each face, team outline, roll/attention feedback and online turn countdown. Also check the smallest supported screen and reduced-motion setting.
-4. Switch boards and dice independently; confirm Classic/Pearl Paw and existing rewards still select normally.
+## Review boundary
 
-This is source-reviewed implementation, not a claim of compiled or device-verified artwork.
+Reviewed resource names and alpha metadata, both registry creation call sites, the default prepare hook for existing renderers, manifest/factory compatibility, all six pip coordinate arrays, front-face projection, shader/bitmap caching, canvas save/restore balance, preserved cosmetic IDs/pricing and the asset-based artwork reference. `git diff --check` covers whitespace. No tests, Android build, device installation, CI, merge to main, backend deploy or Play release was run. Compiled/device appearance and frame timing remain unverified.
 
-## Distinct silhouettes revision
-
-The first iteration reused one perspective cube, which made the four skins resemble recolors. That body renderer has been replaced by four independent implementations. Existing IDs, previews, unlock prices, ownership and selection remain compatible. No outcome rules or server pricing changed in this revision.
-
-[Artwork reference](environment-dice-preview.svg) is a static source-geometry illustration, not an Android screenshot. It shows each skin on face five so shape/material differences can be compared without different pip counts. App/device appearance remains pending a user-run build.
+After the user builds the branch, check Shop → Dice, selection persistence and all six faces during local and online matches. Confirm small-screen pip contrast, first-open smoothness, team colors, online countdown and reduced-motion behavior; also recheck Classic and Pearl Paw. Unlock verification additionally requires the matching backend release.

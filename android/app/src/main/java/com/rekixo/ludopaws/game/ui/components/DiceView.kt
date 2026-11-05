@@ -67,7 +67,7 @@ class DiceView @JvmOverloads constructor(
     private var diceStyleId =
         "dice_classic"
     private var rendererKey = "classic"
-    private var renderer = DiceRendererRegistry.create(DiceRegistry.resolve("dice_classic"), resources.displayMetrics.density)
+    private var renderer = DiceRendererRegistry.create(DiceRegistry.resolve("dice_classic"), resources)
     private var previewStyleId: String? = null
     private var face = 1
     private var rolling = false
@@ -447,7 +447,7 @@ class DiceView @JvmOverloads constructor(
 
         val definition = DiceRegistry.resolve(diceStyleId)
         if (rendererKey != definition.rendererKey) {
-            renderer = DiceRendererRegistry.create(definition, resources.displayMetrics.density)
+            renderer = DiceRendererRegistry.create(definition, resources)
             rendererKey = definition.rendererKey
         }
         val palette = dicePalette()
