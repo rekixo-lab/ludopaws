@@ -3,7 +3,7 @@ package com.rekixo.ludopaws.feature.growth
 import android.app.Activity
 import android.os.Handler
 import android.os.Looper
-import com.google.android.play.review.ReviewManagerFactory
+import com.google.android.play.core.review.ReviewManagerFactory
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 
 /** Neutral eligibility: completed experience on two days, regardless of win/loss. */

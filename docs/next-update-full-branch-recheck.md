@@ -21,4 +21,6 @@ Re-read every fix and its callers after editing. Parsed all 21 changed JavaScrip
 
 ## Remaining release evidence
 
+Device-build follow-up: the user's local Kotlin compile exposed an incorrect `ReviewManagerFactory` import (`com.google.android.play.review`). Inspected the pinned review 2.0.2 AAR's `classes.jar` directly: `ReviewManagerFactory`, `ReviewManager` and `ReviewInfo` are in `com.google.android.play.core.review`. Corrected the import and rechecked all review imports; no dependency/version change or local tests/build was performed. The reported downstream task type/method errors originate from the unresolved factory. A fresh user-side build is still needed to confirm compilation.
+
 Kotlin compilation, dependencies, real ad inventory/consent/SSV behavior, device sharing targets, cold/warm verified links, accessibility/layout, gameplay/proof conformance, save recovery, midnight/concurrency and backend/client integration still require an explicitly authorized build/test/device pass before release. This source-only recheck does not certify runtime success or a bug-free branch. Existing detailed handoffs: `next-update-comeback-bonus.md`, `next-update-post-match-ads.md`, `next-update-growth-recheck.md`, `next-update-sharing-weekly-recheck.md`.
