@@ -5,6 +5,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ImageSpan
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -32,4 +33,38 @@ internal fun StoreActivity.cosmeticPlayPrice(cosmeticId: String): String =
 internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharSequence {
     val action = smartUnlockDecision(cosmetic).primary
     return StoreActionLabels.action(this, smartUnlockLabel(cosmetic, action), action)
+}
+
+/** Each available payment method is its own direct action; the card keeps its normal tap. */
+internal fun StoreActivity.cosmeticPaymentOptions(
+    cosmetic: StoreCosmetic,
+): android.widget.LinearLayout? {
+    val options = listUnlockOptions(cosmetic)
+    if (options.size < 2) return null
+    return android.widget.LinearLayout(this).apply {
+        orientation = android.widget.LinearLayout.VERTICAL
+        options.forEach { (action, label) ->
+            addView(android.widget.TextView(context).apply {
+                text = when (action) {
+                    SmartUnlockAction.GEMS,
+                    SmartUnlockAction.GET_GEMS -> StoreActionLabels.gems(context, label, 12)
+                    else -> StoreActionLabels.action(context, label, action, 12)
+                }
+                gravity = android.view.Gravity.CENTER
+                minHeight = (48 * resources.displayMetrics.density).toInt()
+                textSize = 12f
+                setTextColor(0xFFFFFFFF.toInt())
+                setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+                contentDescription = "${cosmetic.title}: ${smartUnlockLabel(cosmetic, action)}"
+                background = android.graphics.drawable.GradientDrawable().apply {
+                    cornerRadius = 12 * resources.displayMetrics.density
+                    setColor(0xB3372718.toInt())
+                }
+                isFocusable = true
+                setOnClickListener { requestListedUnlock(cosmetic, action) }
+            }, android.widget.LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = (3 * resources.displayMetrics.density).toInt()
+            })
+        }
+    }
 }

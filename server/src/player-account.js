@@ -6,7 +6,7 @@ import {
 } from "./account-security.js";
 import { GOOGLE_PLAY_PRODUCTS } from "./google-play-billing.js";
 import { COSMETIC_UNLOCK_PRICING as COSMETIC_PRICING, PAID_CHARACTER_IDS, LEGACY_PAID_CHARACTER_IDS, INTRODUCTORY_CHARACTER_IDS, RETIRED_BOARD_IDS } from "./cosmetic-pricing.js";
-import { REFERRAL_CAMPAIGN, REFERRAL_REWARD } from "./referral-config.js";
+import { rewardForCampaign } from "./referral-config.js";
 
 import { createRewardsSchema, rewardsStatus, claimReward, COLLECTIONS, collectionQuote } from "./engagement-rewards.js";
 
@@ -445,25 +445,27 @@ export class PlayerAccount {
 
   async #grantReferralBundle(request) {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId);
-    if (body.campaign !== REFERRAL_CAMPAIGN) throw httpError(400, "REFERRAL_CAMPAIGN_INVALID", "Unknown referral campaign.");
-    const sourceHash = await sha256Hex(REFERRAL_CAMPAIGN + ":" + accountId);
+    const campaign = body.campaign;
+    const reward = rewardForCampaign(campaign);
+    if (!reward) throw httpError(400, "REFERRAL_CAMPAIGN_INVALID", "Unknown referral campaign.");
+    const sourceHash = await sha256Hex(campaign + ":" + accountId);
     let replay = false;
     this.ctx.storage.transactionSync(() => {
       this.#requireAccountNotDeleting(accountId);
       this.#profileSnapshot(accountId);
       const sql = this.ctx.storage.sql;
-      const idempotencyKey = "referral:" + REFERRAL_CAMPAIGN;
+      const idempotencyKey = "referral:" + campaign;
       if ([...sql.exec("SELECT transaction_id FROM wallet_transactions WHERE idempotency_key = ?", idempotencyKey)].length) { replay = true; return; }
       const wallet = [...sql.exec("SELECT balance FROM wallet WHERE account_id = ?", accountId)][0];
-      const next = Number(wallet?.balance) + REFERRAL_REWARD.gems;
+      const next = Number(wallet?.balance) + reward.gems;
       if (!wallet || !Number.isSafeInteger(next) || next > MAX_BALANCE) throw httpError(409, "WALLET_BALANCE_LIMIT", "Make space in your gem wallet, then retry.");
       const now = Date.now();
-      for (const cosmeticId of REFERRAL_REWARD.cosmetics) {
-        sql.exec("INSERT OR IGNORE INTO cosmetic_referral_grants (cosmetic_id, campaign) VALUES (?, ?)", cosmeticId, REFERRAL_CAMPAIGN);
+      for (const cosmeticId of reward.cosmetics) {
+        sql.exec("INSERT OR IGNORE INTO cosmetic_referral_grants (cosmetic_id, campaign) VALUES (?, ?)", cosmeticId, campaign);
         sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REFERRAL_BUNDLE', ?, ?)", cosmeticId, COSMETICS[cosmeticId].category, now, sourceHash);
       }
       sql.exec("UPDATE wallet SET balance = ?, updated_at = ? WHERE account_id = ?", next, now, accountId);
-      sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, 'REFERRAL_BUNDLE', ?, ?, ?, ?)", crypto.randomUUID(), idempotencyKey, sourceHash, REFERRAL_REWARD.gems, next, sourceHash, now);
+      sql.exec("INSERT INTO wallet_transactions (transaction_id, idempotency_key, payload_hash, kind, delta, balance_after, source_ref_hash, created_at) VALUES (?, ?, ?, 'REFERRAL_BUNDLE', ?, ?, ?, ?)", crypto.randomUUID(), idempotencyKey, sourceHash, reward.gems, next, sourceHash, now);
     });
     return json(200, { ok: true, replay, wallet: this.#walletSnapshot(accountId) });
   }

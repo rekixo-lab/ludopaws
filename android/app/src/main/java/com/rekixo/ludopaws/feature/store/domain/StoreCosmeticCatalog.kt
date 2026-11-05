@@ -35,11 +35,9 @@ object StoreCosmeticCatalog {
             unlockKind = CosmeticUnlockKind.GEMS, gemPrice = 75,
             unlockChannels = listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS),
         ),
-        cosmetic("character_giraffe", "GIRAFFE", CosmeticCategory.CHARACTER_PACK,
+        CosmeticPricing.apply(cosmetic("character_giraffe", "GIRAFFE", CosmeticCategory.CHARACTER_PACK,
             CosmeticUnlockKind.GEMS, "PAW", 0xFFF5BC62.toInt(), 0xFF834321.toInt(),
-            gems = 300, characterPackId = "starter_paws").copy(
-            unlockChannels = listOf(CosmeticUnlockKind.GEMS),
-        ),
+            gems = 300, characterPackId = "starter_paws")),
     ) + CosmeticPricing.paidCharacterIds.map { characterId ->
         CosmeticPricing.apply(cosmetic(
             "character_$characterId", characterId.uppercase(), CosmeticCategory.CHARACTER_PACK,

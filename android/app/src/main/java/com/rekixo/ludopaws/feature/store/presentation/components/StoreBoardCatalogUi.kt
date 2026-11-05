@@ -10,7 +10,6 @@ import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -40,12 +39,17 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
                     gravity = Gravity.TOP
                 }
 
+            val optionCount = rowBoards.maxOf { item ->
+                if (item.id in ownedIds) 0 else listUnlockOptions(item).size
+            }
+            val cardHeight = dp(if (optionCount < 2) 208 else 145 + 51 * optionCount)
+
             rowBoards.forEach { board ->
                 row.addView(
                     boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(208),
+                        cardHeight,
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -56,7 +60,7 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
             repeat(2 - rowBoards.size) {
                 row.addView(
                     TextView(this@boardCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(208), 1f),
+                    LinearLayout.LayoutParams(0, cardHeight, 1f),
                 )
             }
 
@@ -110,21 +114,11 @@ private fun StoreActivity.boardPanel(
             ),
         )
 
-        val showAdAlternative = !owned && smartUnlockDecision(board).alternative == SmartUnlockAction.WATCH_AD
-        if (showAdAlternative) {
-            addView(TextView(this@boardPanel).apply {
-                text = StoreActionLabels.action(context, "or ${board.requiredAdViews} ads", SmartUnlockAction.WATCH_AD, 10)
-                textSize = 9f
-                includeFontPadding = false
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-            })
-        }
         addView(
             StoreCatalogArtwork.board(context, board.id),
             LinearLayout.LayoutParams(
-                dp(if (showAdAlternative) 90 else 104),
-                dp(if (showAdAlternative) 90 else 104),
+                dp(104),
+                dp(104),
             ).apply {
                 topMargin = dp(1)
                 bottomMargin = dp(1)
@@ -141,6 +135,9 @@ private fun StoreActivity.boardPanel(
                 topMargin = dp(8)
             },
         )
+
+        val paymentOptions = if (!owned) cosmeticPaymentOptions(board) else null
+        paymentOptions?.let { addView(it, LinearLayout.LayoutParams(-1, -2)) }
 
         val updateSelection: (Boolean, Boolean) -> Unit = { currentOwned, currentSelected ->
             isSelected = currentSelected
@@ -165,6 +162,8 @@ private fun StoreActivity.boardPanel(
                 else -> "${board.title}, unlocked, tap to select"
             }
             boardStatusBadge(board, currentOwned, currentSelected, statusBadge)
+            statusBadge.visibility = if (currentOwned || paymentOptions == null) View.VISIBLE else View.GONE
+            paymentOptions?.visibility = if (currentOwned) View.GONE else View.VISIBLE
         }
         selectionUpdates[board.id] = updateSelection
         updateSelection(owned, selected)

@@ -157,8 +157,9 @@ private fun StoreActivity.pawsCharacterCard(
             ),
         )
 
+        val paymentOptions = availableOffer?.takeIf { !owned }?.let { cosmeticPaymentOptions(it) }
         addView(
-            TextView(this@pawsCharacterCard).apply {
+            paymentOptions ?: TextView(this@pawsCharacterCard).apply {
                 text = when {
                     owned -> "🔓 UNLOCKED"
                     offerUnavailable -> "🔒 UNAVAILABLE"
@@ -191,7 +192,7 @@ private fun StoreActivity.pawsCharacterCard(
                     }
             },
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                if (paymentOptions != null) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ),
         )

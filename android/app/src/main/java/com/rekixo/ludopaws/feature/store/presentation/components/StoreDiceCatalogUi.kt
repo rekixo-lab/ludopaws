@@ -30,12 +30,17 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
                     gravity = Gravity.TOP
                 }
 
+            val optionCount = rowDice.maxOf { item ->
+                if (item.id in ownedIds) 0 else listUnlockOptions(item).size
+            }
+            val cardHeight = dp(if (optionCount < 2) 208 else 145 + 51 * optionCount)
+
             rowDice.forEach { dice ->
                 row.addView(
                     dicePanel(dice, dice.id in ownedIds, dice.id in ownedIds && selectedId == dice.id),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(208),
+                        cardHeight,
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -46,7 +51,7 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
             repeat(2 - rowDice.size) {
                 row.addView(
                     TextView(this@diceCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(208), 1f),
+                    LinearLayout.LayoutParams(0, cardHeight, 1f),
                 )
             }
 
@@ -130,10 +135,11 @@ private fun StoreActivity.dicePanel(
             },
         )
 
+        val paymentOptions = if (!owned) cosmeticPaymentOptions(dice) else null
         addView(
-            diceStatusBadge(dice = dice, owned = owned, selected = selected),
+            paymentOptions ?: diceStatusBadge(dice = dice, owned = owned, selected = selected),
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                if (paymentOptions != null) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
                 topMargin = dp(8)

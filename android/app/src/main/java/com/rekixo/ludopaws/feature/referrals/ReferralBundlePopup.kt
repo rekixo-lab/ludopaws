@@ -26,6 +26,7 @@ import com.rekixo.ludopaws.launchPlayerScreen
 
 internal fun showReferralBundlePopup(
     activity: Activity, state: String, owned: Set<String>,
+    timedOffer: TimedFriendshipOffer? = null,
     onDismiss: (deferred: Boolean) -> Unit,
 ): Dialog {
     fun dp(value: Int) = (value * activity.resources.displayMetrics.density + .5f).toInt()
@@ -44,7 +45,7 @@ internal fun showReferralBundlePopup(
         background = null // Shared plywood is on the outer clipped surface.
     }
     val heading = FrameLayout(activity)
-    val title = when (state) {
+    val title = if (timedOffer != null) "Your 48-hour friendship offer" else when (state) {
         "FRIEND_JOINED" -> string(R.string.friendship_joined_title)
         "VERIFYING" -> string(R.string.friendship_pending_title)
         else -> string(if (owned.containsAll(ReferralPopupPolicy.rewardItems)) R.string.friendship_gems_title else R.string.friendship_invite_title)
@@ -56,12 +57,13 @@ internal fun showReferralBundlePopup(
         FrameLayout.LayoutParams(dp(48), dp(48), Gravity.END or Gravity.TOP))
     panel.addView(heading, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
     val body = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-    val art = FriendshipBundleView(activity, ownedItems = owned).apply {
+    val art = FriendshipBundleView(activity, ownedItems = owned, timed = timedOffer != null).apply {
+        bindOffer(timedOffer)
         // Use the popup's continuous plywood surface behind the bundle.
         background = null
     }
     body.addView(art, LinearLayout.LayoutParams(-1, -2))
-    body.addView(copy(when (state) {
+    body.addView(copy(if (timedOffer != null) TimedFriendshipOffer.RULE else when (state) {
         "FRIEND_JOINED" -> string(R.string.friendship_joined_body)
         "VERIFYING" -> string(R.string.friendship_pending_body)
         else -> if (owned.containsAll(ReferralPopupPolicy.rewardItems))
@@ -85,7 +87,7 @@ internal fun showReferralBundlePopup(
         isVerticalScrollBarEnabled = false
     }
     val invite = Button(activity).apply {
-        text = string(if (state != "INVITE") R.string.friendship_progress else R.string.friendship_invite_action)
+        text = if (timedOffer != null) "View offer" else string(if (state != "INVITE") R.string.friendship_progress else R.string.friendship_invite_action)
         textSize = 15f; isAllCaps = false; typeface = Typeface.DEFAULT_BOLD; backgroundTintList = null
         minHeight = dp(52); setTextColor(0xFF183F36.toInt())
         background = RippleDrawable(ColorStateList.valueOf(0x44FFFFFF), GradientDrawable(

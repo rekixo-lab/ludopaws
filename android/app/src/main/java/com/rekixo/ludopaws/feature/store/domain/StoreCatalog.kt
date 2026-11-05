@@ -114,7 +114,7 @@ object StoreCatalog {
         ) + CosmeticPricing.productIds.map { id ->
             StoreProduct(
                 productId = id,
-                title = id.removePrefix("character_").removePrefix("board_").replace('_', ' '),
+                title = id.removePrefix("character_").removePrefix("board_").removePrefix("dice_").replace('_', ' '),
                 gemAmount = 0,
                 kind = StoreProductKind.NON_CONSUMABLE_COSMETIC,
                 fallbackPrice = PRICE_UNAVAILABLE,

@@ -86,7 +86,7 @@ class AccountRepository(context: Context) {
     fun currentSession(): AccountSession? = sessions.load()
 
     fun referralRequest(operation: String, body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
-        require(operation in setOf("status", "invite", "challenge", "bind", "enroll", "withdraw"))
+        require(operation in setOf("status", "offer", "invite", "challenge", "bind", "enroll", "withdraw"))
         val session = requireSession()
         if (expectedAccountId != null && session.accountId != expectedAccountId) {
             throw AccountApiException(409, "ACCOUNT_SESSION_CHANGED", "Your account changed. Please retry.")

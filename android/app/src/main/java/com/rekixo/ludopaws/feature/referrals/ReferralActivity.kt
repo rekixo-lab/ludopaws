@@ -31,6 +31,10 @@ import org.json.JSONObject
 
 class ReferralActivity : Activity() {
     private lateinit var showcase: FriendshipBundleView
+    private lateinit var timedPanel: LinearLayout
+    private var timedShowcase: FriendshipBundleView? = null
+    private lateinit var timedAction: Button
+    private lateinit var timedProgress: TextView
     private lateinit var progress: TextView
     private lateinit var ownership: TextView
     private lateinit var action: Button
@@ -83,6 +87,10 @@ class ReferralActivity : Activity() {
         content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_page_title), 19f, true))
         content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_page_intro), 25f, true).apply { setPadding(0, dp(12), 0, dp(4)) })
         content.addView(copy(getString(com.rekixo.ludopaws.R.string.friendship_page_summary), 13f))
+        timedPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        timedProgress = copy(TimedFriendshipOffer.RULE, 12f).apply { setPadding(0, dp(8), 0, dp(4)) }
+        timedAction = secondaryButton("Invite a friend · 48h offer ↗") { act(timed = true) }
+        content.addView(timedPanel, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) })
         showcase = FriendshipBundleView(this)
         if (FamilyAgeScreen.hasChoice(this) && !FamilyAgeScreen.optionalGoogleAllowed(this)) showcase.visibility = android.view.View.GONE
         content.addView(showcase, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16); bottomMargin = dp(10) })
@@ -162,7 +170,7 @@ class ReferralActivity : Activity() {
         verification.setTextColor(0xFF583717.toInt())
         body.addView(verification)
         val button = secondaryButton("Verify my invitation") { verifyInvitation() }.apply {
-            isEnabled = status?.let { it.optBoolean("enabled") && it.optBoolean("googleLinked") } == true && !busy &&
+            isEnabled = status?.let { it.optBoolean("verificationEnabled", it.optBoolean("enabled")) && it.optBoolean("googleLinked") } == true && !busy &&
                 !(FamilyAgeScreen.hasChoice(this@ReferralActivity) && !FamilyAgeScreen.optionalGoogleAllowed(this@ReferralActivity))
         }
         verify = button
@@ -216,7 +224,8 @@ class ReferralActivity : Activity() {
             details.addView(copy("Campaign ends " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(end)), 13f, true))
         }
         details.addView(copy("1  Share your personal invitation\n2  A new friend installs and links Google\n3  They verify in Home → Settings → Friendship Bundle before playing\n4  They finish a real Online or Friends match\n5  You receive the bundle + 100 Gems", 14f))
-        details.addView(copy("Only the inviter gets rewards, once per campaign. Sharing or downloading alone does not earn anything. Your friend does not have to win. No purchase, ad view, rating or review is required. Bots, forfeits, offline matches and self-invites do not count. A qualifying match takes at least 3 minutes and includes at least one legal move by the invited player.\n\nInstall within 7 days of opening Google Play through the invitation; finish within 14 days of installation and before the campaign ends. The campaign lasts 90 days. Already-owned items stay yours; there is no duplicate item or gem compensation. The extra 100 Gems are awarded once, including when you already own some or all items. Verification may take a few minutes.\n\nOptional verification uses your linked game account, existing Google-identity anti-replay hash, Play click/install timestamps and app/device integrity signals. Google verifies temporary integrity tokens; referral code does not store them. Our backend stores consent and eligible match/reward records. No contacts or advertising ID are requested. You can decline and keep playing, or use Stop verification later. Account deletion removes referral links; minimal abuse-prevention hashes are retained until 14 days after the campaign ends. Integrity cannot guarantee a unique human or prevent every form of farming.", 13f))
+        details.addView(copy("Friendship Bundle 2: ${TimedFriendshipOffer.REWARDS}. ${TimedFriendshipOffer.RULE} The server starts your personal 48-hour timer when the offer is first presented on Home. One reward per account; the invited player receives no reward.", 13f))
+        details.addView(copy("For the original bundle: only the inviter gets rewards, once per campaign. Sharing or downloading alone does not earn anything. Your friend does not have to win. No purchase, ad view, rating or review is required. Bots, forfeits, offline matches and self-invites do not count. A qualifying match takes at least 3 minutes and includes at least one legal move by the invited player.\n\nInstall within 7 days of opening Google Play through the invitation; finish within 14 days of installation and before the campaign ends. The campaign lasts 90 days. Already-owned items stay yours; there is no duplicate item or gem compensation. The extra 100 Gems are awarded once, including when you already own some or all items. Verification may take a few minutes.\n\nOptional verification uses your linked game account, existing Google-identity anti-replay hash, Play click/install timestamps and app/device integrity signals. Google verifies temporary integrity tokens; referral code does not store them. Our backend stores consent and eligible match/reward records. No contacts or advertising ID are requested. You can decline and keep playing, or use Stop verification later. Account deletion removes referral links; minimal abuse-prevention hashes are retained until 14 days after the campaign ends. Integrity cannot guarantee a unique human or prevent every form of farming.", 13f))
         details.addView(secondaryButton("Privacy policy  ↗") {
             openExternal(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://ludopaws.rekixo.com/privacy-policy.html")))
         })
@@ -314,6 +323,7 @@ class ReferralActivity : Activity() {
         connectivity.stop()
         resumed = false; generation++; busy = false; loadingStatus = false; showcase.setActive(false)
         handler.removeCallbacks(poll)
+        timedShowcase?.setActive(false)
         super.onPause()
     }
 
@@ -326,6 +336,8 @@ class ReferralActivity : Activity() {
     private fun load() {
         if (!connectivity.isOnline()) {
             status = null
+            timedPanel.visibility = View.GONE
+            timedShowcase?.setActive(false)
             progress.text = "Offline · you can share the game now. Connect to check invitation rewards."
             action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
             refresh.isEnabled = true
@@ -347,14 +359,16 @@ class ReferralActivity : Activity() {
                 result.onSuccess { snapshot ->
                     val current = (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()
                     if (snapshot.has("localAccountId") && snapshot.optString("localAccountId") != current?.accountId) {
-                        status = null; progress.text = "Account changed. Refresh to check invitation rewards; you can still share the game."
+                        status = null; timedPanel.visibility = View.GONE; timedShowcase?.setActive(false); progress.text = "Account changed. Refresh to check invitation rewards; you can still share the game."
                         action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
                         return@onSuccess
                     }
                     status = snapshot; render(snapshot)
-                    if (snapshot.optBoolean("enabled")) repository.refreshAttribution()
+                    if (snapshot.optBoolean("verificationEnabled", snapshot.optBoolean("enabled"))) repository.refreshAttribution()
                 }.onFailure {
                     status = null
+                    timedPanel.visibility = View.GONE
+                    timedShowcase?.setActive(false)
                     progress.text = "Invitation rewards could not load. You can still share the game; tap Refresh to retry."
                     action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
                 }
@@ -373,6 +387,26 @@ class ReferralActivity : Activity() {
         val linked = snapshot.optBoolean("googleLinked")
         val state = snapshot.optString("state")
         val privacyBlocked = FamilyAgeScreen.hasChoice(this) && !FamilyAgeScreen.optionalGoogleAllowed(this)
+        val offer = TimedFriendshipOffer.from(snapshot.optJSONObject("timedOffer"))
+        timedPanel.visibility = if (offer != null && !privacyBlocked) View.VISIBLE else View.GONE
+        if (offer != null && !privacyBlocked) {
+            if (timedShowcase == null) {
+                timedShowcase = FriendshipBundleView(this, timed = true).also {
+                    timedPanel.addView(it, LinearLayout.LayoutParams(-1, -2))
+                    timedPanel.addView(timedProgress)
+                    timedPanel.addView(timedAction, LinearLayout.LayoutParams(-1, -2))
+                }
+            }
+            timedShowcase?.bindOffer(offer) { timedAction.visibility = View.GONE }
+            timedShowcase?.setActive(resumed)
+            timedProgress.text = when (offer.state) {
+                "REWARDED" -> if (snapshot.optBoolean("walletSynced")) "Your items and 150 Gems are in your account." else "Bundle granted. Refresh to sync your items and Gems."
+                "FRIEND_JOINED" -> "Friend verified. Finish your match together before time runs out."
+                else -> TimedFriendshipOffer.RULE
+            }
+            timedAction.visibility = if (offer.canInvite && linked) View.VISIBLE else View.GONE
+            timedAction.isEnabled = !busy
+        } else timedShowcase?.setActive(false)
         showcase.visibility = if (privacyBlocked) android.view.View.GONE else android.view.View.VISIBLE
         progress.text = when {
             state == "REWARDED" -> if (snapshot.optBoolean("walletSynced")) "Bundle received!\nYour items and 100 Gems are in your account." else "Reward granted on the server. Refresh to sync your items and Gems."
@@ -384,16 +418,16 @@ class ReferralActivity : Activity() {
         }
         action.text = if (enabled && linked && !privacyBlocked && state !in setOf("REWARDED", "VERIFYING")) "Invite a friend  ↗" else "Share Ludo Paws  ↗"
         action.isEnabled = !busy
-        connect.visibility = if (enabled && !linked && !privacyBlocked) View.VISIBLE else View.GONE
+        connect.visibility = if ((enabled || offer?.canInvite == true) && !linked && !privacyBlocked) View.VISIBLE else View.GONE
         connect.isEnabled = !busy
-        verify?.isEnabled = enabled && linked && !busy && !privacyBlocked
+        verify?.isEnabled = snapshot.optBoolean("verificationEnabled", enabled) && linked && !busy && !privacyBlocked
         stop.isEnabled = !busy
         stop.visibility = if (snapshot.optBoolean("localConsent") || snapshot.optBoolean("consented")) android.view.View.VISIBLE else android.view.View.GONE
         val attribution = snapshot.optJSONObject("attribution")
         verification.text = when {
             privacyBlocked -> "Optional invitation rewards are unavailable for this privacy setting. You can share the game without rewards; gameplay is unchanged."
             attribution?.optString("state") == "QUALIFIED" -> "Your qualifying match was received. Only your inviter receives the bundle."
-            attribution?.optString("state") == "BOUND" -> "Invitation verified. Finish a qualifying Online or Friends match before " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(attribution.optLong("deadline"))) + ". Your inviter gets the reward."
+            attribution?.optString("state") == "BOUND" -> (if (attribution.optBoolean("together")) "Invitation verified. Play a qualifying Online or Friends match with your inviter before " else "Invitation verified. Finish a qualifying Online or Friends match before ") + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(attribution.optLong("deadline"))) + ". Your inviter gets the reward."
             snapshot.optString("verificationState") == "VERIFYING" -> "Checking your Google Play installation… You can keep playing; no local reward will be granted."
             snapshot.optString("verificationState") == "NO_INVITATION" -> "No valid invitation was found for this installation. An existing install cannot be converted into a new referral."
             snapshot.optString("verificationState") == "INSTALL_ALREADY_USED" -> "This installation was already used or its pending attribution was cancelled. It cannot be bound again to a different account."
@@ -405,7 +439,7 @@ class ReferralActivity : Activity() {
             else -> "Were you invited? Accept the disclosure and verify before playing. Only your inviter receives the reward."
         }
         handler.removeCallbacks(poll)
-        if (resumed && pollsRemaining > 0 && (state in setOf("VERIFYING", "FRIEND_JOINED") || snapshot.optString("verificationState") == "VERIFYING")) {
+        if (resumed && pollsRemaining > 0 && (state in setOf("VERIFYING", "FRIEND_JOINED") || offer?.state in setOf("VERIFYING", "FRIEND_JOINED") || snapshot.optString("verificationState") == "VERIFYING")) {
             pollsRemaining--; handler.postDelayed(poll, 15_000L)
         }
     }
@@ -414,25 +448,27 @@ class ReferralActivity : Activity() {
         openExternal(gameShareChooser(this))
     }
 
-    private fun act(grant: ConsentGrant? = null) {
-        if (!connectivity.isOnline()) { shareGame(); return }
+    private fun act(grant: ConsentGrant? = null, timed: Boolean = false) {
+        if (!connectivity.isOnline()) { if (timed) load() else shareGame(); return }
         if (busy && !loadingStatus) return
         val snapshot = status
-        if (loadingStatus || snapshot == null || !snapshot.optBoolean("enabled") ||
-            !snapshot.optBoolean("googleLinked") || snapshot.optString("state") in setOf("REWARDED", "VERIFYING") ||
+        if (loadingStatus || snapshot == null ||
+            (if (timed) TimedFriendshipOffer.from(snapshot.optJSONObject("timedOffer"))?.canInvite != true
+                else !snapshot.optBoolean("enabled") || snapshot.optString("state") in setOf("REWARDED", "VERIFYING")) ||
+            !snapshot.optBoolean("googleLinked") ||
             !FamilyAgeScreen.optionalGoogleAllowed(this)) {
-            shareGame()
+            if (timed) load() else shareGame()
             return
         }
-        if (!requireConsent(snapshot, grant) { act(it) }) return
+        if (!requireConsent(snapshot, grant) { act(it, timed) }) return
         if (busy) return
-        busy = true; action.isEnabled = false
+        busy = true; action.isEnabled = false; timedAction.isEnabled = false
         val requestGeneration = ++generation
         ReferralRepository.executor.execute {
             val result = runCatching {
                 val accountId = snapshot.getString("localAccountId")
                 if (!snapshot.optBoolean("consented") || !snapshot.optBoolean("localConsent")) repository.enroll(accountId, snapshot.getString("termsVersion"))
-                repository.invite(accountId)
+                repository.invite(accountId, timed)
             }
             runOnUiThread {
                 if (!resumed || isFinishing || isDestroyed || generation != requestGeneration) return@runOnUiThread
@@ -446,9 +482,16 @@ class ReferralActivity : Activity() {
                     openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_SUBJECT, "Play Ludo Paws with me")
-                        putExtra(Intent.EXTRA_TEXT, "Come play Ludo Paws with me! Open this invitation to go to Google Play, install the game, and finish a real Online or Friends match. I can earn a friendship bundle + 100 Gems when you qualify; invited players do not receive this reward.\n\n$url")
+                        putExtra(Intent.EXTRA_TEXT, if (timed) {
+                            "Come play Ludo Paws with me! Open this link to go to Google Play. Install, verify the invite in Friendship Bundle, then finish a real Online or Friends match with me before my 48-hour offer ends. I can earn Giraffe, Sunstone Palace, Prism Royal and 150 Gems.\n\n$url"
+                        } else "Come play Ludo Paws with me! Open this invitation to go to Google Play, install the game, and finish a real Online or Friends match. I can earn a friendship bundle + 100 Gems when you qualify; invited players do not receive this reward.\n\n$url")
                     }, "Invite a friend"))
                 }.onFailure {
+                    if (timed) {
+                        android.widget.Toast.makeText(this, it.message ?: "Could not create your offer link. Refresh and try again.", android.widget.Toast.LENGTH_LONG).show()
+                        load()
+                        return@onFailure
+                    }
                     progress.text = "Invitation reward link could not be verified. Sharing the ordinary game link; sharing alone does not earn Gems."
                     android.widget.Toast.makeText(this, progress.text, android.widget.Toast.LENGTH_LONG).show()
                     shareGame()
@@ -459,7 +502,7 @@ class ReferralActivity : Activity() {
 
     private fun verifyInvitation(grant: ConsentGrant? = null) {
         val snapshot = status ?: return load()
-        if (!snapshot.optBoolean("enabled") || !snapshot.optBoolean("googleLinked")) return
+        if (!snapshot.optBoolean("verificationEnabled", snapshot.optBoolean("enabled")) || !snapshot.optBoolean("googleLinked")) return
         if (!requireConsent(snapshot, grant) { verifyInvitation(it) }) return
         FamilyAgeScreen.withOptionalGoogle(this) {
             if (busy) return@withOptionalGoogle

@@ -28,7 +28,7 @@ import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
 import { evaluateOperationalHealth } from "./operational-health.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
-import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralHealth, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
+import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralHealth, referralRequest, referralsConfigured, referralsEnabled, timedReferralsEnabled, signingCertificates } from "./referral-config.js";
 
 export { BillingReconciliation } from "./billing-reconciliation.js";
 export { ReferralCampaign } from "./referral-campaign.js";
@@ -168,15 +168,14 @@ export async function handleAccountRequest(request, env) {
       const invitePath = REFERRAL_LANDING_PATH.exec(url.pathname);
       if (invitePath) {
         const publicInvite = url.origin === PUBLIC_SHARE_ORIGIN;
-        const enabled = referralsEnabled(env);
-        if (publicInvite && !invitePath[2] && !enabled) {
+        const enabled = referralsEnabled(env) || timedReferralsEnabled(env);
+        if (!invitePath[2] && !enabled) {
           return playSharePage(request, "A friend invited you to Ludo Paws", "Get Ludo Paws on Google Play.");
         }
         await rateLimit(env, request, "referral:landing", 120);
-        if (!enabled && !publicInvite) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
         // A preview fetch carries no browser user activation and only reads the
         // landing markup. The same-origin form remains the compatibility path.
-        if (publicInvite && !invitePath[2] && isShareTap(request)) {
+        if (!invitePath[2] && isShareTap(request)) {
           return await referralDownload(env, invitePath[1], true);
         }
         if (invitePath[2] && request.method === "POST") {
@@ -186,14 +185,14 @@ export async function handleAccountRequest(request, env) {
           return enabled ? await referralDownload(env, invitePath[1], publicInvite) : redirectToPlay();
         }
         if (!invitePath[2] && ["GET", "HEAD"].includes(request.method)) {
-          return new Response(request.method === "HEAD" ? null : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${sharePreview("A friend invited you to Ludo Paws", "Play a real match together. Your inviter can earn a friendship bundle.")}<title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style></head><body><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button and link your Google account. Open Home → Settings → Friendship Bundle (Home → Share on older versions), read the optional verification disclosure, accept the invitation terms and tap Verify my invitation before playing. Then finish a real Online or Friends match within 14 days of installation. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems, once. New players only; install within 7 days of this download click. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing and verification are optional; declining does not restrict gameplay. No purchase, ad view, rating or review is required. Use Stop verification on the Friendship Bundle screen to cancel pending incoming attribution. Existing items are not duplicated or exchanged. Verification can take time. Campaign ends ${new Date(Number(env.LUDOPAWS_REFERRAL_START_MS) + 90 * 86400000).toUTCString()}; your match must finish before then. No reward for the invited player. <a href="https://ludopaws.rekixo.com/referral-terms.html">Full invitation terms &amp; support</a> · <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></body></html>`, {
+          return new Response(request.method === "HEAD" ? null : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${sharePreview("A friend invited you to Ludo Paws", "Play a real match together. Your inviter can earn a friendship bundle.")}<title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style></head><body><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button and link your Google account. Open Home → Settings → Friendship Bundle (Home → Share on older versions), read the optional verification disclosure, accept the invitation terms and tap Verify my invitation before playing. Follow the deadline shown in your verified invitation. For Friendship Bundle 2, finish an eligible Online or Friends match with your inviter before their 48-hour timer ends. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives the reward, once per bundle. The original offer includes Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Friendship Bundle 2 includes Giraffe, Sunstone Palace, Prism Royal and 150 Gems. New players only. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing and verification are optional; declining does not restrict gameplay. No purchase, ad view, rating or review is required. Use Stop verification on the Friendship Bundle screen to cancel pending incoming attribution. Existing items are not duplicated or exchanged. Verification can take time. The original invitation requires a match within 14 days of installation and before the original campaign closes. The timed offer uses the inviter’s personal deadline. No reward for the invited player. <a href="https://ludopaws.rekixo.com/referral-terms.html">Full invitation terms &amp; support</a> · <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></body></html>`, {
             headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer",
               "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" },
           });
         }
         return json(405, { error: "METHOD_NOT_ALLOWED" });
       }
-      if (/^\/api\/referrals\/(status|invite|challenge|bind|enroll|withdraw)$/.test(url.pathname)) {
+      if (/^\/api\/referrals\/(status|offer|invite|challenge|bind|enroll|withdraw)$/.test(url.pathname)) {
         const operation = url.pathname.split("/").pop();
         if (request.method !== (operation === "status" ? "GET" : "POST")) return json(405, { error: "METHOD_NOT_ALLOWED" });
         await rateLimit(env, request, "referral:" + operation, operation === "status" ? 300 : 60);
@@ -202,7 +201,7 @@ export async function handleAccountRequest(request, env) {
           await readJsonObject(request, 1024);
           return await referralRequest(env, "/withdraw", { accountId: session.accountId });
         }
-        if (!(operation === "status" ? referralsConfigured(env) : referralsEnabled(env))) return operation === "status"
+        if (!(["status", "offer"].includes(operation) ? referralsConfigured(env) : (referralsEnabled(env) || timedReferralsEnabled(env)))) return ["status", "offer"].includes(operation)
           ? json(200, { ok: true, enabled: false, reward: REFERRAL_REWARD, termsVersion: REFERRAL_TERMS_VERSION })
           : json(503, { error: "REFERRALS_UNAVAILABLE", message: "Friendship rewards are not available yet." });
         const session = await authenticate(request, env);

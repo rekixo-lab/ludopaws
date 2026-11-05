@@ -40,6 +40,7 @@ import com.rekixo.ludopaws.feature.store.domain.SmartUnlockDecision
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockPolicy
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticUnlockKind
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.components.StoreActionLabels
@@ -1201,10 +1202,42 @@ class StoreActivity :
         SmartUnlockAction.WATCH_AD ->
             "Watch Ad · ${cosmetics.rewardedAdProgress(cosmetic.id).coerceAtMost(cosmetic.requiredAdViews)}/${cosmetic.requiredAdViews}"
         SmartUnlockAction.CLAIM_ADS -> "Unlock · Ads Completed"
-        SmartUnlockAction.GET_GEMS -> "Get Gems to Unlock"
+        SmartUnlockAction.GET_GEMS -> "Get Gems · ${cosmetic.gemPrice} needed"
         SmartUnlockAction.LEVEL -> "Level ${cosmetic.requiredLevel} Required"
         SmartUnlockAction.EVENT -> "Event Unlock"
         SmartUnlockAction.UNAVAILABLE -> "Unavailable"
+    }
+
+    internal fun listUnlockOptions(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+    ): List<Pair<SmartUnlockAction, String>> {
+        val primary = smartUnlockDecision(cosmetic).primary
+        if (primary in setOf(SmartUnlockAction.SELECT, SmartUnlockAction.UNAVAILABLE, SmartUnlockAction.LEVEL)) return emptyList()
+        val channels = cosmetic.unlockChannels
+        val adProgress = cosmetics.rewardedAdProgress(cosmetic.id)
+        return buildList {
+            if (CosmeticUnlockKind.GEMS in channels && cosmetic.gemPrice > 0) {
+                add((if (wallet.balance() >= cosmetic.gemPrice) SmartUnlockAction.GEMS else SmartUnlockAction.GET_GEMS) to "${cosmetic.gemPrice} Gems")
+            }
+            if (CosmeticUnlockKind.PLAY_PRODUCT in channels) {
+                val productId = StoreCatalog.cosmeticProductId(cosmetic.id)
+                val price = productId?.let { liveProducts[it]?.formattedPrice }
+                if (billingAvailable && price != null) add(SmartUnlockAction.PLAY_PRODUCT to price)
+            }
+            if (CosmeticUnlockKind.REWARDED_ADS in channels && cosmetic.requiredAdViews > 0) {
+                if (adProgress >= cosmetic.requiredAdViews) add(SmartUnlockAction.CLAIM_ADS to "Claim · ${cosmetic.requiredAdViews} ads")
+                else if (adsEnabledForBuild) add(SmartUnlockAction.WATCH_AD to "${adProgress}/${cosmetic.requiredAdViews} ads")
+            }
+        }
+    }
+
+    internal fun requestListedUnlock(
+        cosmetic: com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic,
+        action: SmartUnlockAction,
+    ) {
+        if (!currentOfferMatches(cosmetic) || listUnlockOptions(cosmetic).none { it.first == action }) return
+        recordCosmeticIntent(cosmetic.id)
+        runSmartUnlock(cosmetic, action)
     }
 
     internal fun requestAlternateCosmetic(
