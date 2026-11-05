@@ -179,20 +179,16 @@ private fun StoreActivity.boardStatusBadge(
     badge: TextView = TextView(this),
 ): TextView =
     badge.apply {
-        text = when {
-            selected -> "✓ EQUIPPED"
-            owned -> "TAP TO SELECT"
-            else -> cosmeticPurchaseLabel(board)
+        if (owned) {
+            applyCosmeticOwnershipBadge(equipped = selected)
+            return@apply
         }
+        setCompoundDrawablesRelative(null, null, null, null)
+        minHeight = 0
+        text = cosmeticPurchaseLabel(board)
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)
-        setTextColor(
-            when {
-                selected -> 0xFF67430F.toInt()
-                owned -> 0xFF104B29.toInt()
-                else -> 0xFF235A86.toInt()
-            },
-        )
+        setTextColor(0xFF235A86.toInt())
         gravity = Gravity.CENTER
         includeFontPadding = false
         maxLines = 2
@@ -201,20 +197,9 @@ private fun StoreActivity.boardStatusBadge(
         background =
             GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                when {
-                    selected ->
-                        intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
-                    else ->
-                        intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt())
-                },
+                intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt()),
             ).apply {
                 cornerRadius = dp(999).toFloat()
-                setStroke(
-                    dp(1),
-                    when {
-                        selected -> 0xFFFFF5C9.toInt()
-                        else -> 0xFF47B86C.toInt()
-                    },
-                )
+                setStroke(dp(1), 0xFF47B86C.toInt())
             }
     }

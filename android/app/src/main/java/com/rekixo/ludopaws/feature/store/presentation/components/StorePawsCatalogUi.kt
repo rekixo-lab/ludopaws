@@ -160,11 +160,14 @@ private fun StoreActivity.pawsCharacterCard(
         val paymentOptions = availableOffer?.takeIf { !owned }?.let { cosmeticPaymentOptions(it) }
         addView(
             paymentOptions ?: TextView(this@pawsCharacterCard).apply {
+                if (owned) {
+                    applyCosmeticOwnershipBadge(equipped = selected)
+                    return@apply
+                }
                 text = when {
-                    owned -> "🔓 UNLOCKED"
                     offerUnavailable -> "🔒 UNAVAILABLE"
                     unlock != null -> cosmeticPurchaseLabel(unlock)
-                    else -> "UNLOCKED"
+                    else -> "🔒 UNAVAILABLE"
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)

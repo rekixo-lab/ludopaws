@@ -2,9 +2,13 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.content.Context
 import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.GradientDrawable
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ImageSpan
+import android.widget.TextView
+import com.rekixo.ludopaws.LudoProofTheme
+import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
@@ -35,6 +39,32 @@ internal fun StoreActivity.cosmeticPurchaseLabel(cosmetic: StoreCosmetic): CharS
     return StoreActionLabels.action(this, smartUnlockLabel(cosmetic, action), action)
 }
 
+private fun storeButtonBackground(context: Context, color: Int = 0xB3372718.toInt()) =
+    GradientDrawable().apply {
+        cornerRadius = LudoProofTheme.dp(context, 12).toFloat()
+        setColor(color)
+    }
+
+internal fun TextView.applyCosmeticOwnershipBadge(equipped: Boolean) {
+    val tint = if (equipped) 0xFFFFE4A4.toInt() else 0xFF104B29.toInt()
+    val iconRes = if (equipped) R.drawable.ic_store_equipped else R.drawable.ic_store_unlocked
+    val icon = requireNotNull(context.getDrawable(iconRes)).mutate().apply { setTint(tint) }
+    text = if (equipped) "Equipped" else "Unlocked"
+    textSize = 12f
+    setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+    setTextColor(tint)
+    gravity = android.view.Gravity.CENTER
+    includeFontPadding = false
+    letterSpacing = 0f
+    minHeight = LudoProofTheme.dp(context, 48)
+    val inset = LudoProofTheme.dp(context, 10)
+    setPaddingRelative(inset, 0, inset, 0)
+    compoundDrawablePadding = LudoProofTheme.dp(context, 5)
+    setCompoundDrawablesRelativeWithIntrinsicBounds(icon, null, null, null)
+    background = if (equipped) storeButtonBackground(context)
+        else storeButtonBackground(context, 0xC7DAF5E1.toInt())
+}
+
 /** Show each configured payment method, including when Google Play has no price. */
 internal fun StoreActivity.cosmeticPaymentOptions(
     cosmetic: StoreCosmetic,
@@ -61,10 +91,7 @@ internal fun StoreActivity.cosmeticPaymentOptions(
                     else -> smartUnlockLabel(cosmetic, action)
                 }
                 contentDescription = "${cosmetic.title}: $description"
-                background = android.graphics.drawable.GradientDrawable().apply {
-                    cornerRadius = 12 * resources.displayMetrics.density
-                    setColor(0xB3372718.toInt())
-                }
+                background = storeButtonBackground(context)
                 isEnabled = enabled
                 isFocusable = enabled
                 if (enabled) {
