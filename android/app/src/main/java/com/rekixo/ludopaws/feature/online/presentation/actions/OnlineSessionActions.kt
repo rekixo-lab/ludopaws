@@ -25,10 +25,9 @@ internal fun MainActivity.shareMatch() {
         val state = currentState
         val host = if (gameMode == GameMode.FRIENDS && state?.hostPlayerId == playerId)
             com.rekixo.ludopaws.feature.friends.data.local.FriendIdentityStore(this@shareMatch).load()?.friendId else null
-        val link = com.rekixo.ludopaws.feature.sharing.RoomLink.create(code, gameMode.wireValue, host)?.url()
-        putExtra(Intent.EXTRA_TEXT, if (link != null)
-            "Join my Ludo Paws room: $code\n$link\nOpen the link to find your room invitation. New friends can request the host first."
-        else "Come play Ludo Paws! Use Friends to create a private room together.\n$GAME_SHARE_URL")
+        val link = com.rekixo.ludopaws.feature.sharing.RoomLink.create(code, gameMode.wireValue, host)
+        putExtra(Intent.EXTRA_TEXT, link?.shareMessage()
+            ?: "Come play Ludo Paws! Use Friends to create a private room together.\n$GAME_SHARE_URL")
     }
     startActivity(Intent.createChooser(intent, "Share Ludo Paws match"))
 }

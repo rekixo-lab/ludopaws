@@ -1,5 +1,5 @@
 import { roomLinkLanding } from "./room-link-landing.js";
-import { gameShareLanding, PUBLIC_SHARE_HOST, PUBLIC_SHARE_ORIGIN, sharePreview } from "./share-landing.js";
+import { gameShareLanding, isShareTap, playSharePage, PUBLIC_SHARE_HOST, PUBLIC_SHARE_ORIGIN, redirectToPlay, sharePreview } from "./share-landing.js";
 import { familyResponse, familyCapabilities } from "./family-safety.js";
 import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
@@ -75,7 +75,6 @@ export default {
     const url = new URL(request.url);
     if (url.hostname === PUBLIC_SHARE_HOST &&
         url.pathname !== "/share" && url.pathname !== "/share/" &&
-        url.pathname !== "/.well-known/assetlinks.json" &&
         !url.pathname.startsWith("/play/") && !REFERRAL_LANDING_PATH.test(url.pathname)) {
       return new Response("Not found.", { status: 404, headers: { "cache-control": "no-store" } });
     }
@@ -133,6 +132,13 @@ export default {
   },
 };
 
+async function referralDownload(env, token, fallbackToPlay) {
+  const response = await referralRequest(env, "/click", { token });
+  if (!response.ok) return fallbackToPlay ? redirectToPlay() : response;
+  const click = await response.json();
+  return redirectToPlay(click.referrer);
+}
+
 /**
  * Internal account-routing logic exposed for unit tests only.
  * The ONLY HTTP entrypoint is the default Worker's guarded fetch() above:
@@ -161,19 +167,23 @@ export async function handleAccountRequest(request, env) {
       if (roomLanding) return roomLanding;
       const invitePath = REFERRAL_LANDING_PATH.exec(url.pathname);
       if (invitePath) {
+        const publicInvite = url.origin === PUBLIC_SHARE_ORIGIN;
+        const enabled = referralsEnabled(env);
+        if (publicInvite && !invitePath[2] && !enabled) {
+          return playSharePage(request, "A friend invited you to Ludo Paws", "Get Ludo Paws on Google Play.");
+        }
         await rateLimit(env, request, "referral:landing", 120);
-        if (!referralsEnabled(env)) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
+        if (!enabled && !publicInvite) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
+        // A preview fetch carries no browser user activation and only reads the
+        // landing markup. The same-origin form remains the compatibility path.
+        if (publicInvite && !invitePath[2] && isShareTap(request)) {
+          return await referralDownload(env, invitePath[1], true);
+        }
         if (invitePath[2] && request.method === "POST") {
           if ((url.origin !== REFERRAL_ORIGIN && url.origin !== PUBLIC_SHARE_ORIGIN) ||
               request.headers.get("origin") !== url.origin ||
               ["cross-site", "same-site"].includes(request.headers.get("sec-fetch-site"))) return json(403, { error: "INVITE_ORIGIN_INVALID", message: "Open the invitation page and use its download button." });
-          const response = await referralRequest(env, "/click", { token: invitePath[1] });
-          if (!response.ok) return response;
-          const click = await response.json();
-          const destination = new URL("https://play.google.com/store/apps/details");
-          destination.searchParams.set("id", REFERRAL_PACKAGE);
-          if (typeof click.referrer === "string") destination.searchParams.set("referrer", click.referrer);
-          return new Response(null, { status: 303, headers: { location: destination.href, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
+          return enabled ? await referralDownload(env, invitePath[1], publicInvite) : redirectToPlay();
         }
         if (!invitePath[2] && ["GET", "HEAD"].includes(request.method)) {
           return new Response(request.method === "HEAD" ? null : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${sharePreview("A friend invited you to Ludo Paws", "Play a real match together. Your inviter can earn a friendship bundle.")}<title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style></head><body><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button and link your Google account. Open Home → Share, read the optional verification disclosure, accept the invitation terms and tap Verify my invitation before playing. Then finish a real Online or Friends match within 14 days of installation. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems, once. New players only; install within 7 days of this download click. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing and verification are optional; declining does not restrict gameplay. No purchase, ad view, rating or review is required. Stop verification in the Share page to cancel pending incoming attribution. Existing items are not duplicated or exchanged. Verification can take time. Campaign ends ${new Date(Number(env.LUDOPAWS_REFERRAL_START_MS) + 90 * 86400000).toUTCString()}; your match must finish before then. No reward for the invited player. <a href="https://ludopaws.rekixo.com/referral-terms.html">Full invitation terms &amp; support</a> · <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></body></html>`, {

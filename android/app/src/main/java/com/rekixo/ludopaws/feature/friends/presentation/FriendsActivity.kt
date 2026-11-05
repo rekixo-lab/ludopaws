@@ -1640,9 +1640,8 @@ class FriendsActivity : Activity() {
         val session = activeFriendSession()
         val room = snapshot?.optJSONObject("_roomState")
         val host = if (room?.optString("hostPlayerId") == session?.playerId) credential?.friendId else null
-        val link = com.rekixo.ludopaws.feature.sharing.RoomLink.create(matchId, "FRIENDS", host)?.url() ?: return
-        shareText("Join my private Ludo Paws room: $matchId\n$link\n" +
-            "Open the link to find your room invitation. New friends can request the host first.", "Share private room")
+        val link = com.rekixo.ludopaws.feature.sharing.RoomLink.create(matchId, "FRIENDS", host) ?: return
+        shareText(link.shareMessage(), "Share private room")
     }
 
     private fun shareText(text: String, chooserTitle: String) {

@@ -450,7 +450,7 @@ class ReferralActivity : Activity() {
                     openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_SUBJECT, "Play Ludo Paws with me")
-                        putExtra(Intent.EXTRA_TEXT, "Come play Ludo Paws with me! Install through this invitation and finish a real Online or Friends match. I can earn a friendship bundle + 100 Gems when you qualify; invited players do not receive this reward.\n\n$url")
+                        putExtra(Intent.EXTRA_TEXT, "Come play Ludo Paws with me! Open this invitation to go to Google Play, install the game, and finish a real Online or Friends match. I can earn a friendship bundle + 100 Gems when you qualify; invited players do not receive this reward.\n\n$url")
                     }, "Invite a friend"))
                 }.onFailure {
                     progress.text = "Invitation reward link could not be verified. Sharing the ordinary game link; sharing alone does not earn Gems."

@@ -8,6 +8,15 @@ internal data class RoomLink(val room: String, val mode: String, val host: Strin
         .appendPath(mode.lowercase(java.util.Locale.ROOT)).appendPath(room).apply {
             host?.let { appendQueryParameter("host", it) }
         }.build().toString()
+
+    fun shareMessage(): String = buildString {
+        append("Join my private Ludo Paws room: ").append(room).append('\n')
+        host?.let { append("Host Friend ID: ").append(it).append('\n') }
+        append("After opening the game, go to Friends and ask the host to send you the room invite.")
+        if (host != null) append(" New friends can add the host using the Friend ID above.")
+        append("\n\nGet Ludo Paws on Google Play:\n").append(url())
+    }
+
     companion object {
         const val EXTRA_LINK = "ludopaws_room_link"
         private val roomPattern = Regex("LP[A-Z2-9]{8}")
