@@ -5,6 +5,10 @@ internal object GeneratedDiceDefinitions {
     val all = listOf(
         com.rekixo.ludopaws.feature.dice.content.classic.ClassicDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.pearl.PearlPawDiceDefinition.content,
+        com.rekixo.ludopaws.feature.dice.content.environment.ForestDiceDefinition.content,
+        com.rekixo.ludopaws.feature.dice.content.environment.LagoonDiceDefinition.content,
+        com.rekixo.ludopaws.feature.dice.content.environment.FrostDiceDefinition.content,
+        com.rekixo.ludopaws.feature.dice.content.environment.StarlightDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.pumpkin.PumpkinDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.diwali.DiwaliDiceDefinition.content,
         com.rekixo.ludopaws.feature.dice.content.football.FootballDiceDefinition.content,

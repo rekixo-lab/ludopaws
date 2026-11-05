@@ -279,6 +279,30 @@
       "rendererKey": "pearl_paw"
     },
     {
+      "id": "dice_forest_dew",
+      "folder": "environment",
+      "definition": "ForestDiceDefinition",
+      "rendererKey": "forest_dew"
+    },
+    {
+      "id": "dice_lagoon_pearl",
+      "folder": "environment",
+      "definition": "LagoonDiceDefinition",
+      "rendererKey": "lagoon_pearl"
+    },
+    {
+      "id": "dice_frost_crystal",
+      "folder": "environment",
+      "definition": "FrostDiceDefinition",
+      "rendererKey": "frost_crystal"
+    },
+    {
+      "id": "dice_starlight",
+      "folder": "environment",
+      "definition": "StarlightDiceDefinition",
+      "rendererKey": "starlight"
+    },
+    {
       "id": "dice_pumpkin",
       "folder": "pumpkin",
       "definition": "PumpkinDiceDefinition",
@@ -374,6 +398,30 @@
       "key": "pearl_paw",
       "folder": "pearl",
       "className": "PearlPawDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "forest_dew",
+      "folder": "environment",
+      "className": "ForestDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "lagoon_pearl",
+      "folder": "environment",
+      "className": "LagoonDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "frost_crystal",
+      "folder": "environment",
+      "className": "FrostDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "starlight",
+      "folder": "environment",
+      "className": "StarlightDiceRenderer",
       "densityArg": false
     }
   ]

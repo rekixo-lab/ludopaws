@@ -25,6 +25,10 @@ export const COSMETIC_UNLOCK_PRICING = Object.freeze({
   ...COSMETIC_PRICING,
   board_dawn_meadow: Object.freeze({ kind: "GEMS", gemPrice: 250, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   board_moonlit_grove: Object.freeze({ kind: "GEMS", gemPrice: 250, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
+  dice_forest_dew: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
+  dice_lagoon_pearl: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
+  dice_frost_crystal: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
+  dice_starlight: Object.freeze({ kind: "GEMS", gemPrice: 100, level: 0, ads: 0, channels: Object.freeze(["GEMS"]) }),
   // Existing ad-progress offers remain valid; new items use Gems earned from ads.
   dice_pearl_paw: Object.freeze({
     kind: "GEMS", gemPrice: 100, level: 0, ads: 20,
