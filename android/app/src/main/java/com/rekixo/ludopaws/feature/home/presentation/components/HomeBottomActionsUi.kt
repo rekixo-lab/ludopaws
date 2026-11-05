@@ -3,6 +3,7 @@ package com.rekixo.ludopaws.ui.home
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.InsetDrawable
 import android.text.TextUtils
 import android.util.TypedValue
 import android.view.Gravity
@@ -67,9 +68,12 @@ private fun HomeActivity.bottomActionButton(
         isClickable = true
         isFocusable = true
         contentDescription = description
-        background = plywoodBackground(
-            context = this@bottomActionButton,
-            cornerRadiusDp = if (compact) 25f else 28f,
+        background = InsetDrawable(
+            plywoodBackground(
+                context = this@bottomActionButton,
+                cornerRadiusDp = if (compact) 21f else 24f,
+            ),
+            0, dp(4), 0, dp(4),
         )
         elevation = dp(7).toFloat()
         val sidePadding = dp(if (compact) 5 else 6)
