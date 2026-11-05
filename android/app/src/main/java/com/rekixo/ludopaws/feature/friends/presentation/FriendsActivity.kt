@@ -31,6 +31,7 @@ import com.rekixo.ludopaws.GameJson
 import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.GameModeIntent
 import com.rekixo.ludopaws.LudoProofTheme
+import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
@@ -497,10 +498,10 @@ class FriendsActivity : Activity() {
             buttons.addView(
                 FriendsVisualKit.button(
                     this,
-                    "SHARE ROOM",
+                    getString(R.string.share_room_link_and_code),
                     FriendsButtonStyle.BLUE,
                     FriendsIcon.SHARE,
-                ) { shareRoom(session.matchId) },
+                ) { shareRoom(session.matchId) }.apply { textSize = 11f },
                 LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginStart = dp(3) },
             )
             roomContainer.addView(

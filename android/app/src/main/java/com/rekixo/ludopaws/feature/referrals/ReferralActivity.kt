@@ -18,7 +18,7 @@ import android.os.Handler
 import android.os.Looper
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
-import com.rekixo.ludopaws.feature.sharing.GAME_SHARE_URL
+import com.rekixo.ludopaws.feature.sharing.gameShareChooser
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
 import com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore
@@ -215,8 +215,8 @@ class ReferralActivity : Activity() {
         status?.optLong("endsAt")?.takeIf { it > 0L }?.let { end ->
             details.addView(copy("Campaign ends " + java.text.DateFormat.getDateTimeInstance().format(java.util.Date(end)), 13f, true))
         }
-        details.addView(copy("1  Share your personal invitation\n2  A new friend installs and links Google\n3  They verify in Home → Share before playing\n4  They finish a real Online or Friends match\n5  You receive the bundle + 100 Gems", 14f))
-        details.addView(copy("Only the inviter gets rewards, once per campaign. Sharing or downloading alone does not earn anything. Your friend does not have to win. No purchase, ad view, rating or review is required. Bots, forfeits, offline matches and self-invites do not count. A qualifying match takes at least 3 minutes and includes at least one legal move by the invited player.\n\nInstall within 7 days of the download-button click; finish within 14 days of installation and before the campaign ends. The campaign lasts 90 days. Already-owned items stay yours; there is no duplicate item or gem compensation. The extra 100 Gems are awarded once, including when you already own some or all items. Verification may take a few minutes.\n\nOptional verification uses your linked game account, existing Google-identity anti-replay hash, Play click/install timestamps and app/device integrity signals. Google verifies temporary integrity tokens; referral code does not store them. Our backend stores consent and eligible match/reward records. No contacts or advertising ID are requested. You can decline and keep playing, or use Stop verification later. Account deletion removes referral links; minimal abuse-prevention hashes are retained until 14 days after the campaign ends. Integrity cannot guarantee a unique human or prevent every form of farming.", 13f))
+        details.addView(copy("1  Share your personal invitation\n2  A new friend installs and links Google\n3  They verify in Home → Settings → Friendship Bundle before playing\n4  They finish a real Online or Friends match\n5  You receive the bundle + 100 Gems", 14f))
+        details.addView(copy("Only the inviter gets rewards, once per campaign. Sharing or downloading alone does not earn anything. Your friend does not have to win. No purchase, ad view, rating or review is required. Bots, forfeits, offline matches and self-invites do not count. A qualifying match takes at least 3 minutes and includes at least one legal move by the invited player.\n\nInstall within 7 days of opening Google Play through the invitation; finish within 14 days of installation and before the campaign ends. The campaign lasts 90 days. Already-owned items stay yours; there is no duplicate item or gem compensation. The extra 100 Gems are awarded once, including when you already own some or all items. Verification may take a few minutes.\n\nOptional verification uses your linked game account, existing Google-identity anti-replay hash, Play click/install timestamps and app/device integrity signals. Google verifies temporary integrity tokens; referral code does not store them. Our backend stores consent and eligible match/reward records. No contacts or advertising ID are requested. You can decline and keep playing, or use Stop verification later. Account deletion removes referral links; minimal abuse-prevention hashes are retained until 14 days after the campaign ends. Integrity cannot guarantee a unique human or prevent every form of farming.", 13f))
         details.addView(secondaryButton("Privacy policy  ↗") {
             openExternal(Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://ludopaws.rekixo.com/privacy-policy.html")))
         })
@@ -411,11 +411,7 @@ class ReferralActivity : Activity() {
     }
 
     private fun shareGame() {
-        openExternal(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
-            type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "Play Ludo Paws with me")
-            putExtra(Intent.EXTRA_TEXT, getString(R.string.share_game_invite, GAME_SHARE_URL))
-        }, getString(R.string.share_chooser_title)))
+        openExternal(gameShareChooser(this))
     }
 
     private fun act(grant: ConsentGrant? = null) {

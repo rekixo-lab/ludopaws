@@ -1,7 +1,7 @@
 package com.rekixo.ludopaws.ui.home
 
 import com.rekixo.ludopaws.launchPlayerScreen
-import android.content.Intent
+import com.rekixo.ludopaws.feature.sharing.gameShareChooser
 import android.graphics.Color
 import android.graphics.Typeface
 import android.text.TextUtils
@@ -365,5 +365,5 @@ internal fun HomeActivity.footer(): TextView =
     }
 
 internal fun HomeActivity.shareLudoPaws() {
-    launchPlayerScreen(Intent(this, com.rekixo.ludopaws.feature.referrals.ReferralActivity::class.java))
+    launchPlayerScreen(gameShareChooser(this))
 }

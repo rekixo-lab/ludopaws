@@ -7,6 +7,7 @@ import android.graphics.*
 import android.widget.Toast
 import androidx.core.content.FileProvider
 import com.rekixo.ludopaws.MatchSnapshot
+import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.LudoPawsCharacterPortraitBitmapCache
 import com.rekixo.ludopaws.core.ui.art.PlywoodTextureDrawable
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
@@ -29,18 +30,19 @@ internal object MatchShareCard {
             ?: return
         val won = player.playerId == state.winnerPlayerId ||
             (state.winnerTeamId != null && player.teamId == state.winnerTeamId)
-        val headline = when {
-            state.winnerPlayerId == null && state.winnerTeamId == null -> "A PAWSOME FINISH!"
-            won -> "I WON!"
-            else -> "REMATCH TIME!"
+        val (headline, caption) = when {
+            state.winnerPlayerId == null && state.winnerTeamId == null -> "A PAWSOME FINISH!" to R.string.share_match_finished
+            won -> "I WON!" to R.string.share_match_win
+            else -> "REMATCH TIME!" to R.string.share_match_rematch
         }
-        shareCard(activity, headline, mode, characterId, "Think you can beat me?", "Come play Ludo Paws with me!")
+        shareCard(activity, headline, mode, characterId, "Think you can beat me?", activity.getString(caption))
     }
 
     fun weekly(activity: Activity, title: String, completed: Boolean) = shareCard(activity,
         if (completed) "CHALLENGE COMPLETE!" else "PLAY THIS WEEK!", title,
         com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(activity).load().characterId,
-        "Little paws. Big fun.", "Join this week's Ludo Paws challenge!")
+        "Little paws. Big fun.",
+        activity.getString(if (completed) R.string.share_weekly_completed else R.string.share_weekly_invite))
 
     private fun shareCard(activity: Activity, headline: String, subtitle: String, characterId: String?, tagline: String, message: String) {
         if (activity.isFinishing || activity.isDestroyed) return
@@ -98,7 +100,7 @@ internal object MatchShareCard {
                 val send = Intent(Intent.ACTION_SEND).apply {
                     type = "image/png"
                     putExtra(Intent.EXTRA_STREAM, uri)
-                    putExtra(Intent.EXTRA_TEXT, "$headline · $subtitle\n$message\n$GAME_SHARE_URL")
+                    putExtra(Intent.EXTRA_TEXT, "$message\n$GAME_SHARE_URL")
                     clipData = ClipData.newUri(activity.contentResolver, "Ludo Paws card", uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
