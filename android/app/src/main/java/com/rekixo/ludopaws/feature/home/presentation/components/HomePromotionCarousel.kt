@@ -67,9 +67,6 @@ internal class HomePromotionCarousel(
         clipToPadding = true
         pages.clipChildren = true
         pages.addView(hero, LayoutParams(-1, -1))
-        // Preserve each card's own game-themed surface. In particular the
-        // friendship card's dark text must stay on its plywood background.
-        spotlight.background = com.rekixo.ludopaws.core.ui.art.plywoodBackground(context, cornerRadiusDp = 20f)
         spotlight.addView(promotion, LayoutParams(-1, -1))
         spotlight.addView(bundle, LayoutParams(-1, -1))
         pages.addView(spotlight, LayoutParams(-1, -1))

@@ -2,12 +2,13 @@ package com.rekixo.ludopaws.feature.referrals
 
 import android.content.Context
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import android.widget.Button
-import android.graphics.drawable.GradientDrawable
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.DiceView
@@ -42,10 +43,11 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
     init {
         orientation = VERTICAL
         gravity = Gravity.CENTER
+        background = if (compact) carouselBackground() else recessedPlywoodBackground(context, outerCornerRadiusDp = 24f)
         setPadding(dp(12), dp(if (compact) 10 else 16), dp(12), dp(if (compact) 10 else 14))
-        background = recessedPlywoodBackground(context, outerCornerRadiusDp = 24f)
-        addView(label(if (compact) "FRIENDSHIP BUNDLE" else "YOUR FRIENDSHIP BUNDLE", if (compact) 16f else 11f, true).apply {
-            if (!compact) letterSpacing = 0.12f
+        addView(label(if (compact) "Friendship Bundle" else "YOUR FRIENDSHIP BUNDLE", if (compact) 19f else 11f, true).apply {
+            if (compact) typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
+            else letterSpacing = 0.12f
         }, LayoutParams(-1, -2))
         val art = object : LinearLayout(context) {
             override fun dispatchTouchEvent(event: MotionEvent): Boolean = false
@@ -88,7 +90,7 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         art.addView(artworkSlot(dice), LayoutParams(0, dp(if (compact) 76 else 84), 1f))
         addView(art, if (compact) LayoutParams(-1, 0, 1f) else LayoutParams(-1, dp(132)))
         addView(ReferralGemRewardView(context, compact), LayoutParams(-1, -2))
-        addView(label(if (compact) "100 Gems + missing bundle items · Invite & play" else "Board  ·  Rabbit  ·  Dice", if (compact) 11f else 12f).apply {
+        addView(label(if (compact) "Plus any bundle items you don’t own" else "Board  ·  Rabbit  ·  Dice", if (compact) 11f else 12f).apply {
             if (!compact) setPadding(0, dp(5), 0, 0)
         }, LayoutParams(-1, -2))
         if (!compact && ownedItems.any { it in ReferralPopupPolicy.rewardItems }) {
@@ -104,12 +106,12 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
             isAllCaps = false
             textSize = 15f
             typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
-            setTextColor(0xFFFFFFFF.toInt())
+            setTextColor(0xFF382716.toInt())
             backgroundTintList = null
             background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xFF80CD36.toInt(), 0xFF2D821C.toInt())).apply {
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), 0xFFB0E56E.toInt())
+                intArrayOf(0xFFF8DE9F.toInt(), 0xFFDAAD60.toInt())).apply {
+                cornerRadius = dp(13).toFloat()
+                setStroke(dp(1), 0xFFFFE9B6.toInt())
             }
             minHeight = dp(48)
             setPadding(dp(10), dp(4), dp(10), dp(4))
@@ -119,11 +121,38 @@ internal class FriendshipBundleView(context: Context, private val compact: Boole
         contentDescription = "Friendship bundle: Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Invite a new friend. Reward only after verified play."
     }
 
+    private fun carouselBackground(): LayerDrawable {
+        val frame = GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            intArrayOf(0xFF225447.toInt(), 0xFF132D34.toInt()),
+        ).apply {
+            cornerRadius = dp(22).toFloat()
+            setStroke(dp(1), 0xFFCBA464.toInt())
+        }
+        val light = GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat()
+            gradientType = GradientDrawable.RADIAL_GRADIENT
+            setGradientCenter(.5f, .36f)
+            gradientRadius = dp(140).toFloat()
+            colors = intArrayOf(0x584AAE8A, 0x00225447)
+            setStroke(dp(1), 0x457DD5BA)
+        }
+        return LayerDrawable(arrayOf(frame, light)).apply {
+            val inset = dp(3)
+            setLayerInset(1, inset, inset, inset, inset)
+        }
+    }
+
     private fun label(value: String, size: Float, bold: Boolean = false) = TextView(context).apply {
         text = value
         textSize = size
         gravity = Gravity.CENTER
-        setTextColor(if (bold) 0xFF422B1C.toInt() else 0xFF60452D.toInt())
+        setTextColor(when {
+            compact && bold -> 0xFFFFEBC4.toInt()
+            compact -> 0xFFD4EBDD.toInt()
+            bold -> 0xFF422B1C.toInt()
+            else -> 0xFF60452D.toInt()
+        })
         if (bold) typeface = Typeface.DEFAULT_BOLD
         includeFontPadding = false
         if (compact) { maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END }
