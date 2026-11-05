@@ -13,7 +13,7 @@ import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
+import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
@@ -35,7 +35,7 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
                     dicePanel(dice, dice.id in ownedIds, dice.id in ownedIds && selectedId == dice.id),
                     LinearLayout.LayoutParams(
                         0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        dp(208),
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -74,7 +74,6 @@ private fun StoreActivity.dicePanel(
     selected: Boolean,
 ): LinearLayout =
     LinearLayout(this).apply {
-        minimumHeight = dp(208)
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(8), dp(6), dp(8))
@@ -120,9 +119,8 @@ private fun StoreActivity.dicePanel(
             ),
         )
 
-        val preview = checkNotNull(CosmeticPreview.dice(dice.id))
         addView(
-            preview.artwork(context),
+            StoreCatalogArtwork.dice(context, dice.id),
             LinearLayout.LayoutParams(
                 dp(104),
                 dp(104),
@@ -132,17 +130,8 @@ private fun StoreActivity.dicePanel(
             },
         )
 
-        val primary = smartUnlockDecision(dice).primary
-        val badge = diceStatusBadge(dice = dice, owned = owned, selected = selected).apply {
-            minHeight = dp(44)
-            if (!selected) {
-                isFocusable = true
-                setOnClickListener { activateCatalogOffer(dice, primary) }
-            }
-        }
-        addPreviewCue()
         addView(
-            badge,
+            diceStatusBadge(dice = dice, owned = owned, selected = selected),
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -151,9 +140,7 @@ private fun StoreActivity.dicePanel(
             },
         )
 
-        setOnClickListener {
-            preview.show(context, badge.text.takeUnless { selected }) { activateCatalogOffer(dice, primary) }
-        }
+        setOnClickListener { handleCosmeticTap(dice) }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
 
@@ -165,7 +152,7 @@ private fun StoreActivity.diceStatusBadge(
     TextView(this).apply {
         text = when {
             selected -> "✓ EQUIPPED"
-            owned -> "Select"
+            owned -> "🔓 UNLOCKED"
             else -> smartUnlockLabel(dice)
         }
         textSize = 9.5f

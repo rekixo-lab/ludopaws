@@ -13,7 +13,7 @@ import com.rekixo.ludopaws.core.ui.components.AppFocusRing
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
+import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): LinearLayout =
     LinearLayout(this).apply {
@@ -44,7 +44,7 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
                     boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
                     LinearLayout.LayoutParams(
                         0,
-                        LinearLayout.LayoutParams.WRAP_CONTENT,
+                        dp(208),
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -84,7 +84,6 @@ private fun StoreActivity.boardPanel(
     selectionUpdates: MutableMap<String, (Boolean, Boolean) -> Unit>,
 ): LinearLayout =
     LinearLayout(this).apply {
-        minimumHeight = dp(208)
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(8), dp(6), dp(8))
@@ -119,9 +118,8 @@ private fun StoreActivity.boardPanel(
                 gravity = Gravity.CENTER
             })
         }
-        val preview = checkNotNull(CosmeticPreview.board(board.id))
         addView(
-            preview.artwork(context),
+            StoreCatalogArtwork.board(context, board.id),
             LinearLayout.LayoutParams(
                 dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
                 dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
@@ -131,13 +129,7 @@ private fun StoreActivity.boardPanel(
             },
         )
 
-        var primary = smartUnlockDecision(board).primary
-        val statusBadge = boardStatusBadge(board = board, owned = owned, selected = selected).apply {
-            minHeight = dp(44)
-            isFocusable = true
-            setOnClickListener { activateCatalogOffer(board, primary) }
-        }
-        addPreviewCue()
+        val statusBadge = boardStatusBadge(board = board, owned = owned, selected = selected)
         addView(
             statusBadge,
             LinearLayout.LayoutParams(
@@ -165,20 +157,17 @@ private fun StoreActivity.boardPanel(
                 )
             }
             elevation = dp(if (currentSelected) 4 else 2).toFloat()
-            contentDescription = "Preview ${board.title}" + if (currentSelected) ", equipped" else ""
-            primary = smartUnlockDecision(board).primary
-            statusBadge.isClickable = !currentSelected
-            statusBadge.isFocusable = !currentSelected
+            contentDescription = when {
+                !currentOwned -> "${board.title}, available to unlock"
+                currentSelected -> "${board.title}, selected"
+                else -> "${board.title}, unlocked, tap to select"
+            }
             boardStatusBadge(board, currentOwned, currentSelected, statusBadge)
         }
         selectionUpdates[board.id] = updateSelection
         updateSelection(owned, selected)
 
-        setOnClickListener {
-            val label = statusBadge.text.takeUnless { isSelected }
-            val expectedAction = primary
-            preview.show(context, label) { activateCatalogOffer(board, expectedAction) }
-        }
+        setOnClickListener { handleCosmeticTap(board) }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
 
@@ -191,7 +180,7 @@ private fun StoreActivity.boardStatusBadge(
     badge.apply {
         text = when {
             selected -> "✓ EQUIPPED"
-            owned -> "Select"
+            owned -> "TAP TO SELECT"
             else -> smartUnlockLabel(board)
         }
         textSize = 9.5f

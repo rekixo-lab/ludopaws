@@ -41,7 +41,6 @@ internal class PlywoodAlertDialogBuilder(private val context: Context) {
     private var cancelListener: DialogInterface.OnCancelListener? = null
     private var dismissListener: DialogInterface.OnDismissListener? = null
     private var cancelable = true
-    private var hardwareAccelerated = false
 
     fun setTitle(value: CharSequence): PlywoodAlertDialogBuilder = apply { title = value }
     fun setMessage(value: CharSequence): PlywoodAlertDialogBuilder = apply { message = value }
@@ -78,13 +77,8 @@ internal class PlywoodAlertDialogBuilder(private val context: Context) {
 
     fun setCancelable(value: Boolean): PlywoodAlertDialogBuilder = apply { cancelable = value }
 
-    fun enableHardwareAcceleration(): PlywoodAlertDialogBuilder = apply { hardwareAccelerated = true }
-
     fun show(): Dialog {
         val dialog = baseDialog(context)
-        if (hardwareAccelerated) {
-            dialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
-        }
         val density = context.resources.displayMetrics.density
         fun dp(value: Int): Int = (value * density).toInt()
 

@@ -1,6 +1,5 @@
 package com.rekixo.ludopaws.ui.online
 
-import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.graphics.Color
 import android.text.SpannableString
 import android.text.Spanned
@@ -271,9 +270,6 @@ internal fun MainActivity.onlineLobbyPanel():
                             setPadding(dp(3), dp(3), dp(3), dp(3))
                         }
                         contentDescription = "Your selected character"
-                        CosmeticPreview.character(
-                            CharacterSelectionStore(this@onlineLobbyPanel).load().characterId,
-                        )?.attachTo(this)
                         addView(
                             LudoPawsCharacterAvatarView(
                                 this@onlineLobbyPanel,

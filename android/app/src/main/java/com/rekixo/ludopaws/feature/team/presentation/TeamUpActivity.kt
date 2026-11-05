@@ -1,6 +1,5 @@
 package com.rekixo.ludopaws.feature.team.presentation
 
-import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -680,7 +679,6 @@ class TeamUpActivity : ComponentActivity() {
             )
             setPadding(dp(3), dp(3), dp(3), dp(3))
             contentDescription = "Your selected character: ${character.displayName}"
-            CosmeticPreview.character(character.id)?.attachTo(this)
             addView(
                 LudoPawsCharacterAvatarView(this@TeamUpActivity).apply {
                     bind(

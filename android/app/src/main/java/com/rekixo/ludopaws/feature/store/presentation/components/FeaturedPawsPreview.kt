@@ -31,24 +31,16 @@ internal class FeaturedPawsPreview(
     private val playful: Boolean = false,
     private val prominent: Boolean = false,
     private val portraitZoomMultiplier: Float = 1f,
+    private val phaseOffsetMillis: Long = 0L,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
             if (field != value) {
                 field = value
-                requestedMotion = null
                 needsFrame = true
             }
         }
-    private data class MotionRequest(val motion: CharacterMotion, val startedAt: Long)
-
-    @Volatile private var requestedMotion: MotionRequest? = null
     private var animated = true
-
-    fun playMotion(motion: CharacterMotion) {
-        requestedMotion = MotionRequest(motion, SystemClock.uptimeMillis())
-        needsFrame = true
-    }
     private var active = false
     private var failed = false
     private var needsFrame = true
@@ -79,7 +71,7 @@ internal class FeaturedPawsPreview(
     fun setActive(value: Boolean) {
         active = value
         needsFrame = true
-        animated = !motionSettings.snapshot().reducedMotion &&
+        animated = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
             android.animation.ValueAnimator.areAnimatorsEnabled()
         removeCallbacks(ticker)
         if (value && !failed && isAttachedToWindow) post(ticker)
@@ -163,30 +155,22 @@ internal class FeaturedPawsPreview(
                     }
                     if (animate && lastFrame > 0L && now - lastFrame < 250L) elapsed += now - lastFrame
                     lastFrame = now
-                    val clock = if (animate) elapsed else 0L
+                    val clock = if (animate) elapsed + phaseOffsetMillis else 0L
                     val character = CharacterRegistry.resolve(id)
                     val idleEnd = if (playful) 3000L else 8000L
                     val hopEnd = idleEnd + 1500L
                     val cycle = clock % if (playful) 7000L else 12000L
-                    val request = requestedMotion
-                    val automaticMotion = when {
+                    val motion = when {
                         cycle < idleEnd -> CharacterMotion.IDLE
                         cycle < hopEnd -> CharacterMotion.HOP
                         else -> CharacterMotion.HOME
                     }
-                    fun durationFor(motion: CharacterMotion) = when (motion) {
+                    val duration = when (motion) {
                         CharacterMotion.IDLE -> character.definition.idleDurationMillis
                         CharacterMotion.HOP -> 1500L
                         CharacterMotion.HOME -> character.definition.homeDurationMillis
                     }.coerceAtLeast(1L)
-                    val requestedElapsed = request?.let { (now - it.startedAt).coerceAtLeast(0L) } ?: 0L
-                    val motion = when {
-                        request == null -> automaticMotion
-                        requestedElapsed < durationFor(request.motion) -> request.motion
-                        else -> CharacterMotion.IDLE
-                    }
-                    val duration = durationFor(motion)
-                    val phase = if (request != null) requestedElapsed else when (motion) {
+                    val phase = when (motion) {
                         CharacterMotion.IDLE -> cycle
                         CharacterMotion.HOP -> cycle - idleEnd
                         CharacterMotion.HOME -> cycle - hopEnd

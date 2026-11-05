@@ -269,7 +269,7 @@ class RewardsActivity : Activity() {
             add(collection, gallery, 14)
             add(collection, copy("${ids.length() - missing.length()} of ${ids.length()} already yours", 13f), 12)
             action(collection, if (missing.length() == 0) "Collection complete" else "Unlock missing · ${item.getInt("price")} Gems", missing.length() > 0) { buy(item) }
-            action(collection, "Preview in Shop", secondary = true) {
+            action(collection, "View in Shop", secondary = true) {
                 launchPlayerScreen(Intent(this, StoreActivity::class.java).putExtra(StoreActivity.EXTRA_PROMOTED_COSMETIC_ID, ids.getString(0)))
             }
         }

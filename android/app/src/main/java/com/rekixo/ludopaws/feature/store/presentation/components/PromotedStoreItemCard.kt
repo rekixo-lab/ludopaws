@@ -8,11 +8,13 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
+import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
-import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
+import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 
 /** Exact selected item, above the catalog; displaying it never starts an ad/payment. */
 internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolean = false): LinearLayout = LinearLayout(this).apply {
@@ -37,27 +39,27 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         gravity = Gravity.CENTER_VERTICAL
     }
     details.addView(label(item.title, if (compact) 15f else 16f), LinearLayout.LayoutParams(-1, -2))
-    val primary = smartUnlockDecision(item).primary
-    val target = CosmeticPreview.forOffer(item)
-    val preview = target?.artwork(context, animatePaw = true) ?: label("Preview unavailable", 14f)
-    val actionLabel = smartUnlockLabel(item).takeIf {
-        item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
-    }
-    val artwork = LinearLayout(context).apply {
-        orientation = LinearLayout.VERTICAL
-        val side = dp(if (compact) 82 else 92)
-        addView(preview, LinearLayout.LayoutParams(side, side))
-        if (target != null) {
-            addPreviewCue()
-            target.attachTo(this, actionLabel) { activateCatalogOffer(item, primary) }
+    val preview = when {
+        !item.contentAvailable -> label("Preview unavailable", 14f)
+        item.category == CosmeticCategory.BOARD &&
+            com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(item.id) != null ->
+            StoreCatalogArtwork.board(context, item.id)
+        item.category == CosmeticCategory.DICE &&
+            com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(item.id) != null ->
+            StoreCatalogArtwork.dice(context, item.id)
+        else -> {
+            val id = CharacterDefinitions.all.firstOrNull { StoreCosmeticCatalog.characterUnlock(it.character.id)?.id == item.id }?.character?.id
+            if (id == null) label("Preview unavailable", 14f)
+            else StoreCatalogArtwork.paw(context, id)
         }
     }
-    content.addView(artwork, LinearLayout.LayoutParams(-2, -2).apply {
+    content.addView(preview, LinearLayout.LayoutParams(dp(if (compact) 82 else 92), dp(if (compact) 82 else 92)).apply {
         if (horizontal) marginEnd = dp(10)
     })
     val done = cosmetics.rewardedAdProgress(item.id).coerceAtMost(item.requiredAdViews)
+    val primary = smartUnlockDecision(item).primary
     val subline = when {
-        cosmetics.isOwned(item.id) -> "Owned · Select to equip"
+        cosmetics.isOwned(item.id) -> "Owned · tap to equip"
         primary == SmartUnlockAction.GEMS -> "${item.gemPrice} Gems · instant unlock"
         primary == SmartUnlockAction.PLAY_PRODUCT -> "Permanent Google Play unlock"
         primary == SmartUnlockAction.WATCH_AD || primary == SmartUnlockAction.CLAIM_ADS ->
@@ -89,6 +91,18 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         ))
         details.addView(progress, LinearLayout.LayoutParams(-1, dp(4)).apply { topMargin = dp(5) })
     }
+    val activate = {
+        val current = StoreCosmeticCatalog.find(item.id)
+        if (current == null || current != item || smartUnlockDecision(current).primary != primary) {
+            showStoreMessage("This offer changed. Choose the current item to continue.")
+            renderStore()
+        } else handleCosmeticTap(current)
+    }
+    if (item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)) {
+        content.isFocusable = true
+        content.contentDescription = "${item.title}. ${smartUnlockLabel(item)}"
+        content.setOnClickListener { activate() }
+    }
     details.addView(Button(context).apply {
         text = smartUnlockLabel(item)
         isAllCaps = false
@@ -97,7 +111,7 @@ internal fun StoreActivity.promotedItemCard(item: StoreCosmetic, compact: Boolea
         minHeight = dp(44)
         minimumHeight = dp(44)
         isEnabled = item.contentAvailable && (cosmetics.isOwned(item.id) || item.purchaseAvailable)
-        setOnClickListener { activateCatalogOffer(item, primary) }
+        setOnClickListener { activate() }
     }, LinearLayout.LayoutParams(-1, dp(44)).apply { topMargin = dp(6) })
     if (!cosmetics.isOwned(item.id)) unlockAlternativeLabel(item)?.let { alternative ->
         details.addView(TextView(context).apply {

@@ -209,7 +209,7 @@ object GameSoundFeedback {
         characterId: String? = null,
     ) = moveStep(context, characterId)
 
-    fun roll(context: Context, eventIndex: Int? = null, diceStyleId: String? = null) =
+    fun roll(context: Context, eventIndex: Int? = null) =
         playEventForIndex(
             context = context,
             eventIndex = eventIndex,
@@ -218,11 +218,11 @@ object GameSoundFeedback {
             volume = .50f,
             priority = PRIORITY_ROLL,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_ROLL,
-            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = false, diceStyleId = diceStyleId),
+            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = false),
         )
 
     /** Short landing tick when the verified dice face is revealed. */
-    fun diceSettle(context: Context, eventIndex: Int? = null, diceStyleId: String? = null) =
+    fun diceSettle(context: Context, eventIndex: Int? = null) =
         playEventForIndex(
             context = context,
             eventIndex = eventIndex,
@@ -231,7 +231,7 @@ object GameSoundFeedback {
             volume = .32f,
             priority = PRIORITY_HIGH,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_SETTLE,
-            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = true, diceStyleId = diceStyleId),
+            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = true),
         )
 
     fun six(context: Context) =
@@ -396,8 +396,8 @@ object GameSoundFeedback {
         }
     }
 
-    private fun selectedDiceSoundPaths(context: Context, settle: Boolean, diceStyleId: String? = null): List<String> {
-        val selectedId = diceStyleId ?: CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
+    private fun selectedDiceSoundPaths(context: Context, settle: Boolean): List<String> {
+        val selectedId = CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
         val definition = DiceRegistry.resolve(selectedId)
         return if (settle) definition.settleSoundPaths else definition.rollSoundPaths
     }

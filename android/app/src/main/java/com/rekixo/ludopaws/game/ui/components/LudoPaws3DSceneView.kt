@@ -62,6 +62,7 @@ internal data class LudoPaws3DSceneState(
 internal class LudoPaws3DSceneView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
+    private val catalogArtwork: Boolean = false,
 ) : TextureView(context, attrs), TextureView.SurfaceTextureListener {
     private val settingsStore = GameSettingsStore(context)
     private var authoritativeSnapshot: MatchSnapshot? = null
@@ -103,7 +104,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
 
         // Prewarm every SFX that can occur during pawn travel so the render-time
         // audio clock does not incur a first-play SoundPool load delay.
-        GameSoundFeedback.preloadMovementEventSfx(context)
+        if (!catalogArtwork) GameSoundFeedback.preloadMovementEventSfx(context)
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         surfaceTextureListener = this
     }
@@ -220,7 +221,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         val now = SystemClock.uptimeMillis()
         val previousState = sceneState
         val previousSnapshot = authoritativeSnapshot
-        if (state?.status == "FINISHED" && previousSnapshot?.status == "ACTIVE" && previousSnapshot.matchId == state.matchId) {
+        if (!catalogArtwork && state?.status == "FINISHED" && previousSnapshot?.status == "ACTIVE" && previousSnapshot.matchId == state.matchId) {
             com.rekixo.ludopaws.feature.store.data.ads.AdBreakSession.completed(state.matchId)
         }
         val previewEventIndex = previousState.pendingPreviewEventIndex
@@ -437,7 +438,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         sceneState =
             LudoPaws3DSceneState(
                 snapshot = state,
-                reducedMotion = settings.reducedMotion,
+                reducedMotion = settings.reducedMotion ||
+                    (catalogArtwork && !android.animation.ValueAnimator.areAnimatorsEnabled()),
                 stoneRoadOverlayEnabled = previousState.stoneRoadOverlayEnabled,
                 classicRoadReliefEnabled = previousState.classicRoadReliefEnabled,
                 monsoonEffectsEnabled = previousState.monsoonEffectsEnabled,
@@ -648,8 +650,9 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             stoneRoadOverlayEnabled = definition.stoneRoadOverlayEnabled,
             classicRoadReliefEnabled = definition.classicRoadReliefEnabled,
             monsoonEffectsEnabled = definition.monsoonEffectsEnabled,
-            monsoonAnimationEnabled = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
-                android.animation.ValueAnimator.areAnimatorsEnabled(),
+            monsoonAnimationEnabled = (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+                android.animation.ValueAnimator.areAnimatorsEnabled()) &&
+                (!catalogArtwork || !settingsStore.snapshot().reducedMotion),
         )
     }
 
@@ -779,7 +782,10 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                 val delay = LudoPaws3DRenderCadencePolicy.frameDelayMillis(
                     sceneState, frameTimeNanos / 1_000_000L,
                 )
-                if (displayPacer.shouldRender(frameTimeNanos, refreshPeriodNanos, delay)) {
+                val frameDelay = if (catalogArtwork) {
+                    delay.coerceAtLeast(if (sceneState.reducedMotion) 500L else 66L)
+                } else delay
+                if (displayPacer.shouldRender(frameTimeNanos, refreshPeriodNanos, frameDelay)) {
                     pendingFrameNanos = frameTimeNanos
                     visibilityChanged.signalAll()
                 }
@@ -985,7 +991,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                         state = frameState,
                         nowMillis = frameStartedAtMillis,
                     )
-                    emitMovementStepSounds(
+                    if (!catalogArtwork) emitMovementStepSounds(
                         state = frameState,
                         nowMillis = frameStartedAtMillis,
                     )
@@ -1028,11 +1034,21 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     private class EglWindow(
         surfaceTexture: SurfaceTexture,
     ) {
-        private val display: EGLDisplay
-        private val context: EGLContext
-        private val surface: EGLSurface
+        private var display: EGLDisplay = EGL14.EGL_NO_DISPLAY
+        private var context: EGLContext = EGL14.EGL_NO_CONTEXT
+        private var surface: EGLSurface = EGL14.EGL_NO_SURFACE
+        private var initialized = false
 
         init {
+            try {
+                open(surfaceTexture)
+            } catch (error: Throwable) {
+                release()
+                throw error
+            }
+        }
+
+        private fun open(surfaceTexture: SurfaceTexture) {
             display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
             check(display != EGL14.EGL_NO_DISPLAY) { "No EGL display" }
             val versions = IntArray(2)
@@ -1045,6 +1061,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     1,
                 ),
             ) { "EGL initialize failed" }
+            initialized = true
 
             val configAttributes =
                 intArrayOf(
@@ -1122,15 +1139,18 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             EGL14.eglSwapBuffers(display, surface)
 
         fun release() {
+            if (!initialized) return
             EGL14.eglMakeCurrent(
                 display,
                 EGL14.EGL_NO_SURFACE,
                 EGL14.EGL_NO_SURFACE,
                 EGL14.EGL_NO_CONTEXT,
             )
-            EGL14.eglDestroySurface(display, surface)
-            EGL14.eglDestroyContext(display, context)
+            if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface)
+            if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, context)
             EGL14.eglTerminate(display)
+            EGL14.eglReleaseThread()
+            initialized = false
         }
     }
 

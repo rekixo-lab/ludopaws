@@ -1,6 +1,5 @@
 package com.rekixo.ludopaws.feature.growth
 
-import com.rekixo.ludopaws.feature.store.presentation.preview.CosmeticPreview
 import android.app.Activity
 import android.content.Context
 import android.graphics.Typeface
@@ -14,11 +13,14 @@ import android.view.WindowInsets
 import android.widget.*
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
+import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppButton
 import com.rekixo.ludopaws.core.ui.components.AppButtonVariant
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
 import com.rekixo.ludopaws.core.ui.icons.AppIconName
+import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
+import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 
 /** The existing game's wood, portrait and button system; no feature/reward authority. */
 internal object GrowthUi {
@@ -74,13 +76,21 @@ internal object GrowthUi {
         bind(id, showCircularChrome = false); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     fun preview(context: Context, id: String): View {
-        val target = StoreCosmeticCatalog.find(id)?.let { CosmeticPreview.forOffer(it) }
-            ?: CosmeticPreview.board(id)
-            ?: CosmeticPreview.dice(id)
-            ?: id.takeIf { it.startsWith("character_") }
-                ?.removePrefix("character_")?.let { CosmeticPreview.character(it) }
-        return target?.artwork(context)?.also { target.attachTo(it) }
-            ?: copy(context, "Preview unavailable", 11f)
+        val item = StoreCosmeticCatalog.find(id) ?: return copy(context, "Preview unavailable", 11f)
+        val preview = when (item.category) {
+            CosmeticCategory.BOARD -> if (com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(id) == null) copy(context, "Preview unavailable", 11f) else FrameLayout(context).apply {
+                addView(LudoBoardView(context).apply { setBoardThemeOverride(id); setClassicTokenDrawingEnabled(false) }, FrameLayout.LayoutParams(-1, -1))
+                addView(LudoPawsBoardChromeView(context).apply { setBoardThemeOverride(id) }, FrameLayout.LayoutParams(-1, -1))
+            }
+            CosmeticCategory.DICE -> if (com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(id) == null) copy(context, "Preview unavailable", 11f) else DiceView(context).apply { setPreviewStyle(id); showOutcome(1, animate = false); setPlayerTeamColor(null) }
+            else -> {
+                val character = CharacterDefinitions.all.firstOrNull { StoreCosmeticCatalog.characterUnlock(it.character.id)?.id == id }
+                if (character == null) copy(context, "Preview unavailable", 11f) else portrait(context, character.character.id)
+            }
+        }
+        return preview.apply {
+            isClickable = false; isFocusable = false; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        }
     }
 }
 
