@@ -96,7 +96,7 @@ internal open class SpatialDiceRenderer(private val material: SpatialDiceMateria
         val light = (-.42f * nx - .55f * ny + .71f * nz).coerceIn(0f, 1f)
         body.color = lit(if (facet.face == 0) material.metal else material.mid, .55f + light * .63f)
         canvas.drawPath(path, body)
-        if (facet.face == 0 || !faceMatrix.setPolyToPoly(faceSquare, 0, projection, 0, 4, inner)) return
+        if (facet.face == 0 || !faceMatrix.setPolyToPoly(faceSquare, 0, projection, 0, 4)) return
 
         val surface = canvas.save()
         canvas.concat(faceMatrix)
