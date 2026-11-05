@@ -18,6 +18,7 @@ import com.rekixo.ludopaws.feature.store.domain.model.StoreProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.art.GemClusterView
+import com.rekixo.ludopaws.feature.store.presentation.art.GemPackArtworkView
 import com.rekixo.ludopaws.ui.home.HomeIconKind
 import com.rekixo.ludopaws.ui.home.HomeIconView
 
@@ -81,8 +82,9 @@ private fun StoreActivity.gemsContent():
                 .filter {
                     !it.featured && it.kind == com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind.CONSUMABLE_GEMS
                 }
+                .sortedBy { it.gemAmount }
 
-        packs.chunked(
+        packs.withIndex().chunked(
             2,
         ).forEach {
                 rowProducts ->
@@ -96,12 +98,9 @@ private fun StoreActivity.gemsContent():
                         Gravity.TOP
                 }
 
-            rowProducts.forEach {
-                    product ->
+            rowProducts.forEach { (tier, product) ->
                 row.addView(
-                    gemProductCard(
-                        product,
-                    ),
+                    gemProductCard(product, tier),
                     LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -457,6 +456,7 @@ internal fun StoreActivity.rewardedAdCard():
 
 private fun StoreActivity.gemProductCard(
     product: StoreProduct,
+    tier: Int,
 ):
     LinearLayout =
     LinearLayout(this).apply {
@@ -500,16 +500,12 @@ private fun StoreActivity.gemProductCard(
         )
 
         addView(
-            GemClusterView(
-                this@gemProductCard,
-                gemCount = gemClusterSize(product.gemAmount),
-            ).apply {
-                // Keep the gem art on a transparent canvas; no recessed pocket behind it.
-                contentDescription = "${product.gemAmount} gems"
+            GemPackArtworkView(this@gemProductCard, tier).apply {
+                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(78),
+                dp(88),
             ),
         )
 
@@ -623,12 +619,4 @@ private fun StoreActivity.formatGemAmount(
         else ->
             amount
                 .toString()
-    }
-
-private fun StoreActivity.gemClusterSize(amount: Int): Int =
-    when {
-        amount >= 20_000 -> 5
-        amount >= 3_500 -> 4
-        amount >= 1_500 -> 3
-        else -> 2
     }
