@@ -12,6 +12,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.feature.offline.*
+import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
+import com.rekixo.ludopaws.feature.sharing.MatchShareCard
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import com.rekixo.ludopaws.feature.offline.presentation.feedback.OfflineFeedbackAction
 import com.rekixo.ludopaws.feature.offline.presentation.feedback.OfflineLudoPawsFeedbackDispatcher
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
@@ -68,13 +71,28 @@ private fun OfflineGameActivity.ensureOfflineResultActions(
         LudoProofTheme.secondary(this)
         setOnClickListener {
             engine.snapshot()?.let { latest ->
+                val activity = this@ensureOfflineResultActions
+                val players = latest.players.filterNot { engine.isComputerPlayer(it.playerId) }
                 val characters = resolveOfflineCharacterIds(latest)
-                val shareState = latest.copy(players = latest.players.mapIndexed { seat, player ->
-                    player.copy(characterId = characters.getOrNull(seat))
-                })
-                com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(this@ensureOfflineResultActions, shareState,
-                    (if (quickMatch) "Quick Match · " else "") + (if (isComputerMode) "Vs Robot" else "Pass & Play"),
-                    if (isComputerMode) latest.players.firstOrNull()?.playerId else null)
+                val mode = (if (quickMatch) "Quick Match · " else "") +
+                    (if (isComputerMode) "Vs Robot" else "Pass & Play")
+                fun share(player: PlayerSnapshot) {
+                    MatchShareCard.share(activity, latest, mode, player.playerId, characters)
+                }
+                if (players.size <= 1) {
+                    players.singleOrNull()?.let(::share)
+                } else {
+                    val choices = players.map { player ->
+                        val paw = LudoPawsCharacterCatalog.character(characters.getOrNull(player.seat).orEmpty())
+                        getString(R.string.share_paw_choice, player.seat + 1, paw?.displayName ?: player.color)
+                    }
+                    var selected: PlayerSnapshot? = null
+                    PlywoodAlertDialogBuilder(activity)
+                        .setTitle(getString(R.string.share_choose_paw))
+                        .setItems(choices.toTypedArray()) { _, which -> selected = players[which] }
+                        .setOnDismissListener { selected?.let(::share) }
+                        .show()
+                }
             }
         }
     }, LinearLayout.LayoutParams(0, dp(if (isCompactSetup()) 48 else 52), 1f))

@@ -9,6 +9,7 @@ import androidx.core.content.FileProvider
 import com.rekixo.ludopaws.MatchSnapshot
 import com.rekixo.ludopaws.LudoPawsCharacterPortraitBitmapCache
 import com.rekixo.ludopaws.core.ui.art.PlywoodTextureDrawable
+import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import java.io.File
 import java.util.UUID
 import java.util.WeakHashMap
@@ -21,16 +22,19 @@ internal object MatchShareCard {
     private val worker = Executors.newSingleThreadExecutor { task -> Thread(task, "PawsShareCard").apply { isDaemon = true } }
     private val main = Handler(Looper.getMainLooper())
     private val pending = WeakHashMap<Activity, Boolean>()
-    fun share(activity: Activity, state: MatchSnapshot, mode: String, playerId: String? = null) {
+    fun share(activity: Activity, state: MatchSnapshot, mode: String, playerId: String?, characterIdsBySeat: List<String>) {
         if (state.status != "FINISHED") return
-        val winner = state.players.firstOrNull { it.playerId == state.winnerPlayerId }
-            ?: state.players.firstOrNull { state.winnerTeamId != null && it.teamId == state.winnerTeamId }
+        val player = state.players.firstOrNull { it.playerId == playerId } ?: return
+        val characterId = LudoPawsCharacterCatalog.character(characterIdsBySeat.getOrNull(player.seat).orEmpty())?.id
             ?: return
-        val me = state.players.firstOrNull { it.playerId == playerId }
-        val won = me != null && (me.playerId == state.winnerPlayerId ||
-            state.winnerTeamId != null && me.teamId == state.winnerTeamId)
-        val headline = when { playerId == null -> "A PAWSOME FINISH!"; won -> "I WON!"; else -> "REMATCH TIME!" }
-        shareCard(activity, headline, mode, me?.characterId ?: winner.characterId, "Think you can beat me?", "Come play Ludo Paws with me!")
+        val won = player.playerId == state.winnerPlayerId ||
+            (state.winnerTeamId != null && player.teamId == state.winnerTeamId)
+        val headline = when {
+            state.winnerPlayerId == null && state.winnerTeamId == null -> "A PAWSOME FINISH!"
+            won -> "I WON!"
+            else -> "REMATCH TIME!"
+        }
+        shareCard(activity, headline, mode, characterId, "Think you can beat me?", "Come play Ludo Paws with me!")
     }
 
     fun weekly(activity: Activity, title: String, completed: Boolean) = shareCard(activity,
@@ -46,7 +50,7 @@ internal object MatchShareCard {
             Toast.makeText(activity, "Preparing your Paws card…", Toast.LENGTH_SHORT).show()
         }
         LudoPawsCharacterPortraitBitmapCache.request(characterId, null) { portrait ->
-            if (activity.isFinishing || activity.isDestroyed || !activity.hasWindowFocus()) { pending.remove(activity); return@request }
+            if (activity.isFinishing || activity.isDestroyed) { pending.remove(activity); return@request }
             if (portrait == null) {
                 pending.remove(activity)
                 Toast.makeText(activity, "Your character image is still getting ready. Please try sharing again.", Toast.LENGTH_SHORT).show()

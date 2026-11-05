@@ -1,5 +1,5 @@
 import { roomLinkLanding } from "./room-link-landing.js";
-import { gameShareLanding, sharePreview } from "./share-landing.js";
+import { gameShareLanding, PUBLIC_SHARE_HOST, PUBLIC_SHARE_ORIGIN, sharePreview } from "./share-landing.js";
 import { familyResponse, familyCapabilities } from "./family-safety.js";
 import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
@@ -39,6 +39,7 @@ export {
   AccountDirectory, PlayerAccount,
 };
 
+const REFERRAL_LANDING_PATH = /^\/r\/([a-f0-9]{64})(\/download)?$/;
 const MAX_BODY_BYTES = 8 * 1024;
 const RATE_WINDOW_MS = 60_000;
 const ACCOUNT_RATE_LIMITS = Object.freeze({
@@ -72,6 +73,12 @@ export default {
     const safetyResponse = ageSafetyBlockResponse(request, env);
     if (safetyResponse) return safetyResponse;
     const url = new URL(request.url);
+    if (url.hostname === PUBLIC_SHARE_HOST &&
+        url.pathname !== "/share" && url.pathname !== "/share/" &&
+        url.pathname !== "/.well-known/assetlinks.json" &&
+        !url.pathname.startsWith("/play/") && !REFERRAL_LANDING_PATH.test(url.pathname)) {
+      return new Response("Not found.", { status: 404, headers: { "cache-control": "no-store" } });
+    }
     if (url.pathname === "/api/capabilities" && request.method === "GET") {
       return json(200, familyCapabilities(env));
     }
@@ -152,12 +159,13 @@ export async function handleAccountRequest(request, env) {
       if (shareLanding) return shareLanding;
       const roomLanding = roomLinkLanding(request);
       if (roomLanding) return roomLanding;
-      const invitePath = /^\/r\/([a-f0-9]{64})(\/download)?$/.exec(url.pathname);
+      const invitePath = REFERRAL_LANDING_PATH.exec(url.pathname);
       if (invitePath) {
         await rateLimit(env, request, "referral:landing", 120);
         if (!referralsEnabled(env)) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
         if (invitePath[2] && request.method === "POST") {
-          if (request.headers.get("origin") !== REFERRAL_ORIGIN ||
+          if ((url.origin !== REFERRAL_ORIGIN && url.origin !== PUBLIC_SHARE_ORIGIN) ||
+              request.headers.get("origin") !== url.origin ||
               ["cross-site", "same-site"].includes(request.headers.get("sec-fetch-site"))) return json(403, { error: "INVITE_ORIGIN_INVALID", message: "Open the invitation page and use its download button." });
           const response = await referralRequest(env, "/click", { token: invitePath[1] });
           if (!response.ok) return response;

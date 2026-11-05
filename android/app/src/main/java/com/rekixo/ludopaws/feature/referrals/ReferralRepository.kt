@@ -2,6 +2,8 @@ package com.rekixo.ludopaws.feature.referrals
 
 import android.content.Context
 import android.net.Uri
+import com.rekixo.ludopaws.feature.sharing.PUBLIC_SHARE_HOST
+import com.rekixo.ludopaws.feature.sharing.isReferralShareLink
 import android.os.Handler
 import android.os.Looper
 import com.android.installreferrer.api.InstallReferrerClient
@@ -64,10 +66,9 @@ internal class ReferralRepository(context: Context) {
     fun invite(expectedAccountId: String): String {
         val value = accounts.referralRequest("invite", JSONObject(), expectedAccountId).getString("shareUrl")
         val uri = Uri.parse(value)
-        require(uri.scheme == "https" && uri.host == "api.ludopaws.rekixo.com" &&
-            uri.path.orEmpty().matches(Regex("/r/[a-f0-9]{64}")) && uri.query == null && uri.fragment == null)
+        require(uri.isReferralShareLink())
         check(accounts.currentSession()?.accountId == expectedAccountId) { "Your account changed. Please retry." }
-        return value
+        return uri.buildUpon().authority(PUBLIC_SHARE_HOST).build().toString()
     }
 
     fun refreshAttribution(force: Boolean = false, onComplete: (() -> Unit)? = null) {

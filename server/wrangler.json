@@ -11,6 +11,22 @@
     {
       "pattern": "api.ludopaws.rekixo.com/*",
       "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/share*",
+      "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/play/*",
+      "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/r/*",
+      "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/.well-known/assetlinks.json",
+      "zone_name": "rekixo.com"
     }
   ],
   "durable_objects": {

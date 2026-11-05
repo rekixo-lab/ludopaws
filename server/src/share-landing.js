@@ -1,5 +1,6 @@
-const SHARE_ORIGIN = "https://api.ludopaws.rekixo.com";
-const COVER_PATH = "/share-cover-v1.jpg";
+export const PUBLIC_SHARE_HOST = "ludopaws.rekixo.com";
+export const PUBLIC_SHARE_ORIGIN = "https://" + PUBLIC_SHARE_HOST;
+const COVER_PATH = "/share-cover-v2.jpg";
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.rekixo.ludopaws";
 
 // The cover is shared across entry points. Keep room codes and referral tokens
@@ -10,15 +11,15 @@ export function sharePreview(title, description) {
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${description}">
 <meta name="description" content="${description}">
-<meta property="og:image" content="${SHARE_ORIGIN}${COVER_PATH}">
+<meta property="og:image" content="${PUBLIC_SHARE_ORIGIN}${COVER_PATH}">
 <meta property="og:image:type" content="image/jpeg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Ludo Paws characters alongside the colorful in-game Ludo board">`;
+<meta property="og:image:alt" content="Ludo Paws home hero beside Panda, Monkey, Rooster and Horse on the Winter Haven board">`;
 }
 
 export function gameShareLanding(request, pathname) {
-  if (pathname !== "/share") return null;
+  if (pathname !== "/share" && pathname !== "/share/") return null;
   if (request.method !== "GET" && request.method !== "HEAD") {
     return new Response(null, { status: 405, headers: { allow: "GET, HEAD" } });
   }
@@ -31,8 +32,8 @@ export function gameShareLanding(request, pathname) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title}</title>
-<link rel="canonical" href="${SHARE_ORIGIN}/share">
-<meta property="og:url" content="${SHARE_ORIGIN}/share">
+<link rel="canonical" href="${PUBLIC_SHARE_ORIGIN}/share">
+<meta property="og:url" content="${PUBLIC_SHARE_ORIGIN}/share">
 ${sharePreview(title, description)}
 <style>
 *{box-sizing:border-box}
@@ -47,7 +48,7 @@ a{color:#ffedce}
 </head>
 <body>
 <main>
-<img src="${COVER_PATH}" width="1200" height="630" alt="Ludo Paws characters and game board">
+<img src="${COVER_PATH}" width="1200" height="630" alt="Ludo Paws home hero beside Panda, Monkey, Rooster and Horse on the Winter Haven board">
 <h1>${title}</h1>
 <p>${description}</p>
 <a class="play" href="${PLAY_STORE_URL}">View on Google Play</a>

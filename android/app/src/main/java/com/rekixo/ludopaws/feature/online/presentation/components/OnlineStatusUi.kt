@@ -86,10 +86,17 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
             isAllCaps = false
             LudoProofTheme.secondary(this)
             setOnClickListener {
-                currentState?.let { state -> com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(
-                    this@onlineResultPanel, state, when (state.matchMode) {
-                        "TEAM_UP" -> "Team Up"; "FRIENDS" -> "Friends"; else -> "Online"
-                    }, playerId) }
+                currentState?.let { state ->
+                    val mode = when (state.matchMode) {
+                        "TEAM_UP" -> "Team Up"
+                        "FRIENDS" -> "Friends"
+                        else -> "Online"
+                    }
+                    com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(
+                        this@onlineResultPanel, state, mode, playerId,
+                        com.rekixo.ludopaws.feature.online.domain.OnlineLudoPawsCharacterPolicy.characterIdsBySeat(state),
+                    )
+                }
             }
         }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(5) })
         actions.addView(android.widget.Button(this@onlineResultPanel).apply {

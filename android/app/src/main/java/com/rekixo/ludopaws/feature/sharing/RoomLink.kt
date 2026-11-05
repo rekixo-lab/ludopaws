@@ -4,18 +4,23 @@ import android.net.Uri
 
 /** Navigation hints only. The server's existing invite authorization remains mandatory. */
 internal data class RoomLink(val room: String, val mode: String, val host: String?) {
-    fun url(): String = Uri.Builder().scheme("https").authority(HOST).appendPath("play")
+    fun url(): String = Uri.Builder().scheme("https").authority(PUBLIC_SHARE_HOST).appendPath("play")
         .appendPath(mode.lowercase(java.util.Locale.ROOT)).appendPath(room).apply {
             host?.let { appendQueryParameter("host", it) }
         }.build().toString()
     companion object {
-        const val HOST = "api.ludopaws.rekixo.com"
         const val EXTRA_LINK = "ludopaws_room_link"
         private val roomPattern = Regex("LP[A-Z2-9]{8}")
         private val friendPattern = Regex("LPF-[A-Z2-9]{4}-[A-Z2-9]{4}-[A-Z2-9]{4}")
         fun parse(uri: Uri?): RoomLink? {
-            if (uri == null || uri.toString().length > 512 || uri.scheme !in setOf("https", "ludopaws") ||
-                uri.host != HOST || uri.port != -1 || uri.userInfo != null || uri.fragment != null) return null
+            if (uri == null || uri.toString().length > 512 ||
+                uri.encodedAuthority != uri.host || uri.fragment != null) return null
+            val validOrigin = when (uri.scheme) {
+                "https" -> uri.host == PUBLIC_SHARE_HOST || uri.host == LEGACY_SHARE_HOST
+                "ludopaws" -> uri.host == LEGACY_SHARE_HOST
+                else -> false
+            }
+            if (!validOrigin) return null
             val parts = uri.pathSegments
             if (parts.size != 3 || parts[0] != "play" || parts[1] != "friends" || !roomPattern.matches(parts[2])) return null
             val host = uri.getQueryParameter("host")

@@ -6,6 +6,8 @@
     <string name="home_hero_supporting_copy">बोलने वाले जानवरों की गोटियों और सत्यापित फ़ेयर डाइस के साथ ऑनलाइन या लोकल खेलें।</string>
     <string name="share_chooser_title">Ludo Paws शेयर करें</string>
     <string name="share_game_invite">मेरे साथ Ludo Paws खेलोगे?\n%1$s</string>
+    <string name="share_choose_paw">अपना Paw चुनें</string>
+    <string name="share_paw_choice">खिलाड़ी %1$d · %2$s</string>
     <string name="share_message">Ludo Paws खेलें — डाइस घुमाएँ। दौड़ें। दहाड़ें! बोलने वाले जानवरों की गोटियों और सत्यापित फ़ेयर डाइस के साथ ऑनलाइन या लोकल खेलें।</string>
     <string name="rate_accessibility_label">Ludo Paws को रेटिंग दें</string>
     <string name="rate_dialog_title">LUDO PAWS को रेटिंग दें</string>

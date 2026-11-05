@@ -125,7 +125,7 @@ class ReferralActivity : Activity() {
             visibility = android.view.View.GONE
         }
         content.addView(stop, LinearLayout.LayoutParams(-1, -2))
-        content.addView(quietButton("Share Play Store link  ↗") { shareGame() }, LinearLayout.LayoutParams(-1, -2))
+        content.addView(quietButton(getString(R.string.share_chooser_title) + "  ↗") { shareGame() }, LinearLayout.LayoutParams(-1, -2))
         val centeredContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER

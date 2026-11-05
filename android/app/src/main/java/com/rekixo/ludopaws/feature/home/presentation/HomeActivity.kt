@@ -1,5 +1,7 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.feature.sharing.isReferralShareLink
+
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -145,7 +147,7 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
-        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.host == "api.ludopaws.rekixo.com") {
+        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.isReferralShareLink() == true) {
             android.widget.Toast.makeText(this, "Welcome! Only a new Play installation from an invitation can qualify. Your inviter receives the reward after verified play.", android.widget.Toast.LENGTH_LONG).show()
         }
         heroBitmap = (application as LudoProofApplication).startupArtwork
