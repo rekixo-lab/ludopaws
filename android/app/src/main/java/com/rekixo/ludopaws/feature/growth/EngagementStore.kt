@@ -23,7 +23,10 @@ internal class EngagementStore(context: Context, private val fixedOwner: String?
         val editor = prefs.edit().putStringSet("$key:matches", ids)
             .putStringSet("$key:days", days.sortedBy { it.toLongOrNull() ?: -1L }.takeLast(366).toSet())
         // A delayed old result contributes its original day without replacing today's counter.
-        if (day >= previousDay) editor.putLong("$key:today", day).putInt("$key:todayCount", count)
+        if (day >= previousDay) {
+            editor.putLong("$key:today", day).putInt("$key:todayCount", count)
+            if (count == 1) editor.putString("$key:todayFirstMatch", matchId)
+        }
         check(editor.commit()) { "Match experience could not be saved. Retry the completed result." }
         GrowthMetrics.increment(app, "match_completed")
     }
@@ -31,6 +34,11 @@ internal class EngagementStore(context: Context, private val fixedOwner: String?
     fun completedDays(): Int = prefs.getStringSet("${owner()}:days", emptySet()).orEmpty().size
     fun todayMatches(): Int = if (prefs.getLong("${owner()}:today", -1) == System.currentTimeMillis() / AutomaticPromptGate.DAY)
         prefs.getInt("${owner()}:todayCount", 0) else 0
+    fun completedTodayChallengeWith(matchId: String): Boolean {
+        val key = owner()
+        return prefs.getLong("$key:today", -1) == System.currentTimeMillis() / AutomaticPromptGate.DAY &&
+            prefs.getString("$key:todayFirstMatch", null) == matchId
+    }
     fun lastReviewAttempt(): Long = prefs.getLong("${owner()}:reviewAttempt", 0)
     fun reviewAttempt() { prefs.edit().putLong("${owner()}:reviewAttempt", System.currentTimeMillis()).apply() }
     private companion object { val LOCK = Any() }

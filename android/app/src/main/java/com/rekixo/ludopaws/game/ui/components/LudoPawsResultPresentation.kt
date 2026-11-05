@@ -86,6 +86,8 @@ object LudoPawsResultPresentation {
             xpTitle = xp?.title, xpDetail = xp?.detail, xpFraction = xp?.fraction,
             gemsTitle = gems?.first, gemsDetail = gems?.second,
             gemsCredited = gems?.first?.contains("Credited") == true,
+            dailyChallengeComplete = com.rekixo.ludopaws.feature.growth.EngagementStore(context)
+                .completedTodayChallengeWith(match.matchId),
         )
     }
 

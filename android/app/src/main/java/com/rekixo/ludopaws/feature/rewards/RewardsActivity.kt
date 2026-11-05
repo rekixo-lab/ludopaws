@@ -7,6 +7,7 @@ import android.os.Looper
 import android.content.Intent
 import android.view.Gravity
 import android.widget.LinearLayout
+import android.widget.Button
 import android.widget.TextView
 import android.view.View
 import android.widget.FrameLayout
@@ -44,6 +45,9 @@ class RewardsActivity : Activity() {
     private var busy = false
     private var rewardsNotReleased = false
     private var generation = 0
+    private var giftButton: Button? = null
+    private var spinButton: Button? = null
+    private var claimError: Pair<String, String>? = null
     private data class BonusRequest(val account: String, val ticket: String, val requestId: String, val day: Long)
     private var adsAvailable = false
     private var ad: RewardedAdsController? = null
@@ -76,9 +80,9 @@ class RewardsActivity : Activity() {
     }
     private fun copy(value: String, size: Float = 14f, bold: Boolean = false) = GrowthUi.copy(this, value, size, bold)
     private fun add(parent: LinearLayout, view: View, gap: Int = 10) = GrowthUi.add(parent, view, gap)
-    private fun action(parent: LinearLayout, label: String, enabled: Boolean = true, secondary: Boolean = false, callback: () -> Unit) {
-        add(parent, GrowthUi.button(this, label, primary = !secondary, enabled = enabled && !busy, action = { if (!busy) callback() }))
-    }
+    private fun action(parent: LinearLayout, label: String, enabled: Boolean = true, secondary: Boolean = false, callback: () -> Unit): Button =
+        GrowthUi.button(this, label, primary = !secondary, enabled = enabled && !busy, action = { if (!busy) callback() })
+            .also { add(parent, it) }
     private fun card(title: String, subtitle: String? = null): LinearLayout = GrowthUi.card(this).also {
         GrowthUi.heading(it, title, subtitle)
         add(body, it, 14)
@@ -88,25 +92,32 @@ class RewardsActivity : Activity() {
     private fun render() {
         val previousScroll = page.scroll.scrollY
         body.removeAllViews()
-        if (owner != null && repository.currentSession()?.accountId != owner) { owner = null; snapshot = null }
+        giftButton = null
+        spinButton = null
+        if (owner != null && repository.currentSession()?.accountId != owner) {
+            owner = null; snapshot = null; claimError = null
+        }
         val rewards = snapshot?.optJSONObject("rewards")
         val wallet = snapshot?.optJSONObject("wallet")
         val hero = GrowthUi.card(this)
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        val intro = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        add(intro, GrowthUi.pill(this, "PLAY · COLLECT · ENJOY"), 0)
-        add(intro, copy("Little gifts.\nBig adventures.", 25f, true), 10)
-        add(intro, copy("A little something for your next game.", 13f), 6)
-        row.addView(intro, LinearLayout.LayoutParams(0, -2, 1f))
-        row.addView(GrowthUi.portrait(this, com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load().characterId),
-            LinearLayout.LayoutParams(dp(88), dp(108)).apply { marginStart = dp(8) })
-        add(hero, row, 0)
+        if (selectedTab != 0) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+            val intro = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            add(intro, GrowthUi.pill(this, "PLAY · COLLECT · ENJOY"), 0)
+            add(intro, copy("Little gifts.\nBig adventures.", 25f, true), 10)
+            add(intro, copy("A little something for your next game.", 13f), 6)
+            row.addView(intro, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(GrowthUi.portrait(this, com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore(this).load().characterId),
+                LinearLayout.LayoutParams(dp(88), dp(108)).apply { marginStart = dp(8) })
+            add(hero, row, 0)
+        }
         val balance = wallet?.optInt("balance") ?: GemWalletStore(this).balance()
         val walletRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         walletRow.addView(GemClusterView(this, 1).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(36), dp(36)))
         walletRow.addView(copy("$balance Gems", 18f, true), LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(6) })
         walletRow.addView(GrowthUi.pill(this, "YOUR GEMS"), LinearLayout.LayoutParams(-2, -2))
-        add(hero, walletRow, 14); add(body, hero, 0)
+        add(hero, walletRow, if (selectedTab == 0) 0 else 14)
+        add(body, hero, 0)
         val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         listOf("Gifts", "Challenges", "Collections").forEachIndexed { index, title ->
             val tab = GrowthUi.button(this, title, primary = selectedTab == index, enabled = !busy && ad?.isBusy != true) {
@@ -142,56 +153,90 @@ class RewardsActivity : Activity() {
         page.scroll.post { if (!isDestroyed) page.scroll.scrollTo(0, previousScroll) }
     }
     private fun gifts(rewards: JSONObject?) {
-        if (rewards == null) {
-            val status = when { busy -> "CHECKING AVAILABILITY"; rewardsNotReleased -> "COMING IN THE NEXT UPDATE"; else -> "CONNECT TO CHECK AVAILABILITY" }
-            val dailyPreview = card("Daily Gift", "A daily gift of 3 Gems for your collection.")
-            add(dailyPreview, GrowthUi.pill(this, status))
-            val gemArt = GemClusterView(this, 3).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
-            dailyPreview.addView(gemArt, LinearLayout.LayoutParams(-1, dp(100)).apply { topMargin = dp(12) })
-            action(dailyPreview, if (busy) "Checking…" else if (rewardsNotReleased) "Available with the next update" else "Connect to collect", enabled = false) {}
-            add(dailyPreview, copy(if (rewardsNotReleased) "Daily gifts are not active yet. No Gems have been claimed." else "Your claim status hasn't loaded. Check your connection and refresh.", 13f))
-            val spinPreview = card("Daily Free Spin", "One free spin each day, with 1, 2, 3 or 5 Gems.")
-            add(spinPreview, GrowthUi.pill(this, "WHEEL PREVIEW · NO REWARD CLAIM"))
-            spinPreview.addView(RewardWheelView(this).apply {
-                contentDescription = "Daily spin preview. Spin is unavailable until reward status loads."
-            }, LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(10) })
-            action(spinPreview, if (busy) "Checking…" else if (rewardsNotReleased) "Available with the next update" else "Connect to spin", enabled = false) {}
-            add(spinPreview, copy("Chances: 1 Gem 50% · 2 Gems 30% · 3 Gems 15% · 5 Gems 5%. No paid spin or cash prize.", 12f))
-            action(body, "Check availability", secondary = true) { load() }
-            action(body, "See my challenges", secondary = true) { selectedTab = 1; page.scroll.scrollTo(0, 0); render() }
-            return
+        if (resumed) {
+            val discovery = getSharedPreferences(HomeRewardsController.DISCOVERY_PREFS, MODE_PRIVATE)
+            if (!discovery.getBoolean(HomeRewardsController.GIFTS_SEEN, false)) {
+                discovery.edit().putBoolean(HomeRewardsController.GIFTS_SEEN, true).apply()
+            }
         }
-        val daily = card("A gift for today", "A few Gems to grow your collection.")
-        val giftRow = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        giftRow.addView(GemClusterView(this, 3).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(86), dp(82)))
-        val numbers = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        add(numbers, copy("+${rewards.optInt("dailyGems", 3)} Gems", 30f, true), 0)
-        add(numbers, GrowthUi.pill(this, if (rewards.optBoolean("dailyClaimed")) "COLLECTED TODAY" else "FREE DAILY GIFT", rewards.optBoolean("dailyClaimed")), 5)
-        giftRow.addView(numbers, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(12) }); add(daily, giftRow)
-        action(daily, if (rewards.optBoolean("dailyClaimed")) "Gift collected" else "Collect my gift", !rewards.optBoolean("dailyClaimed")) { claim("daily") }
+        val giftAmount = rewards?.optInt("dailyGems", 3) ?: 3
+        val giftClaimed = rewards?.optBoolean("dailyClaimed") == true
+        val spinClaimed = rewards?.optBoolean("spinClaimed") == true
+        val spinAmount = rewards?.optInt("spinGems") ?: 0
+        val gift = GrowthUi.card(this).apply { setPadding(dp(10), dp(13), dp(10), dp(12)) }
+        val spin = GrowthUi.card(this).apply { setPadding(dp(10), dp(13), dp(10), dp(12)) }
+        val pair = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.TOP
+            isBaselineAligned = false
+            addView(gift, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(5) })
+            addView(spin, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(5) })
+        }
+        add(body, pair, 14)
+        fun giftHeading(card: LinearLayout, title: String, detail: String) {
+            add(card, copy(title, 18f, true).apply {
+                gravity = Gravity.CENTER
+                isAccessibilityHeading = true
+            }, 0)
+            add(card, copy(detail, 12f).apply { gravity = Gravity.CENTER }, 3)
+        }
+        giftHeading(gift, "Daily Gift", "$giftAmount Gems")
+        giftHeading(spin, "Free Spin", "Win 1–5 Gems")
+        val chest = DailyGiftChestView(this, opened = giftClaimed).apply {
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
+        val wheel = RewardWheelView(this).apply {
+            contentDescription = "Paw Treasure Wheel. Possible prizes are 1, 2, 3 or 5 Gems."
+        }
+        if (spinClaimed) wheel.stopAt(spinAmount, animated = false) {}
+        gift.addView(chest, LinearLayout.LayoutParams(-1, dp(128)).apply { topMargin = dp(4) })
+        spin.addView(wheel, LinearLayout.LayoutParams(-1, dp(128)).apply { topMargin = dp(4) })
+        val unavailable = when {
+            busy -> "Checking…"
+            rewardsNotReleased -> "Coming soon"
+            else -> "Connect to check"
+        }
+        giftButton = action(gift, when {
+            rewards == null -> unavailable
+            giftClaimed -> "+$giftAmount Gems saved"
+            else -> "Collect gift"
+        }, rewards != null && !giftClaimed) { claim("daily", chest = chest) }.apply { compactGiftAction() }
+        spinButton = action(spin, when {
+            rewards == null -> unavailable
+            spinClaimed -> "+$spinAmount Gems saved"
+            else -> "Spin for free"
+        }, rewards != null && !spinClaimed) { claim("spin", wheel = wheel) }.apply { compactGiftAction() }
+        claimError?.let { (action, error) ->
+            add(if (action == "daily") gift else spin, copy(error, 12f))
+        }
+        val info = GrowthUi.card(this)
+        add(info, copy("Spin chances · 1 Gem 50% · 2 Gems 30% · 3 Gems 15% · 5 Gems 5%", 12f, true), 0)
+        add(info, copy("The gift and spin are free. Every spin wins Gems.", 12f), 6)
+        if (rewards != null) {
+            add(info, copy("Next free gifts: ${timestamp(rewards.getLong("resetsAt"))} (your time).", 12f), 6)
+        } else {
+            add(info, copy(if (rewardsNotReleased) "Daily gifts and spins will open when the Rewards service is ready."
+                else "Connect and check availability to collect your gifts.", 12f), 6)
+            action(info, "Check availability", secondary = true) { load() }
+        }
+        add(body, info, 14)
+        if (rewards == null) return
         val total = rewards.optInt("dailyClaims")
-        val remaining = 7 - total % 7
-        add(daily, copy(if (total > 0 && total % 7 == 0) "Garden Friend badge earned · tier ${rewards.optInt("milestoneTier")}" else "$remaining more daily gifts to your next Garden Friend badge", 13f, true), 14)
-        val progress = GrowthUi.progress(this, if (total > 0 && total % 7 == 0) 7 else total % 7, 7, "$total daily gifts collected")
-        daily.addView(progress, LinearLayout.LayoutParams(-1, dp(10)).apply { topMargin = dp(8) })
-        add(daily, copy("Miss a day? Your badge progress stays.", 12f), 7)
-        val spin = card("Take a little spin", "One free spin each day. Every spin wins Gems.")
-        val wheel = RewardWheelView(this).apply { contentDescription = "Free reward wheel. Possible prizes are 1, 2, 3 or 5 Gems." }
-        if (rewards.optBoolean("spinClaimed")) wheel.stopAt(rewards.optInt("spinGems"), animated = false) {}
-        spin.addView(wheel, LinearLayout.LayoutParams(-1, dp(240)).apply { topMargin = dp(8) })
-        action(spin, if (rewards.optBoolean("spinClaimed")) "Collected · ${rewards.optInt("spinGems")} Gems" else "Spin for free", !rewards.optBoolean("spinClaimed")) { claim("spin", wheel) }
-        val odds = LinearLayout(this).apply { gravity = Gravity.CENTER }
-        listOf("1 Gem · 50%", "2 · 30%", "3 · 15%", "5 · 5%").forEach { label ->
-            odds.addView(copy(label, 11f, true).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(0, -2, 1f))
-        }
-        add(spin, odds, 12)
-        add(spin, copy("Next free gifts: ${timestamp(rewards.getLong("resetsAt"))} (your time).", 12f), 10)
+        val tier = rewards.optInt("milestoneTier")
+        val earnedTier = total > 0 && total % 7 == 0
+        val badge = card("Garden Friend", "Collect seven daily gifts to earn a badge tier.")
+        if (tier > 0) add(badge, GrowthUi.pill(this, "TIER $tier EARNED", green = true))
+        badge.addView(RewardPawTrailView(this, if (earnedTier) 7 else total % 7),
+            LinearLayout.LayoutParams(-1, dp(34)).apply { topMargin = dp(7) })
+        add(badge, copy(if (earnedTier) "Badge tier $tier complete" else "${total % 7} of 7 toward your next tier", 13f, true), 5)
+        add(badge, copy("Miss a day? Your badge progress stays.", 12f), 5)
         val bonusPending = owner?.let { account -> runCatching { PendingAdRewardStore(this).forAccount(account).any {
             it.dailyRewardDay == rewards.optLong("day") && !it.abandoned
         } }.getOrDefault(true) } ?: false
-        val extra = card("A little extra", "An optional ad. Your free gift and spin need no ads.")
+        val extra = card("Optional bonus", "Watch an ad for 2 extra Gems once per day.")
         action(extra, when { rewards.optBoolean("bonusClaimed") -> "Today's bonus collected"; bonusPending -> "Checking your ad reward…"; else -> "Watch an ad · +${rewards.optInt("bonusGems", 2)} Gems" },
-            !rewards.optBoolean("bonusClaimed") && !bonusPending, secondary = true) { bonus() }
+            BuildConfig.LUDOPROOF_ADS_ENABLED && !rewards.optBoolean("bonusClaimed") && !bonusPending,
+            secondary = true) { bonus() }
         add(extra, copy("Once per day. Remove Ads owners may also choose this bonus.", 12f), 8)
         action(extra, "Reward details", secondary = true) {
             PlywoodAlertDialogBuilder(this).setTitle("Your free gifts")
@@ -199,6 +244,12 @@ class RewardsActivity : Activity() {
                 .setPositiveButton("Got it", null).show()
         }
     }
+    private fun Button.compactGiftAction() {
+        textSize = 13f
+        setPadding(dp(5), dp(8), dp(5), dp(8))
+        accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+    }
+
     private fun challenges() {
         val today = EngagementStore(this).todayMatches().coerceAtMost(1)
         val daily = card("Daily Challenge", "TODAY'S PLAY GOAL")
@@ -258,6 +309,7 @@ class RewardsActivity : Activity() {
         } else for (item in visibleCollections) {
             val ids = item.getJSONArray("items")
             val missing = item.getJSONArray("missing")
+            val missingIds = (0 until missing.length()).map { missing.getString(it) }.toSet()
             val collection = card(item.getString("title"))
             if (rewards?.optString("featuredCollectionId") == item.optString("id")) add(collection, GrowthUi.pill(this, "IN THE SPOTLIGHT"), 8)
             val gallery = LinearLayout(this).apply { gravity = Gravity.TOP }
@@ -271,6 +323,11 @@ class RewardsActivity : Activity() {
                 }
                 tile.addView(frame, LinearLayout.LayoutParams(-1, dp(84)))
                 add(tile, copy(com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog.find(id)?.title ?: id.replace('_', ' '), 11f, true).apply { gravity = Gravity.CENTER }, 6)
+                val owned = id !in missingIds
+                add(tile, copy(if (owned) "Owned ✓" else "Included", 11f, true).apply {
+                    gravity = Gravity.CENTER
+                    if (owned) setTextColor(0xFF286545.toInt())
+                }, 4)
                 gallery.addView(tile, LinearLayout.LayoutParams(0, -2, 1f).apply { if (n > 0) marginStart = dp(7) })
             }
             add(collection, gallery, 14)
@@ -287,15 +344,22 @@ class RewardsActivity : Activity() {
         if (!resumed || busy) return
         perform(null)
     }
-    private fun perform(request: JSONObject?, wheel: RewardWheelView? = null) {
+    private fun perform(request: JSONObject?, wheel: RewardWheelView? = null, chest: DailyGiftChestView? = null) {
         if (busy || !resumed) return
         val expectedOwner = repository.currentSession()?.accountId
         if (request != null && (owner == null || owner != expectedOwner)) {
             snapshot = null; owner = null; render(); message.text = "Account changed. Refresh Rewards."; return
         }
         busy = true
+        claimError = null
         val expectedGeneration = generation
-        if (wheel == null) render() else message.text = "Preparing your free spin…"
+        val claimAction = request?.optString("action").orEmpty()
+        if (wheel == null && chest == null) render()
+        else {
+            giftButton?.isEnabled = false
+            spinButton?.isEnabled = false
+            (if (claimAction == "daily") giftButton else spinButton)?.text = "Checking…"
+        }
         executor.execute {
             val result = runCatching {
                 val session = repository.ensureGuestSession()
@@ -324,13 +388,27 @@ class RewardsActivity : Activity() {
                     if (stillPending && confirmationRefreshes < 5) { handler.removeCallbacks(refresh); handler.postDelayed(refresh, 2000L) }
                     if (request != null) prefs.edit().remove("$account:${request.optString("action")}").apply()
                     val receipt = response.optJSONObject("receipt")
-                    if (wheel != null && receipt != null && wheel.isAttachedToWindow) {
+                    val claimConfirmed = receipt != null && receipt.optLong("day", -1L) ==
+                        response.getJSONObject("rewards").getLong("day")
+                    if (claimConfirmed && (wheel?.isAttachedToWindow == true || chest?.isAttachedToWindow == true)) {
                         busy = true
-                        val amount = receipt.optInt("amount")
-                        wheel.stopAt(amount, !GameSettingsStore(this).snapshot().reducedMotion && android.animation.ValueAnimator.areAnimatorsEnabled()) {
-                            if (resumed && generation == expectedGeneration) { busy = false; render(); message.text = "Spin reward saved: $amount Gems" }
+                        (if (wheel != null) spinButton else giftButton)?.text = if (wheel != null) "Spinning…" else "Opening…"
+                        val animate = !GameSettingsStore(this).snapshot().reducedMotion &&
+                            android.animation.ValueAnimator.areAnimatorsEnabled()
+                        val finishReveal: () -> Unit = {
+                            if (resumed && generation == expectedGeneration) {
+                                busy = false
+                                render()
+                                val resultButton = if (wheel != null) spinButton else giftButton
+                                resultButton?.let { it.announceForAccessibility(it.text) }
+                            }
                         }
-                    } else { render(); if (receipt != null) message.text = if (receipt.has("amount")) "Reward saved: ${receipt.optInt("amount")} Gems" else "Collection saved." }
+                        if (wheel != null) wheel.stopAt(checkNotNull(receipt).getInt("amount"), animate, finishReveal)
+                        else chest?.open(animate, finishReveal)
+                    } else {
+                        render()
+                        if (claimAction == "collection" && receipt != null) message.text = "Collection saved."
+                    }
                     if (request?.optString("action") == "daily" && receipt?.optBoolean("replay") == false) GrowthMetrics.increment(this, "reward_claim")
                     if (request?.optString("action") == "spin" && receipt?.optBoolean("replay") == false) GrowthMetrics.increment(this, "spin_claim")
                     if (request?.optString("action") == "collection" && receipt?.optBoolean("replay") == false) GrowthMetrics.increment(this, "collection_purchase")
@@ -343,28 +421,30 @@ class RewardsActivity : Activity() {
                     if (request?.optString("action") == "collection" && error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status == 409) prefs.edit().remove("${expectedOwner}:collection").apply()
                     rewardsNotReleased = error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status == 404
                     if (rewardsNotReleased) snapshot = null
-                    render()
-                    message.text = when {
+                    val failure = when {
                         rewardsNotReleased -> "Daily gifts and spins aren't active yet. You can explore Challenges now."
                         error is java.io.IOException -> "Couldn't connect. Your game is ready; try Refresh when you're online."
                         error is com.rekixo.ludopaws.feature.account.data.AccountApiException && error.status in setOf(502, 503, 504) ->
                             "Gifts are taking a little break. You can still play; try Refresh later."
                         else -> error.message ?: "Couldn't check your gifts. You can still play; try Refresh later."
                     }
+                    if (claimAction == "daily" || claimAction == "spin") claimError = claimAction to failure
+                    render()
+                    if (claimError == null) message.text = failure
                     if (dayChanged) load()
                 }
             }
         }
     }
-    private fun claim(action: String, wheel: RewardWheelView? = null) {
+    private fun claim(action: String, wheel: RewardWheelView? = null, chest: DailyGiftChestView? = null) {
         val day = snapshot?.optJSONObject("rewards")?.optLong("day") ?: return
         val account = owner ?: return
         if (repository.currentSession()?.accountId != account) { snapshot = null; render(); return }
         val key = "$account:$action"
-        val request = prefs.getString(key, null)?.let { JSONObject(it) }
+        val request = prefs.getString(key, null)?.let { JSONObject(it) }?.takeIf { it.optLong("day") == day }
             ?: JSONObject().put("action", action).put("day", day).put("clientRequestId", UUID.randomUUID().toString())
         if (!prefs.edit().putString(key, request.toString()).commit()) { message.text = "Could not save reward recovery. Retry."; return }
-        perform(request, wheel)
+        perform(request, wheel, chest)
     }
     private fun buy(collection: JSONObject) {
         val quoteOwner = owner ?: return

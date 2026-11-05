@@ -503,6 +503,14 @@ export async function handleAccountRequest(request, env) {
         });
       }
 
+      if (url.pathname === "/api/rewards/availability" && request.method === "GET") {
+        await rateLimit(env, request, "engagement:availability", ACCOUNT_RATE_LIMITS.profile);
+        const session = await authenticate(request, env);
+        return await playerResponse(env, session.accountId, "/engagement", {
+          accountId: session.accountId, sessionId: session.sessionId, action: "availability",
+        });
+      }
+
       if (url.pathname === "/api/rewards" && ["GET", "POST"].includes(request.method)) {
         await rateLimit(env, request, "engagement:rewards", ACCOUNT_RATE_LIMITS.walletMutation);
         const session = await authenticate(request, env);

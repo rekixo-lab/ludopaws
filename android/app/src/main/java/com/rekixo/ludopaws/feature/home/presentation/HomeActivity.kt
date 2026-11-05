@@ -36,6 +36,16 @@ class HomeActivity : Activity() {
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
 
+    internal val homeRewards by lazy {
+        com.rekixo.ludopaws.feature.rewards.HomeRewardsController(
+            this,
+            canShow = {
+                isHomeReadyForPlatformConnection() && ::connectivityMonitor.isInitialized && connectivityMonitor.isOnline() &&
+                    com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)
+            },
+            canHint = { !referralPopupVisible && !startupPlayGames.authenticationBootstrapPending },
+        )
+    }
     private var promotionCarousel: HomePromotionCarousel? = null
     private var referralPopupVisible = false
     private var promotionsStarted = false
@@ -82,6 +92,7 @@ class HomeActivity : Activity() {
             updateSplash()
             updateStartupBanner(snapshot)
             maybeShowHome()
+            if (homeShown && resumed) homeRewards.refresh()
         }
     }
     private val privacyReady: () -> Unit = {
@@ -549,6 +560,7 @@ class HomeActivity : Activity() {
     private fun resumeHomePromotions() {
         if (!isHomeReadyForPlatformConnection() || !com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)) return
         promotionCarousel?.setActive(!referralPopupVisible)
+        homeRewards.refresh()
         // The PGS host recreation must not consume and cancel the one-per-session
         // referral opportunity before the restored Home can display it.
         if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this) ||
@@ -566,6 +578,7 @@ class HomeActivity : Activity() {
         startupHandler.removeCallbacks(deferredHomePreparation)
         naturalReview.pause()
         referralPromotions.pause()
+        homeRewards.pause()
         promotionCarousel?.setActive(false)
         super.onPause()
     }
@@ -624,6 +637,7 @@ class HomeActivity : Activity() {
         preparationGeneration += 1
         naturalReview.pause()
         referralPromotions.pause()
+        homeRewards.close()
         com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)
         startupSession.unsubscribe(startupObserver)
         startupHandler.removeCallbacksAndMessages(null)

@@ -791,6 +791,10 @@ export class PlayerAccount {
     const accountId = requireAccountId(body.accountId), sessionId = requireSessionId(body.sessionId);
     this.#requireActiveSession(accountId, sessionId);
     const status = () => rewardsStatus(this.ctx.storage.sql);
+    if (body.action === "availability") {
+      const { day, resetsAt, dailyClaimed, spinClaimed } = status();
+      return json(200, { ok: true, day, resetsAt, dailyClaimed, spinClaimed });
+    }
     // One catalog read per Rewards request, instead of one upstream read per item.
     let catalogPromise;
     const readCatalog = () => catalogPromise ??= (async () => {

@@ -178,6 +178,12 @@ class AccountRepository(context: Context) {
         )
     }
 
+    fun rewardAvailability(expectedAccountId: String): JSONObject {
+        val session = requireSession()
+        check(session.accountId == expectedAccountId) { "Account changed. Reopen Rewards." }
+        return request("GET", "/api/rewards/availability", token = session.accessToken)
+    }
+
     fun engagementRewards(body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
         val session = ensureGuestSession()
         check(expectedAccountId == null || session.accountId == expectedAccountId) { "Account changed. Reopen Rewards." }

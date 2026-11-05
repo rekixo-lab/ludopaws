@@ -1,6 +1,5 @@
 package com.rekixo.ludopaws.ui.home
 
-import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.InsetDrawable
@@ -12,9 +11,9 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.HomeActivity
+import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
-import com.rekixo.ludopaws.feature.rewards.RewardsActivity
 import com.rekixo.ludopaws.ui.dialogs.showSettingsDialog
 
 internal fun HomeActivity.homeBottomActions(): LinearLayout =
@@ -33,12 +32,24 @@ internal fun HomeActivity.homeBottomActions(): LinearLayout =
             bottomActionButton("Share", "Share", HomeIconKind.SHARE) { shareLudoPaws() },
             bottomActionParams(),
         )
-        addView(
-            bottomActionButton("Rewards", "Daily gifts, free spin, goals and collections", HomeIconKind.GEM) {
-                startActivity(Intent(this@homeBottomActions, RewardsActivity::class.java))
-            },
-            bottomActionParams(),
-        )
+        val rewardsButton = bottomActionButton("Rewards", "Daily gifts, free spin, goals and collections", HomeIconKind.GEM) {
+            homeRewards.openRewards()
+        }
+        addView(FrameLayout(context).apply {
+            clipChildren = false
+            addView(rewardsButton, FrameLayout.LayoutParams(-1, -1))
+            val dot = View(context).apply {
+                visibility = View.GONE
+                elevation = dp(8).toFloat()
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                background = LudoProofTheme.rounded(0xFFFFD273.toInt(), 6f, 0xFF61411F.toInt(), 1f, context)
+            }
+            addView(dot, FrameLayout.LayoutParams(dp(10), dp(10), Gravity.TOP or Gravity.END).apply {
+                topMargin = dp(6)
+                marginEnd = dp(7)
+            })
+            homeRewards.bind(rewardsButton, dot)
+        }, bottomActionParams())
         addView(
             bottomActionButton("Settings", "Settings", HomeIconKind.SETTINGS) {
                 showSettingsDialog(this@homeBottomActions)
