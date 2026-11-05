@@ -774,26 +774,19 @@ class StoreActivity :
             else -> null
         }
         view.text = status ?: StoreActionLabels.secureCheckout(this)
+        view.contentDescription = status ?: StoreActionLabels.SECURE_CHECKOUT_TEXT
     }
 
     private fun checkoutStatusLabel(): TextView = TextView(this).apply {
         checkoutStatusView = this
-        textSize = 12f
-        setTextColor(0xFF60452D.toInt())
+        textSize = 13f
+        setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
+        setTextColor(0xFFFFF5E4.toInt())
+        setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), 0xCC241A12.toInt())
         gravity = Gravity.CENTER
-        setPadding(dp(8), dp(4), dp(8), dp(4))
+        setPaddingRelative(dp(12), dp(6), dp(12), dp(6))
         accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
-        minHeight = dp(48)
-        if (selectedTab == StoreTab.GEMS) {
-            textSize = 13f
-            setTypeface(android.graphics.Typeface.DEFAULT_BOLD)
-            setTextColor(0xFFFFF5E4.toInt())
-            background = LudoProofTheme.rounded(
-                0xFF16324D.toInt(), 11f, 0xFFC99A53.toInt(), 1f, this@StoreActivity,
-            )
-            setPaddingRelative(dp(12), dp(6), dp(12), dp(6))
-            minHeight = dp(36)
-        }
+        minHeight = dp(36)
         setOnClickListener {
             val product = chosenProductId ?: return@setOnClickListener
             if (!checkoutRetryNeeded) return@setOnClickListener
@@ -1816,13 +1809,7 @@ class StoreActivity :
                 LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
-                ).apply {
-                    if (selectedTab == StoreTab.GEMS) {
-                        marginStart = dp(8)
-                        marginEnd = dp(8)
-                        topMargin = dp(8)
-                    }
-                },
+                ),
             )
         }
 

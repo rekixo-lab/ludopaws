@@ -12,6 +12,10 @@ import com.rekixo.ludopaws.core.ui.art.RareGemArtwork
 import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 
 internal object StoreActionLabels {
+    private const val SECURE_CHECKOUT_PREFIX = "Pay securely with "
+    private const val GOOGLE_PLAY_NAME = "Google Play"
+    const val SECURE_CHECKOUT_TEXT = SECURE_CHECKOUT_PREFIX + GOOGLE_PLAY_NAME
+
     fun action(context: Context, label: String, action: SmartUnlockAction, iconSizeDp: Int = 12): CharSequence {
         val icon = when (action) {
             SmartUnlockAction.PLAY_PRODUCT -> R.drawable.ic_google_play_mark
@@ -22,8 +26,13 @@ internal object StoreActionLabels {
     }
 
     fun secureCheckout(context: Context): CharSequence {
-        val label = "Pay securely with Google Play"
-        return withIcon(context, "$label\u00A0\uFFFC", label.length + 1, drawable(context, R.drawable.ic_google_play_mark), 15)
+        return withIcon(
+            context,
+            "$SECURE_CHECKOUT_PREFIX\uFFFC\u00A0${GOOGLE_PLAY_NAME.replace(' ', '\u00A0')}",
+            SECURE_CHECKOUT_PREFIX.length,
+            drawable(context, R.drawable.ic_google_play_mark),
+            14,
+        )
     }
 
     fun gems(context: Context, label: String, iconSizeDp: Int): CharSequence {
