@@ -8,7 +8,6 @@ import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.LudoPawsBoardChromeView
@@ -26,7 +25,7 @@ internal class ReferralGemRewardView(
         gravity = Gravity.CENTER_VERTICAL
         val size = dp(if (compact) 72 else 104)
         val bucket = ImageView(context).apply {
-            setImageResource(R.drawable.referral_gem_bucket_3d)
+            setImageBitmap(com.rekixo.ludopaws.core.ui.art.RareGemArtwork.bucket(resources))
             scaleType = ImageView.ScaleType.FIT_CENTER
             importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         }

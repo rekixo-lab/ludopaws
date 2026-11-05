@@ -148,7 +148,7 @@ internal class ReferralPromotionController(
                 setPadding(dp(10), dp(7), dp(10), dp(7))
                 background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 14f)
                 addView(android.widget.ImageView(activity).apply {
-                    setImageResource(com.rekixo.ludopaws.R.drawable.referral_gem_bucket_3d)
+                    setImageBitmap(com.rekixo.ludopaws.core.ui.art.RareGemArtwork.bucket(resources))
                     scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }, LinearLayout.LayoutParams(dp(44), dp(48)))
