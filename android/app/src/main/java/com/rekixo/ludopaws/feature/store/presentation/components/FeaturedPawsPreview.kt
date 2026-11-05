@@ -71,7 +71,7 @@ internal class FeaturedPawsPreview(
     fun setActive(value: Boolean) {
         active = value
         needsFrame = true
-        animated = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+        animated = !motionSettings.snapshot().reducedMotion &&
             android.animation.ValueAnimator.areAnimatorsEnabled()
         removeCallbacks(ticker)
         if (value && !failed && isAttachedToWindow) post(ticker)
@@ -80,6 +80,10 @@ internal class FeaturedPawsPreview(
     override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
         session = Session(texture, width, height)
         needsFrame = true
+        if (active) {
+            removeCallbacks(ticker)
+            post(ticker)
+        }
     }
 
     override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {

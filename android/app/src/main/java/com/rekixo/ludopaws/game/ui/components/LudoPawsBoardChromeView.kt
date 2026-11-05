@@ -17,6 +17,7 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
     private var definition = BoardRegistry.resolve("board_classic")
     private var previewBoardThemeId: String? = null
     private var staticBoard: Bitmap? = null
+    internal val hasArtwork: Boolean get() = staticBoard != null
     private var requestedKey: ArtworkKey? = null
     internal var artworkReady = false
         private set

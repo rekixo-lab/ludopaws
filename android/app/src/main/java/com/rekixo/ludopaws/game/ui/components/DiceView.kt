@@ -66,8 +66,8 @@ class DiceView @JvmOverloads constructor(
 
     private var diceStyleId =
         "dice_classic"
-    private var rendererKey = "classic"
-    private var renderer = DiceRendererRegistry.create(DiceRegistry.resolve("dice_classic"), resources)
+    private var rendererKey: String? = null
+    private var renderer: DiceRenderer? = null
     private var previewStyleId: String? = null
     private var face = 1
     private var rolling = false
@@ -380,6 +380,12 @@ class DiceView @JvmOverloads constructor(
         invalidate()
     }
 
+    internal fun setPreparedPreviewStyle(styleId: String, preparedRenderer: DiceRenderer) {
+        renderer = preparedRenderer
+        rendererKey = DiceRegistry.resolve(styleId).rendererKey
+        setPreviewStyle(styleId)
+    }
+
     override fun onDetachedFromWindow() {
         cancelDeferredSettle()
         rolling = false
@@ -446,10 +452,11 @@ class DiceView @JvmOverloads constructor(
         )
 
         val definition = DiceRegistry.resolve(diceStyleId)
-        if (rendererKey != definition.rendererKey) {
-            renderer = DiceRendererRegistry.create(definition, resources)
-            rendererKey = definition.rendererKey
-        }
+        val currentRenderer = renderer?.takeIf { rendererKey == definition.rendererKey }
+            ?: DiceRendererRegistry.create(definition, resources).also {
+                renderer = it
+                rendererKey = definition.rendererKey
+            }
         val palette = dicePalette()
         renderFrame.face = face
         renderFrame.rolling = rolling
@@ -457,7 +464,7 @@ class DiceView @JvmOverloads constructor(
         renderFrame.attentionPulsing = attentionPulsing
         renderFrame.borderPulse = borderPulse
         renderFrame.hasTurnDeadline = turnDeadlineElapsedRealtimeMillis != null
-        val rect = renderer.draw(canvas, size, palette, renderFrame)
+        val rect = currentRenderer.draw(canvas, size, palette, renderFrame)
         drawTurnCountdown(canvas, rect, size, palette.borderColor)
 
         canvas.restoreToCount(saveCount)

@@ -13,6 +13,7 @@ import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
+import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
@@ -24,6 +25,7 @@ internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): Li
         val starterCharacters =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
                 .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
+        CharacterRegistry.prewarm(starterCharacters.take(4).map { it.id })
         addView(
             this@pawsCatalogContent.pawsCharacterGrid(starterCharacters, friendshipEntry),
             LinearLayout.LayoutParams(
