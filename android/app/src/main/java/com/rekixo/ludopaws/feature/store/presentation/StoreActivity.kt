@@ -42,6 +42,7 @@ import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
 import com.rekixo.ludopaws.feature.store.presentation.components.CosmeticPriceLabels
 import com.rekixo.ludopaws.feature.store.domain.model.StoreBillingProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
+import com.rekixo.ludopaws.feature.store.presentation.components.StoreCatalogScrollView
 import com.rekixo.ludopaws.feature.store.presentation.components.storeContent
 import com.rekixo.ludopaws.feature.store.presentation.components.storeHeader
 import com.rekixo.ludopaws.feature.store.presentation.components.pinnedRemoveAdsContent
@@ -152,7 +153,8 @@ class StoreActivity :
     private var billingWasCreated = false
     private var rewardedAdsWasCreated = false
     private var storeRootHost: FrameLayout? = null
-    private var catalogScroll: ScrollView? = null
+    private var catalogScroll: StoreCatalogScrollView? = null
+    internal val isCatalogMoving: Boolean get() = catalogScroll?.isMoving == true
     private var renderedTab: StoreTab? = null
     private var renderedSignature: List<Any?>? = null
     private var renderQueued = false
@@ -1597,6 +1599,11 @@ class StoreActivity :
     }
 
     private fun renderStoreNow() {
+        val scrollInMotion = catalogScroll?.takeIf { it.isMoving && renderedTab == selectedTab }
+        if (scrollInMotion != null) {
+            scrollInMotion.onSettled = ::renderStore
+            return
+        }
         val signature = listOf(
             selectedTab, storeOnline, featuredCharacterId, promotedCosmeticId, spotlightPositions.toMap(), liveProducts.toMap(), wallet.balance(), wallet.adsRemoved(),
             cosmetics.ownedCosmeticIds(),
@@ -1729,7 +1736,7 @@ class StoreActivity :
         if (BuildConfig.LUDOPROOF_BILLING_ENABLED) offerContent.addView(checkoutStatusLabel())
 
         val scroll =
-            ScrollView(this).apply {
+            StoreCatalogScrollView(this).apply {
                 isFillViewport = true
                 overScrollMode = View.OVER_SCROLL_NEVER
                 // Clip card artwork/elevation shadows at the scroll viewport edge.

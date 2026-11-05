@@ -29,6 +29,7 @@ internal object StoreCatalogArtwork {
     fun paw(context: Context, characterId: String): View {
         val host = CatalogArtworkHost(context)
         var live: FeaturedPawsPreview? = null
+        host.onScrollPauseChanged = { paused -> live?.setActive(!paused) }
         host.onActiveChanged = { active ->
             if (active) {
                 val pawn = FeaturedPawsPreview(
@@ -41,12 +42,16 @@ internal object StoreCatalogArtwork {
                 live = pawn
                 pawn.characterId = characterId
                 pawn.onReady = {
-                    if (live === pawn) host.reveal(pawn)
+                    host.whenStill {
+                        if (live === pawn) host.reveal(pawn)
+                    }
                 }
                 pawn.onUnavailable = {
-                    if (live === pawn) {
-                        live = null
-                        host.showUnavailable()
+                    host.whenStill {
+                        if (live === pawn) {
+                            live = null
+                            host.showUnavailable()
+                        }
                     }
                 }
                 host.prepare(pawn)
@@ -97,14 +102,16 @@ internal object StoreCatalogArtwork {
                     }
                 }
                 chrome.onArtworkReadyChanged = { ready ->
-                    if (live === board) {
-                        when {
-                            !ready -> {
-                                complete = false
-                                host.cover(board)
+                    host.whenStill {
+                        if (live === board) {
+                            when {
+                                !ready -> {
+                                    complete = false
+                                    host.cover(board)
+                                }
+                                !chrome.hasArtwork -> unavailable()
+                                else -> revealWhenReady()
                             }
-                            !chrome.hasArtwork -> unavailable()
-                            else -> revealWhenReady()
                         }
                     }
                 }
@@ -120,13 +127,15 @@ internal object StoreCatalogArtwork {
                         reducedMotion = true,
                     ),
                 ) { bitmap ->
-                    if (live === board) {
-                        if (bitmap == null) {
-                            unavailable()
-                        } else {
-                            scene.setImageBitmap(bitmap)
-                            sceneReady = true
-                            revealWhenReady()
+                    host.whenStill {
+                        if (live === board) {
+                            if (bitmap == null) {
+                                unavailable()
+                            } else {
+                                scene.setImageBitmap(bitmap)
+                                sceneReady = true
+                                revealWhenReady()
+                            }
                         }
                     }
                 }
@@ -157,11 +166,24 @@ internal object StoreCatalogArtwork {
                 host.postDelayed(this, 5100L + stagger(diceId, 1400L))
             }
         }
+        fun scheduleRoll() {
+            if (die != null && host.motionAllowed) {
+                host.postDelayed(roll, 350L + stagger(diceId, 1400L))
+            }
+        }
+        fun stopRolling() {
+            host.removeCallbacks(roll)
+            host.removeCallbacks(settle)
+            die?.showOutcome(face, animate = false)
+        }
+        host.onScrollPauseChanged = { paused ->
+            if (paused) stopRolling() else scheduleRoll()
+        }
         host.onActiveChanged = { active ->
             generation++
             if (active) {
                 if (die != null) {
-                    if (host.motionAllowed) roll.run()
+                    scheduleRoll()
                 } else {
                     host.clearArtwork()
                     val requested = generation
@@ -169,21 +191,24 @@ internal object StoreCatalogArtwork {
                     preparation = dicePreparation.submit {
                         val renderer = runCatching { DiceRendererRegistry.create(definition, resources) }
                         mainHandler.post {
-                            if (requested == generation) {
-                                preparation = null
-                                renderer.onSuccess { ready ->
-                                    val view = DiceView(context).apply {
-                                        setPreparedPreviewStyle(diceId, ready)
-                                        setPlayerTeamColor(null)
-                                        showOutcome(face, animate = false)
+                            if (requested != generation) return@post
+                            host.whenStill {
+                                if (requested == generation) {
+                                    preparation = null
+                                    renderer.onSuccess { ready ->
+                                        val view = DiceView(context).apply {
+                                            setPreparedPreviewStyle(diceId, ready)
+                                            setPlayerTeamColor(null)
+                                            showOutcome(face, animate = false)
+                                        }
+                                        die = view
+                                        host.prepare(view)
+                                        host.reveal(view)
+                                        scheduleRoll()
+                                    }.onFailure {
+                                        android.util.Log.w("ShopArtwork", "Dice artwork unavailable for $diceId", it)
+                                        host.showUnavailable()
                                     }
-                                    die = view
-                                    host.prepare(view)
-                                    host.reveal(view)
-                                    if (host.motionAllowed) roll.run()
-                                }.onFailure {
-                                    android.util.Log.w("ShopArtwork", "Dice artwork unavailable for $diceId", it)
-                                    host.showUnavailable()
                                 }
                             }
                         }
@@ -192,9 +217,7 @@ internal object StoreCatalogArtwork {
             } else {
                 preparation?.cancel(false)
                 preparation = null
-                host.removeCallbacks(roll)
-                host.removeCallbacks(settle)
-                die?.showOutcome(face, animate = false)
+                stopRolling()
             }
         }
         return host
@@ -242,16 +265,21 @@ private class CatalogArtworkHost(
         importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
     private var artwork: View? = null
-    private var observer: ViewTreeObserver? = null
+    private var scroll: StoreCatalogScrollView? = null
+    private var standaloneObserver: ViewTreeObserver? = null
+    private val deferredArtwork = ArrayDeque<() -> Unit>()
     private var active = false
+    private var paused = false
+    private var loadingRequested = false
     private var startPosted = false
     var onActiveChanged: (Boolean) -> Unit = {}
-    val motionAllowed: Boolean get() = ValueAnimator.areAnimatorsEnabled() && !reducedMotion
+    var onScrollPauseChanged: (Boolean) -> Unit = {}
+    val motionAllowed: Boolean get() = !paused && ValueAnimator.areAnimatorsEnabled() && !reducedMotion
     private val start = Runnable {
         startPosted = false
-        if (eligible()) setArtworkActive(true)
+        if (!paused && eligible()) setArtworkActive(true)
     }
-    private val scrollListener = ViewTreeObserver.OnScrollChangedListener { reconcile(scrolling = true) }
+    private val scrollListener = { reconcile() }
     private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener { reconcile() }
 
     init {
@@ -270,19 +298,22 @@ private class CatalogArtworkHost(
     fun reveal(view: View) {
         if (artwork !== view) return
         view.alpha = 1f
-        loading.visibility = View.INVISIBLE
+        loadingRequested = false
+        updateLoading()
     }
 
     fun cover(view: View) {
         if (artwork !== view) return
         view.alpha = 0f
-        loading.visibility = if (active) View.VISIBLE else View.INVISIBLE
+        loadingRequested = true
+        updateLoading()
     }
 
     fun clearArtwork() {
         artwork?.let { removeView(it) }
         artwork = null
-        loading.visibility = if (active) View.VISIBLE else View.INVISIBLE
+        loadingRequested = true
+        updateLoading()
     }
 
     fun showUnavailable() {
@@ -308,24 +339,48 @@ private class CatalogArtworkHost(
         startPosted = false
     }
 
-    private fun reconcile(scrolling: Boolean = false) {
+    fun whenStill(update: () -> Unit) {
+        if (!isAttachedToWindow) return
+        if (paused) deferredArtwork.addLast(update) else update()
+    }
+
+    private fun updateLoading() {
+        loading.visibility = if (loadingRequested && active && !paused) View.VISIBLE else View.INVISIBLE
+    }
+
+    private fun reconcile() {
+        val moving = scroll?.isMoving == true
+        val pauseChanged = paused != moving
+        paused = moving
+        if (paused) {
+            cancelStart()
+            if (pauseChanged && active) {
+                onScrollPauseChanged(true)
+                updateLoading()
+            }
+            return
+        }
+
         if (!eligible()) {
             cancelStart()
             setArtworkActive(false)
-        } else if (!active) {
-            // First layout starts immediately. During a fling, skip cards that only flash by.
-            if (scrolling) cancelStart()
-            if (!startPosted) {
-                startPosted = true
-                if (scrolling) postDelayed(start, 80L) else post(start)
+            deferredArtwork.clear()
+        } else if (active) {
+            if (pauseChanged) {
+                onScrollPauseChanged(false)
+                while (deferredArtwork.isNotEmpty()) deferredArtwork.removeFirst().invoke()
+                updateLoading()
             }
+        } else if (!startPosted) {
+            startPosted = true
+            post(start)
         }
     }
 
     private fun setArtworkActive(value: Boolean) {
         if (active == value) return
         active = value
-        if (!value) loading.visibility = View.INVISIBLE
+        updateLoading()
         if (value && needsHardware && !isHardwareAccelerated) showUnavailable()
         else onActiveChanged(value)
     }
@@ -333,21 +388,27 @@ private class CatalogArtworkHost(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         reducedMotion = settings.snapshot().reducedMotion
-        observer = viewTreeObserver.also {
-            it.addOnScrollChangedListener(scrollListener)
-            it.addOnGlobalLayoutListener(layoutListener)
+        var ancestor = parent
+        while (ancestor != null && ancestor !is StoreCatalogScrollView) ancestor = ancestor.parent
+        scroll = ancestor as? StoreCatalogScrollView
+        val catalog = scroll
+        if (catalog != null) {
+            catalog.addArtworkListener(scrollListener)
+        } else {
+            standaloneObserver = viewTreeObserver.also { it.addOnGlobalLayoutListener(layoutListener) }
         }
         reconcile()
     }
 
     override fun onDetachedFromWindow() {
-        observer?.takeIf { it.isAlive }?.let {
-            it.removeOnScrollChangedListener(scrollListener)
-            it.removeOnGlobalLayoutListener(layoutListener)
-        }
-        observer = null
+        scroll?.removeArtworkListener(scrollListener)
+        scroll = null
+        standaloneObserver?.takeIf { it.isAlive }?.removeOnGlobalLayoutListener(layoutListener)
+        standaloneObserver = null
         cancelStart()
         setArtworkActive(false)
+        paused = false
+        deferredArtwork.clear()
         super.onDetachedFromWindow()
     }
 
