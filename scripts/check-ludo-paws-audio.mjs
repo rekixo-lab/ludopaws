@@ -228,7 +228,7 @@ for (const marker of ['class LudoPawsFeedbackLedger', 'LinkedHashSet', 'fun once
 
 const onlineRollAnimationIndex = onlineActionsSource.indexOf('diceView.startRolling()');
 const onlineRollLedgerIndex = onlineActionsSource.indexOf('OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, state.randomEventIndex)');
-const onlineRollSoundIndex = onlineActionsSource.indexOf('GameSoundFeedback.roll(this, state.randomEventIndex)');
+const onlineRollSoundIndex = onlineActionsSource.indexOf('GameSoundFeedback.roll(this, state.randomEventIndex, diceStyleId)');
 if (
   onlineRollAnimationIndex < 0 ||
   onlineRollLedgerIndex < onlineRollAnimationIndex ||
@@ -236,7 +236,7 @@ if (
 ) {
   throw new Error('Online roll must start its animation, record the local event once, then play the event-indexed roll sound.');
 }
-if (!onlinePresentationSource.includes('GameSoundFeedback.diceSettle(activity, eventIndex)')) {
+if (!onlinePresentationSource.includes('GameSoundFeedback.diceSettle(activity, eventIndex, pendingDiceId)')) {
   throw new Error('Online committed roll must use the event-indexed dice-settle cue, not restart the roll rattle.');
 }
 for (const marker of [

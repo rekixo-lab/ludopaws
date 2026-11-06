@@ -197,25 +197,21 @@ internal class LudoPawsBoardChromeView(
         if (size <= 0f) return
         val cell = size / 15f
         scaledBounds.set(0f, 0f, size, size)
-        val incoming = staticBoard
         val outgoing = outgoingBoard
+        val baseArtwork = outgoing ?: staticBoard
+        if (baseArtwork != null) {
+            if (baseArtwork.width == size.toInt()) canvas.drawBitmap(baseArtwork, 0f, 0f, null)
+            else canvas.drawBitmap(baseArtwork, null, scaledBounds, bitmapPaint)
+        }
         val slot = revealSlot
-        if (incoming != null && outgoing != null && slot != null) {
-            drawArtwork(canvas, outgoing, size)
+        if (outgoing != null && slot != null) {
             reveal.draw(canvas, size, rotation.toInt(), slot, revealFraction)
-        } else if (incoming != null) {
-            drawArtwork(canvas, incoming, size)
         }
         // The base owns the four finish triangles and pawn coordinates. Joined
         // animated houses are rendered above them by the shared 3D scene.
         // These overlays must stay above opaque chrome, in authoritative board coordinates.
         footprintSource?.drawYardPawPrintsOverlay(canvas, cell)
         footprintSource?.drawFinishRanksOverlay(canvas, cell)
-    }
-
-    private fun drawArtwork(canvas: Canvas, artwork: Bitmap, size: Float) {
-        if (artwork.width == size.toInt()) canvas.drawBitmap(artwork, 0f, 0f, null)
-        else canvas.drawBitmap(artwork, null, scaledBounds, bitmapPaint)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
