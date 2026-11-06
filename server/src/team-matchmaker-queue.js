@@ -11,7 +11,7 @@ import {
 import {
   normalizeCharacterId,
 } from "./ludo-paws-characters.js";
-import { assertHumanCharacterAccess } from "./character-access.js";
+import { resolveHumanMatchStyle } from "./character-access.js";
 import {
   CHARACTER_PREFERENCE_WINDOW_MS,
   characterPreferenceKey,
@@ -168,7 +168,7 @@ export class TeamMatchmakerQueue {
   async #search(request, body) {
     const profileId = await this.#profileIdentity(request);
     const participant = normalizeParticipant(body, profileId, this.env);
-    await assertHumanCharacterAccess(request, this.env, participant.characterId, { profileId });
+    participant.matchStyle = await resolveHumanMatchStyle(request, this.env, participant.characterId, { profileId }, body?.matchStyle);
     participant.locationHint = normalizeMatchLocationHint(request.headers.get(MATCH_LOCATION_HEADER));
     const now = Date.now();
     let state = this.#cleanup(await this.#load(), now);
@@ -200,6 +200,7 @@ export class TeamMatchmakerQueue {
         ...existing,
         displayName: participant.displayName,
         characterId: participant.characterId,
+        matchStyle: participant.matchStyle,
         rulesetKey: participant.rulesetKey,
         lastSeenAt: now,
       };
@@ -457,6 +458,7 @@ export class TeamMatchmakerQueue {
             matchId,
             displayName: host.displayName,
             characterId: normalizeCharacterId(host.characterId),
+            matchStyle: host.matchStyle,
             clientRequestId: host.clientRequestId,
             matchmaking: true,
             targetPlayerCount: TARGET_PLAYER_COUNT,
@@ -497,6 +499,7 @@ export class TeamMatchmakerQueue {
             body: JSON.stringify({
               displayName: participant.displayName,
               characterId: normalizeCharacterId(participant.characterId),
+              matchStyle: participant.matchStyle,
               clientRequestId: participant.clientRequestId,
             }),
           }),

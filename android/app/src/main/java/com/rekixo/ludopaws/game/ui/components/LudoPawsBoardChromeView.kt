@@ -1,5 +1,8 @@
 package com.rekixo.ludopaws
 
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -26,34 +29,133 @@ internal class LudoPawsBoardChromeView(
     private var staticBoard: Bitmap? = null
     internal val hasArtwork: Boolean get() = staticBoard != null
     private var requestedKey: ArtworkKey? = null
+    private var installedKey: ArtworkKey? = null
+    private var turnSlot: OfflinePlayerLayout.Slot? = null
+    private var turnDefinitions = emptySet<BoardDefinition>()
+    private val warmedBoards = mutableMapOf<ArtworkKey, Bitmap>()
+    private var warmKeys = emptySet<ArtworkKey>()
+    private val reveal = TurnBoardReveal()
+    private var outgoingBoard: Bitmap? = null
+    private var revealSlot: OfflinePlayerLayout.Slot? = null
+    private var revealFraction = 0f
+    private var revealAnimator: ValueAnimator? = null
+    private var nextArtwork: Pair<ArtworkKey, Bitmap?>? = null
+    internal var onTurnThemeApplied: ((String) -> Unit)? = null
     internal var artworkReady = false
         private set
     internal var onArtworkReadyChanged: ((Boolean) -> Unit)? = null
 
-    private fun requestArtwork() {
+    private fun artworkKey(theme: BoardDefinition): ArtworkKey? {
         val displayPixels = min(width, height)
-        if (displayPixels <= 0) return
-        val pixels = displayPixels.coerceAtMost(maxArtworkPixels)
+        if (displayPixels <= 0) return null
+        val cap = if (turnSlot == null) maxArtworkPixels else min(maxArtworkPixels, MAX_TURN_BOARD_PIXELS)
+        val pixels = displayPixels.coerceAtMost(cap)
         val density = resources.displayMetrics.density * (pixels.toFloat() / displayPixels)
-        val key = ArtworkKey(pixels, density, definition)
+        return ArtworkKey(pixels, density, theme)
+    }
+
+    private fun requestArtwork() {
+        val key = artworkKey(definition) ?: return
         if (requestedKey == key) return
         requestedKey = key
-        staticBoard = null
-        artworkReady = false
-        onArtworkReadyChanged?.invoke(false)
-        cached(key)?.let { installArtwork(key, it); return }
+        nextArtwork = null
+        if (turnSlot == null || staticBoard == null) {
+            staticBoard = null
+            artworkReady = false
+            onArtworkReadyChanged?.invoke(false)
+        }
+        if (installedKey == key && staticBoard != null) return
+        (warmedBoards[key] ?: cached(key))?.let { installArtwork(key, it); return }
         prepareArtwork(key) { bitmap ->
             post { if (requestedKey == key) installArtwork(key, bitmap) }
         }
     }
 
+    private fun warmTurnBoards() {
+        val keys = turnDefinitions.mapNotNull(::artworkKey).toSet()
+        if (keys == warmKeys) return
+        warmedBoards.keys.retainAll(keys)
+        val newKeys = keys - warmKeys
+        warmKeys = keys
+        newKeys.forEach { key ->
+            cached(key)?.let { warmedBoards[key] = it } ?: prepareArtwork(key) { bitmap ->
+                post { if (key in warmKeys && bitmap != null) warmedBoards[key] = bitmap }
+            }
+        }
+    }
+
     private fun installArtwork(key: ArtworkKey, bitmap: Bitmap?) {
         if (requestedKey != key) return
+        if (revealAnimator != null) {
+            nextArtwork = key to bitmap
+            return
+        }
+        val oldBoard = staticBoard
+        val oldKey = installedKey
+        val slot = turnSlot
+        // A failed bake during play keeps the currently usable board and renderer.
+        if (slot != null && bitmap == null && oldBoard != null) return
+
         staticBoard = bitmap
-        // A failed decoration bake must still release the playable base-board fallback.
-        artworkReady = true
+        installedKey = key
+        if (slot != null) {
+            if (oldBoard != null && bitmap != null && oldKey != null && oldKey.pixels == key.pixels &&
+                oldKey.definition != key.definition && isShown && ValueAnimator.areAnimatorsEnabled()
+            ) {
+                startReveal(oldBoard, bitmap, slot)
+            } else {
+                onTurnThemeApplied?.invoke(key.definition.id)
+            }
+        }
+        if (!artworkReady) {
+            artworkReady = true
+            onArtworkReadyChanged?.invoke(true)
+        }
         invalidate()
-        onArtworkReadyChanged?.invoke(true)
+    }
+
+    private fun startReveal(oldBoard: Bitmap, newBoard: Bitmap, slot: OfflinePlayerLayout.Slot) {
+        reveal.setIncoming(newBoard)
+        outgoingBoard = oldBoard
+        revealSlot = slot
+        revealFraction = 0f
+        val animator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 240L
+            addUpdateListener {
+                revealFraction = it.animatedValue as Float
+                invalidate()
+            }
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    revealAnimator = null
+                    reveal.clear()
+                    outgoingBoard = null
+                    revealSlot = null
+                    installedKey?.let { onTurnThemeApplied?.invoke(it.definition.id) }
+                    invalidate()
+                    val queued = nextArtwork
+                    nextArtwork = null
+                    if (queued != null) installArtwork(queued.first, queued.second)
+                }
+            })
+        }
+        revealAnimator = animator
+        animator.start()
+    }
+
+    internal fun showTurnTheme(
+        themeId: String,
+        slot: OfflinePlayerLayout.Slot,
+        matchThemeIds: Set<String>,
+    ) {
+        val next = BoardRegistry.resolve(themeId)
+        val definitions = matchThemeIds.mapTo(linkedSetOf(), BoardRegistry::resolve)
+        if (turnSlot == slot && definition == next && turnDefinitions == definitions) return
+        turnSlot = slot
+        turnDefinitions = definitions
+        definition = next
+        requestArtwork()
+        warmTurnBoards()
     }
 
     init {
@@ -65,10 +167,15 @@ internal class LudoPawsBoardChromeView(
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         reloadStyle()
+        if (turnSlot != null && staticBoard != null) {
+            installedKey?.let { onTurnThemeApplied?.invoke(it.definition.id) }
+        }
         requestArtwork()
+        warmTurnBoards()
     }
 
     fun reloadStyle() {
+        if (turnSlot != null) return
         val next = BoardRegistry.resolve(previewBoardThemeId ?: CosmeticInventoryStore(context).selectedId(CosmeticCategory.BOARD))
         if (next != definition) {
             definition = next
@@ -89,13 +196,15 @@ internal class LudoPawsBoardChromeView(
         val size = min(width, height).toFloat()
         if (size <= 0f) return
         val cell = size / 15f
-        staticBoard?.let { artwork ->
-            if (artwork.width == size.toInt()) {
-                canvas.drawBitmap(artwork, 0f, 0f, null)
-            } else {
-                scaledBounds.set(0f, 0f, size, size)
-                canvas.drawBitmap(artwork, null, scaledBounds, bitmapPaint)
-            }
+        scaledBounds.set(0f, 0f, size, size)
+        val incoming = staticBoard
+        val outgoing = outgoingBoard
+        val slot = revealSlot
+        if (incoming != null && outgoing != null && slot != null) {
+            drawArtwork(canvas, outgoing, size)
+            reveal.draw(canvas, size, rotation.toInt(), slot, revealFraction)
+        } else if (incoming != null) {
+            drawArtwork(canvas, incoming, size)
         }
         // The base owns the four finish triangles and pawn coordinates. Joined
         // animated houses are rendered above them by the shared 3D scene.
@@ -104,14 +213,29 @@ internal class LudoPawsBoardChromeView(
         footprintSource?.drawFinishRanksOverlay(canvas, cell)
     }
 
+    private fun drawArtwork(canvas: Canvas, artwork: Bitmap, size: Float) {
+        if (artwork.width == size.toInt()) canvas.drawBitmap(artwork, 0f, 0f, null)
+        else canvas.drawBitmap(artwork, null, scaledBounds, bitmapPaint)
+    }
+
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         super.onSizeChanged(w, h, oldw, oldh)
         requestArtwork()
+        warmTurnBoards()
     }
 
     override fun onDetachedFromWindow() {
         // Ignore an obsolete asynchronous result after this view leaves its host.
         requestedKey = null
+        nextArtwork = null
+        revealAnimator?.removeAllListeners()
+        revealAnimator?.cancel()
+        revealAnimator = null
+        reveal.clear()
+        outgoingBoard = null
+        revealSlot = null
+        warmedBoards.clear()
+        warmKeys = emptySet()
         super.onDetachedFromWindow()
     }
 
@@ -123,6 +247,8 @@ internal class LudoPawsBoardChromeView(
     private data class ArtworkKey(val pixels: Int, val density: Float, val definition: BoardDefinition)
 
     companion object {
+        // Retain all four equipped themes within roughly 13 MB per online match.
+        private const val MAX_TURN_BOARD_PIXELS = 896
         private val artworkLock = Any()
         private val completed = object : android.util.LruCache<ArtworkKey, Bitmap>(12 * 1024 * 1024) {
             override fun sizeOf(key: ArtworkKey, value: Bitmap): Int = value.byteCount
@@ -168,6 +294,7 @@ internal class LudoPawsBoardChromeView(
                             val yardHabitatRenderer = LudoPawsYardHabitatRenderer()
                             renderer.draw(target, size, density, definition)
                             if (definition.yardHabitatEnabled) yardHabitatRenderer.draw(target, cell)
+                            artwork.prepareToDraw()
                             artwork
                         }
                         val bitmap = result.getOrNull()

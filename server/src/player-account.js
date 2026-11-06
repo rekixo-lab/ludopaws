@@ -78,6 +78,11 @@ const COSMETICS = Object.freeze({
   character_pack_jungle_paws: { category: "CHARACTER_PACK", kind: "GEMS", available: false, gemPrice: 550, level: 0, ads: 0 },
 });
 
+export function registeredMatchCosmetic(id, category) {
+  const cosmetic = Object.hasOwn(COSMETICS, id) ? COSMETICS[id] : null;
+  return cosmetic?.category === category ? cosmetic : null;
+}
+
 export class PlayerAccount {
   constructor(ctx, env) {
     this.ctx = ctx; this.env = env;

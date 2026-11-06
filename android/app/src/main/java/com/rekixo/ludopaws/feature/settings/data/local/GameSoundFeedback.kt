@@ -140,8 +140,8 @@ object GameSoundFeedback {
         )
         // Only prewarm the selected cosmetic, not every future dice skin.
         for (paths in listOf(
-            selectedDiceSoundPaths(context, settle = false),
-            selectedDiceSoundPaths(context, settle = true),
+            diceSoundPaths(context, settle = false),
+            diceSoundPaths(context, settle = true),
         )) {
             if (paths.isNotEmpty()) {
                 preload(context = context, rawResourceNames = emptyList(), assetPaths = paths)
@@ -209,7 +209,7 @@ object GameSoundFeedback {
         characterId: String? = null,
     ) = moveStep(context, characterId)
 
-    fun roll(context: Context, eventIndex: Int? = null) =
+    fun roll(context: Context, eventIndex: Int? = null, diceId: String? = null) =
         playEventForIndex(
             context = context,
             eventIndex = eventIndex,
@@ -218,11 +218,11 @@ object GameSoundFeedback {
             volume = .50f,
             priority = PRIORITY_ROLL,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_ROLL,
-            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = false),
+            cosmeticOverrideAssetPaths = diceSoundPaths(context, settle = false, diceId = diceId),
         )
 
     /** Short landing tick when the verified dice face is revealed. */
-    fun diceSettle(context: Context, eventIndex: Int? = null) =
+    fun diceSettle(context: Context, eventIndex: Int? = null, diceId: String? = null) =
         playEventForIndex(
             context = context,
             eventIndex = eventIndex,
@@ -231,7 +231,7 @@ object GameSoundFeedback {
             volume = .32f,
             priority = PRIORITY_HIGH,
             assetPaths = LudoPawsAudioCatalog.Sfx.DICE_SETTLE,
-            cosmeticOverrideAssetPaths = selectedDiceSoundPaths(context, settle = true),
+            cosmeticOverrideAssetPaths = diceSoundPaths(context, settle = true, diceId = diceId),
         )
 
     fun six(context: Context) =
@@ -396,8 +396,8 @@ object GameSoundFeedback {
         }
     }
 
-    private fun selectedDiceSoundPaths(context: Context, settle: Boolean): List<String> {
-        val selectedId = CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
+    private fun diceSoundPaths(context: Context, settle: Boolean, diceId: String? = null): List<String> {
+        val selectedId = diceId ?: CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
         val definition = DiceRegistry.resolve(selectedId)
         return if (settle) definition.settleSoundPaths else definition.rollSoundPaths
     }

@@ -147,6 +147,7 @@ internal fun MainActivity.beginPublicMatchmaking() {
                     ticket.playerCount,
                 characterId = character.characterId,
                 characterAccountToken = character.accountToken,
+                matchStyle = character.matchStyle,
                 rulesetKey = "CLASSIC_V7",
             )
         },

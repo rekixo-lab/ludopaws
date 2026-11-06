@@ -1341,6 +1341,7 @@ class FriendsActivity : Activity() {
                     playerCount = playerCount,
                     characterId = character.characterId,
                     characterAccountToken = character.accountToken,
+                    matchStyle = character.matchStyle,
                 )
             },
             onSuccess = success@ { response ->
@@ -1459,6 +1460,7 @@ class FriendsActivity : Activity() {
                     friendJoinToken = accepted.getString("friendJoinToken"),
                     characterId = character.characterId,
                     characterAccountToken = character.accountToken,
+                    matchStyle = character.matchStyle,
                 )
             },
             onSuccess = success@ { response ->

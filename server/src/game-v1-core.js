@@ -720,6 +720,8 @@ export function publicState(state) {
       playerId: player.playerId,
       displayName: player.displayName,
       characterId: publicCharacterId(player.characterId),
+      ...(player.matchStyle?.boardId ? { boardId: player.matchStyle.boardId } : {}),
+      ...(player.matchStyle?.diceId ? { diceId: player.matchStyle.diceId } : {}),
       playerType: player.playerType === "BOT" ? "BOT" : "HUMAN",
       color: player.color,
       seat,

@@ -11,6 +11,7 @@ import com.rekixo.ludopaws.feature.settings.data.local.GameSettingsStore
 
 internal fun MainActivity.updateVerification(
     state: MatchSnapshot,
+    previousState: MatchSnapshot? = null,
 ) {
     val pending = state.pendingRoll
     val presentation =
@@ -18,32 +19,39 @@ internal fun MainActivity.updateVerification(
 
     verificationText.text =
         if (presentation != null) {
-            val shouldAnimate =
-                uiStateHolder.value.presentedDiceEventKey !=
-                    presentation.eventKey
+            val activeSeat = state.actingSeat ?: state.turnSeat
+            val rollerId = if (pending != null) {
+                state.players.getOrNull(pending.seat)?.playerId
+            } else {
+                state.history.lastOrNull()?.playerId
+            }
+            val activePlayerId = state.players.getOrNull(activeSeat)?.playerId
+            val rollView = rollerId?.let { OnlineLudoPawsPresentation.diceForPlayer(this, it) }
+                ?: diceView.takeIf { rollerId == activePlayerId }
+            val unseenEvent = uiStateHolder.value.presentedDiceEventKey != presentation.eventKey
+            val shouldAnimate = unseenEvent && state.status == "ACTIVE" &&
+                (rollerId == activePlayerId || previousState?.matchId == state.matchId)
             val minimumRollDurationMillis =
                 LudoPawsGameplayPacingPolicy.diceResultHoldMillis(
                     GameSettingsStore(this).snapshot().gameSpeed,
                 )
-            diceView.showOutcome(
+            rollView?.showOutcome(
                 outcome = presentation.outcome,
                 animate = shouldAnimate,
                 eventKey = presentation.eventKey,
                 minimumRollDurationMillis = minimumRollDurationMillis,
             )
-            if (shouldAnimate) {
+            if (unseenEvent) {
                 uiStateHolder.update {
-                    it.copy(
-                        presentedDiceEventKey = presentation.eventKey,
-                    )
+                    it.copy(presentedDiceEventKey = presentation.eventKey)
                 }
-                val remainingPresentationMillis =
-                    diceView.remainingOutcomePresentationMillis(minimumRollDurationMillis)
-                if (remainingPresentationMillis > 0L) {
-                    onlineGameplayActionBlockedUntilMillis = maxOf(
-                        onlineGameplayActionBlockedUntilMillis,
-                        SystemClock.uptimeMillis() + remainingPresentationMillis,
-                    )
+            }
+            if (shouldAnimate && rollView != null && rollerId != null) {
+                val remaining = rollView.remainingOutcomePresentationMillis(minimumRollDurationMillis)
+                if (remaining > 0L) {
+                    val until = SystemClock.uptimeMillis() + remaining
+                    onlineGameplayActionBlockedUntilMillis = maxOf(onlineGameplayActionBlockedUntilMillis, until)
+                    OnlineLudoPawsPresentation.holdOutgoingDice(this, state, rollerId, until)
                     scheduleOnlineGameplayUnlock()
                 }
             }

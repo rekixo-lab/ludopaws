@@ -19,6 +19,7 @@ import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.MatchSnapshot
 import com.rekixo.ludopaws.OfflinePlayerLayout
+import com.rekixo.ludopaws.OnlineVerifiedDicePresentationPolicy
 import com.rekixo.ludopaws.PlayerSnapshot
 import com.rekixo.ludopaws.renderFirstMatchCoach
 import com.rekixo.ludopaws.feature.characters.domain.reaction.LudoPawsFeedbackLedger
@@ -49,6 +50,8 @@ internal object OnlineLudoPawsPresentation {
         var railBindingKey: String? = null,
         var activeDiceControl: FrameLayout? = null,
         var activeDicePlayerId: String? = null,
+        var outgoingDicePlayerId: String? = null,
+        var outgoingDiceUntil: Long = 0L,
         var railAlignmentListener: ViewTreeObserver.OnGlobalLayoutListener? = null,
         var railDiagnosticKey: String? = null,
         val topProfileCards: MutableList<View> = mutableListOf(),
@@ -81,6 +84,19 @@ internal object OnlineLudoPawsPresentation {
                 it.playerId == activity.playerId
             }?.color
 
+        val boardOwner = when (current.status) {
+            "ACTIVE" -> current.players.getOrNull(current.actingSeat ?: current.turnSeat)
+            "WAITING" -> current.players.firstOrNull { it.playerId == activity.playerId }
+                ?: current.players.firstOrNull()
+            else -> null
+        }
+        boardOwner?.let { owner ->
+            host.board.showTurnBoard(
+                themeId = owner.matchBoardStyleId(),
+                slot = playerSlot(owner, current.players.size, activity.playerId, localColor ?: "BLUE"),
+                matchThemeIds = current.players.mapTo(linkedSetOf()) { it.matchBoardStyleId() },
+            )
+        }
         activity.boardView.visibility = View.GONE
         host.board.visibility = View.VISIBLE
         host.board.bind(
@@ -189,6 +205,23 @@ internal object OnlineLudoPawsPresentation {
             perspectiveColor = localColor,
         )
     }
+
+    fun diceForPlayer(activity: MainActivity, playerId: String): DiceView? {
+        val host = host(activity) ?: return null
+        return diceControl(host, playerId)?.getChildAt(0) as? DiceView
+    }
+
+    fun holdOutgoingDice(activity: MainActivity, state: MatchSnapshot, playerId: String, until: Long) {
+        val host = host(activity) ?: return
+        if (state.status != "ACTIVE" || playerId == host.activeDicePlayerId) return
+        host.outgoingDicePlayerId = playerId
+        host.outgoingDiceUntil = until
+        refreshActionControls(activity, state)
+    }
+
+    private fun diceControl(host: Host, playerId: String): FrameLayout? =
+        host.topRail.findViewWithTag<FrameLayout>("dice:$playerId")
+            ?: host.bottomRail.findViewWithTag<FrameLayout>("dice:$playerId")
 
     fun beginPendingMovePreview(
         activity: MainActivity,
@@ -399,11 +432,18 @@ internal object OnlineLudoPawsPresentation {
                 append(':').append(player.teamId)
                 append(':').append(player.playerType)
                 append(':').append(player.seat)
+                append(':').append(player.diceId)
             }
         }
 
         fun bindRailState() {
             val previousDice = activity.diceView
+            if (state.status != "ACTIVE" || state.pendingRoll != null ||
+                SystemClock.uptimeMillis() >= host.outgoingDiceUntil
+            ) {
+                host.outgoingDicePlayerId = null
+            }
+            val visibleDicePlayerId = host.outgoingDicePlayerId ?: activePlayer?.playerId
             host.activeDiceControl = null
             host.activeDicePlayerId = null
             host.activeDiceProfileCard = null
@@ -419,15 +459,23 @@ internal object OnlineLudoPawsPresentation {
                     localPlayer = player.playerId == activity.playerId,
                     portraitOnEnd = card.layoutDirection == View.LAYOUT_DIRECTION_RTL,
                 )
-                val control = host.topRail.findViewWithTag<FrameLayout>("dice:${player.playerId}")
-                    ?: host.bottomRail.findViewWithTag<FrameLayout>("dice:${player.playerId}")
-                control?.visibility = if (active) View.VISIBLE else View.GONE
+                val control = diceControl(host, player.playerId)
+                val visible = state.status == "ACTIVE" && player.playerId == visibleDicePlayerId
+                control?.apply {
+                    visibility = if (visible) View.VISIBLE else View.GONE
+                    if (!active) {
+                        isEnabled = false
+                        isClickable = false
+                        isFocusable = false
+                        (getChildAt(0) as DiceView).setAttentionEnabled(false)
+                    }
+                }
                 if (active && control != null) {
                     host.activeDiceControl = control
                     host.activeDicePlayerId = player.playerId
                     host.activeDiceProfileCard = card
                     activity.diceView = control.getChildAt(0) as DiceView
-                    val enabled = player.playerId == activity.playerId &&
+                    val enabled = visible && player.playerId == activity.playerId &&
                         activity.canSubmitOnlineGameplayAction() && activity.onlineRollActionDecision(state).enabled
                     control.isEnabled = enabled
                     control.isClickable = enabled
@@ -437,7 +485,13 @@ internal object OnlineLudoPawsPresentation {
             }
             if (previousDice !== activity.diceView || host.activeDiceControl == null) {
                 previousDice.setTurnDeadlineAt(null)
-                previousDice.stopRolling()
+                val finishingDice = if (state.status == "ACTIVE" && state.pendingRoll == null) {
+                    OnlineVerifiedDicePresentationPolicy.resolve(state)
+                        ?.takeIf { it.eventKey != activity.uiStateHolder.value.presentedDiceEventKey }
+                        ?.let { state.history.lastOrNull()?.playerId }
+                        ?.let { diceForPlayer(activity, it) }
+                } else null
+                if (previousDice !== finishingDice) previousDice.stopRolling()
             }
         }
 
@@ -706,6 +760,17 @@ internal object OnlineLudoPawsPresentation {
         )
     }
 
+    private fun playerSlot(
+        player: PlayerSnapshot,
+        playerCount: Int,
+        localPlayerId: String?,
+        preferredBottomLeftColor: String,
+    ): OfflinePlayerLayout.Slot =
+        if (playerCount == 2) {
+            if (player.playerId == localPlayerId) OfflinePlayerLayout.Slot.BOTTOM_LEFT
+            else OfflinePlayerLayout.Slot.TOP_RIGHT
+        } else OfflinePlayerLayout.slotForColor(player.color, preferredBottomLeftColor)
+
     private fun addPlayerSlot(
         activity: MainActivity,
         quickChatHost: Host,
@@ -717,23 +782,9 @@ internal object OnlineLudoPawsPresentation {
         preferredBottomLeftColor: String,
         characterIdsBySeat: List<String>,
     ) {
-        val player =
-            state.players.firstOrNull {
-                val resolvedSlot =
-                    if (state.players.size == 2) {
-                        if (it.playerId == activity.playerId) {
-                            OfflinePlayerLayout.Slot.BOTTOM_LEFT
-                        } else {
-                            OfflinePlayerLayout.Slot.TOP_RIGHT
-                        }
-                    } else {
-                        OfflinePlayerLayout.slotForColor(
-                            color = it.color,
-                            preferredBottomLeftColor = preferredBottomLeftColor,
-                        )
-                    }
-                resolvedSlot == slot
-            }
+        val player = state.players.firstOrNull {
+            playerSlot(it, state.players.size, activity.playerId, preferredBottomLeftColor) == slot
+        }
 
         val slotHost =
             LinearLayout(activity).apply {
@@ -928,7 +979,8 @@ internal object OnlineLudoPawsPresentation {
                 }
             }
         val dice =
-            com.rekixo.ludopaws.DiceView(activity).apply {
+            DiceView(activity).apply {
+                setMatchStyle(player.matchDiceStyle().id)
                 setPlayerTeamColor(player.color)
                 alpha = 1f
             }
@@ -967,6 +1019,8 @@ internal object OnlineLudoPawsPresentation {
 
         val pending = current.pendingRoll
         val previousPending = previous.pendingRoll
+        val pendingDiceId = pending?.let { current.players.getOrNull(it.seat)?.matchDiceStyle()?.id }
+            ?: "dice_classic"
         val newRollEvent =
             pending != null &&
                 previousPending?.eventIndex != pending.eventIndex
@@ -980,7 +1034,7 @@ internal object OnlineLudoPawsPresentation {
                 key = "ROLL_START:${pending!!.eventIndex}",
             )
         ) {
-            GameSoundFeedback.roll(activity, pending!!.eventIndex)
+            GameSoundFeedback.roll(activity, pending!!.eventIndex, pendingDiceId)
         }
 
         val newlyResolvedPending =
@@ -1000,7 +1054,9 @@ internal object OnlineLudoPawsPresentation {
             val eventIndex = pending!!.eventIndex
             activity.mainHandler.postDelayed(
                 {
-                    if (activity.canRenderUi()) GameSoundFeedback.diceSettle(activity, eventIndex)
+                    if (activity.canRenderUi() && activity.currentState?.matchId == current.matchId) {
+                        GameSoundFeedback.diceSettle(activity, eventIndex, pendingDiceId)
+                    }
                 },
                 if (newRollEvent) 320L else 0L,
             )
@@ -1017,13 +1073,15 @@ internal object OnlineLudoPawsPresentation {
             // No legal destination can clear the pending roll immediately; this
             // history-only path still delivers the shared roll/settle pair.
             val latest = requireNotNull(current.history.lastOrNull())
+            val historyDiceId = current.players.firstOrNull { it.playerId == latest.playerId }
+                ?.matchDiceStyle()?.id ?: "dice_classic"
             if (
                 host.feedbackLedger.once(
                     matchId = current.matchId,
                     key = "ROLL_START:${latest.eventIndex}",
                 )
             ) {
-                GameSoundFeedback.roll(activity, latest.eventIndex)
+                GameSoundFeedback.roll(activity, latest.eventIndex, historyDiceId)
             }
             if (
                 host.feedbackLedger.once(
@@ -1031,7 +1089,7 @@ internal object OnlineLudoPawsPresentation {
                     key = "ROLL_SETTLE:${latest.eventIndex}",
                 )
             ) {
-                GameSoundFeedback.diceSettle(activity, latest.eventIndex)
+                GameSoundFeedback.diceSettle(activity, latest.eventIndex, historyDiceId)
             }
         }
 

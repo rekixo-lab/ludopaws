@@ -76,6 +76,7 @@ internal fun MainActivity.createMatch() {
                     requestId,
                 characterId = character.characterId,
                 characterAccountToken = character.accountToken,
+                matchStyle = character.matchStyle,
                 rulesetKey = "CLASSIC_V7",
             )
         },
@@ -162,6 +163,7 @@ internal fun MainActivity.joinMatch() {
                     credential.profileToken,
                 characterId = character.characterId,
                 characterAccountToken = character.accountToken,
+                matchStyle = character.matchStyle,
             )
         },
         onSuccess = {
@@ -249,7 +251,9 @@ internal fun MainActivity.rollVerifiedDice() {
         diceView.startRolling()
         gameplayPawsPromotion?.quietFor(1_500L)
         OnlineLudoPawsPresentation.noteLocalRollStarted(this, code, state.randomEventIndex)
-        GameSoundFeedback.roll(this, state.randomEventIndex)
+        val diceStyleId = state.players.getOrNull(state.actingSeat ?: state.turnSeat)
+            ?.matchDiceStyle()?.id ?: "dice_classic"
+        GameSoundFeedback.roll(this, state.randomEventIndex, diceStyleId)
         verificationText.text = "Rolling…"
 
         runNetwork(

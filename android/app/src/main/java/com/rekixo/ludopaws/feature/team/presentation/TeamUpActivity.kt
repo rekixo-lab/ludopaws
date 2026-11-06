@@ -836,6 +836,7 @@ class TeamUpActivity : ComponentActivity() {
                     clientRequestId = ticket.requestId,
                     characterId = character.characterId,
                     characterAccountToken = character.accountToken,
+                    matchStyle = character.matchStyle,
                 )
             },
             onSuccess = ::applyMatchmakingResponse,

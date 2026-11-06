@@ -43,7 +43,7 @@ import {
 import {
   normalizeCharacterId,
 } from "./ludo-paws-characters.js";
-import { assertHumanCharacterAccess } from "./character-access.js";
+import { resolveHumanMatchStyle } from "./character-access.js";
 import {
   LEGACY_RULESET_KEY,
   LEGACY_TEAM_RULESET_KEY,
@@ -379,8 +379,11 @@ export class MatchRoom {
     // Signed matchmaking assertions originate from queues that verified
     // human ownership at entry. Unasserted direct/Friends requests must be
     // checked here; server-issued BOT seats are never subject to paid unlocks.
-    if (playerType !== "BOT" && !(matchMode !== "FRIENDS" && request.headers.has("x-ludoproof-profile-assertion"))) {
-      await assertHumanCharacterAccess(request, this.env, characterId, { profileId, friendId: hostFriend?.friendId });
+    let matchStyle;
+    if (playerType !== "BOT") {
+      matchStyle = matchMode !== "FRIENDS" && request.headers.has("x-ludoproof-profile-assertion")
+        ? body?.matchStyle
+        : await resolveHumanMatchStyle(request, this.env, characterId, { profileId, friendId: hostFriend?.friendId }, body?.matchStyle);
     }
 
     const identity =
@@ -460,6 +463,7 @@ export class MatchRoom {
       tokenAuthHash,
       now,
     );
+    if (matchStyle) state.players[0].matchStyle = matchStyle;
     state.createRequestId =
       clientRequestId;
     state.players[0]
@@ -632,8 +636,11 @@ export class MatchRoom {
       }
     }
 
-    if (playerType !== "BOT" && !(state.matchMode !== "FRIENDS" && request.headers.has("x-ludoproof-profile-assertion"))) {
-      await assertHumanCharacterAccess(request, this.env, characterId, { profileId, friendId: friendJoin?.friendId });
+    let matchStyle;
+    if (playerType !== "BOT") {
+      matchStyle = state.matchMode !== "FRIENDS" && request.headers.has("x-ludoproof-profile-assertion")
+        ? body?.matchStyle
+        : await resolveHumanMatchStyle(request, this.env, characterId, { profileId, friendId: friendJoin?.friendId }, body?.matchStyle);
     }
 
     const identity =
@@ -700,6 +707,7 @@ export class MatchRoom {
         now: Date.now(),
       },
     );
+    if (matchStyle) next.players.at(-1).matchStyle = matchStyle;
     next.players[
       next.players.length - 1
     ].joinRequestId =

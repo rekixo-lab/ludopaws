@@ -214,7 +214,7 @@ internal fun MainActivity.applyResponse(
         }
 
     updateTurnBanner(state)
-    updateVerification(state)
+    updateVerification(state, previousState)
     if (proofDetailsText.isShown) proofDetailsText.text = proofDetails(state)
     updateControls(state)
     updateRollButton()
