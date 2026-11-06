@@ -38,6 +38,7 @@ class ReferralActivity : Activity() {
     private lateinit var progress: TextView
     private lateinit var ownership: TextView
     private lateinit var action: Button
+    private lateinit var ordinaryShare: Button
     private lateinit var connect: Button
     private var loadingStatus = false
     private var externalLaunchAt = 0L
@@ -133,7 +134,9 @@ class ReferralActivity : Activity() {
             visibility = android.view.View.GONE
         }
         content.addView(stop, LinearLayout.LayoutParams(-1, -2))
-        content.addView(quietButton(getString(R.string.share_chooser_title) + "  ↗") { shareGame() }, LinearLayout.LayoutParams(-1, -2))
+        ordinaryShare = quietButton(getString(R.string.share_chooser_title) + "  ↗") { shareGame() }
+            .apply { visibility = View.GONE }
+        content.addView(ordinaryShare, LinearLayout.LayoutParams(-1, -2))
         val centeredContent = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -339,7 +342,7 @@ class ReferralActivity : Activity() {
             timedPanel.visibility = View.GONE
             timedShowcase?.setActive(false)
             progress.text = "Offline · you can share the game now. Connect to check invitation rewards."
-            action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
+            updatePrimaryShare()
             refresh.isEnabled = true
             return
         }
@@ -349,7 +352,8 @@ class ReferralActivity : Activity() {
         connect.visibility = View.GONE
         verify?.isEnabled = false
         stop.isEnabled = false
-        action.text = "Share Ludo Paws  ↗"; action.isEnabled = true; refresh.isEnabled = false
+        updatePrimaryShare()
+        refresh.isEnabled = false
         val requestGeneration = ++generation
         ReferralRepository.executor.execute {
             val result = runCatching { repository.status(createAccount = true) }
@@ -360,7 +364,7 @@ class ReferralActivity : Activity() {
                     val current = (application as com.rekixo.ludopaws.LudoProofApplication).accountRepository.currentSession()
                     if (snapshot.has("localAccountId") && snapshot.optString("localAccountId") != current?.accountId) {
                         status = null; timedPanel.visibility = View.GONE; timedShowcase?.setActive(false); progress.text = "Account changed. Refresh to check invitation rewards; you can still share the game."
-                        action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
+                        updatePrimaryShare()
                         return@onSuccess
                     }
                     status = snapshot; render(snapshot)
@@ -370,7 +374,7 @@ class ReferralActivity : Activity() {
                     timedPanel.visibility = View.GONE
                     timedShowcase?.setActive(false)
                     progress.text = "Invitation rewards could not load. You can still share the game; tap Refresh to retry."
-                    action.text = "Share Ludo Paws  ↗"; action.isEnabled = true
+                    updatePrimaryShare()
                 }
                 if (reloadAfterConnection && resumed) { reloadAfterConnection = false; load() }
             }
@@ -417,8 +421,7 @@ class ReferralActivity : Activity() {
             state == "FRIEND_JOINED" -> "Friend joined! Next: a completed real match."
             else -> "Ready for your first invitation."
         }
-        action.text = if (enabled && linked && !privacyBlocked && state !in setOf("REWARDED", "VERIFYING")) "Invite a friend  ↗" else "Share Ludo Paws  ↗"
-        action.isEnabled = !busy
+        updatePrimaryShare(enabled && linked && !privacyBlocked && state !in setOf("REWARDED", "VERIFYING"))
         connect.visibility = if ((enabled || offer?.canInvite == true) && !linked && !privacyBlocked) View.VISIBLE else View.GONE
         connect.isEnabled = !busy
         verify?.isEnabled = snapshot.optBoolean("verificationEnabled", enabled) && linked && !busy && !privacyBlocked
@@ -447,6 +450,12 @@ class ReferralActivity : Activity() {
 
     private fun shareGame() {
         openExternal(gameShareChooser(this))
+    }
+
+    private fun updatePrimaryShare(canInvite: Boolean = false) {
+        action.text = if (canInvite) "Invite a friend  ↗" else getString(R.string.share_chooser_title) + "  ↗"
+        action.isEnabled = !busy || loadingStatus
+        ordinaryShare.visibility = if (canInvite) View.VISIBLE else View.GONE
     }
 
     private fun act(grant: ConsentGrant? = null, timed: Boolean = false) {
