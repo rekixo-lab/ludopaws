@@ -185,6 +185,8 @@ test("catalog read requires a session and filters by status, schedule, and regio
     updatedAt: new Date(now).toISOString(),
     items: [
       entry("paw_global_01"),
+      entry("board_dawn_meadow"),
+      entry("board_moonlit_grove"),
       entry("paw_draft_01", { status: "DRAFT" }),
       entry("paw_archived_01", { status: "ARCHIVED" }),
       entry("paw_future_01", { availability: {
@@ -211,7 +213,9 @@ test("catalog read requires a session and filters by status, schedule, and regio
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.deepEqual(body.items.map(item => item.id).sort(), ["paw_global_01", "paw_india_01"]);
-  assert.deepEqual(body.suppressedIds, ["paw_archived_01", "paw_draft_01", "paw_future_01"]);
+  assert.deepEqual(body.suppressedIds, [
+    "board_dawn_meadow", "board_moonlit_grove", "paw_archived_01", "paw_draft_01", "paw_future_01",
+  ]);
   const etag = response.headers.get("etag");
   assert.match(etag, /ludopaws-catalog-v7-IN-/);
   assert.equal(response.headers.get("cache-control"), "private, max-age=60, must-revalidate");

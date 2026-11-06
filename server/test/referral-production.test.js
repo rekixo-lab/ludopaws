@@ -5,6 +5,7 @@ import { PlayerAccount } from "../src/player-account.js";
 import { ReferralCampaign } from "../src/referral-campaign.js";
 import { MatchRoom } from "../src/match-room.js";
 import { DAY, REFERRAL_CAMPAIGN, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralsConfigured } from "../src/referral-config.js";
+import { TIMED_REFERRAL_CAMPAIGN, TIMED_REFERRAL_REWARD } from "../src/referral-config.js";
 
 test("verified invitation binds once, ignores bots and grants the losing friend's inviter atomically", async testContext => {
   const initialTime = Date.now();
@@ -84,6 +85,74 @@ test("verified invitation binds once, ignores bots and grants the losing friend'
 });
 
 const accountId = "00000000-0000-4000-8000-000000000001";
+test("timed offer starts once, requires the two friends to play together and pays once after expiry", async testContext => {
+  const start = Date.now();
+  let now = start;
+  testContext.mock.method(Date, "now", () => now);
+  const friend = "00000000-0000-4000-8000-000000000002";
+  const walletContext = storageContext(testContext);
+  const wallet = new PlayerAccount(walletContext, sessionEnvironment);
+  await call(wallet, "/session/create", { accountId, displayName: "Inviter" });
+  const environment = configuredEnvironment();
+  environment.LUDOPROOF_PLAYER_ACCOUNTS = { idFromName: value => value, get: () => wallet };
+  environment.LUDOPROOF_ACCOUNT_DIRECTORY = { idFromName: value => value, get: () => ({
+    fetch: async request => {
+      const body = await request.json();
+      const id = body.accountId ?? (body.profileId === "inviter-profile" ? accountId : friend);
+      return Response.json({ accountId: id, subjectHash: id === accountId ? "cd".repeat(32) : "ef".repeat(32), createdAt: start - DAY });
+    },
+  }) };
+  const context = storageContext(testContext);
+  const campaign = new ReferralCampaign(context, environment);
+  assert.equal((await call(campaign, "/offer", { accountId })).body.timedOffer, null);
+  environment.LUDOPAWS_TIMED_REFERRALS_ENABLED = "true";
+  const deadline = start + 2 * DAY;
+  assert.equal((await call(campaign, "/offer", { accountId })).body.timedOffer.endsAt, deadline);
+  now += 5000;
+  assert.equal((await call(campaign, "/offer", { accountId })).body.timedOffer.endsAt, deadline);
+  assert.equal((await call(campaign, "/offer", { accountId: friend })).body.timedOffer.endsAt, now + 2 * DAY);
+  await call(campaign, "/enroll", { accountId, termsVersion: REFERRAL_TERMS_VERSION, consent: true });
+  const legacyInvite = await call(campaign, "/invite", { accountId });
+  const timedInvite = await call(campaign, "/invite", { accountId, campaign: TIMED_REFERRAL_CAMPAIGN });
+  assert.equal(timedInvite.status, 200);
+  assert.notEqual(timedInvite.body.shareUrl, legacyInvite.body.shareUrl);
+  assert.match((await call(campaign, "/click", { token: timedInvite.body.shareUrl.split("/").pop() })).body.referrer, /^lp_ref=/);
+
+  // Seed the state a successful Play Integrity bind writes. Provider checks
+  // themselves are covered by the verification test above.
+  context.storage.sql.exec(
+    "INSERT INTO claims (account_id, subject_hash, inviter, install_at, deadline, verified_at) VALUES (?, ?, ?, ?, ?, ?)",
+    friend, "ef".repeat(32), accountId, start, deadline, now,
+  );
+  now = deadline + 1000;
+  const state = {
+    matchId: "LPABCDEFGH", status: "FINISHED", createdAt: deadline - 240_000,
+    finishedAt: deadline - 1000, winnerPlayerId: "host",
+    players: [
+      { playerId: "host", playerType: "HUMAN", tokens: [57, 57, 57, 57], moveCount: 4 },
+      { playerId: "friend", profileId: "invited-profile", playerType: "HUMAN", tokens: [0, 0, -1, -1], moveCount: 1 },
+    ],
+  };
+  assert.equal((await call(campaign, "/match", { state, homePosition: 57 })).status, 200);
+  assert.equal((await call(campaign, "/status", { accountId })).body.timedOffer.state, "EXPIRED");
+  const together = structuredClone(state);
+  together.matchId = "LPABCDEFGJ";
+  together.players[0].profileId = "inviter-profile";
+  const late = { ...together, matchId: "LPABCDEFGK", finishedAt: deadline + 1 };
+  assert.equal((await call(campaign, "/match", { state: late, homePosition: 57 })).status, 200);
+  assert.equal((await call(campaign, "/status", { accountId })).body.timedOffer.state, "EXPIRED");
+  for (let attempt = 0; attempt < 2; attempt++) {
+    assert.equal((await call(campaign, "/match", { state: together, homePosition: 57 })).status, 200);
+    const status = (await call(campaign, "/status", { accountId })).body;
+    assert.equal(status.timedOffer.state, "REWARDED");
+    assert.equal(status.state, "INVITE");
+  }
+  assert.equal([...walletContext.storage.sql.exec("SELECT balance FROM wallet")][0].balance, 150);
+  for (const id of TIMED_REFERRAL_REWARD.cosmetics) {
+    assert.equal([...walletContext.storage.sql.exec("SELECT cosmetic_id FROM owned_cosmetics WHERE cosmetic_id = ?", id)].length, 1);
+  }
+});
+
 test("concurrent participant bursts keep invitations unique and duplicate retries stable", async testContext => {
   const context = storageContext(testContext);
   const environment = configuredEnvironment();
