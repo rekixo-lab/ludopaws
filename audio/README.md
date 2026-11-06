@@ -2,7 +2,7 @@
 
 This folder is the source of truth for replaceable production audio. Drop real WAV or OGG files into SFX/voice folders, and WAV, OGG, or MP3 files into `audio/music/`. Android Gradle mirrors these files into APK assets at build time; do not copy them manually into `res/raw`.
 
-Do not add fake, silent, or zero-byte WAVs. Empty folders use .gitkeep until an authored sound is ready. The named Giraffe recording slots are the exception and are skipped during packaging until replaced with real WAV recordings.
+Do not add fake, silent, or zero-byte WAVs. Empty folders use .gitkeep until an authored sound is ready.
 
 ## Background music
 
@@ -25,20 +25,7 @@ Folder: audio/sfx/gameplay/movement/jump/
 - lp_sfx_jump_03.wav
 
 ### Cell landing / footfall
-Folder: audio/sfx/gameplay/movement/step/
-- lp_sfx_step_01.wav
-- lp_sfx_step_02.wav
-- lp_sfx_step_03.wav
-
-Optional character overrides:
-- audio/sfx/gameplay/movement/step/dog/lp_sfx_step_dog_01.wav
-- audio/sfx/gameplay/movement/step/goat/lp_sfx_step_goat_01.wav
-- audio/sfx/gameplay/movement/step/duck/lp_sfx_step_duck_01.wav
-- audio/sfx/gameplay/movement/step/cat/lp_sfx_step_cat_01.wav
-
-For each character, _02.wav and _03.wav variants are supported. Character-specific footfalls are tried first, then the shared step family, then legacy raw/procedural fallbacks. A jump file is never used as an ordinary cell landing.
-
-Sound direction: footfalls should be short and soft (roughly 40–75 ms); springy jump take-off should be distinct (roughly 90–160 ms). Dice rattle is the roll-start texture; dice settle is a brief tick when the committed/verified face appears. Keep the settle quieter than the rattle and avoid long tails that overlap with the six sparkle. These are mix/design targets, not strict file validators.
+Cell landings use the built-in footfall sounds in the shipped catalog. The jump take-off is a separate sound.
 
 ## Physical gameplay and UI effects
 
@@ -71,7 +58,7 @@ Use exact cue names and numbered variants, for example:
 - audio/sfx/voices/duck/lp_vocal_duck_home_01.wav
 - audio/sfx/voices/goat/lp_vocal_goat_six_01.ogg
 
-Supported authored character IDs: dog, goat, duck, cat, donkey, goat_lumi, cock, pig, elephant, horse, rabbit, panda, monkey, giraffe. Each character prefers its own folder. Lumi uses Goat as fallback when its own cue is missing; Donkey/Panda/Monkey stay silent without their own authored cue. See `audio/START_HERE.md` and each character folder README for all prompts and filenames. The reaction profile currently requests voice variants _01 and _02. Use short, non-verbal, original/licensed character takes. Normal movement and routine turn-start moments should remain vocally quiet; capture, home, third-six and final results may get a stronger reaction.
+Supported authored character IDs: dog, goat, duck, cat, donkey, goat_lumi, cock, pig, elephant, horse, rabbit, panda, monkey, giraffe. Each character prefers its own folder. Lumi uses Goat as fallback when its own cue is missing; Donkey, Panda, Monkey and Giraffe stay silent without their own authored cue. See `audio/START_HERE.md` and each character folder README for all prompts and filenames. The reaction profile currently requests voice variants _01 and _02. Use short, non-verbal, original/licensed character takes. Normal movement and routine turn-start moments should remain vocally quiet; capture, home, third-six and final results may get a stronger reaction.
 
 Existing Android res/raw voice names remain a compatibility fallback. If a matching root audio file exists, it is preferred.
 

@@ -30,13 +30,6 @@ export function validateVocalFilename(fileName, voiceOwner) {
   return Boolean(match && CHARACTER_CUES.has(match[1].toLowerCase()));
 }
 
-export function isEmptyGiraffeAudioSlot(file, size) {
-  if (size !== 0) return false;
-  const voice = /^audio\/sfx\/voices\/giraffe\/lp_vocal_giraffe_([a-z_]+)_0[12]\.wav$/.exec(file);
-  return (voice !== null && CHARACTER_CUES.has(voice[1])) ||
-    /^audio\/sfx\/gameplay\/movement\/step\/giraffe\/lp_sfx_step_giraffe_0[123]\.wav$/.test(file);
-}
-
 export function inspectAudio(root = process.cwd()) {
   const profiles = parseCharacterAudioProfiles(read(
     root,
@@ -90,10 +83,6 @@ export function inspectAudio(root = process.cwd()) {
     for (const name of files) {
       if (!validateVocalFilename(name, entry.name)) {
         errors.push(`Unrecognized voice cue filename: ${entry.name}/${name}`);
-        continue;
-      }
-      const relativePath = `audio/sfx/voices/${entry.name}/${name}`;
-      if (entry.name === 'giraffe' && isEmptyGiraffeAudioSlot(relativePath, fs.statSync(path.join(root, relativePath)).size)) {
         continue;
       }
       const cue = normalizeVocalFilename(name).slice(`lp_vocal_${entry.name}_`.length)

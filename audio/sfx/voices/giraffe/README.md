@@ -1,6 +1,6 @@
 # Giraffe voice recordings
 
-Replace the matching empty WAV in this folder with the finished recording. Start with `_01.wav` for each cue. The matching `_02.wav` is optional and takes a different performance of the same prompt. Empty slots are omitted from the APK.
+This folder contains the first WAV take for each Giraffe reaction. Replace a first take using its existing filename. A distinct second take can use the same name ending in `_02.wav`.
 
 Append this direction to each prompt.
 
@@ -24,5 +24,3 @@ Append this direction to each prompt.
 | मैच या टीम हारे | `lp_vocal_giraffe_defeat_01.wav` | 0.45–0.75 s | A subdued low giraffe hum that gently falls away into a single soft exhale. |
 
 Export as mono 16-bit PCM WAV at 44.1 or 48 kHz. Trim leading silence. Each file should contain one reaction. Some cues, such as six and idle, play selectively.
-
-The separate hoof recordings belong in the [Giraffe footstep folder](../../gameplay/movement/step/giraffe/README.md).
