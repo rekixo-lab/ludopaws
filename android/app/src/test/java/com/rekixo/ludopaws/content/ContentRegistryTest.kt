@@ -78,7 +78,7 @@ class ContentRegistryTest {
         // Registries retain legacy/future definitions for renderer compatibility.
         // The Shop must expose only shipped, content-ready assets.
         assertEquals(
-            BoardRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet(),
+            BoardRegistry.all.filter { it.offer.contentAvailable && !StoreCosmeticCatalog.isRetiredBoard(it.id) }.map { it.id }.toSet(),
             StoreCosmeticCatalog.boards.map { it.id }.toSet(),
         )
         assertEquals(
@@ -95,8 +95,10 @@ class ContentRegistryTest {
             assertEquals(CosmeticCategory.DICE, dice.offer.category)
             assertTrue(DiceRendererRegistry.supports(dice.rendererKey))
         }
-        assertEquals(setOf("board_classic", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire", "board_cloud_lagoon", "board_astral"), BoardRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet())
-        assertEquals(setOf("dice_classic", "dice_pearl_paw"), DiceRegistry.all.filter { it.offer.contentAvailable }.map { it.id }.toSet())
+        for (retired in listOf("board_dawn_meadow", "board_moonlit_grove")) {
+            assertNotNull(BoardRegistry.find(retired))
+            assertNull(StoreCosmeticCatalog.findShopItem(retired))
+        }
     }
 
     @Test

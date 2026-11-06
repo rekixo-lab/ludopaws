@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.referrals
 
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -24,9 +25,9 @@ class ReferralPopupPolicyTest {
         assertTrue(allowed(ReferralPopupHistory(impressions = 1, shownAt = now - ReferralPopupPolicy.DAY_MS)))
     }
 
-    @Test fun laterAndCloseDelayPromotionForSeventyTwoHours() {
-        assertFalse(allowed(ReferralPopupHistory(dismissedAt = now - 3 * ReferralPopupPolicy.DAY_MS + 1)))
-        assertTrue(allowed(ReferralPopupHistory(dismissedAt = now - 3 * ReferralPopupPolicy.DAY_MS)))
+    @Test fun laterAndCloseDelayPromotionForSevenDays() {
+        assertFalse(allowed(ReferralPopupHistory(dismissedAt = now - 7 * ReferralPopupPolicy.DAY_MS + 1)))
+        assertTrue(allowed(ReferralPopupHistory(dismissedAt = now - 7 * ReferralPopupPolicy.DAY_MS)))
     }
 
     @Test fun threeImpressionsAndInvalidClockHistoryFailClosed() {
@@ -50,7 +51,8 @@ class ReferralPopupPolicyTest {
     }
 
     @Test fun fullscreenAdOrCheckoutSuppressesTheFollowingHomeVisit() {
-        val session = ReferralPopupSession()
+        var quietRequests = 0
+        val session = ReferralPopupSession { quietRequests++ }
         assertFalse(session.fullscreenRecently(0L))
         session.fullscreenInteraction(10L)
         assertTrue(session.fullscreenRecently(10L))
@@ -58,6 +60,7 @@ class ReferralPopupPolicyTest {
         assertFalse(session.fullscreenRecently(60_000_000_010L))
         session.fullscreenInteraction(60_000_000_010L)
         assertTrue(session.fullscreenRecently(60_000_000_010L))
+        assertEquals(2, quietRequests)
     }
 
     @Test fun automaticLimitBelongsToTheProcessRatherThanAnActivityInstance() {

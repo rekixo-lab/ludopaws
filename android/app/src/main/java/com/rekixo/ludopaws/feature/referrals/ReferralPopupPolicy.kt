@@ -15,7 +15,9 @@ internal object ReferralPopupPolicy {
 }
 
 /** Process-local opportunity/suppression signals; no accounts, views or provider tokens. */
-internal class ReferralPopupSession {
+internal class ReferralPopupSession(
+    private val quietAutomaticPrompts: () -> Unit = { com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.quietFor() },
+) {
     private val completed = linkedSetOf<String>()
     private var pendingMatch = false
     private var fullscreenAt: Long? = null
@@ -33,7 +35,7 @@ internal class ReferralPopupSession {
     @Synchronized fun markAutomaticShown() { automaticShown = true }
     @Synchronized fun fullscreenInteraction(now: Long = System.nanoTime()) {
         fullscreenAt = now
-        com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.quietFor()
+        quietAutomaticPrompts()
     }
     @Synchronized fun fullscreenRecently(now: Long = System.nanoTime()): Boolean =
         fullscreenAt?.let { now - it in 0 until 60_000_000_000L } ?: false
