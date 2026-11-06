@@ -161,4 +161,4 @@ Optional second take: `lp_vocal_horse_defeat_02.wav`. Final target: 0.55–0.90 
 Horse, low subdued nicker, subdued, one gentle falling phrase, no distress scream. One isolated natural animal vocal gesture, dry close recording, clean ending. No speech, music, background ambience or added impacts.
 ```
 
-Footstep generation का अलग guide: `audio/sfx/gameplay/movement/step/horse/README.md`। Audio paste करने के बाद नया build/install जरूरी है; running APK अपने-आप नई repository files नहीं पढ़ता।
+Audio paste करने के बाद नया build/install जरूरी है; running APK अपने-आप नई repository files नहीं पढ़ता।

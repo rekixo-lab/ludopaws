@@ -285,13 +285,10 @@ for (const file of [requiredSources[1], requiredSources[2], requiredSources[5], 
 
 const authoredAudioReadme = 'audio/README.md';
 const jumpAudioReadme = 'audio/sfx/gameplay/movement/jump/README.md';
-const stepAudioReadme = 'audio/sfx/gameplay/movement/step/README.md';
 const authoredAudioSlots = [
   authoredAudioReadme,
   jumpAudioReadme,
-  stepAudioReadme,
-  // Species-specific footfalls are optional overrides. Missing/empty folders
-  // are valid because the resolver falls back to the shared step family.
+  // Authored footfalls are optional; the game has a built-in landing sound.
   'audio/sfx/gameplay/six/.gitkeep',
   'audio/sfx/gameplay/dice/settle/.gitkeep',
   'audio/sfx/gameplay/exact_home_miss/.gitkeep',
