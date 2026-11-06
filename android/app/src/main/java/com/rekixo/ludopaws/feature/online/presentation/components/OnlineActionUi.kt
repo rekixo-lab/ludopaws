@@ -160,7 +160,7 @@ internal fun MainActivity.onlineActionPanel(): LinearLayout =
 
             shareButton =
                 button(
-                    "SHARE",
+                    getString(if (gameMode == GameMode.FRIENDS) R.string.share_room_link_and_code else R.string.share_chooser_title),
                 ) {
                     shareMatch()
                 }.apply {

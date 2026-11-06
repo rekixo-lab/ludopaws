@@ -2,6 +2,9 @@ package com.rekixo.ludopaws.feature.store.data.ads
 
 import android.app.Activity
 import android.util.Log
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import com.google.android.gms.ads.AdError
 import com.google.android.gms.ads.FullScreenContentCallback
 import com.google.android.gms.ads.interstitial.InterstitialAd
@@ -12,7 +15,7 @@ import com.google.android.ump.ConsentInformation
 import com.google.android.ump.UserMessagingPlatform
 
 /**
- * One-shot interstitial used only when the player leaves a completed winning result.
+ * One-shot interstitial used only when the player leaves a completed match result.
  * Missing consent, network failure, or an unloaded ad must never block game navigation.
  */
 internal class PostWinInterstitialAdController(
@@ -32,7 +35,43 @@ internal class PostWinInterstitialAdController(
     private var closed = false
     private var interstitialAd: InterstitialAd? = null
 
+    private val handler = Handler(Looper.getMainLooper())
+    private var retryAttempt = 0
+    private var retryAt = 0L
+    private var loadedAt = 0L
+    private val retryTask = Runnable {
+        if (!closed && !activity.isFinishing && !activity.isDestroyed && activity.hasWindowFocus()) prepare()
+    }
+    private val expiryTask = Runnable {
+        interstitialAd = null
+        loadedAt = 0L
+        if (!closed && activity.hasWindowFocus()) prepare()
+    }
+
+    private fun discardExpiredAd() {
+        if (interstitialAd != null && SystemClock.elapsedRealtime() - loadedAt >= MAX_AD_AGE_MS) {
+            interstitialAd = null
+            handler.removeCallbacks(expiryTask)
+        }
+    }
+
+    private fun scheduleRetry() {
+        if (closed || activity.isFinishing || activity.isDestroyed) return
+        if (retryAttempt >= MAX_RETRIES) {
+            // Later lifecycle/result preparation may retry, but never on every state poll.
+            retryAt = SystemClock.elapsedRealtime() + RETRY_COOLDOWN_MS
+            return
+        }
+        val delay = 15_000L shl retryAttempt
+        retryAttempt += 1
+        retryAt = SystemClock.elapsedRealtime() + delay
+        handler.removeCallbacks(retryTask)
+        handler.postDelayed(retryTask, delay)
+    }
+
     fun prepare() {
+        discardExpiredAd()
+        if (activity.isFinishing || activity.isDestroyed || SystemClock.elapsedRealtime() < retryAt) return
         if (!enabled || closed || interstitialAd != null || adLoading ||
             consentUpdateInProgress || showing
         ) {
@@ -74,19 +113,23 @@ internal class PostWinInterstitialAdController(
      * Returns true only when an already-loaded ad was shown. The caller should finish
      * immediately when false; there is no wait screen or delayed navigation for ad loading.
      */
-    fun isReady(): Boolean =
-        enabled && !closed && !showConsumed && !showing &&
+    fun isReady(): Boolean {
+        discardExpiredAd()
+        return enabled && !closed && !showConsumed && !showing &&
             consentInformation.canRequestAds() && interstitialAd != null && AdBreakSession.canShow()
+    }
 
     fun showIfReady(
         onAdDismissed: () -> Unit,
         onFailedToShow: () -> Unit,
     ): Boolean {
         if (!enabled || closed || showConsumed || showing || !consentInformation.canRequestAds()) return false
+        discardExpiredAd()
         val ad = interstitialAd ?: return false
         if (!AdBreakSession.reserve()) return false
 
         interstitialAd = null
+        handler.removeCallbacks(expiryTask)
         showConsumed = true
         showing = true
         var completed = false
@@ -106,7 +149,7 @@ internal class PostWinInterstitialAdController(
 
         ad.fullScreenContentCallback =
             object : FullScreenContentCallback() {
-                override fun onAdShowedFullScreenContent() { AdBreakSession.shown() }
+                override fun onAdShowedFullScreenContent() { AdBreakSession.shown(); com.rekixo.ludopaws.feature.growth.GrowthMetrics.increment(activity, "ad_shown") }
                 override fun onAdDismissedFullScreenContent() {
                     finishOnce(wasDismissed = true)
                 }
@@ -129,11 +172,16 @@ internal class PostWinInterstitialAdController(
 
     fun close() {
         closed = true
+        handler.removeCallbacksAndMessages(null)
         interstitialAd = null
     }
 
     private fun initializeAdsIfAllowed() {
-        if (closed || activity.isFinishing || activity.isDestroyed || !consentInformation.canRequestAds()) return
+        if (closed || activity.isFinishing || activity.isDestroyed) return
+        if (!consentInformation.canRequestAds()) {
+            scheduleRetry()
+            return
+        }
         if (sdkInitialized) {
             loadInterstitial()
             return
@@ -143,10 +191,13 @@ internal class PostWinInterstitialAdController(
         sdkInitializationInProgress = true
         FamilyAdsPrivacy.configureBeforeInitialization()
         MobileAds.initialize(activity) {
-            sdkInitializationInProgress = false
-            if (closed) return@initialize
-            sdkInitialized = true
-            loadInterstitial()
+            handler.post {
+                sdkInitializationInProgress = false
+                if (!closed && !activity.isFinishing && !activity.isDestroyed) {
+                    sdkInitialized = true
+                    loadInterstitial()
+                }
+            }
         }
     }
 
@@ -166,14 +217,23 @@ internal class PostWinInterstitialAdController(
                 override fun onAdLoaded(ad: InterstitialAd) {
                     adLoading = false
                     if (!closed && consentInformation.canRequestAds()) {
+                        com.rekixo.ludopaws.feature.growth.GrowthMetrics.increment(activity, "ad_loaded")
                         interstitialAd = ad
+                        loadedAt = SystemClock.elapsedRealtime()
+                        retryAttempt = 0
+                        retryAt = 0L
+                        handler.removeCallbacks(retryTask)
+                        handler.removeCallbacks(expiryTask)
+                        handler.postDelayed(expiryTask, MAX_AD_AGE_MS)
                     }
                 }
 
                 override fun onAdFailedToLoad(error: LoadAdError) {
                     adLoading = false
+                    com.rekixo.ludopaws.feature.growth.GrowthMetrics.increment(activity, "ad_load_failed")
                     Log.w(TAG, "Post-win interstitial failed to load: ${error.message}")
                     interstitialAd = null
+                    scheduleRetry()
                 }
             },
         )
@@ -181,6 +241,9 @@ internal class PostWinInterstitialAdController(
 
     companion object {
         private const val TAG = "LudoPawsPostWinAd"
+        private const val MAX_RETRIES = 3
+        private const val RETRY_COOLDOWN_MS = 5 * 60 * 1_000L
+        private const val MAX_AD_AGE_MS = 55 * 60 * 1_000L
 
         internal fun showPrivacyOptions(activity: Activity, onError: (String) -> Unit) {
             UserMessagingPlatform.showPrivacyOptionsForm(activity) { error ->

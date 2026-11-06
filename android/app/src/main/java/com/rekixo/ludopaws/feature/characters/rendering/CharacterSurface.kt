@@ -8,4 +8,7 @@ internal enum class CharacterSurface(val kind: Float, val gloss: Float) {
     FINISH_METAL(12f, .65f), PARTY_BULB(13f, .85f), PARTY_GLOW(14f, 0f),
     GARDEN_GROUND(9f, .015f), GARDEN_STONE(10f, .045f), GARDEN_LEAF(11f, .08f),
     BOARD_WATER(0f, .10f),
+    ELEPHANT_HIDE(18f, .055f), ELEPHANT_TRUNK(19f, .055f), DONKEY_FUR(20f, .035f),
+    GOAT_FLEECE(21f, .025f), PIG_SKIN(22f, .085f), HORSE_COAT(23f, .14f),
+    HORSE_FACE(24f, .095f), GOAT_HORN(25f, .12f),
 }

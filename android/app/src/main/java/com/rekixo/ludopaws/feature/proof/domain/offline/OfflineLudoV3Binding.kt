@@ -16,6 +16,7 @@ data class OfflineV3BindingHistory(
     val moveTokenIndex: Int?,
     val captures: Int,
     val fairnessDigest: String? = null,
+    val comebackBonusApplied: Boolean = false,
 )
 
 /**
@@ -51,6 +52,7 @@ object OfflineLudoV3Binding {
         history: List<OfflineV3BindingHistory>,
         rulesetId: String = RULESET_ID,
         opponentStackCapture: String = "CAPTURE_ALL_ON_UNSAFE_CELL",
+        comebackWaits: List<Int> = emptyList(),
     ): LocalV4Result {
         require(eventIndex >= 0)
         require(openingRollConsumed.size == players.size) {
@@ -96,14 +98,22 @@ object OfflineLudoV3Binding {
                             "moveTokenIndex" to event.moveTokenIndex,
                             "captures" to event.captures,
                             "fairnessDigest" to event.fairnessDigest,
-                        )
+                        ).let { material ->
+                            if (LudoComebackPolicy.enabled(rulesetId)) material + ("comebackBonusApplied" to event.comebackBonusApplied)
+                            else material
+                        }
                     },
             )
+
+        val boundState = if (LudoComebackPolicy.enabled(rulesetId)) {
+            require(comebackWaits.size == players.size && comebackWaits.all { it in -1..2 })
+            authoritativeState + ("comebackWaits" to comebackWaits)
+        } else authoritativeState
 
         val previousStateHash =
             EntroNexV4Local.sha256Hex(
                 "entronex:v4:game-state:" +
-                    EntroNexV4Local.jcs(authoritativeState),
+                    EntroNexV4Local.jcs(boundState),
             )
 
         val rulesetHash =
@@ -168,6 +178,22 @@ object OfflineLudoV3Binding {
             "singleLegalMovePolicy" to "AUTO_MOVE",
         ).let { rules ->
             if (rulesetId == OfflineLudoV6Binding.RULESET_ID) rules + ("receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW)
+            else if (LudoComebackPolicy.enabled(rulesetId)) rules + mapOf(
+                "receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW,
+                "comebackPolicy" to "CAPTURE_STRANDED_THIRD_ROLL_ENTRY",
+                "comebackFailedRollsBeforeEntry" to 2,
+                "comebackEntryPosition" to 0,
+                "comebackTokensPerBonus" to 1,
+                "comebackTokenSelection" to "LOWEST_INDEX_YARD_TOKEN",
+                "comebackDiceOutcomePolicy" to "UNCHANGED",
+                "comebackExtraTurn" to false,
+                "comebackCountsTimeouts" to false,
+                "comebackFinishedTokensExcluded" to true,
+                "racingTokensPerPlayer" to if (rulesetId == QuickMatchPolicy.RULESET_ID) 2 else 4,
+                "initialTokens" to if (rulesetId == QuickMatchPolicy.RULESET_ID) QuickMatchPolicy.initialTokens else listOf(-1, -1, -1, -1),
+                "openingRollRequiresAllTokensInYard" to (rulesetId != QuickMatchPolicy.RULESET_ID),
+                "quickOpeningRequiresInitialTokens" to (rulesetId == QuickMatchPolicy.RULESET_ID),
+            )
             else rules
         }
 }

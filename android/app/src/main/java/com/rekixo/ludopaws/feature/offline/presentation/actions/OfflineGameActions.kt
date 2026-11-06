@@ -254,6 +254,7 @@ internal fun OfflineGameActivity.offlineHistory(
                 append(event.eventIndex)
                 append("  dice=")
                 append(event.effectiveOutcome ?: event.outcome ?: "?")
+                if (event.comebackBonusApplied) append("  comeback-bonus")
                 if (event.openingRollApplied) {
                     append("  opening-bonus")
                     val raw = event.randomOutcome

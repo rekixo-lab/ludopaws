@@ -5,6 +5,16 @@
     <string name="home_hero_tagline">डाइस घुमाएँ। दौड़ें। दहाड़ें!</string>
     <string name="home_hero_supporting_copy">बोलने वाले जानवरों की गोटियों और सत्यापित फ़ेयर डाइस के साथ ऑनलाइन या लोकल खेलें।</string>
     <string name="share_chooser_title">Ludo Paws शेयर करें</string>
+    <string name="friendship_settings_entry">फ्रेंडशिप बंडल</string>
+    <string name="share_room_link_and_code">लिंक + कोड शेयर करें</string>
+    <string name="share_match_finished">एक मैच और खेलें? 🐾</string>
+    <string name="share_match_win">मैं जीत गया। अगली बारी तुम्हारी! 🐾</string>
+    <string name="share_match_rematch">एक रीमैच हो जाए? 🐾</string>
+    <string name="share_weekly_invite">इस हफ़्ते का चैलेंज साथ खेलें! 🐾</string>
+    <string name="share_weekly_completed">मेरा हफ़्ते का चैलेंज पूरा। अब तुम्हारी बारी! 🐾</string>
+    <string name="share_game_invite">मेरे साथ Ludo Paws खेलोगे?\n%1$s</string>
+    <string name="share_choose_paw">अपना Paw चुनें</string>
+    <string name="share_paw_choice">खिलाड़ी %1$d · %2$s</string>
     <string name="share_message">Ludo Paws खेलें — डाइस घुमाएँ। दौड़ें। दहाड़ें! बोलने वाले जानवरों की गोटियों और सत्यापित फ़ेयर डाइस के साथ ऑनलाइन या लोकल खेलें।</string>
     <string name="rate_accessibility_label">Ludo Paws को रेटिंग दें</string>
     <string name="rate_dialog_title">LUDO PAWS को रेटिंग दें</string>

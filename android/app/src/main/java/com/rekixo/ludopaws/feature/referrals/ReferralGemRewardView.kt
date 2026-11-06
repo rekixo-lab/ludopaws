@@ -8,7 +8,6 @@ import android.widget.ImageView
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.LudoPawsBoardChromeView
@@ -26,7 +25,7 @@ internal class ReferralGemRewardView(
         gravity = Gravity.CENTER_VERTICAL
         val size = dp(if (compact) 72 else 104)
         val bucket = ImageView(context).apply {
-            setImageResource(R.drawable.referral_gem_bucket_3d)
+            setImageBitmap(com.rekixo.ludopaws.core.ui.art.RareGemArtwork.bucket(resources))
             scaleType = ImageView.ScaleType.FIT_CENTER
             importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
         }
@@ -83,10 +82,12 @@ internal class ReferralGemRewardView(
                 text = "FREE · 100 Gems"
                 textSize = if (compact) 17f else 23f
                 typeface = Typeface.create("sans-serif-rounded", Typeface.BOLD)
-                setTextColor(0xFFFFFFFF.toInt())
+                setTextColor(if (compact) 0xFFFFEBC4.toInt() else 0xFFFFFFFF.toInt())
                 setPadding(dp(6), dp(3), dp(6), dp(3))
                 background = GradientDrawable().apply {
-                    setColor(0xFF245B2C.toInt()); cornerRadius = dp(8).toFloat()
+                    setColor(if (compact) 0xFF173D36.toInt() else 0xFF245B2C.toInt())
+                    cornerRadius = dp(8).toFloat()
+                    if (compact) setStroke(dp(1), 0xFF5A937E.toInt())
                 }
             })
             addView(TextView(context).apply {
@@ -96,7 +97,7 @@ internal class ReferralGemRewardView(
                     else -> "After your friend’s qualifying match"
                 }
                 textSize = 12f
-                setTextColor(0xFF523B28.toInt())
+                setTextColor(if (compact) 0xFFD4EBDD.toInt() else 0xFF523B28.toInt())
             })
         }, LayoutParams(0, -2, 1f))
         contentDescription = (if (includeBundleItems) "Blossom Garden board, Rabbit character, Pearl Paw dice. Gem bucket below. " else "") + "Free 100 Gems for you after a new invited friend completes a qualifying match. No reward for sharing alone."

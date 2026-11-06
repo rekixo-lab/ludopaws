@@ -82,6 +82,24 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
             setPadding(dp(4), 0, dp(4), 0)
         }
         actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+            text = "SHARE"
+            isAllCaps = false
+            LudoProofTheme.secondary(this)
+            setOnClickListener {
+                currentState?.let { state ->
+                    val mode = when (state.matchMode) {
+                        "TEAM_UP" -> "Team Up"
+                        "FRIENDS" -> "Friends"
+                        else -> "Online"
+                    }
+                    com.rekixo.ludopaws.feature.sharing.MatchShareCard.share(
+                        this@onlineResultPanel, state, mode, playerId,
+                        com.rekixo.ludopaws.feature.online.domain.OnlineLudoPawsCharacterPolicy.characterIdsBySeat(state),
+                    )
+                }
+            }
+        }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(5) })
+        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
             text = if (gameMode == GameMode.FRIENDS) "INVITE AGAIN" else "PLAY AGAIN"
             isAllCaps = false
             LudoProofTheme.positive(this)
@@ -111,4 +129,3 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
         ).apply { bottomMargin = dp(36) })
     }
 }
-

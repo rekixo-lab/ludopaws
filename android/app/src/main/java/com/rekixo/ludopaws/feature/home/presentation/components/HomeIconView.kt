@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.StateListDrawable
 import android.view.View
+import com.rekixo.ludopaws.core.ui.art.RareGemArtwork
 import com.rekixo.ludopaws.LudoProofTheme
 import kotlin.math.cos
 import kotlin.math.min
@@ -98,51 +99,12 @@ internal class HomeIconView(
         canvas.restore()
     }
 
+    private val gemBitmap by lazy(LazyThreadSafetyMode.NONE) { RareGemArtwork.gem(resources) }
+    private val gemBounds = RectF(3f, 3f, 97f, 97f)
+    private val gemPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
+
     private fun drawGem(canvas: Canvas) {
-        val gem =
-            Path().apply {
-                moveTo(18f, 38f)
-                lineTo(32f, 20f)
-                lineTo(68f, 20f)
-                lineTo(82f, 38f)
-                lineTo(50f, 80f)
-                close()
-            }
-        fill.color = 0xFF26D8FF.toInt()
-        canvas.drawPath(gem, fill)
-
-        val lowerFacet =
-            Path().apply {
-                moveTo(18f, 38f)
-                lineTo(50f, 80f)
-                lineTo(82f, 38f)
-                lineTo(61f, 38f)
-                lineTo(50f, 67f)
-                lineTo(39f, 38f)
-                close()
-            }
-        fill.color = 0xFF078DDA.toInt()
-        canvas.drawPath(lowerFacet, fill)
-
-        fill.color = 0xFF82F5FF.toInt()
-        canvas.drawPath(
-            Path().apply {
-                moveTo(32f, 20f)
-                lineTo(43f, 38f)
-                lineTo(18f, 38f)
-                close()
-            },
-            fill,
-        )
-
-        detail.color = 0xFFC9FBFF.toInt()
-        detail.strokeWidth = 3f
-        canvas.drawPath(gem, detail)
-        canvas.drawLine(32f, 20f, 43f, 38f, detail)
-        canvas.drawLine(68f, 20f, 57f, 38f, detail)
-        canvas.drawLine(18f, 38f, 82f, 38f, detail)
-        canvas.drawLine(43f, 38f, 50f, 80f, detail)
-        canvas.drawLine(57f, 38f, 50f, 80f, detail)
+        canvas.drawBitmap(gemBitmap, null, gemBounds, gemPaint)
     }
 
     private fun drawProfile(canvas: Canvas) {

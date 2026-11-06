@@ -1,3 +1,5 @@
+import { roomLinkLanding } from "./room-link-landing.js";
+import { gameShareLanding, isShareTap, playSharePage, PUBLIC_SHARE_HOST, PUBLIC_SHARE_ORIGIN, redirectToPlay, sharePreview } from "./share-landing.js";
 import { familyResponse, familyCapabilities } from "./family-safety.js";
 import { ageSafetyBlockResponse } from "./age-access-guard.js";
 import baseWorker, {
@@ -13,6 +15,7 @@ import baseWorker, {
 } from "./index-forfeit.js";
 import { AccountDirectory } from "./account-directory.js";
 import { PlayerAccount } from "./player-account.js";
+import { RETIRED_BOARD_IDS } from "./cosmetic-pricing.js";
 import {
   billingAccountId,
   hashGoogleSubject,
@@ -25,7 +28,7 @@ import { verifyAdMobSsvRequest } from "./admob-ssv.js";
 import { StoreCatalogStore } from "./store-catalog-store.js";
 import { evaluateOperationalHealth } from "./operational-health.js";
 import { bearerToken, httpError, readJsonObject, sha256Hex } from "./crypto.js";
-import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralHealth, referralRequest, referralsConfigured, referralsEnabled, signingCertificates } from "./referral-config.js";
+import { REFERRAL_ORIGIN, REFERRAL_PACKAGE, REFERRAL_REWARD, REFERRAL_TERMS_VERSION, referralConfiguration, referralHealth, referralRequest, referralsConfigured, referralsEnabled, timedReferralsEnabled, signingCertificates } from "./referral-config.js";
 
 export { BillingReconciliation } from "./billing-reconciliation.js";
 export { ReferralCampaign } from "./referral-campaign.js";
@@ -36,6 +39,7 @@ export {
   AccountDirectory, PlayerAccount,
 };
 
+const REFERRAL_LANDING_PATH = /^\/r\/([a-f0-9]{64})(\/download)?$/;
 const MAX_BODY_BYTES = 8 * 1024;
 const RATE_WINDOW_MS = 60_000;
 const ACCOUNT_RATE_LIMITS = Object.freeze({
@@ -69,6 +73,11 @@ export default {
     const safetyResponse = ageSafetyBlockResponse(request, env);
     if (safetyResponse) return safetyResponse;
     const url = new URL(request.url);
+    if (url.hostname === PUBLIC_SHARE_HOST &&
+        url.pathname !== "/share" && url.pathname !== "/share/" &&
+        !url.pathname.startsWith("/play/") && !REFERRAL_LANDING_PATH.test(url.pathname)) {
+      return new Response("Not found.", { status: 404, headers: { "cache-control": "no-store" } });
+    }
     if (url.pathname === "/api/capabilities" && request.method === "GET") {
       return json(200, familyCapabilities(env));
     }
@@ -123,6 +132,13 @@ export default {
   },
 };
 
+async function referralDownload(env, token, fallbackToPlay) {
+  const response = await referralRequest(env, "/click", { token });
+  if (!response.ok) return fallbackToPlay ? redirectToPlay() : response;
+  const click = await response.json();
+  return redirectToPlay(click.referrer);
+}
+
 /**
  * Internal account-routing logic exposed for unit tests only.
  * The ONLY HTTP entrypoint is the default Worker's guarded fetch() above:
@@ -145,30 +161,38 @@ export async function handleAccountRequest(request, env) {
           target: { namespace: "android_app", package_name: REFERRAL_PACKAGE,
             sha256_cert_fingerprints: signingCertificates(env).map(value => value.match(/../g).join(":").toUpperCase()) } }] : []);
       }
-      const invitePath = /^\/r\/([a-f0-9]{64})(\/download)?$/.exec(url.pathname);
+      const shareLanding = gameShareLanding(request, url.pathname);
+      if (shareLanding) return shareLanding;
+      const roomLanding = roomLinkLanding(request);
+      if (roomLanding) return roomLanding;
+      const invitePath = REFERRAL_LANDING_PATH.exec(url.pathname);
       if (invitePath) {
-        await rateLimit(env, request, "referral:landing", 120);
-        if (!referralsEnabled(env)) return new Response("Friendship rewards are not available yet. Please try again later.", { status: 503, headers: { "cache-control": "no-store" } });
-        if (invitePath[2] && request.method === "POST") {
-          if (request.headers.get("origin") !== REFERRAL_ORIGIN ||
-              ["cross-site", "same-site"].includes(request.headers.get("sec-fetch-site"))) return json(403, { error: "INVITE_ORIGIN_INVALID", message: "Open the invitation page and use its download button." });
-          const response = await referralRequest(env, "/click", { token: invitePath[1] });
-          if (!response.ok) return response;
-          const click = await response.json();
-          const destination = new URL("https://play.google.com/store/apps/details");
-          destination.searchParams.set("id", REFERRAL_PACKAGE);
-          if (typeof click.referrer === "string") destination.searchParams.set("referrer", click.referrer);
-          return new Response(null, { status: 303, headers: { location: destination.href, "cache-control": "no-store", "referrer-policy": "no-referrer" } });
+        const publicInvite = url.origin === PUBLIC_SHARE_ORIGIN;
+        const enabled = referralsEnabled(env) || timedReferralsEnabled(env);
+        if (!invitePath[2] && !enabled) {
+          return playSharePage(request, "A friend invited you to Ludo Paws", "Get Ludo Paws on Google Play.");
         }
-        if (!invitePath[2] && request.method === "GET") {
-          return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta property="og:title" content="A friend invited you to Ludo Paws"><meta name="description" content="Play a real match together. Your inviter can earn a friendship bundle."><title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button and link your Google account. Open Home → Share, read the optional verification disclosure, accept the invitation terms and tap Verify my invitation before playing. Then finish a real Online or Friends match within 14 days of installation. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems, once. New players only; install within 7 days of this download click. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing and verification are optional; declining does not restrict gameplay. No purchase, ad view, rating or review is required. Stop verification in the Share page to cancel pending incoming attribution. Existing items are not duplicated or exchanged. Verification can take time. Campaign ends ${new Date(Number(env.LUDOPAWS_REFERRAL_START_MS) + 90 * 86400000).toUTCString()}; your match must finish before then. No reward for the invited player. <a href="https://ludopaws.rekixo.com/referral-terms.html">Full invitation terms &amp; support</a> · <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></html>`, {
+        await rateLimit(env, request, "referral:landing", 120);
+        // A preview fetch carries no browser user activation and only reads the
+        // landing markup. The same-origin form remains the compatibility path.
+        if (!invitePath[2] && isShareTap(request)) {
+          return await referralDownload(env, invitePath[1], true);
+        }
+        if (invitePath[2] && request.method === "POST") {
+          if ((url.origin !== REFERRAL_ORIGIN && url.origin !== PUBLIC_SHARE_ORIGIN) ||
+              request.headers.get("origin") !== url.origin ||
+              ["cross-site", "same-site"].includes(request.headers.get("sec-fetch-site"))) return json(403, { error: "INVITE_ORIGIN_INVALID", message: "Open the invitation page and use its download button." });
+          return enabled ? await referralDownload(env, invitePath[1], publicInvite) : redirectToPlay();
+        }
+        if (!invitePath[2] && ["GET", "HEAD"].includes(request.method)) {
+          return new Response(request.method === "HEAD" ? null : `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${sharePreview("A friend invited you to Ludo Paws", "Play a real match together. Your inviter can earn a friendship bundle.")}<title>Ludo Paws · Friendship invitation</title><style>body{margin:0;background:#142f37;color:#fff;font:18px system-ui;display:grid;place-items:center;min-height:100vh}main{max-width:30em;padding:28px}h1{color:#ffe6a8}button{background:#b6f0d5;border:0;border-radius:24px;padding:18px 26px;font:700 20px system-ui;color:#17342d}p{line-height:1.6}small{color:#c2d6d6}</style></head><body><main><h1>A little friendship. A big adventure.</h1><p>You have been invited to Ludo Paws!</p><p>Install through this button and link your Google account. Open Home → Settings → Friendship Bundle (Home → Share on older versions), read the optional verification disclosure, accept the invitation terms and tap Verify my invitation before playing. Follow the deadline shown in your verified invitation. For Friendship Bundle 2, finish an eligible Online or Friends match with your inviter before their 48-hour timer ends. No win needed.</p><form method="post" action="/r/${invitePath[1]}/download"><button>Get Ludo Paws on Google Play</button></form><p><small>Only your inviter receives the reward, once per bundle. The original offer includes Pearl Paw Dice, Blossom Garden Board, Rabbit and 100 Gems. Friendship Bundle 2 includes Giraffe, Sunstone Palace, Prism Royal and 150 Gems. New players only. Only natural Online or Friends matches lasting at least 3 minutes count, with at least one legal move by the invited player. Bots, forfeits, offline and Team Up matches and self-invites do not qualify. Sharing and verification are optional; declining does not restrict gameplay. No purchase, ad view, rating or review is required. Use Stop verification on the Friendship Bundle screen to cancel pending incoming attribution. Existing items are not duplicated or exchanged. Verification can take time. The original invitation requires a match within 14 days of installation and before the original campaign closes. The timed offer uses the inviter’s personal deadline. No reward for the invited player. <a href="https://ludopaws.rekixo.com/referral-terms.html">Full invitation terms &amp; support</a> · <a href="https://ludopaws.rekixo.com/privacy-policy.html">Privacy policy</a></small></p></main></body></html>`, {
             headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff", "referrer-policy": "no-referrer",
               "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'" },
           });
         }
         return json(405, { error: "METHOD_NOT_ALLOWED" });
       }
-      if (/^\/api\/referrals\/(status|invite|challenge|bind|enroll|withdraw)$/.test(url.pathname)) {
+      if (/^\/api\/referrals\/(status|offer|invite|challenge|bind|enroll|withdraw)$/.test(url.pathname)) {
         const operation = url.pathname.split("/").pop();
         if (request.method !== (operation === "status" ? "GET" : "POST")) return json(405, { error: "METHOD_NOT_ALLOWED" });
         await rateLimit(env, request, "referral:" + operation, operation === "status" ? 300 : 60);
@@ -177,7 +201,7 @@ export async function handleAccountRequest(request, env) {
           await readJsonObject(request, 1024);
           return await referralRequest(env, "/withdraw", { accountId: session.accountId });
         }
-        if (!(operation === "status" ? referralsConfigured(env) : referralsEnabled(env))) return operation === "status"
+        if (!(["status", "offer"].includes(operation) ? referralsConfigured(env) : (referralsEnabled(env) || timedReferralsEnabled(env)))) return ["status", "offer"].includes(operation)
           ? json(200, { ok: true, enabled: false, reward: REFERRAL_REWARD, termsVersion: REFERRAL_TERMS_VERSION })
           : json(503, { error: "REFERRALS_UNAVAILABLE", message: "Friendship rewards are not available yet." });
         const session = await authenticate(request, env);
@@ -499,6 +523,24 @@ export async function handleAccountRequest(request, env) {
         });
       }
 
+      if (url.pathname === "/api/rewards/availability" && request.method === "GET") {
+        await rateLimit(env, request, "engagement:availability", ACCOUNT_RATE_LIMITS.profile);
+        const session = await authenticate(request, env);
+        return await playerResponse(env, session.accountId, "/engagement", {
+          accountId: session.accountId, sessionId: session.sessionId, action: "availability",
+        });
+      }
+
+      if (url.pathname === "/api/rewards" && ["GET", "POST"].includes(request.method)) {
+        await rateLimit(env, request, "engagement:rewards", ACCOUNT_RATE_LIMITS.walletMutation);
+        const session = await authenticate(request, env);
+        const body = request.method === "POST" ? await readJson(request) : { action: "status" };
+        return await playerResponse(env, session.accountId, "/engagement", {
+          accountId: session.accountId, sessionId: session.sessionId, action: body.action,
+          day: body.day, clientRequestId: body.clientRequestId, collectionId: body.collectionId,
+          expectedPrice: body.expectedPrice, catalogCountry: requestCatalogCountry(request),
+        });
+      }
       if (url.pathname === "/api/wallet" && request.method === "GET") {
         await rateLimit(env, request, "wallet:read", ACCOUNT_RATE_LIMITS.wallet);
         const session = await authenticate(request, env);
@@ -564,6 +606,7 @@ export async function handleAccountRequest(request, env) {
           transactionId: verified.transactionId,
           requestId: verified.requestId,
           kind: verified.kind,
+          dailyTicket: verified.dailyTicket,
           gemAmount: verified.gemAmount,
           cosmeticId: verified.cosmeticId,
           catalogCountry: requestCatalogCountry(request),
@@ -580,20 +623,21 @@ export async function handleAccountRequest(request, env) {
         const state = await catalogRequest(env, "/catalog/current");
         const country = requestCatalogCountry(request);
         const now = Date.now();
-        const items = state.items.filter((item) => isCatalogItemAvailable(item, country, now));
+        const items = state.items.filter((item) => !RETIRED_BOARD_IDS.includes(item.id) &&
+          isCatalogItemAvailable(item, country, now));
         // Send item IDs which exist in the canonical catalog but must not be
         // resurrected from the Android's legacy bundled catalog. This exposes no
         // draft details, only opaque stable IDs, and lets archive/schedule/region
         // decisions safely suppress stale built-in offers on clients.
         const visibleIds = new Set(items.map((item) => item.id));
-        const suppressedIds = [...new Set(state.items
-          .filter((item) => !visibleIds.has(item.id))
-          .map((item) => item.id))].sort();
-        // The same catalog version can expose different items when a scheduled
-        // availability window opens or closes. Include the visible ID set so
-        // conditional requests cannot preserve a stale filtered catalog forever.
-        const visibleIdsHash = (await sha256Hex(items.map((item) => item.id).sort().join("\n"))).slice(0, 16);
-        const etag = '"ludopaws-catalog-v' + String(state.catalogVersion) + "-" + country + "-" + visibleIdsHash + '"';
+        const suppressedIds = [...new Set([
+          ...RETIRED_BOARD_IDS,
+          ...state.items.filter((item) => !visibleIds.has(item.id)).map((item) => item.id),
+        ])].sort();
+        // Include both visibility lists so schedule and retirement changes
+        // invalidate cached catalog responses even at the same catalog version.
+        const availabilityHash = (await sha256Hex(JSON.stringify([[...visibleIds].sort(), suppressedIds]))).slice(0, 16);
+        const etag = '"ludopaws-catalog-v' + String(state.catalogVersion) + "-" + country + "-" + availabilityHash + '"';
         const headers = catalogHeaders(etag);
         const supplied = String(request.headers.get("if-none-match") ?? "")
           .split(",").map((value) => value.trim());

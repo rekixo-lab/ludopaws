@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.friends.presentation
 
 import com.rekixo.ludopaws.feature.online.domain.RemoteCharacterAccountSelection
+import com.rekixo.ludopaws.feature.sharing.GAME_SHARE_URL
 import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import android.app.Activity
 import android.content.ClipData
@@ -30,6 +31,7 @@ import com.rekixo.ludopaws.GameJson
 import com.rekixo.ludopaws.GameMode
 import com.rekixo.ludopaws.GameModeIntent
 import com.rekixo.ludopaws.LudoProofTheme
+import com.rekixo.ludopaws.R
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
@@ -69,6 +71,10 @@ class FriendsActivity : Activity() {
     @Volatile
     private var requestInFlight = false
 
+    private val incomingRoomLink by lazy { runCatching {
+        com.rekixo.ludopaws.feature.sharing.RoomLink.parse(intent.getStringExtra(
+            com.rekixo.ludopaws.feature.sharing.RoomLink.EXTRA_LINK)?.let(android.net.Uri::parse))
+    }.getOrNull()?.takeIf { it.mode == "FRIENDS" } }
     private var selectedPlayerCount = 2
     private var friendQuery = ""
 
@@ -469,6 +475,7 @@ class FriendsActivity : Activity() {
         }
         roomContainer.addView(header)
 
+        renderIncomingRoomLink()
         val session = activeFriendSession()
         if (session != null) {
             roomContainer.addView(
@@ -491,10 +498,10 @@ class FriendsActivity : Activity() {
             buttons.addView(
                 FriendsVisualKit.button(
                     this,
-                    "SHARE ROOM",
+                    getString(R.string.share_room_link_and_code),
                     FriendsButtonStyle.BLUE,
                     FriendsIcon.SHARE,
-                ) { shareRoom(session.matchId) },
+                ) { shareRoom(session.matchId) }.apply { textSize = 11f },
                 LinearLayout.LayoutParams(0, dp(38), 1f).apply { marginStart = dp(3) },
             )
             roomContainer.addView(
@@ -1601,16 +1608,41 @@ class FriendsActivity : Activity() {
             return
         }
         shareText(
-            "Add me on Ludo Paws\nFriend ID: $id\n\n${playStoreUrl()}",
+            "Add me on Ludo Paws\nFriend ID: $id\n\n$GAME_SHARE_URL",
             "Share Friend ID",
         )
     }
 
+    private fun renderIncomingRoomLink() {
+        val link = incomingRoomLink ?: return
+        roomContainer.addView(FriendsVisualKit.body(this, "Your friend's room · ${link.room}", 14f))
+        val invite = snapshot?.optJSONArray("invites").objects().firstOrNull { it.optString("matchId") == link.room }
+        when {
+            activeFriendSession()?.matchId == link.room -> Unit // Existing OPEN ROOM button below.
+            sessionStore.load() != null -> roomContainer.addView(FriendsVisualKit.body(this,
+                "Finish or exit your saved match before joining another room.", 12f))
+            invite != null -> roomContainer.addView(FriendsVisualKit.button(this, "JOIN FRIEND'S ROOM", FriendsButtonStyle.GREEN) {
+                if (!requestInFlight) acceptInvite(invite.optString("inviteId"), link.room)
+            }, itemParams())
+            link.host != null && link.host != credential?.friendId -> {
+                roomContainer.addView(FriendsVisualKit.body(this,
+                    "New friends: send the host a request. After they accept and invite you, Join appears here. If already friends, ask the host to send the room invite. Full, started or expired rooms cannot be joined.", 12f))
+                roomContainer.addView(FriendsVisualKit.button(this, "SEND HOST A FRIEND REQUEST", FriendsButtonStyle.BLUE) {
+                    if (!requestInFlight) sendFriendRequestTo(link.host, clearInput = false)
+                }, itemParams())
+            }
+            else -> roomContainer.addView(FriendsVisualKit.body(this,
+                "Ask the host to invite your Friend ID shown above. Join appears here when the invitation arrives. The room may be full, started or expired.", 12f))
+        }
+        roomContainer.addView(FriendsVisualKit.button(this, "REFRESH INVITATION", FriendsButtonStyle.BLUE) { syncFriends(announce = true) }, itemParams())
+    }
+
     private fun shareRoom(matchId: String) {
-        shareText(
-            "Join my private Ludo Paws room: $matchId\n\n${playStoreUrl()}",
-            "Share private room",
-        )
+        val session = activeFriendSession()
+        val room = snapshot?.optJSONObject("_roomState")
+        val host = if (room?.optString("hostPlayerId") == session?.playerId) credential?.friendId else null
+        val link = com.rekixo.ludopaws.feature.sharing.RoomLink.create(matchId, "FRIENDS", host) ?: return
+        shareText(link.shareMessage(), "Share private room")
     }
 
     private fun shareText(text: String, chooserTitle: String) {
@@ -1620,9 +1652,6 @@ class FriendsActivity : Activity() {
         }
         startActivity(Intent.createChooser(intent, chooserTitle))
     }
-
-    private fun playStoreUrl(): String =
-        "https://play.google.com/store/apps/details?id=$packageName"
 
     private fun activeFriendSession(): PlayerSession? =
         sessionStore.load()?.takeIf {

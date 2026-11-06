@@ -16,6 +16,10 @@ import {
   RULESET_V5_KEY,
   RULESET_V6,
   RULESET_V6_KEY,
+  RULESET_V7,
+  RULESET_V7_KEY,
+  TEAM_RULESET_V6,
+  TEAM_RULESET_V6_KEY,
   TEAM_ASSIGNMENTS,
   TEAM_RULESET,
   TEAM_RULESET_KEY,
@@ -51,6 +55,10 @@ export {
   RULESET_V5_KEY,
   RULESET_V6,
   RULESET_V6_KEY,
+  RULESET_V7,
+  RULESET_V7_KEY,
+  TEAM_RULESET_V6,
+  TEAM_RULESET_V6_KEY,
   TEAM_ASSIGNMENTS,
   TEAM_RULESET,
   TEAM_RULESET_KEY,
@@ -76,6 +84,7 @@ export function rulesetForState(state) {
         TEAM_RULESET_V3_KEY,
         TEAM_RULESET_V4_KEY,
         TEAM_RULESET_V5_KEY,
+        TEAM_RULESET_V6_KEY,
       ])
     : new Set([
         LEGACY_RULESET_KEY,
@@ -84,6 +93,7 @@ export function rulesetForState(state) {
         RULESET_V4_KEY,
         RULESET_V5_KEY,
         RULESET_V6_KEY,
+        RULESET_V7_KEY,
       ]);
 
   if (!allowed.has(key)) {
@@ -116,13 +126,14 @@ export function newMatch(options) {
   };
   rulesetForState(versionedState);
 
-  if (explicitRulesetKey === RULESET_V6_KEY && !isTeamUp(versionedState)) {
+  if ([RULESET_V6_KEY, RULESET_V7_KEY].includes(explicitRulesetKey) && !isTeamUp(versionedState)) {
     versionedState.finishOrderPlayerIds = [];
   }
   if (isV3State(versionedState)) {
     versionedState.openingRollConsumed =
       versionedState.players.map(() => false);
   }
+  if (hasComeback(versionedState)) versionedState.comebackWaits = versionedState.players.map(() => -1);
   return versionedState;
 }
 
@@ -137,6 +148,7 @@ export function addPlayer(state, options) {
     ...previous,
     false,
   ];
+  if (hasComeback(next)) next.comebackWaits = [...comebackState(state), -1];
   return next;
 }
 
@@ -163,6 +175,17 @@ export function registerResolvedRoll(state, options) {
   // The entitlement is consumed by the first resolved roll even if a corrupted
   // or migrated state somehow no longer has all four tokens in the yard.
   prepared.openingRollConsumed[seat] = true;
+
+  const waits = hasComeback(prepared) ? comebackState(prepared) : null;
+  const stranded = isStranded(player);
+  const comebackBonusApplied = Boolean(waits && waits[seat] >= 2 && stranded &&
+    !openingRollApplied && options.outcome !== 6);
+  if (waits) {
+    if (!stranded || openingRollApplied) waits[seat] = -1;
+    else if (waits[seat] >= 0 && options.outcome !== 6 && !comebackBonusApplied) waits[seat] += 1;
+    prepared.comebackWaits = waits;
+    prepared.pendingRoll.comebackBonusApplied = comebackBonusApplied;
+  }
 
   const effectiveOutcome = openingRollApplied
     ? 6
@@ -192,6 +215,7 @@ export function registerResolvedRoll(state, options) {
     randomOutcome: options.outcome,
     effectiveOutcome,
     openingRollApplied,
+    comebackBonusApplied,
   };
 }
 
@@ -207,6 +231,16 @@ export function applyMove(state, options) {
     Boolean(pending?.openingRollApplied);
 
   const result = legacy.applyMove(state, options);
+  if (hasComeback(state)) {
+    const waits = comebackState(state);
+    result.state.players.forEach((player, seat) => {
+      const before = state.players[seat];
+      const captured = player.tokens.some((position, index) => position === -1 && before.tokens[index] >= 0 && before.tokens[index] < 57);
+      if (captured && isStranded(player)) waits[seat] = 0;
+      else if (!isStranded(player)) waits[seat] = -1;
+    });
+    result.state.comebackWaits = waits;
+  }
 
   if (
     v3 &&
@@ -225,6 +259,7 @@ export function applyMove(state, options) {
         randomOutcome,
         effectiveOutcome,
         openingRollApplied,
+        comebackBonusApplied: Boolean(pending?.comebackBonusApplied),
       };
     }
   }
@@ -246,6 +281,7 @@ export function authoritativeStateForRandomness(state) {
       openingRollConsumed: openingRollState(state),
     };
   }
+  if (hasComeback(state)) material = { ...material, comebackWaits: comebackState(state) };
   return material;
 }
 
@@ -255,6 +291,7 @@ export function publicState(state) {
     base.pendingRoll && state.pendingRoll
       ? {
           ...base.pendingRoll,
+          ...(hasComeback(state) ? { comebackBonusApplied: Boolean(state.pendingRoll.comebackBonusApplied) } : {}),
           ...(Number.isInteger(state.pendingRoll.randomOutcome)
             ? { randomOutcome: state.pendingRoll.randomOutcome }
             : {}),
@@ -276,6 +313,7 @@ export function publicState(state) {
       ? rulesetForState(state).turnRollTimeoutMs
       : null,
     serverNow: Date.now(),
+    ...(hasComeback(state) ? { comebackWaits: comebackState(state) } : {}),
     ...(isV3State(state)
       ? { openingRollConsumed: openingRollState(state) }
       : {}),
@@ -289,7 +327,7 @@ function isV3State(state) {
   return key === RULESET_V3_KEY ||
     key === TEAM_RULESET_V3_KEY ||
     key === RULESET_V4_KEY ||
-    key === TEAM_RULESET_V4_KEY || key === RULESET_V5_KEY || key === TEAM_RULESET_V5_KEY || key === RULESET_V6_KEY;
+    key === TEAM_RULESET_V4_KEY || key === RULESET_V5_KEY || key === TEAM_RULESET_V5_KEY || key === RULESET_V6_KEY || key === RULESET_V7_KEY || key === TEAM_RULESET_V6_KEY;
 }
 
 function openingRollState(state) {
@@ -304,4 +342,18 @@ function openingRollState(state) {
     { length: playerCount },
     (_, seat) => stored[seat] === true,
   );
+}
+
+function hasComeback(state) {
+  return state.rulesetKey === RULESET_V7_KEY || state.rulesetKey === TEAM_RULESET_V6_KEY;
+}
+function isStranded(player) {
+  return player.tokens.some(position => position === -1) &&
+    player.tokens.every(position => position === -1 || position === 57);
+}
+function comebackState(state) {
+  return state.players.map((_, seat) => {
+    const value = state.comebackWaits?.[seat];
+    return Number.isInteger(value) && value >= 0 && value <= 2 ? value : -1;
+  });
 }

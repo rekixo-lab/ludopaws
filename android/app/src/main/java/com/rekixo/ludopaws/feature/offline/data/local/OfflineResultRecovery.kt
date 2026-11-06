@@ -15,8 +15,9 @@ internal object OfflineResultRecovery {
     }
     fun record(context: Context, matchId: String, owner: String?, won: Boolean, computer: Boolean, characterIds: List<String> = emptyList()) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val existing = prefs.getString(matchId, null)?.let { runCatching { JSONObject(it) }.getOrNull() }
         val result = JSONObject().put("owner", owner).put("won", won).put("computer", computer)
-            .put("characters", org.json.JSONArray(characterIds))
+            .put("characters", org.json.JSONArray(characterIds)).put("completedAt", existing?.optLong("completedAt")?.takeIf { it > 0L } ?: System.currentTimeMillis())
         check(prefs.edit().putString(matchId, result.toString()).commit()) { "Could not save pending match statistics" }
         apply(context, matchId, result)
     }
@@ -40,6 +41,12 @@ internal object OfflineResultRecovery {
                 (0 until ids.length()).map { ids.optString(it) }
             }.orEmpty(),
         )
+        // This recovery path is entered only for a finished local match, never an abandoned loss.
+        com.rekixo.ludopaws.feature.growth.EngagementStore(context, owner, pinned = true).completed(
+            matchId, result.optLong("completedAt", System.currentTimeMillis()))
+        if (result.has("completedAt")) com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(context, owner, pinned = true).completed(
+            matchId, result.optJSONArray("characters")?.let { ids -> (0 until ids.length()).map { ids.optString(it) } }.orEmpty(),
+            result.getLong("completedAt"))
         check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(matchId).commit())
     }
 }

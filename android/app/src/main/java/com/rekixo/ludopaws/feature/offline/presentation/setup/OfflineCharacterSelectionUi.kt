@@ -32,7 +32,7 @@ import com.rekixo.ludopaws.ui.offline.common.*
 
 internal fun OfflineGameActivity.initializeCharacterSetup() {
     val preferred = characterSelectionStore.load()
-    if (isComputerMode) {
+    if (isComputerMode && !quickMatch) {
         selectedPlayers = offlineCharacterSetupStore.loadSavedPlayerCount(
             mode = gameMode,
             fallback = selectedPlayers,

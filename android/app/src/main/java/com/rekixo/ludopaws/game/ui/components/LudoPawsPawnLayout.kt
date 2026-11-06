@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws
 
 import com.rekixo.ludopaws.feature.characters.content.cat.CatDefinition
+import com.rekixo.ludopaws.feature.characters.content.giraffe.GiraffeDefinition
 import com.rekixo.ludopaws.feature.characters.content.lumi.LumiGoatDefinition
 import java.lang.ref.WeakReference
 import kotlin.math.ceil
@@ -147,6 +148,7 @@ object LudoPawsPawnLayout {
         "pig" -> 2.20f
         "elephant" -> 2.10f
         "horse" -> 2.50f
+        "giraffe" -> GiraffeDefinition.SILHOUETTE_HEIGHT
         "rabbit" -> 2.60f
         else -> 3f
     }

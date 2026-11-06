@@ -3,10 +3,25 @@
   "name": "ludoproof-game-api",
   "main": "src/index-account.js",
   "compatibility_date": "2026-09-25",
+  "assets": {
+    "directory": "./assets"
+  },
   "workers_dev": true,
   "routes": [
     {
       "pattern": "api.ludopaws.rekixo.com/*",
+      "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/share*",
+      "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/play/*",
+      "zone_name": "rekixo.com"
+    },
+    {
+      "pattern": "ludopaws.rekixo.com/r/*",
       "zone_name": "rekixo.com"
     }
   ],
@@ -163,6 +178,7 @@
   ],
   "vars": {
     "LUDOPROOF_AGE_SAFETY_MODE": "FAMILY_V2",
+    "LUDOPAWS_TIMED_REFERRALS_ENABLED": "false",
     "LUDOPAWS_REFERRALS_ENABLED": "false",
     "LUDOPAWS_REFERRAL_POLICY_APPROVED": "false",
     "LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED": "false",

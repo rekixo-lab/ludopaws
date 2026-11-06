@@ -123,10 +123,16 @@ internal fun MainActivity.applyResponse(
         refreshMatchGemWalletAfterFinish(state.matchId)
     }
     if (source == OnlineStateSource.AUTHORITATIVE && state.status == "FINISHED") {
+        preparePostWinInterstitialAd()
         val winners = state.players.filter { player ->
             if (state.winnerTeamId != null) player.teamId == state.winnerTeamId else player.playerId == state.winnerPlayerId
         }
         if (winners.isNotEmpty() && winners.all { it.tokens.size == 4 && it.tokens.all { position -> position == LudoPathEncoding.HOME_POSITION } }) {
+            if (state.players.any { it.playerId == playerId }) runCatching {
+                com.rekixo.ludopaws.feature.growth.EngagementStore(this).completed(state.matchId)
+            }
+            runCatching { com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).completed(
+                state.matchId, state.players.firstOrNull { it.playerId == playerId }?.characterId?.let(::listOf).orEmpty()) }
             com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(state.matchId)
         }
     }
@@ -222,7 +228,7 @@ internal fun MainActivity.applyResponse(
     } else if (state.status == "ACTIVE" || state.status == "FINISHED") {
         // Normal gameplay transitions are presented by the board and player rails,
         // not as a scrolling activity-style status message.
-        statusText.text = ""
+        statusText.text = LudoComebackPolicy.hint(state).orEmpty()
     }
 
     val wireState = response.optJSONObject("state") ?: response

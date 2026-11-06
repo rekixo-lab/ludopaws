@@ -29,7 +29,7 @@ internal class StoreLockedSpotlightView(
     private val cycle = object : Runnable {
         override fun run() {
             if (!active || !isAttachedToWindow) return
-            if (hasWindowFocus() && isShown && getGlobalVisibleRect(bounds) && bounds.height() >= height / 2 &&
+            if (!store.isCatalogMoving && hasWindowFocus() && isShown && getGlobalVisibleRect(bounds) && bounds.height() >= height / 2 &&
                 ValueAnimator.areAnimatorsEnabled() && offers().size > 1) show(1)
             schedule()
         }

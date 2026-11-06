@@ -25,6 +25,7 @@ data class ResultCardModel(
     val gemsTitle: String? = null,
     val gemsDetail: String? = null,
     val gemsCredited: Boolean = false,
+    val dailyChallengeComplete: Boolean = false,
 )
 
 /**
@@ -59,6 +60,10 @@ class LudoPawsResultCard(context: Context) : LinearLayout(context) {
     private val gemPanel = LinearLayout(context).apply { orientation = VERTICAL }
     private val gemHeadline = text(18f, gold, true)
     private val gemInfo = text(11.5f, muted)
+    private val challenge = text(12f, green, true, Gravity.CENTER).apply {
+        text = "✓ Daily Challenge complete"
+        visibility = GONE
+    }
 
     init {
         orientation = VERTICAL
@@ -93,6 +98,7 @@ class LudoPawsResultCard(context: Context) : LinearLayout(context) {
         gemPanel.addView(separator(), LayoutParams(-1, dp(1)).apply { bottomMargin = dp(8) })
         gemPanel.addView(gemHeadline, LayoutParams(-1, -2))
         gemPanel.addView(gemInfo, LayoutParams(-1, -2).apply { topMargin = dp(2) })
+        addView(challenge, LayoutParams(-1, -2).apply { topMargin = dp(10) })
     }
 
     fun render(model: ResultCardModel) {
@@ -141,11 +147,13 @@ class LudoPawsResultCard(context: Context) : LinearLayout(context) {
         gemHeadline.setTextColor(if (model.gemsCredited) green else gold)
         gemInfo.text = model.gemsDetail.orEmpty()
         gemInfo.maxLines = 3
+        challenge.visibility = if (model.dailyChallengeComplete) VISIBLE else GONE
         contentDescription = buildString {
             append(model.title).append(". ").append(model.subtitle)
             model.placements.forEach { append(". ").append(it.rank).append(" ").append(it.name) }
             model.xpTitle?.let { append(". ").append(it).append(". ").append(model.xpDetail) }
             model.gemsTitle?.let { append(". ").append(it).append(". ").append(model.gemsDetail) }
+            if (model.dailyChallengeComplete) append(". Daily Challenge complete.")
         }
     }
 

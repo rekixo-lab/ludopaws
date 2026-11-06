@@ -9,23 +9,34 @@ import com.rekixo.ludopaws.rendering.meshes.MeshLoft
 import com.rekixo.ludopaws.rendering.meshes.MeshLoft.Ring
 import kotlin.math.*
 
-/** Photo-inspired standing kid, with an independent head, listening ears and four moving feet. */
+/** A white kid with an independent head, listening ears and compact, planted hooves. */
 internal object LumiGoatRenderer : CharacterRenderer {
-    private const val REST_BODY_YAW = 4f
+    private const val REST_BODY_YAW = 13f
     private const val LEG_LENGTH_SCALE = .5f
     private const val LEG_LENGTH_ANCHOR_Y = .42f
     override fun stepTravelProgress(progress: Float) = GoatRenderer.stepTravelProgress(progress)
-    override fun sample(motion: CharacterMotion, progress: Float, hopPlayback: CharacterHopPlayback) =
-        GoatRenderer.sample(motion, progress, hopPlayback)
+    override fun sample(motion: CharacterMotion, progress: Float, hopPlayback: CharacterHopPlayback): CharacterPose {
+        val base = GoatRenderer.sample(motion, progress, hopPlayback)
+        if (motion != CharacterMotion.IDLE) return base
+        val wave = sin(progress.coerceIn(0f, 1f) * 2f * PI.toFloat())
+        return base.copy(
+            headTiltDegrees = 5.5f * wave,
+            neckPitchDegrees = 3.5f * wave,
+            primaryAppendageDegrees = 9f * wave,
+            tertiaryAppendageDegrees = 15f * wave,
+        )
+    }
 
     override fun draw(context: CharacterDrawContext, parent: FloatArray, pose: CharacterPose,
         teamColor: LudoPawsTeamColor) = with(context) {
         val previous = surface
-        val body = rigTransforms[0]
-        System.arraycopy(parent, 0, body, 0, 16)
+        val stance = rigTransforms[3]
+        System.arraycopy(parent, 0, stance, 0, 16)
         val size = LumiGoatDefinition.MODEL_SIZE_MULTIPLIER
-        Matrix.scaleM(body, 0, size, size, size)
-        Matrix.rotateM(body, 0, REST_BODY_YAW, 0f, 1f, 0f)
+        Matrix.scaleM(stance, 0, size, size, size)
+        Matrix.rotateM(stance, 0, REST_BODY_YAW, 0f, 1f, 0f)
+        val body = rigTransforms[0]
+        System.arraycopy(stance, 0, body, 0, 16)
         Matrix.translateM(body, 0, 0f, -pose.bodyCrouch * .45f, 0f)
         Matrix.rotateM(body, 0, pose.bodyPitchDegrees * .5f, 1f, 0f, 0f)
         Matrix.rotateM(body, 0, pose.bodyRollDegrees * .5f, 0f, 0f, 1f)
@@ -57,7 +68,11 @@ internal object LumiGoatRenderer : CharacterRenderer {
                     LumiRig.EAR_LEFT, LumiRig.EAR_RIGHT -> {
                         val side = if (rig == LumiRig.EAR_LEFT) -1f else 1f
                         Matrix.translateM(transform, 0, side * .19f, 1.17f, .09f)
-                        Matrix.rotateM(transform, 0, side * (pose.primaryAppendageDegrees * .45f + (if(side<0f) 16f else -5f)*pose.gestureWeight), 0f, 0f, 1f)
+                        val listen = sin((life?.timeSeconds ?: 0f) * 1.65f + side * 1.2f) *
+                            (life?.idleWeight ?: 0f)
+                        Matrix.rotateM(transform, 0, side * (pose.primaryAppendageDegrees * .58f + listen * 5f +
+                            (if (side < 0f) 14f else -6f) * pose.gestureWeight), 0f, 0f, 1f)
+                        Matrix.rotateM(transform, 0, listen * 7f, 1f, 0f, 0f)
                         Matrix.translateM(transform, 0, -side * .19f, -1.17f, -.09f)
                     }
                     LumiRig.FRONT_LEFT, LumiRig.FRONT_RIGHT, LumiRig.REAR_LEFT, LumiRig.REAR_RIGHT -> {
@@ -65,14 +80,19 @@ internal object LumiGoatRenderer : CharacterRenderer {
                         val left = rig == LumiRig.FRONT_LEFT || rig == LumiRig.REAR_LEFT
                         val side = if (left) -1f else 1f
                         // Swing from the embedded shoulder/hip, not the exposed middle of the leg.
-                        val x = side * if (front) .085f else .13f
+                        // The barrel leans on landing. In stance the hooves stay with
+                        // the contact frame instead of following its chest rotation.
+                        System.arraycopy(stance, 0, transform, 0, 16)
+                        val x = side * (if (front) .085f else .13f)
                         val y = if (front) .72f else .65f
                         val z = if (front) -.01f else -.485f
                         // Preserve the approved half-length legs and planted feet as the joint moves upward.
                         val shortenedPivotY = LEG_LENGTH_ANCHOR_Y + (y - LEG_LENGTH_ANCHOR_Y) * LEG_LENGTH_SCALE
-                        Matrix.translateM(transform, 0, x, shortenedPivotY, z)
+                        val pairTuck = if (front) pose.frontLegTuckDegrees else pose.rearLegTuckDegrees
+                        val tuck = ((pairTuck ?: pose.legTuckDegrees) / 38f).coerceIn(0f, 1f)
+                        Matrix.translateM(transform, 0, x, shortenedPivotY + .09f * tuck, z)
                         val swing = if (front) pose.frontLegSwingDegrees else pose.rearLegSwingDegrees
-                        Matrix.rotateM(transform, 0, (swing ?: pose.legSwingDegrees) * side * .7f,
+                        Matrix.rotateM(transform, 0, (swing ?: (pose.legSwingDegrees * side)) * .67f,
                             1f, 0f, 0f)
                         Matrix.scaleM(transform, 0, 1f, LEG_LENGTH_SCALE, 1f)
                         Matrix.translateM(transform, 0, -x, -y, -z)
@@ -83,8 +103,9 @@ internal object LumiGoatRenderer : CharacterRenderer {
                         Matrix.translateM(transform, 0, 0f, -.65f, .77f)
                     }
                     LumiRig.MOUTH -> {
-                        Matrix.translateM(transform, 0, 0f, .81f, .48f)
-                        Matrix.scaleM(transform, 0, 1f, 1f + pose.jawOpen * .035f, 1f)
+                        val opening = ((life?.mouthOpen ?: 0f) + pose.jawOpen).coerceIn(0f, 1f)
+                        Matrix.translateM(transform, 0, 0f, .81f - .018f * opening, .48f + .008f * opening)
+                        Matrix.scaleM(transform, 0, 1f, 1f + opening * .24f, 1f)
                         Matrix.translateM(transform, 0, 0f, -.81f, -.48f)
                     }
                     else -> Unit
@@ -105,9 +126,10 @@ internal enum class LumiRig(val headAttached: Boolean = false) {
 }
 
 internal enum class LumiTint(hex: Int, val surface: CharacterSurface) {
-    FUR(0xF5F1E8, CharacterSurface.LUMI_FUR), INNER(0xC48D89, CharacterSurface.LUMI_FUR),
+    FUR(0xEEEAE2, CharacterSurface.LUMI_FUR), FLEECE_TIP(0xF8F2E7, CharacterSurface.LUMI_FUR),
+    INNER(0xC68C86, CharacterSurface.LUMI_FUR),
     HORN(0xA79B85, CharacterSurface.LUMI_GLOSS), HOOF(0x393934, CharacterSurface.LUMI_GLOSS),
-    LID(0x59564C, CharacterSurface.LUMI_FUR), IRIS(0x594430, CharacterSurface.LUMI_EYE),
+    LID(0x59564C, CharacterSurface.LUMI_FUR), IRIS(0x96603A, CharacterSurface.LUMI_EYE),
     PUPIL(0x171612, CharacterSurface.LUMI_EYE), GLINT(0xF8F6ED, CharacterSurface.LUMI_EYE),
     NOSE(0x57564E, CharacterSurface.LUMI_GLOSS), LIP(0x46443E, CharacterSurface.LUMI_GLOSS);
     val color = floatArrayOf(((hex shr 16) and 255) / 255f,
@@ -141,6 +163,15 @@ internal object LumiGoatGeometry {
             .88f,.178f,.14f,0f,.34f, .99f,.232f,.18f,0f,.23f,
             1.08f,.25f,.20f,0f,.13f, 1.24f,.205f,.145f,0f,.09f,
             1.31f,.09f,.065f,0f,.075f, 1.33f,.012f,.014f,0f,.07f))
+        // A sweep of soft crown fleece and a short chest ruff give the white kid its own silhouette.
+        loft(LumiRig.HEAD, LumiTint.FLEECE_TIP, -.064f, 1.255f, .208f, 22f, 17f, 290, floatArrayOf(
+            -.067f,.010f,.008f,.032f,.035f, -.032f,.046f,.019f,.022f,.031f,
+            .018f,.063f,.028f,0f,0f, .067f,.036f,.028f,-.017f,-.028f,
+            .081f,.008f,.009f,-.021f,-.037f))
+        loft(LumiRig.BODY, LumiTint.FLEECE_TIP, 0f, .52f, .335f, -18f, 0f, 300, floatArrayOf(
+            -.16f,.014f,.011f,0f,.016f, -.10f,.077f,.039f,0f,.018f,
+            -.01f,.129f,.059f,0f,.012f, .08f,.107f,.068f,0f,-.009f,
+            .13f,.044f,.037f,0f,-.023f))
         loft(LumiRig.HEAD, LumiTint.NOSE, 0f, 0f, 0f, 0f, 0f, 0, floatArrayOf(
             .81f,.018f,.017f,0f,.493f, .837f,.063f,.034f,0f,.510f,
             .884f,.088f,.042f,0f,.484f, .918f,.062f,.020f,0f,.457f, .927f,.012f,.006f,0f,.447f))
@@ -192,8 +223,8 @@ internal object LumiGoatGeometry {
                 -.032f,.004f,.004f,0f,0f, -.018f,.027f,.012f,0f,0f,
                 .010f,.031f,.015f,0f,0f, .029f,.014f,.007f,0f,0f, .034f,.002f,.002f,0f,0f))
             loft(eye, LumiTint.PUPIL, side*.188f, 1.068f, .314f, 0f, 0f, 0, floatArrayOf(
-                -.014f,.005f,.003f,0f,0f, -.009f,.023f,.006f,0f,0f,
-                .009f,.023f,.006f,0f,0f, .014f,.005f,.003f,0f,0f))
+                -.011f,.006f,.003f,0f,0f, -.006f,.024f,.006f,0f,0f,
+                .006f,.024f,.006f,0f,0f, .011f,.006f,.003f,0f,0f))
             loft(eye, LumiTint.GLINT, side*.188f-.009f, 1.080f, .324f, 0f, 0f, 0, floatArrayOf(
                 -.007f,.002f,.002f,0f,0f, 0f,.006f,.004f,0f,0f, .007f,.002f,.002f,0f,0f))
             loft(LumiRig.HEAD, LumiTint.LIP, side*.060f, .868f, .528f, 0f, -side*18f, 0, floatArrayOf(

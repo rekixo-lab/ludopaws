@@ -13,6 +13,19 @@ import com.rekixo.ludopaws.feature.profile.presentation.ProfileActivity
 internal fun ProfileActivity.profileMasteryPanel(profile: ProfileSnapshot): LinearLayout = profilePanel().apply {
     addView(profileTitle("Your Paws Collection").apply { setTextColor(0xFF382514.toInt()) })
     addView(profileBody("Play together to earn a new portrait frame. Progress stays with you; there is no daily reset.").apply { setTextColor(0xFF513A24.toInt()) })
+    val owner = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(this@profileMasteryPanel).load()?.accountId
+    val giftTier = getSharedPreferences("reward_requests_v1", android.content.Context.MODE_PRIVATE).getInt("$owner:milestoneTier", 0)
+    if (giftTier > 0) addView(com.rekixo.ludopaws.feature.growth.GrowthUi.pill(this@profileMasteryPanel, "Garden Friend · tier $giftTier", green = true))
+    val weekly = com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this@profileMasteryPanel).status()
+    val weeklyRow = LinearLayout(this@profileMasteryPanel).apply {
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(0, dp(12), 0, dp(10))
+    }
+    weeklyRow.addView(com.rekixo.ludopaws.feature.growth.PawsBadgeView(this@profileMasteryPanel, weekly.badges > 0), LinearLayout.LayoutParams(dp(64), dp(70)))
+    weeklyRow.addView(profileBody("Weekly Paws · ${weekly.badges} badges\n${weekly.title} · ${weekly.progress}/${weekly.target}").apply {
+        setTextColor(0xFF513A24.toInt()); setPadding(dp(12), 0, 0, 0)
+    }, LinearLayout.LayoutParams(0, -2, 1f))
+    addView(weeklyRow)
     val used = profile.characterMatches.count { it.value > 0 }
     val best = profile.characterMatches.values.maxOrNull() ?: 0
     addView(profileBody("Next goals\nPlay 3 matches: ${profile.totalGames.coerceAtMost(3)}/3\nMeet 3 pals: ${used.coerceAtMost(3)}/3\nPlay 5 with a pal: ${best.coerceAtMost(5)}/5", 12f).apply {

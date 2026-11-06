@@ -257,12 +257,20 @@ test("server product grants match the Android product definitions", () => {
       character_elephant: [0, false],
       character_horse: [0, false],
       character_rabbit: [0, false],
+      character_giraffe: [0, false],
       board_astral: [0, false],
       board_cloud_lagoon: [0, false],
       board_autumn_forest: [0, false],
       board_blossom_garden: [0, false],
       board_winter_haven: [0, false],
       board_monsoon_mire: [0, false],
+      board_sunstone_palace: [0, false],
+      dice_forest_dew: [0, false],
+      dice_lagoon_pearl: [0, false],
+      dice_frost_crystal: [0, false],
+      dice_starlight: [0, false],
+      dice_ember_forge: [0, false],
+      dice_prism_royal: [0, false],
       remove_ads: [5, true],
       gems_300: [300, false],
       gems_1500: [1_200, false],
@@ -275,7 +283,14 @@ test("server product grants match the Android product definitions", () => {
 });
 
 test("cosmetic Play products are non-consumable entitlements and Pearl Paw has no cash SKU", () => {
-  const cosmeticIds = ["character_panda", "character_monkey", "character_cock", "character_pig", "character_elephant", "character_horse", "character_rabbit", "board_astral", "board_cloud_lagoon", "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"];
+  const cosmeticIds = [
+    "character_panda", "character_monkey", "character_cock", "character_pig",
+    "character_elephant", "character_horse", "character_rabbit", "character_giraffe",
+    "board_astral", "board_cloud_lagoon", "board_autumn_forest",
+    "board_blossom_garden", "board_winter_haven", "board_monsoon_mire", "board_sunstone_palace",
+    "dice_forest_dew", "dice_lagoon_pearl", "dice_frost_crystal", "dice_starlight",
+    "dice_ember_forge", "dice_prism_royal",
+  ];
   for (const cosmeticId of cosmeticIds) {
     assert.equal(GOOGLE_PLAY_PRODUCTS[cosmeticId].cosmeticId, cosmeticId);
     assert.equal(GOOGLE_PLAY_PRODUCTS[cosmeticId].consumable, false);

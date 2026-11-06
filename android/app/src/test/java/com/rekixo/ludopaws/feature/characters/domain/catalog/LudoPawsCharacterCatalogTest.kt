@@ -20,7 +20,7 @@ class LudoPawsCharacterCatalogTest {
 
         assertTrue(pack.starter)
         assertEquals(
-            listOf("dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit", "panda", "monkey"),
+            listOf("dog", "goat", "duck", "cat", "donkey", "goat_lumi", "cock", "pig", "elephant", "horse", "rabbit", "panda", "monkey", "giraffe"),
             pack.characterIds,
         )
         assertEquals(

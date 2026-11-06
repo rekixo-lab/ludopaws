@@ -9,6 +9,7 @@ export function compactRollHistory(state) {
     randomOutcome: event.randomOutcome ?? null,
     effectiveOutcome: event.effectiveOutcome ?? event.outcome ?? null,
     openingRollApplied: Boolean(event.openingRollApplied),
+    comebackBonusApplied: Boolean(event.comebackBonusApplied),
     proofDigest: event.proofDigest ?? null,
     moveTokenIndex: event.moveTokenIndex ?? null,
     captures: event.captures ?? 0,

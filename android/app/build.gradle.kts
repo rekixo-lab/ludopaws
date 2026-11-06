@@ -287,6 +287,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-games-v2:22.1.0")
     implementation("com.android.installreferrer:installreferrer:2.2")
     implementation("com.google.android.play:integrity:1.6.0")
+    implementation("com.google.android.play:review:2.0.2")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

@@ -151,7 +151,8 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         val player = state.players.firstOrNull { it.playerId == playerId } ?: return false
         val from = player.tokens.getOrNull(tokenIndex) ?: return false
         val roll = pending.outcome ?: return false
-        val to = LudoPathEncoding.destinationForRoll(from, roll) ?: return false
+        val to = if (pending.comebackBonusApplied && from == -1) 0 else
+            LudoPathEncoding.destinationForRoll(from, roll) ?: return false
         val motion = LudoPawsPawnAnimationPolicy.transition(
             playerId = playerId,
             tokenIndex = tokenIndex,
@@ -775,10 +776,10 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
         fun onDisplayFrame(frameTimeNanos: Long, refreshPeriodNanos: Long) {
             visibilityLock.withLock {
                 if (!running || !presentationVisible) return
-                val delay = LudoPaws3DRenderCadencePolicy.frameDelayMillis(
+                val frameDelay = LudoPaws3DRenderCadencePolicy.frameDelayMillis(
                     sceneState, frameTimeNanos / 1_000_000L,
                 )
-                if (displayPacer.shouldRender(frameTimeNanos, refreshPeriodNanos, delay)) {
+                if (displayPacer.shouldRender(frameTimeNanos, refreshPeriodNanos, frameDelay)) {
                     pendingFrameNanos = frameTimeNanos
                     visibilityChanged.signalAll()
                 }
@@ -1027,11 +1028,21 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
     private class EglWindow(
         surfaceTexture: SurfaceTexture,
     ) {
-        private val display: EGLDisplay
-        private val context: EGLContext
-        private val surface: EGLSurface
+        private var display: EGLDisplay = EGL14.EGL_NO_DISPLAY
+        private var context: EGLContext = EGL14.EGL_NO_CONTEXT
+        private var surface: EGLSurface = EGL14.EGL_NO_SURFACE
+        private var initialized = false
 
         init {
+            try {
+                open(surfaceTexture)
+            } catch (error: Throwable) {
+                release()
+                throw error
+            }
+        }
+
+        private fun open(surfaceTexture: SurfaceTexture) {
             display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY)
             check(display != EGL14.EGL_NO_DISPLAY) { "No EGL display" }
             val versions = IntArray(2)
@@ -1044,6 +1055,7 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
                     1,
                 ),
             ) { "EGL initialize failed" }
+            initialized = true
 
             val configAttributes =
                 intArrayOf(
@@ -1121,15 +1133,18 @@ internal class LudoPaws3DSceneView @JvmOverloads constructor(
             EGL14.eglSwapBuffers(display, surface)
 
         fun release() {
+            if (!initialized) return
             EGL14.eglMakeCurrent(
                 display,
                 EGL14.EGL_NO_SURFACE,
                 EGL14.EGL_NO_SURFACE,
                 EGL14.EGL_NO_CONTEXT,
             )
-            EGL14.eglDestroySurface(display, surface)
-            EGL14.eglDestroyContext(display, context)
+            if (surface != EGL14.EGL_NO_SURFACE) EGL14.eglDestroySurface(display, surface)
+            if (context != EGL14.EGL_NO_CONTEXT) EGL14.eglDestroyContext(display, context)
             EGL14.eglTerminate(display)
+            EGL14.eglReleaseThread()
+            initialized = false
         }
     }
 

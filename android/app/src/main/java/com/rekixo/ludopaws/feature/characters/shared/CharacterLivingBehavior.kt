@@ -27,6 +27,7 @@ internal object CharacterLivingBehavior {
         "rabbit" to Profile(9.1f, 8f, 10f, 19f, 7f, 0f),
         "panda" to Profile(14.3f, 6f, 6f, 22f, 9f, 0f),
         "monkey" to Profile(8.3f, 10f, 8f, 28f, 16f, 30f),
+        "giraffe" to Profile(14.7f, 7f, 11f, 18f, 19f, 0f),
     )
 
     val characterIds: Set<String> get() = profiles.keys

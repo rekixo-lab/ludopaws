@@ -3492,5 +3492,13 @@
             <sha256 value="55441db27e8869dfefe053059bdf478bdc7e95585642bf391f0023345fd56287" origin="Official Maven Central metadata; publisher SHA-1 cross-checked"/>
          </artifact>
       </component>
+      <component group="com.google.android.play" name="review" version="2.0.2">
+         <artifact name="review-2.0.2.aar">
+            <sha256 value="1602026678231dba0f7482d1244e45ff83d9ff22fc8b6d6be8961228ac7a32dd" origin="Official Google Maven artifact, reviewed without running Gradle"/>
+         </artifact>
+         <artifact name="review-2.0.2.pom">
+            <sha256 value="df4f2490cddb651ffbe784c8c5b979ec69996bc687ca7cd678c7d5f65b2897e8" origin="Official Google Maven artifact, reviewed without running Gradle"/>
+         </artifact>
+      </component>
    </components>
 </verification-metadata>

@@ -118,7 +118,7 @@ internal class RewardedAdsController(
         handler.postDelayed(requestTimeout, 30_000L)
         if (rewardedAd != null && consentInformation.canRequestAds()) maybeShowPending()
         else {
-            onMessage("Loading your ad… It will open when ready. Leaving Store cancels this request.")
+            onMessage("Loading your ad… It will open when ready. Leaving this screen cancels this request.")
             prepare()
         }
         return true
@@ -138,20 +138,29 @@ internal class RewardedAdsController(
         rewardedAd = null
         showing = true
         var delivered = false
+        var finished = false
+        fun finishOnce() {
+            if (finished) return
+            finished = true
+            request.finished(delivered)
+        }
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 showing = false
+                AdBreakSession.rewardedInteraction()
                 com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
-                request.finished(delivered)
+                finishOnce()
                 prepare()
             }
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 showing = false
-                request.finished(delivered)
+                AdBreakSession.rewardedInteraction()
+                finishOnce()
                 if (!closed && canPresent()) onMessage("The ad could not be shown. Tap Watch to retry.")
                 prepare()
             }
         }
+        AdBreakSession.rewardedInteraction()
         com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.fullscreenInteraction()
         try {
             ad.setServerSideVerificationOptions(ServerSideVerificationOptions.Builder()
@@ -163,7 +172,7 @@ internal class RewardedAdsController(
             }
         } catch (_: RuntimeException) {
             showing = false
-            request.finished(delivered)
+            finishOnce()
             if (!closed && canPresent()) onMessage("The ad could not open. Tap Watch to retry.")
         }
     }

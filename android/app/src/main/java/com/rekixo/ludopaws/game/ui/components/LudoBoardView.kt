@@ -1213,6 +1213,14 @@ class LudoBoardView @JvmOverloads constructor(
                         duckCreaseRight,
                     ),
                 ),
+            LudoPaws3DSpecies.GIRAFFE to
+                PawPrintArtwork(
+                    pads = listOf(
+                        path { addOval(RectF(-.42f, -.73f, -.055f, .67f), Path.Direction.CW) },
+                        path { addOval(RectF(.055f, -.73f, .42f, .67f), Path.Direction.CW) },
+                    ),
+                    details = emptyList(),
+                ),
             LudoPaws3DSpecies.GOAT to
                 PawPrintArtwork(
                     pads = listOf(goatLeft, goatRight),

@@ -8,6 +8,16 @@
     <string name="home_hero_supporting_copy">Race with talking animal pawns and Verified Fair Dice — online or locally.</string>
     <string name="share_subject" translatable="false">Ludo Paws</string>
     <string name="share_chooser_title">Share Ludo Paws</string>
+    <string name="friendship_settings_entry">Friendship Bundle</string>
+    <string name="share_room_link_and_code">Share link + code</string>
+    <string name="share_match_finished">One more round? 🐾</string>
+    <string name="share_match_win">I won. Your turn! 🐾</string>
+    <string name="share_match_rematch">Ready for a rematch? 🐾</string>
+    <string name="share_weekly_invite">Try this week’s challenge with me! 🐾</string>
+    <string name="share_weekly_completed">I finished this week’s challenge. Your turn! 🐾</string>
+    <string name="share_game_invite">Want to play Ludo Paws with me?\n%1$s</string>
+    <string name="share_choose_paw">Choose your Paw</string>
+    <string name="share_paw_choice">Player %1$d · %2$s</string>
     <string name="share_message">Play Ludo Paws — Roll. Race. Roar! Talking animal pawns with Verified Fair Dice online or locally.</string>
     <string name="rate_accessibility_label">Rate Ludo Paws</string>
     <string name="rate_dialog_title">RATE LUDO PAWS</string>

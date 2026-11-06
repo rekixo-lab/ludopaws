@@ -11,11 +11,13 @@ internal data class PendingAdReward(
     val createdAt: Long = System.currentTimeMillis(),
     val earned: Boolean = false,
     val abandoned: Boolean = false,
+    val dailyRewardDay: Long? = null,
 )
 
 /** Recovery hints, never credits: signed server receipts remain authoritative. */
 internal class PendingAdRewardStore(context: Context) {
-    private val prefs = context.applicationContext.getSharedPreferences("pending_ad_rewards_v1", Context.MODE_PRIVATE)
+    private val app = context.applicationContext
+    private val prefs = app.getSharedPreferences("pending_ad_rewards_v1", Context.MODE_PRIVATE)
 
     fun forAccount(accountId: String): List<PendingAdReward> = synchronized(LOCK) {
         read(accountId)
@@ -23,6 +25,8 @@ internal class PendingAdRewardStore(context: Context) {
 
     fun put(record: PendingAdReward) = synchronized(LOCK) {
         require(UUID.matches(record.accountId) && UUID.matches(record.requestId))
+        if (record.accountId in app.getSharedPreferences("ludoproof_profile", Context.MODE_PRIVATE)
+                .getStringSet("deleted_profile_accounts", emptySet()).orEmpty()) return@synchronized
         val all = read(record.accountId).filterNot { it.requestId == record.requestId }.toMutableList()
         check(all.size < 64) { "Previous ad rewards still need verification. Retry their status before watching more ads." }
         all += record
@@ -47,7 +51,8 @@ internal class PendingAdRewardStore(context: Context) {
             val request = row.getString("requestId")
             check(account == accountId && UUID.matches(account) && UUID.matches(request)) { "Reward recovery data could not be read safely." }
             PendingAdReward(account, request, row.optString("cosmeticId").takeIf(String::isNotBlank),
-                row.getLong("createdAt"), row.optBoolean("earned"), row.optBoolean("abandoned"))
+                row.getLong("createdAt"), row.optBoolean("earned"), row.optBoolean("abandoned"),
+                if (row.has("dailyRewardDay") && !row.isNull("dailyRewardDay")) row.getLong("dailyRewardDay") else null)
         }.filter { record ->
             // Never expire a reported earned reward. Old abandoned/prepared
             // hints may disappear; their server-side grant can still arrive.
@@ -59,7 +64,8 @@ internal class PendingAdRewardStore(context: Context) {
         val json = JSONArray()
         records.forEach { row -> json.put(JSONObject().put("accountId", row.accountId)
             .put("requestId", row.requestId).put("cosmeticId", row.cosmeticId ?: "")
-            .put("createdAt", row.createdAt).put("earned", row.earned).put("abandoned", row.abandoned)) }
+            .put("createdAt", row.createdAt).put("earned", row.earned).put("abandoned", row.abandoned)
+            .put("dailyRewardDay", row.dailyRewardDay)) }
         val key = "rewards:$accountId"
         val previous = prefs.getString(key, null)
         if (!prefs.edit().putString(key, json.toString()).commit()) {

@@ -29,6 +29,7 @@ data class PendingRollSnapshot(
     val scheduledSeat: Int? = null,
     val randomOutcome: Int? = null,
     val openingRollApplied: Boolean = false,
+    val comebackBonusApplied: Boolean = false,
 )
 
 data class HistoryEventSnapshot(
@@ -50,6 +51,7 @@ data class HistoryEventSnapshot(
     val randomOutcome: Int? = null,
     val effectiveOutcome: Int? = null,
     val openingRollApplied: Boolean = false,
+    val comebackBonusApplied: Boolean = false,
 )
 
 data class MatchSnapshot(
@@ -75,6 +77,7 @@ data class MatchSnapshot(
     val turnDeadlineAt: Long? = null,
     val turnRollTimeoutMillis: Long? = null,
     val serverTimeAtSnapshot: Long? = null,
+    val comebackWaits: List<Int> = emptyList(),
 )
 
 data class GameEnvelope(
@@ -107,6 +110,7 @@ object GameJson {
             "ludoproof-standard-v4",
         "ludoproof-standard-v5",
         "ludoproof-standard-v6",
+        "ludoproof-standard-v7",
         )
     private val teamRulesetIds =
         setOf(
@@ -115,6 +119,7 @@ object GameJson {
             "ludoproof-team-v3",
             "ludoproof-team-v4",
         "ludoproof-team-v5",
+        "ludoproof-team-v6",
         )
     private val colors = listOf("RED", "GREEN", "YELLOW", "BLUE")
     private val teamAssignments = listOf("A", "B", "A", "B")
@@ -180,6 +185,9 @@ object GameJson {
                     .takeIf { it.isNotBlank() && it != "null" },
             rulesetId = value.optString("rulesetId"),
             history = value.optJSONArray("history").toHistoryList(),
+            comebackWaits = value.optJSONArray("comebackWaits")?.let { waits ->
+                List(waits.length()) { waits.getInt(it) }
+            }.orEmpty(),
             actingSeat =
                 if (value.has("actingSeat") && !value.isNull("actingSeat")) {
                     value.optInt("actingSeat")
@@ -281,6 +289,14 @@ object GameJson {
         }
         if (matchMode == "TEAM_UP" && status != "WAITING") {
             schema(playersArray.length() == 4, "active/finished Team Up requires four players")
+        }
+
+        if (rulesetId == LudoComebackPolicy.RULESET_ID || rulesetId == LudoComebackPolicy.TEAM_RULESET_ID) {
+            val waits = value.requireArray("comebackWaits")
+            schema(waits.length() == playersArray.length(), "comeback counter count does not match players")
+            for (index in 0 until waits.length()) {
+                schema(waits.requireInt(index, "comebackWaits") in -1..2, "invalid comeback counter")
+            }
         }
 
         val playerIds = linkedSetOf<String>()
@@ -513,6 +529,7 @@ object GameJson {
                     null
                 },
             openingRollApplied = value.optBoolean("openingRollApplied", false),
+            comebackBonusApplied = value.optBoolean("comebackBonusApplied", false),
         )
 
     private fun JSONArray?.toPlayerList(): List<PlayerSnapshot> {
@@ -585,6 +602,7 @@ object GameJson {
                                 null
                             },
                         openingRollApplied = event.optBoolean("openingRollApplied", false),
+                        comebackBonusApplied = event.optBoolean("comebackBonusApplied", false),
                     ),
                 )
             }

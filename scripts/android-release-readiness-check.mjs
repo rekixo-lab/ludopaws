@@ -230,18 +230,18 @@ requireText(
   "PostWinInterstitialExitGate.kt",
   interstitialExitGate,
   'val wallet = accountRepository.wallet()',
-  "Remove Ads entitlement must be freshly confirmed from the authoritative wallet before display.",
+  "Remove Ads entitlement preparation must read the authoritative wallet.",
 );
 requireText(
   "PostWinInterstitialExitGate.kt",
   interstitialExitGate,
-  "onAdDismissed = onAdDismissed",
+  "onAdDismissed = { complete(onAdDismissed) }",
   "the exit gate must pass the ad-dismissed callback to the activity.",
 );
 requireText(
   "PostWinInterstitialExitGate.kt",
   interstitialExitGate,
-  "onFailedToShow = onSkipAd",
+  "onFailedToShow = { complete(onSkipAd) }",
   "failed-to-show or suppressed interstitials must continue normal back navigation.",
 );
 requireText(
@@ -269,7 +269,7 @@ requireText(
   "OfflineExitDialogUi.kt",
   offlineExit,
   "showPostWinInterstitialIfReady",
-  "local-game interstitial must be attached to result-screen exit only.",
+  "local-game interstitial must be attached to completed-result navigation.",
 );
 requireText(
   "OfflineGameActivity.kt",
@@ -281,7 +281,7 @@ requireText(
   "MainActivity.kt",
   onlineMain,
   "requestRemoteExitAfterWinInterstitial",
-  "remote-game back actions must route through the win-only placement policy.",
+  "remote-game back actions must route through the completed-match placement policy.",
 );
 requirePattern(
   "OfflineGameActivity.kt",

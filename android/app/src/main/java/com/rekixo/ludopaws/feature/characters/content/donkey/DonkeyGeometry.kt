@@ -7,7 +7,7 @@ import com.rekixo.ludopaws.rendering.meshes.MeshLoft.Ring
 internal object DonkeyGeometry {
     val body=MeshLoft.build(listOf(
         Ring(-.39f,.12f,.24f,centerZ=-.13f),Ring(-.30f,.32f,.55f,centerZ=-.14f),
-        Ring(-.08f,.42f,.68f,centerZ=-.16f),Ring(.14f,.39f,.61f,centerZ=-.15f),
+        Ring(-.08f,.40f,.68f,centerZ=-.16f),Ring(.14f,.39f,.61f,centerZ=-.15f),
         Ring(.29f,.26f,.39f,centerZ=-.10f),Ring(.34f,.08f,.13f),
     ),28,subdivisions=3)
     val neck=MeshLoft.build(listOf(
@@ -29,8 +29,9 @@ internal object DonkeyGeometry {
         Ring(.60f,.21f,.20f,centerZ=.40f),Ring(.63f,.10f,.11f,centerZ=.36f),
     ),24,subdivisions=3)
     val ear=MeshLoft.build(listOf(
-        Ring(0f,.065f,.055f),Ring(.12f,.09f,.060f),Ring(.31f,.105f,.058f),
-        Ring(.49f,.075f,.045f),Ring(.60f,.035f,.024f),Ring(.64f,.006f,.006f),
+        Ring(0f,.065f,.055f),Ring(.12f,.095f,.064f),Ring(.31f,.104f,.064f,centerZ=-.014f),
+        Ring(.49f,.078f,.050f,centerX=.015f,centerZ=-.032f),
+        Ring(.60f,.038f,.026f,centerX=.027f,centerZ=-.052f),Ring(.64f,.006f,.006f,centerX=.032f,centerZ=-.062f),
     ),24,subdivisions=3)
     // Canonical skin: y=-.5 at the hip, +.5 at the fetlock. Extra longitudinal
     // rings let the GPU bend a single surface through the IK knee.
@@ -53,5 +54,12 @@ internal object DonkeyGeometry {
         Ring(1.14f,.06f,.16f,centerZ=-.11f),Ring(1.24f,.065f,.10f,centerZ=-.08f),
         Ring(1.31f,.01f,.035f,centerZ=-.06f),
     ),16,subdivisions=2)
-    val all get()=listOf(body,neck,head,muzzle,jaw,ear,leg,hoof,tail,tailTuft,mane)
+    val forelock = MeshLoft.build(listOf(
+        Ring(-.14f, .005f, .008f, centerX = .064f, centerZ = .035f),
+        Ring(-.085f, .036f, .025f, centerX = .039f, centerZ = .032f),
+        Ring(-.02f, .064f, .038f, centerZ = .015f),
+        Ring(.045f, .062f, .042f, centerX = -.018f),
+        Ring(.09f, .018f, .018f, centerX = -.023f, centerZ = -.02f),
+    ), 16, subdivisions = 2)
+    val all get() = listOf(body, neck, head, muzzle, jaw, ear, leg, hoof, tail, tailTuft, mane, forelock)
 }

@@ -86,7 +86,7 @@ class AccountRepository(context: Context) {
     fun currentSession(): AccountSession? = sessions.load()
 
     fun referralRequest(operation: String, body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
-        require(operation in setOf("status", "invite", "challenge", "bind", "enroll", "withdraw"))
+        require(operation in setOf("status", "offer", "invite", "challenge", "bind", "enroll", "withdraw"))
         val session = requireSession()
         if (expectedAccountId != null && session.accountId != expectedAccountId) {
             throw AccountApiException(409, "ACCOUNT_SESSION_CHANGED", "Your account changed. Please retry.")
@@ -176,6 +176,18 @@ class AccountRepository(context: Context) {
             guestRecoveryEligible = false,
             identityRecoveryPending = true,
         )
+    }
+
+    fun rewardAvailability(expectedAccountId: String): JSONObject {
+        val session = requireSession()
+        check(session.accountId == expectedAccountId) { "Account changed. Reopen Rewards." }
+        return request("GET", "/api/rewards/availability", token = session.accessToken)
+    }
+
+    fun engagementRewards(body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
+        val session = ensureGuestSession()
+        check(expectedAccountId == null || session.accountId == expectedAccountId) { "Account changed. Reopen Rewards." }
+        return request(if (body == null) "GET" else "POST", "/api/rewards", body, token = session.accessToken)
     }
 
     fun wallet(): JSONObject {
@@ -366,6 +378,10 @@ class AccountRepository(context: Context) {
             promotionPrefs.all.keys.filter { it.contains(":${session.accountId}:") }.forEach { editor.remove(it) }
         }.commit()
         runCatching { com.rekixo.ludopaws.feature.store.data.ads.PendingAdRewardStore(appContext).removeAccount(session.accountId) }
+        listOf("engagement_v1", "reward_requests_v1", "weekly_challenges_v1").forEach { name ->
+            val preferences = appContext.getSharedPreferences(name, Context.MODE_PRIVATE)
+            preferences.edit().also { editor -> preferences.all.keys.filter { it.startsWith(session.accountId + ":") }.forEach(editor::remove) }.commit()
+        }
         sessions.clear()
         return response
     }

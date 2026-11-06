@@ -30,6 +30,8 @@ internal data class GameplayBoardEnvironment(
             GameplayBoardEnvironment("board_cloud_lagoon", 0xFFE2F0EA.toInt(), 0xFF8DC7C0.toInt(),
                 0xFFD5FFF2.toInt(), 0xFF73BFB8.toInt(), 0xFF346B6D.toInt(), 0xFF204B55.toInt(),
                 title = 0xFFF4FFF9.toInt()),
+            GameplayBoardEnvironment("board_sunstone_palace", 0xFFFCE2A1.toInt(), 0xFFD89C52.toInt(),
+                0xFFFFE5A0.toInt(), 0xFFB77138.toInt(), 0xFF1B6570.toInt(), 0xFF103D50.toInt()),
             GameplayBoardEnvironment("board_astral", 0xFF12263B.toInt(), 0xFF081525.toInt(),
                 0xFFE3C787.toInt(), 0xFF718AAA.toInt(), 0xFF293D59.toInt(), 0xFF152338.toInt(),
                 title = 0xFFFFF4DD.toInt()),

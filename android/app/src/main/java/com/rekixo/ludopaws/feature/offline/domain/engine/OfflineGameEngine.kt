@@ -89,6 +89,7 @@ class OfflineGameEngine(
         preferredColor: String = "RED",
         colorsBySeat: List<String>? = null,
         humanCount: Int = 1,
+        quickMatch: Boolean = false,
     ): MatchSnapshot {
         if (computerMode) require(humanCount in 1 until playerCount) {
             "Robot mode needs at least one human and one robot"
@@ -97,6 +98,7 @@ class OfflineGameEngine(
             mode = mode,
             playerCount = playerCount,
         )
+        require(!quickMatch || playerCount == 2) { "Quick Match uses two players" }
         require(preferredColor in OfflinePlayerLayout.COLORS) {
             "Unsupported offline color"
         }
@@ -131,13 +133,14 @@ class OfflineGameEngine(
                                 else -> "Player ${seat + 1}"
                             },
                         color = colorOrder[seat],
-                        tokens = mutableListOf(-1, -1, -1, -1),
+                        tokens = if (quickMatch) QuickMatchPolicy.initialTokens.toMutableList() else mutableListOf(-1, -1, -1, -1),
                     )
                 }
                 .toMutableList()
 
         state =
             LocalState(
+                rulesetId = if (quickMatch) QuickMatchPolicy.RULESET_ID else LudoComebackPolicy.RULESET_ID,
                 profileOwnerKnown = true,
                 profileOwnerAccountId = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(profileContext).load()?.accountId,
                 matchId = "offline-${UUID.randomUUID()}",
@@ -147,6 +150,7 @@ class OfflineGameEngine(
                 eventIndex = 0,
                 consecutiveSixes = MutableList(playerCount) { 0 },
                 openingRollConsumed = MutableList(playerCount) { false },
+                comebackWaits = MutableList(playerCount) { -1 },
                 pendingOutcome = null,
                 pendingLegal = mutableSetOf(),
                 pendingEventIndex = null,
@@ -181,7 +185,7 @@ class OfflineGameEngine(
         val result =
             OfflineLudoV3Binding.deriveRoll(
                 rulesetId = current.rulesetId,
-                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID))
+                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID))
                     OfflineLudoV5Binding.OPPONENT_STACK_CAPTURE else "CAPTURE_ALL_ON_UNSAFE_CELL",
                 matchId = current.matchId,
                 status = current.status,
@@ -197,6 +201,7 @@ class OfflineGameEngine(
                 eventIndex = event,
                 consecutiveSixes = current.consecutiveSixes.toList(),
                 openingRollConsumed = current.openingRollConsumed.toList(),
+                comebackWaits = current.comebackWaits.toList(),
                 winnerPlayerId = current.winnerPlayerId,
                 history =
                     current.history.map { history ->
@@ -210,6 +215,7 @@ class OfflineGameEngine(
                             moveTokenIndex = history.moveTokenIndex,
                             captures = history.captures,
                             fairnessDigest = history.fairnessDigest,
+                            comebackBonusApplied = history.comebackBonusApplied,
                         )
                     },
             )
@@ -243,7 +249,7 @@ class OfflineGameEngine(
         val result = prepared.result
         val audit = prepared.audit
         val randomOutcome = result.outcome
-        val openingRollApplied =
+        val openingRollApplied = if (current.rulesetId == QuickMatchPolicy.RULESET_ID) !current.openingRollConsumed[seat] && player.tokens == QuickMatchPolicy.initialTokens else
             LudoTurnAutomationPolicy.shouldGuaranteeOpeningSix(
                 tokens = player.tokens,
                 openingRollConsumed = current.openingRollConsumed[seat],
@@ -258,6 +264,13 @@ class OfflineGameEngine(
                 verifiedOutcome = randomOutcome,
                 guaranteeOpeningSix = openingRollApplied,
             )
+
+        val comebackBonusApplied = LudoComebackPolicy.enabled(current.rulesetId) &&
+            !openingRollApplied && LudoComebackPolicy.applies(player.tokens, current.comebackWaits[seat], outcome)
+        if (LudoComebackPolicy.enabled(current.rulesetId)) {
+            if (!LudoComebackPolicy.stranded(player.tokens) || openingRollApplied) current.comebackWaits[seat] = -1
+            else if (current.comebackWaits[seat] >= 0 && outcome != 6 && !comebackBonusApplied) current.comebackWaits[seat] += 1
+        }
 
         current.eventIndex += 1
         current.lastAudit = audit
@@ -319,6 +332,7 @@ class OfflineGameEngine(
                 randomOutcome = randomOutcome,
                 outcome = outcome,
                 openingRollApplied = openingRollApplied,
+                comebackBonusApplied = comebackBonusApplied,
                 moveTokenIndex = null,
                 captures = 0,
             )
@@ -336,7 +350,7 @@ class OfflineGameEngine(
             return current.toSnapshot()
         }
 
-        val legal =
+        val legal = if (comebackBonusApplied) setOf(player.tokens.indexOfFirst { it == -1 }) else
             legalTokenIndexes(
                 player.tokens,
                 outcome,
@@ -379,13 +393,20 @@ class OfflineGameEngine(
         val seat = current.turnSeat
         val player = current.players[seat]
         val oldPosition = player.tokens[tokenIndex]
-        val destination =
+        val comebackBonusApplied = current.history.lastOrNull { it.eventIndex == event }?.comebackBonusApplied == true
+        if (comebackBonusApplied) {
+            check(LudoComebackPolicy.enabled(current.rulesetId))
+            check(LudoComebackPolicy.applies(player.tokens, current.comebackWaits[seat], outcome))
+            check(oldPosition == -1)
+        }
+        val destination = if (comebackBonusApplied) 0 else
             LudoPathEncoding.destinationForRoll(
                 position = oldPosition,
                 roll = outcome,
             ) ?: error("Offline move exceeded the home path")
 
         player.tokens[tokenIndex] = destination
+        if (LudoComebackPolicy.enabled(current.rulesetId)) current.comebackWaits[seat] = -1
         val captures =
             captureOpponents(
                 current = current,
@@ -434,7 +455,7 @@ class OfflineGameEngine(
             return current.toSnapshot()
         }
 
-        val extraTurn =
+        val extraTurn = !comebackBonusApplied &&
             LudoExtraTurnPolicy.grantsExtraTurn(
                 roll = outcome,
                 captures = captures,
@@ -523,6 +544,9 @@ class OfflineGameEngine(
             if (matchingTokenIndexes.size != 1) return@forEachIndexed
 
             opponent.tokens[matchingTokenIndexes.single()] = -1
+            if (LudoComebackPolicy.enabled(current.rulesetId) && LudoComebackPolicy.stranded(opponent.tokens)) {
+                current.comebackWaits[seat] = 0
+            }
             captures += 1
         }
         return captures
@@ -560,6 +584,7 @@ class OfflineGameEngine(
         players = players.map { it.copy(tokens = it.tokens.toMutableList()) }.toMutableList(),
         consecutiveSixes = consecutiveSixes.toMutableList(),
         openingRollConsumed = openingRollConsumed.toMutableList(),
+        comebackWaits = comebackWaits.toMutableList(),
         pendingLegal = pendingLegal.toMutableSet(),
         finishedPlayerIds = finishedPlayerIds.toMutableList(),
         history = history.toMutableList(),
@@ -567,7 +592,7 @@ class OfflineGameEngine(
 
     private fun persist() {
         val active = state ?: return
-        if (active.rulesetId == OfflineLudoV6Binding.RULESET_ID && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
+        if (active.rulesetId in setOf(OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID) && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
             active.history.subList(0, active.history.size - OfflineLudoV6Binding.HISTORY_WINDOW).clear()
         }
         val current = active.frozenCopy()
@@ -613,6 +638,7 @@ class OfflineGameEngine(
                 )
                 .put("consecutiveSixes", JSONArray(current.consecutiveSixes))
                 .put("openingRollConsumed", JSONArray(current.openingRollConsumed))
+                .put("comebackWaits", JSONArray(current.comebackWaits))
                 .put(
                     "history",
                     JSONArray().apply {
@@ -635,6 +661,7 @@ class OfflineGameEngine(
                                     .put("randomOutcome", event.randomOutcome)
                                     .put("outcome", event.outcome)
                                     .put("openingRollApplied", event.openingRollApplied)
+                                    .put("comebackBonusApplied", event.comebackBonusApplied)
                                     .put("moveTokenIndex", event.moveTokenIndex)
                                     .put("captures", event.captures),
                             )
@@ -761,6 +788,7 @@ class OfflineGameEngine(
                             randomOutcome = randomOutcome,
                             outcome = effectiveOutcome,
                             openingRollApplied = value.optBoolean("openingRollApplied", false),
+                            comebackBonusApplied = value.optBoolean("comebackBonusApplied", false),
                             moveTokenIndex =
                                 if (
                                     value.has("moveTokenIndex") &&
@@ -824,6 +852,10 @@ class OfflineGameEngine(
                 eventIndex = json.optInt("eventIndex", 0),
                 consecutiveSixes = sixes,
                 openingRollConsumed = openingRollConsumed,
+                comebackWaits = json.optJSONArray("comebackWaits")?.let { waits ->
+                    check(waits.length() == players.size)
+                    MutableList(waits.length()) { waits.getInt(it) }
+                } ?: MutableList(players.size) { -1 },
                 pendingOutcome =
                     if (
                         restorePending &&
@@ -861,6 +893,7 @@ class OfflineGameEngine(
                 revision = json.optInt("revision", 1),
             ).also { restored ->
                 validateRestoredState(restored)
+                OfflineMatchInvariantPolicy.requireValid(restored.toSnapshot())
             }
         }.getOrElse {
             prefs.edit().clear().apply()
@@ -869,7 +902,7 @@ class OfflineGameEngine(
     }
 
     private fun validateRestoredState(restored: LocalState) {
-        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID))
+        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID))
 
         check(restored.players.size in 2..4) {
             "Offline save has an invalid player count"
@@ -918,6 +951,8 @@ class OfflineGameEngine(
         check(restored.openingRollConsumed.size == restored.players.size) {
             "Offline save has invalid opening-roll state"
         }
+
+        check(restored.comebackWaits.size == restored.players.size && restored.comebackWaits.all { it in -1..2 })
 
         val pendingOutcome = restored.pendingOutcome
         val pendingEventIndex = restored.pendingEventIndex
@@ -1017,12 +1052,14 @@ class OfflineGameEngine(
                         randomOutcome = pendingHistory?.randomOutcome,
                         openingRollApplied =
                             pendingHistory?.openingRollApplied == true,
+                        comebackBonusApplied = pendingHistory?.comebackBonusApplied == true,
                     )
                 },
             winnerPlayerId = winnerPlayerId,
             rulesetId = rulesetId,
             history = history.map { it.toSnapshot() },
             finishOrderPlayerIds = finishedPlayerIds.toList(),
+            comebackWaits = comebackWaits.toList(),
         )
 
     private data class LocalPlayer(
@@ -1049,6 +1086,7 @@ class OfflineGameEngine(
         val randomOutcome: Int?,
         val outcome: Int?,
         val openingRollApplied: Boolean,
+        val comebackBonusApplied: Boolean = false,
         val moveTokenIndex: Int?,
         val captures: Int,
     ) {
@@ -1072,6 +1110,7 @@ class OfflineGameEngine(
                 randomOutcome = randomOutcome,
                 effectiveOutcome = outcome,
                 openingRollApplied = openingRollApplied,
+                comebackBonusApplied = comebackBonusApplied,
             )
 
         fun toFairnessMaterial(): OfflineFairnessMaterial =
@@ -1096,7 +1135,7 @@ class OfflineGameEngine(
     private data class LocalState(
         val profileOwnerKnown: Boolean = false,
         val profileOwnerAccountId: String? = null,
-        val rulesetId: String = OfflineLudoV6Binding.RULESET_ID,
+        val rulesetId: String = LudoComebackPolicy.RULESET_ID,
         val matchId: String,
         var status: String,
         val players: MutableList<LocalPlayer>,
@@ -1104,6 +1143,7 @@ class OfflineGameEngine(
         var eventIndex: Int,
         val consecutiveSixes: MutableList<Int>,
         val openingRollConsumed: MutableList<Boolean>,
+        val comebackWaits: MutableList<Int>,
         var pendingOutcome: Int?,
         var pendingLegal: MutableSet<Int>,
         var pendingEventIndex: Int?,

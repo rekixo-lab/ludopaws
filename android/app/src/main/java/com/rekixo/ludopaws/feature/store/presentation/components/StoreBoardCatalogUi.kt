@@ -2,7 +2,6 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
@@ -10,7 +9,6 @@ import android.widget.TextView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -40,12 +38,17 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
                     gravity = Gravity.TOP
                 }
 
+            val optionCount = rowBoards.maxOf { item ->
+                if (item.id in ownedIds) 0 else listUnlockOptions(item).size
+            }
+            val cardHeight = dp(if (optionCount < 2) 208 else 145 + 51 * optionCount)
+
             rowBoards.forEach { board ->
                 row.addView(
                     boardPanel(board, board.id in ownedIds, board.id in ownedIds && selectedId == board.id, selectionUpdates),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(208),
+                        cardHeight,
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -56,7 +59,7 @@ internal fun StoreActivity.boardCatalogContent(friendshipEntry: View? = null): L
             repeat(2 - rowBoards.size) {
                 row.addView(
                     TextView(this@boardCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(208), 1f),
+                    LinearLayout.LayoutParams(0, cardHeight, 1f),
                 )
             }
 
@@ -110,25 +113,11 @@ private fun StoreActivity.boardPanel(
             ),
         )
 
-        if (!owned && board.requiredAdViews > 0) {
-            addView(TextView(this@boardPanel).apply {
-                text = "or ${board.requiredAdViews} ads"
-                textSize = 9f
-                includeFontPadding = false
-                setTextColor(Color.WHITE)
-                gravity = Gravity.CENTER
-            })
-        }
         addView(
-            BoardIconView(this@boardPanel, board.id).apply {
-                isClickable = false
-                isFocusable = false
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = "${board.title} board preview"
-            },
+            StoreCatalogArtwork.board(context, board.id),
             LinearLayout.LayoutParams(
-                dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
-                dp(if (!owned && board.requiredAdViews > 0) 90 else 104),
+                dp(104),
+                dp(104),
             ).apply {
                 topMargin = dp(1)
                 bottomMargin = dp(1)
@@ -145,6 +134,9 @@ private fun StoreActivity.boardPanel(
                 topMargin = dp(8)
             },
         )
+
+        val paymentOptions = if (!owned) cosmeticPaymentOptions(board) else null
+        paymentOptions?.let { addView(it, LinearLayout.LayoutParams(-1, -2)) }
 
         val updateSelection: (Boolean, Boolean) -> Unit = { currentOwned, currentSelected ->
             isSelected = currentSelected
@@ -169,14 +161,13 @@ private fun StoreActivity.boardPanel(
                 else -> "${board.title}, unlocked, tap to select"
             }
             boardStatusBadge(board, currentOwned, currentSelected, statusBadge)
+            statusBadge.visibility = if (currentOwned || paymentOptions == null) View.VISIBLE else View.GONE
+            paymentOptions?.visibility = if (currentOwned) View.GONE else View.VISIBLE
         }
         selectionUpdates[board.id] = updateSelection
         updateSelection(owned, selected)
 
-        setOnClickListener { clicked ->
-            handleCosmeticTap(board)
-            clicked.playSelectionPopAnimation {}
-        }
+        setOnClickListener { handleCosmeticTap(board) }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
 
@@ -187,65 +178,20 @@ private fun StoreActivity.boardStatusBadge(
     badge: TextView = TextView(this),
 ): TextView =
     badge.apply {
-        text = when {
-            selected -> "✓ EQUIPPED"
-            owned -> "TAP TO SELECT"
-            else -> smartUnlockLabel(board)
+        if (owned) {
+            applyCosmeticOwnershipBadge(equipped = selected)
+            return@apply
         }
+        setCompoundDrawablesRelative(null, null, null, null)
+        minHeight = 0
+        text = cosmeticPurchaseLabel(board)
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)
-        setTextColor(
-            when {
-                selected -> 0xFF67430F.toInt()
-                owned -> 0xFF104B29.toInt()
-                else -> 0xFF235A86.toInt()
-            },
-        )
+        setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
         includeFontPadding = false
         maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
-        background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                when {
-                    selected ->
-                        intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
-                    else ->
-                        intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt())
-                },
-            ).apply {
-                cornerRadius = dp(999).toFloat()
-                setStroke(
-                    dp(1),
-                    when {
-                        selected -> 0xFFFFF5C9.toInt()
-                        else -> 0xFF47B86C.toInt()
-                    },
-                )
-            }
+        background = storeButtonBackground(context)
     }
-
-
-private class BoardIconView(
-    context: android.content.Context,
-    previewThemeId: String,
-) : android.widget.FrameLayout(context) {
-    init {
-        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        contentDescription = "Gameplay board artwork preview"
-        addView(com.rekixo.ludopaws.LudoBoardView(context).apply {
-            setBoardThemeOverride(previewThemeId)
-            setClassicTokenDrawingEnabled(false)
-            isClickable = false
-            isFocusable = false
-        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-        addView(com.rekixo.ludopaws.LudoPawsBoardChromeView(context).apply {
-            setBoardThemeOverride(previewThemeId)
-        }, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-    }
-
-    // The store card owns the tap; this is a passive preview, with no selectable pawns.
-    override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean = false
-}

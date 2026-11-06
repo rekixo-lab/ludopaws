@@ -12,6 +12,9 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.feature.offline.*
+import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
+import com.rekixo.ludopaws.feature.sharing.MatchShareCard
+import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import com.rekixo.ludopaws.feature.offline.presentation.feedback.OfflineFeedbackAction
 import com.rekixo.ludopaws.feature.offline.presentation.feedback.OfflineLudoPawsFeedbackDispatcher
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
@@ -62,6 +65,37 @@ private fun OfflineGameActivity.ensureOfflineResultActions(
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, 0)
         }
+
+    actions.addView(android.widget.Button(this).apply {
+        text = "SHARE"
+        LudoProofTheme.secondary(this)
+        setOnClickListener {
+            engine.snapshot()?.let { latest ->
+                val activity = this@ensureOfflineResultActions
+                val players = latest.players.filterNot { engine.isComputerPlayer(it.playerId) }
+                val characters = resolveOfflineCharacterIds(latest)
+                val mode = (if (quickMatch) "Quick Match · " else "") +
+                    (if (isComputerMode) "Vs Robot" else "Pass & Play")
+                fun share(player: PlayerSnapshot) {
+                    MatchShareCard.share(activity, latest, mode, player.playerId, characters)
+                }
+                if (players.size <= 1) {
+                    players.singleOrNull()?.let(::share)
+                } else {
+                    val choices = players.map { player ->
+                        val paw = LudoPawsCharacterCatalog.character(characters.getOrNull(player.seat).orEmpty())
+                        getString(R.string.share_paw_choice, player.seat + 1, paw?.displayName ?: player.color)
+                    }
+                    var selected: PlayerSnapshot? = null
+                    PlywoodAlertDialogBuilder(activity)
+                        .setTitle(getString(R.string.share_choose_paw))
+                        .setItems(choices.toTypedArray()) { _, which -> selected = players[which] }
+                        .setOnDismissListener { selected?.let(::share) }
+                        .show()
+                }
+            }
+        }
+    }, LinearLayout.LayoutParams(0, dp(if (isCompactSetup()) 48 else 52), 1f))
 
     actions.addView(
         offlineResultActionButton(
@@ -246,37 +280,40 @@ private fun OfflineGameActivity.startOfflineRematch() {
                 showStatus("Rematch is available after the match ends.")
                 return
             }
-    val characterIds =
-        resolveOfflineCharacterIds(finished)
+    val startNextMatch: () -> Unit = {
+        val characterIds =
+            resolveOfflineCharacterIds(finished)
 
-    selectedPlayers = spec.playerCount
-    selectedHumans = if (isComputerMode) {
-        finished.players.count { !engine.isComputerPlayer(it.playerId) }
-            .coerceIn(1, spec.playerCount - 1)
-    } else spec.playerCount
-    selectedColor = spec.preferredColor
-    selectedCharacterSlot =
-        if (isComputerMode) {
-            0
-        } else {
-            selectedCharacterSlot.coerceIn(
-                0,
-                spec.playerCount - 1,
-            )
-        }
-    selectedCharacterIds = characterIds
-    selectedColorsBySeat = finished.players.map { it.color }
-    if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
-    persistActiveCharacterSetup()
+        selectedPlayers = spec.playerCount
+        selectedHumans = if (isComputerMode) {
+            finished.players.count { !engine.isComputerPlayer(it.playerId) }.coerceIn(1, spec.playerCount - 1)
+        } else spec.playerCount
+        selectedColor = spec.preferredColor
+        selectedCharacterSlot =
+            if (isComputerMode) {
+                0
+            } else {
+                selectedCharacterSlot.coerceIn(
+                    0,
+                    spec.playerCount - 1,
+                )
+            }
+        selectedCharacterIds = characterIds
+        selectedColorsBySeat = finished.players.map { it.color }
+        if (!isComputerMode) selectedColor = selectedColorsBySeat[selectedCharacterSlot]
+        persistActiveCharacterSetup()
 
-    showGame(
-        session.start(
-            playerCount = spec.playerCount,
-            preferredColor = spec.preferredColor,
-            colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
-            humanCount = selectedHumans,
-        ),
-    )
+        showGame(
+            session.start(
+                playerCount = spec.playerCount,
+                quickMatch = finished.rulesetId == QuickMatchPolicy.RULESET_ID,
+                humanCount = selectedHumans,
+                preferredColor = spec.preferredColor,
+                colorsBySeat = if (isComputerMode) null else selectedColorsBySeat,
+            ),
+        )
+    }
+    if (!showPostWinInterstitialIfReady(finished.matchId, startNextMatch)) startNextMatch()
 }
 
 internal fun OfflineGameActivity.gameplaySectionParams(
@@ -357,11 +394,15 @@ internal fun OfflineGameActivity.renderGame(
 
     renderPlayerRails(state)
 
+    val die = diceView
+    val spatialRoll = die?.usesSpatialRoll == true
     val pending = state.pendingRoll
     val latest = state.history.lastOrNull()
     val latestForActive =
         latest?.takeIf {
-            it.playerId == activePlayerId
+            // During the hold the rail still shows the player who just rolled,
+            // including rolls that already passed the turn.
+            it.playerId == activePlayerId || (spatialRoll && blockedRemainingMillis > 0L)
         }
     val presentedEventIndex =
         pending?.eventIndex
@@ -379,9 +420,10 @@ internal fun OfflineGameActivity.renderGame(
             "${state.matchId}:$presentedEventIndex"
         val shouldAnimate =
             presentedDiceEventKey != eventKey
-        diceView?.showOutcome(
+        die?.showOutcome(
             outcome = outcome,
             animate = shouldAnimate,
+            eventKey = eventKey.takeIf { spatialRoll },
         )
         presentedDiceEventKey = eventKey
     } else {
@@ -396,12 +438,13 @@ internal fun OfflineGameActivity.renderGame(
             pending == null &&
             !computerTurn &&
             blockedRemainingMillis == 0L
-    val activeHomeCount =
+    val racingPaws = if (state.rulesetId == QuickMatchPolicy.RULESET_ID) 2 else 4
+    val activeHomeCount = (
         active?.tokens
             ?.count {
                 it == LudoPathEncoding.HOME_POSITION
             }
-            ?: 0
+            ?: 0) - (4 - racingPaws)
 
     turnText?.text =
         when {
@@ -421,17 +464,17 @@ internal fun OfflineGameActivity.renderGame(
     infoText?.text =
         when {
             state.status == "FINISHED" ->
-                "4/4 PAWS HOME"
+                "$racingPaws/$racingPaws PAWS HOME"
 
             pending != null -> {
                 val legalCount = pending.legalTokenIndexes.size
                 val choiceLabel =
                     if (legalCount == 1) "CHOICE" else "CHOICES"
-                "DICE ${pending.outcome} • $legalCount $choiceLabel • $activeHomeCount/4 HOME"
+                "DICE ${pending.outcome} • $legalCount $choiceLabel • $activeHomeCount/$racingPaws HOME"
             }
 
             else ->
-                "$activeHomeCount/4 PAWS HOME"
+                "$activeHomeCount/$racingPaws PAWS HOME"
         }
 
     diceHost?.isEnabled = canRoll
@@ -446,6 +489,9 @@ internal fun OfflineGameActivity.renderGame(
 
         state.status == "FINISHED" ->
             showStatus("Rematch or change setup.")
+
+        com.rekixo.ludopaws.LudoComebackPolicy.hint(state) != null ->
+            showStatus(requireNotNull(com.rekixo.ludopaws.LudoComebackPolicy.hint(state)))
 
         computerTurn && pending != null ->
             showStatus("Computer is choosing a paw…")
@@ -576,19 +622,19 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
             .firstOrNull { it.playerId == activePlayerId }
             ?: return
     val outcome = pending.outcome ?: return
-    val tokenIndex =
+    val tokenIndex = (if (pending.comebackBonusApplied) pending.legalTokenIndexes.singleOrNull() else
         LudoTurnAutomationPolicy.singleAutomaticTokenIndex(
             tokens = activePlayer.tokens,
             roll = outcome,
             legalTokenIndexes = pending.legalTokenIndexes,
-        ) ?: return
+        )) ?: return
 
     val eventKey =
         "single-legal:${state.matchId}:${pending.eventIndex}:$tokenIndex"
     if (singleLegalMoveKey == eventKey) return
     singleLegalMoveKey = eventKey
 
-    showStatus("Only one move available • moving your paw automatically…")
+    showStatus(if (pending.comebackBonusApplied) "Comeback bonus • one paw returns • no extra turn" else "Only one move available • moving your paw automatically…")
 
     val speed =
         GameSettingsStore(this)
@@ -612,11 +658,11 @@ private fun OfflineGameActivity.scheduleSingleLegalHumanMove(
                     !engine.isComputerPlayer(latestActive.playerId) &&
                     latestPending?.eventIndex == pending.eventIndex &&
                     latestOutcome != null &&
-                    LudoTurnAutomationPolicy.singleAutomaticTokenIndex(
+                    (if (latestPending.comebackBonusApplied) latestPending.legalTokenIndexes.singleOrNull() else LudoTurnAutomationPolicy.singleAutomaticTokenIndex(
                         tokens = latestActive.tokens,
                         roll = latestOutcome,
                         legalTokenIndexes = latestPending.legalTokenIndexes,
-                    ) == tokenIndex
+                    )) == tokenIndex
 
             if (!stillSameMove) {
                 singleLegalMoveKey = null

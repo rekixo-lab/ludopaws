@@ -2,19 +2,17 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.LudoPawsCharacterAvatarView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.characters.domain.catalog.CharacterDefinitions
 import com.rekixo.ludopaws.feature.characters.domain.catalog.LudoPawsCharacterCatalog
 import com.rekixo.ludopaws.feature.characters.domain.model.AnimalCharacter
+import com.rekixo.ludopaws.feature.characters.rendering.CharacterRegistry
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.actions.handleCosmeticTap
@@ -26,6 +24,7 @@ internal fun StoreActivity.pawsCatalogContent(friendshipEntry: View? = null): Li
         val starterCharacters =
             LudoPawsCharacterCatalog.charactersForPack(LudoPawsCharacterCatalog.STARTER_PACK_ID)
                 .sortedBy { character -> CharacterDefinitions.all.first { it.character.id == character.id }.storeDisplayOrder }
+        CharacterRegistry.prewarm(starterCharacters.take(4).map { it.id })
         addView(
             this@pawsCatalogContent.pawsCharacterGrid(starterCharacters, friendshipEntry),
             LinearLayout.LayoutParams(
@@ -105,7 +104,6 @@ private fun StoreActivity.pawsCharacterCard(
         val unlock = availableOffer ?: StoreCosmeticCatalog.findBuiltIn("character_${character.id}")
         val owned = unlock == null || unlock.id in ownedIds
         val offerUnavailable = availableOffer == null && unlock != null && !owned
-        val progress = unlock?.let { cosmetics.rewardedAdProgress(it.id).coerceAtMost(it.requiredAdViews) } ?: 0
         orientation = LinearLayout.VERTICAL
         gravity = Gravity.CENTER
         clipChildren = false
@@ -132,17 +130,7 @@ private fun StoreActivity.pawsCharacterCard(
             else "${character.displayName}, unlocked"
 
         addView(
-            LudoPawsCharacterAvatarView(this@pawsCharacterCard).apply {
-                // Reuse the same production 3D portrait as gameplay and character selection.
-                bind(
-                    characterId = character.id,
-                    ringColor = 0xFF5BE0FF.toInt(),
-                    highlighted = false,
-                    showCircularChrome = false,
-                )
-                importantForAccessibility =
-                    android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            },
+            StoreCatalogArtwork.paw(context, character.id),
             LinearLayout.LayoutParams(
                 dp(96),
                 dp(96),
@@ -167,48 +155,38 @@ private fun StoreActivity.pawsCharacterCard(
             ),
         )
 
+        val paymentOptions = availableOffer?.takeIf { !owned }?.let { cosmeticPaymentOptions(it) }
         addView(
-            TextView(this@pawsCharacterCard).apply {
+            paymentOptions ?: TextView(this@pawsCharacterCard).apply {
+                if (owned) {
+                    applyCosmeticOwnershipBadge(equipped = selected)
+                    return@apply
+                }
                 text = when {
-                    owned -> "🔓 UNLOCKED"
                     offerUnavailable -> "🔒 UNAVAILABLE"
-                    unlock != null && unlock.unlockChannels.size > 1 -> cosmeticPurchaseLabel(unlock)
-                    else -> if (unlock == null) "UNLOCKED" else smartUnlockLabel(unlock)
+                    unlock != null -> cosmeticPurchaseLabel(unlock)
+                    else -> "🔒 UNAVAILABLE"
                 }
                 textSize = 10f
                 setTypeface(Typeface.DEFAULT_BOLD)
-                setTextColor(
-                    if (selected) 0xFF67430F.toInt() else 0xFF104B29.toInt(),
-                )
+                setTextColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 includeFontPadding = false
                 letterSpacing = 0.025f
                 setPadding(dp(8), dp(5), dp(8), dp(5))
-                background =
-                    GradientDrawable(
-                        GradientDrawable.Orientation.TOP_BOTTOM,
-                        if (selected) {
-                            intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
-                        } else {
-                            intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt())
-                        },
-                    ).apply {
-                        cornerRadius = dp(999).toFloat()
-                        setStroke(
-                            dp(1),
-                            if (selected) 0xFFFFF5C9.toInt() else 0xFF47B86C.toInt(),
-                        )
-                    }
+                background = storeButtonBackground(context)
             },
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                if (paymentOptions != null) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ),
         )
 
-        setOnClickListener { clicked ->
-            clicked.playSelectionPopAnimation {
-                showFeaturedCharacter(character.id)
+        setOnClickListener {
+            when {
+                owned -> showFeaturedCharacter(character.id)
+                availableOffer != null -> handleCosmeticTap(availableOffer)
+                else -> showStoreMessage("This Paw is temporarily unavailable.")
             }
         }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)

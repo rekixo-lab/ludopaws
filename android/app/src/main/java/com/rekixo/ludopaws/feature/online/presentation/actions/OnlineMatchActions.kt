@@ -76,7 +76,7 @@ internal fun MainActivity.createMatch() {
                     requestId,
                 characterId = character.characterId,
                 characterAccountToken = character.accountToken,
-                rulesetKey = "CLASSIC_V5",
+                rulesetKey = "CLASSIC_V7",
             )
         },
         onSuccess = {

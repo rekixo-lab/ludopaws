@@ -235,6 +235,7 @@ internal class LudoPaws3DSceneRenderer {
         previewZoom: Float = 1f,
         synchronizeGpu: Boolean = true,
         verticalAnchor: Float = .62f,
+        footBaseline: Float? = null,
     ) {
         if (program == 0) return
 
@@ -256,10 +257,20 @@ internal class LudoPaws3DSceneRenderer {
         val size = min(width, height).toFloat()
         GLES30.glUniform1f(uEntryFadeLocation, 1f)
         GLES30.glUniform4f(uEntryClipLocation, 0f, 0f, 0f, 0f)
-        val modelScale = size * 0.30f * previewZoom.coerceIn(.6f, 1.5f)
+        val minZoom = if (footBaseline == null) .6f else .35f
+        val modelScale = size * 0.30f * previewZoom.coerceIn(minZoom, 1.5f)
+        val rootY = if (footBaseline != null) {
+            LudoPawsPawnLayout.rootYForFootContact(
+                boardCenterY = height * footBaseline,
+                modelScale = modelScale,
+                groundPivotY = groundPivotY,
+            )
+        } else {
+            height * verticalAnchor.coerceIn(.5f, .75f)
+        }
         prepareRoot(
             x = width * 0.5f,
-            y = height * verticalAnchor.coerceIn(.5f, .75f),
+            y = rootY,
             scale = modelScale,
             liftY = pose.liftY,
             bodyYawDegrees = pose.bodyYawDegrees,

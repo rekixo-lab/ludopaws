@@ -11,11 +11,13 @@ internal object ReferralPopupPolicy {
         eligible && state == "INVITE" && !shownThisSession && now > 0 && history.impressions in 0..2 &&
             history.shownAt in 0..now && history.dismissedAt in 0..now &&
             (history.shownAt == 0L || now - history.shownAt >= DAY_MS) &&
-            (history.dismissedAt == 0L || now - history.dismissedAt >= 3 * DAY_MS)
+            (history.dismissedAt == 0L || now - history.dismissedAt >= 7 * DAY_MS)
 }
 
 /** Process-local opportunity/suppression signals; no accounts, views or provider tokens. */
-internal class ReferralPopupSession {
+internal class ReferralPopupSession(
+    private val quietAutomaticPrompts: () -> Unit = { com.rekixo.ludopaws.feature.growth.AutomaticPromptGate.quietFor() },
+) {
     private val completed = linkedSetOf<String>()
     private var pendingMatch = false
     private var fullscreenAt: Long? = null
@@ -28,9 +30,13 @@ internal class ReferralPopupSession {
         pendingMatch = true
     }
 
+    @Synchronized fun hasHomeOpportunity(): Boolean = pendingMatch
     @Synchronized fun takeHomeOpportunity(): Boolean = pendingMatch.also { pendingMatch = false }
     @Synchronized fun markAutomaticShown() { automaticShown = true }
-    @Synchronized fun fullscreenInteraction(now: Long = System.nanoTime()) { fullscreenAt = now }
+    @Synchronized fun fullscreenInteraction(now: Long = System.nanoTime()) {
+        fullscreenAt = now
+        quietAutomaticPrompts()
+    }
     @Synchronized fun fullscreenRecently(now: Long = System.nanoTime()): Boolean =
         fullscreenAt?.let { now - it in 0 until 60_000_000_000L } ?: false
 

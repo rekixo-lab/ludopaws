@@ -3,6 +3,8 @@ package com.rekixo.ludopaws
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import android.view.View
 import com.rekixo.ludopaws.feature.boards.domain.BoardRegistry
 import com.rekixo.ludopaws.feature.boards.domain.BoardDefinition
@@ -12,20 +14,28 @@ import com.rekixo.ludopaws.feature.store.domain.model.CosmeticCategory
 import kotlin.math.min
 
 /** Hosts the equipped board renderer; gameplay geometry stays in LudoBoardView. */
-internal class LudoPawsBoardChromeView(context: Context) : View(context) {
+internal class LudoPawsBoardChromeView(
+    context: Context,
+    private val maxArtworkPixels: Int = Int.MAX_VALUE,
+) : View(context) {
+    private val scaledBounds = RectF()
+    private val bitmapPaint = Paint(Paint.FILTER_BITMAP_FLAG)
     private var footprintSource: LudoBoardView? = null
     private var definition = BoardRegistry.resolve("board_classic")
     private var previewBoardThemeId: String? = null
     private var staticBoard: Bitmap? = null
+    internal val hasArtwork: Boolean get() = staticBoard != null
     private var requestedKey: ArtworkKey? = null
     internal var artworkReady = false
         private set
     internal var onArtworkReadyChanged: ((Boolean) -> Unit)? = null
 
     private fun requestArtwork() {
-        val pixels = min(width, height)
-        if (pixels <= 0) return
-        val key = ArtworkKey(pixels, resources.displayMetrics.density, definition)
+        val displayPixels = min(width, height)
+        if (displayPixels <= 0) return
+        val pixels = displayPixels.coerceAtMost(maxArtworkPixels)
+        val density = resources.displayMetrics.density * (pixels.toFloat() / displayPixels)
+        val key = ArtworkKey(pixels, density, definition)
         if (requestedKey == key) return
         requestedKey = key
         staticBoard = null
@@ -79,7 +89,14 @@ internal class LudoPawsBoardChromeView(context: Context) : View(context) {
         val size = min(width, height).toFloat()
         if (size <= 0f) return
         val cell = size / 15f
-        staticBoard?.let { canvas.drawBitmap(it, 0f, 0f, null) }
+        staticBoard?.let { artwork ->
+            if (artwork.width == size.toInt()) {
+                canvas.drawBitmap(artwork, 0f, 0f, null)
+            } else {
+                scaledBounds.set(0f, 0f, size, size)
+                canvas.drawBitmap(artwork, null, scaledBounds, bitmapPaint)
+            }
+        }
         // The base owns the four finish triangles and pawn coordinates. Joined
         // animated houses are rendered above them by the shared 3D scene.
         // These overlays must stay above opaque chrome, in authoritative board coordinates.

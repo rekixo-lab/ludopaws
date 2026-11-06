@@ -31,6 +31,8 @@ internal class FeaturedPawsPreview(
     private val playful: Boolean = false,
     private val prominent: Boolean = false,
     private val portraitZoomMultiplier: Float = 1f,
+    private val phaseOffsetMillis: Long = 0L,
+    private val fitFullBody: Boolean = false,
 ) : TextureView(context), TextureView.SurfaceTextureListener {
     var characterId = "dog"
         set(value) {
@@ -70,7 +72,7 @@ internal class FeaturedPawsPreview(
     fun setActive(value: Boolean) {
         active = value
         needsFrame = true
-        animated = android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O ||
+        animated = !motionSettings.snapshot().reducedMotion &&
             android.animation.ValueAnimator.areAnimatorsEnabled()
         removeCallbacks(ticker)
         if (value && !failed && isAttachedToWindow) post(ticker)
@@ -79,6 +81,10 @@ internal class FeaturedPawsPreview(
     override fun onSurfaceTextureAvailable(texture: SurfaceTexture, width: Int, height: Int) {
         session = Session(texture, width, height)
         needsFrame = true
+        if (active) {
+            removeCallbacks(ticker)
+            post(ticker)
+        }
     }
 
     override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
@@ -154,7 +160,7 @@ internal class FeaturedPawsPreview(
                     }
                     if (animate && lastFrame > 0L && now - lastFrame < 250L) elapsed += now - lastFrame
                     lastFrame = now
-                    val clock = if (animate) elapsed else 0L
+                    val clock = if (animate) elapsed + phaseOffsetMillis else 0L
                     val character = CharacterRegistry.resolve(id)
                     val idleEnd = if (playful) 3000L else 8000L
                     val hopEnd = idleEnd + 1500L
@@ -182,12 +188,20 @@ internal class FeaturedPawsPreview(
                     val pose = if (motion == CharacterMotion.IDLE) life.idlePose(sampled, id) else sampled
                     // Reserve headroom in the GL viewport itself: allowing
                     // parent overflow cannot recover pixels clipped by GL.
-                    val zoom = (if (prominent) homeSpotlightPortraitZoom(id)
+                    val footBaseline = if (fitFullBody) .90f else null
+                    val zoom = if (footBaseline != null) {
+                        val bodyHeight = com.rekixo.ludopaws.LudoPawsPawnLayout.silhouetteHeight(id)
+                        val heightWithHopRoom = bodyHeight + .95f
+                        ((footBaseline - .09f) / (.30f * heightWithHopRoom)).coerceAtMost(.90f)
+                    } else {
+                        (if (prominent) homeSpotlightPortraitZoom(id)
                         else compactSpotlightPortraitZoom(id)) * portraitZoomMultiplier
+                    }
                     val framedPose = if (life.reducedMotion) com.rekixo.ludopaws.feature.characters.rendering.CharacterPose()
                         else if (prominent) pose.copy(liftY = pose.liftY * .4f) else pose
                     scene.drawPortrait(id, "BLUE", framedPose, life, previewZoom = zoom,
-                        synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f)
+                        synchronizeGpu = false, verticalAnchor = if (prominent) .70f else .69f,
+                        footBaseline = footBaseline)
                     check(window?.swap() == true) { "Showcase buffer swap failed" }
                     if (notifyReady) post {
                         if (session === this && active && characterId == id && !failed) onReady?.invoke()

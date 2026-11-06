@@ -2,6 +2,7 @@ package com.rekixo.ludopaws.ui.dialogs
 
 import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.view.Gravity
 import android.widget.TextView
 import android.view.View
@@ -9,6 +10,10 @@ import android.view.ViewGroup
 import android.widget.ScrollView
 import android.widget.LinearLayout
 import com.rekixo.ludopaws.DiceView
+import com.rekixo.ludopaws.HomeActivity
+import com.rekixo.ludopaws.R
+import com.rekixo.ludopaws.feature.referrals.ReferralActivity
+import com.rekixo.ludopaws.launchPlayerScreen
 import com.rekixo.ludopaws.LudoBoardView
 import com.rekixo.ludopaws.LudoPawsBoardView
 import com.rekixo.ludopaws.LudoPawsBoardChromeView
@@ -468,6 +473,17 @@ internal fun showSettingsDialog(
                 control = diceField,
             ),
         )
+
+        if (activity is HomeActivity) {
+            val friendship = settingsDropdownField(context, "").apply {
+                text = context.getString(R.string.friendship_settings_entry)
+                setOnClickListener {
+                    GameSoundFeedback.click(context)
+                    if (activity.launchPlayerScreen(Intent(activity, ReferralActivity::class.java))) dialog.dismiss()
+                }
+            }
+            panel.addView(friendship, fullWidthParams(context, 8))
+        }
 
         // One compact bottom row: both informational actions share the same
         // width, styling and touch target instead of stretching into full rows.

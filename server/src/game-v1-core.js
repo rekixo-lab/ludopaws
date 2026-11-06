@@ -552,7 +552,13 @@ export function registerResolvedRoll(state, {
     };
   }
 
-  const legal = legalTokenIndexes(next, seat, outcome);
+  const comeback = next.pendingRoll.comebackBonusApplied === true &&
+    ["CLASSIC_V7", "TEAM_UP_V6"].includes(next.rulesetKey) &&
+    outcome !== 6 && next.comebackWaits?.[seat] >= 2 &&
+    next.players[seat].tokens.every(position => position === -1 || position === 57);
+  const legal = comeback
+    ? [next.players[seat].tokens.findIndex(position => position === -1)].filter(index => index >= 0)
+    : legalTokenIndexes(next, seat, outcome);
   if (legal.length === 0) {
     next.pendingRoll = null;
     if (!(ruleset.extraTurnOnSix && outcome === 6)) {
@@ -605,7 +611,11 @@ export function applyMove(state, { playerId, tokenIndex, now }) {
   const player = next.players[seat];
   const roll = pending.outcome;
   const current = player.tokens[tokenIndex];
-  const destination = destinationForRoll(current, roll);
+  const comeback = pending.comebackBonusApplied === true &&
+    ["CLASSIC_V7", "TEAM_UP_V6"].includes(next.rulesetKey) &&
+    roll !== 6 && current === -1 && next.comebackWaits?.[seat] >= 2 &&
+    player.tokens.every(position => position === -1 || position === 57);
+  const destination = comeback ? 0 : destinationForRoll(current, roll);
   if (destination === null) {
     throw gameError("ILLEGAL_TOKEN_MOVE", "verified roll exceeds the home path");
   }
@@ -665,10 +675,10 @@ export function applyMove(state, { playerId, tokenIndex, now }) {
   }
 
   const reachedHome = destination === ruleset.homePosition;
-  const extraTurn =
+  const extraTurn = !comeback && (
     reachedHome ||
     (ruleset.extraTurnOnSix && roll === 6) ||
-    (ruleset.extraTurnOnCapture && captures > 0);
+    (ruleset.extraTurnOnCapture && captures > 0));
 
   if (!extraTurn) {
     advanceTurn(next);

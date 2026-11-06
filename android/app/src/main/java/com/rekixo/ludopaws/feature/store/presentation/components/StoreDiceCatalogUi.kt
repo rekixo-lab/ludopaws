@@ -2,16 +2,13 @@ package com.rekixo.ludopaws.feature.store.presentation.components
 
 import android.graphics.Color
 import android.graphics.Typeface
-import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.core.ui.art.playerCountSelectionBackground
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
-import com.rekixo.ludopaws.core.ui.components.playSelectionPopAnimation
 import com.rekixo.ludopaws.feature.store.domain.StoreCosmeticCatalog
 import com.rekixo.ludopaws.feature.store.domain.model.StoreCosmetic
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
@@ -32,12 +29,17 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
                     gravity = Gravity.TOP
                 }
 
+            val optionCount = rowDice.maxOf { item ->
+                if (item.id in ownedIds) 0 else listUnlockOptions(item).size
+            }
+            val cardHeight = dp(if (optionCount < 2) 208 else 145 + 51 * optionCount)
+
             rowDice.forEach { dice ->
                 row.addView(
                     dicePanel(dice, dice.id in ownedIds, dice.id in ownedIds && selectedId == dice.id),
                     LinearLayout.LayoutParams(
                         0,
-                        dp(208),
+                        cardHeight,
                         1f,
                     ).apply {
                         setMargins(dp(4), 0, dp(4), 0)
@@ -48,7 +50,7 @@ internal fun StoreActivity.diceCatalogContent(friendshipEntry: View? = null): Li
             repeat(2 - rowDice.size) {
                 row.addView(
                     TextView(this@diceCatalogContent),
-                    LinearLayout.LayoutParams(0, dp(208), 1f),
+                    LinearLayout.LayoutParams(0, cardHeight, 1f),
                 )
             }
 
@@ -122,16 +124,7 @@ private fun StoreActivity.dicePanel(
         )
 
         addView(
-            DiceView(this@dicePanel).apply {
-                // Preview this offer's actual renderer palette without equipping it.
-                setPreviewStyle(dice.id)
-                showOutcome(com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.resolve(dice.id).previewFace, animate = false)
-                setPlayerTeamColor(null)
-                isClickable = false
-                isFocusable = false
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                contentDescription = "${dice.title} dice preview"
-            },
+            StoreCatalogArtwork.dice(context, dice.id),
             LinearLayout.LayoutParams(
                 dp(104),
                 dp(104),
@@ -141,19 +134,18 @@ private fun StoreActivity.dicePanel(
             },
         )
 
+        val paymentOptions = if (!owned) cosmeticPaymentOptions(dice) else null
         addView(
-            diceStatusBadge(dice = dice, owned = owned, selected = selected),
+            paymentOptions ?: diceStatusBadge(dice = dice, owned = owned, selected = selected),
             LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                if (paymentOptions != null) LinearLayout.LayoutParams.MATCH_PARENT else LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
             ).apply {
                 topMargin = dp(8)
             },
         )
 
-        setOnClickListener { clicked ->
-            clicked.playSelectionPopAnimation { handleCosmeticTap(dice) }
-        }
+        setOnClickListener { handleCosmeticTap(dice) }
         AppFocusRing.apply(this, cornerRadiusDp = 13f)
     }
 
@@ -163,42 +155,18 @@ private fun StoreActivity.diceStatusBadge(
     selected: Boolean,
 ): TextView =
     TextView(this).apply {
-        text = when {
-            selected -> "✓ EQUIPPED"
-            owned -> "🔓 UNLOCKED"
-            else -> smartUnlockLabel(dice)
+        if (owned) {
+            applyCosmeticOwnershipBadge(equipped = selected)
+            return@apply
         }
+        text = cosmeticPurchaseLabel(dice)
         textSize = 9.5f
         setTypeface(Typeface.DEFAULT_BOLD)
-        setTextColor(
-            when {
-                selected -> 0xFF67430F.toInt()
-                owned -> 0xFF104B29.toInt()
-                else -> 0xFF235A86.toInt()
-            },
-        )
+        setTextColor(Color.WHITE)
         gravity = Gravity.CENTER
         includeFontPadding = false
         maxLines = 2
         letterSpacing = 0.015f
         setPadding(dp(7), dp(4), dp(7), dp(4))
-        background =
-            GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                when {
-                    selected ->
-                        intArrayOf(0xFFFFF0AD.toInt(), 0xFFFFCB45.toInt())
-                    else ->
-                        intArrayOf(0xFFBDF5CB.toInt(), 0xFF7CE69A.toInt())
-                },
-            ).apply {
-                cornerRadius = dp(999).toFloat()
-                setStroke(
-                    dp(1),
-                    when {
-                        selected -> 0xFFFFF5C9.toInt()
-                        else -> 0xFF47B86C.toInt()
-                    },
-                )
-            }
+        background = storeButtonBackground(context)
     }

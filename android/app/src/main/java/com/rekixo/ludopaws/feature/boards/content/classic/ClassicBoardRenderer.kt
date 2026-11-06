@@ -309,7 +309,7 @@ internal class ClassicBoardRenderer : BoardRenderer {
     private fun dp(value: Float): Float =
         value * density
 
-    private companion object {
+    companion object {
         @Volatile private var preparedTextures: Array<Bitmap>? = null
         private val neutralTexture = Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888)
         private val waiting = mutableListOf<() -> Unit>()

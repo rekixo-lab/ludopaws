@@ -61,10 +61,11 @@ class StoreCosmeticCatalogTest {
     @Test
     fun shippedBoardsOnlyAppearInStore() {
         val boards = StoreCosmeticCatalog.boards
-        assertEquals(7, boards.size)
+        assertEquals(8, boards.size)
         assertEquals(
             setOf("board_classic", "board_astral", "board_cloud_lagoon",
-                "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire"),
+                "board_autumn_forest", "board_blossom_garden", "board_winter_haven", "board_monsoon_mire",
+                "board_sunstone_palace"),
             boards.map { it.id }.toSet(),
         )
         assertTrue(boards.all { it.contentAvailable })
@@ -84,12 +85,23 @@ class StoreCosmeticCatalogTest {
     @Test
     fun pearlPawIsAvailableButOnlyClassicDiceAreGrantedByDefault() {
         val available = StoreCosmeticCatalog.dice.filter { it.contentAvailable }
-        assertEquals(listOf("dice_classic", "dice_pearl_paw"), available.map { it.id })
-        assertEquals(CosmeticUnlockKind.FREE, available.first().unlockKind)
-        val pearl = available.last()
+        val playDice = mapOf(
+            "dice_forest_dew" to 100, "dice_lagoon_pearl" to 100, "dice_frost_crystal" to 100,
+            "dice_starlight" to 100, "dice_ember_forge" to 150, "dice_prism_royal" to 150,
+        )
+        assertEquals(playDice.keys + setOf("dice_classic", "dice_pearl_paw"), available.map { it.id }.toSet())
+        assertEquals(CosmeticUnlockKind.FREE, available.single { it.id == "dice_classic" }.unlockKind)
+        val pearl = available.single { it.id == "dice_pearl_paw" }
         assertEquals(100, pearl.gemPrice)
         assertEquals(20, pearl.requiredAdViews)
         assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS), pearl.unlockChannels)
+        assertEquals(null, StoreCatalog.cosmeticProductId(pearl.id))
+        for ((id, price) in playDice + mapOf("board_sunstone_palace" to 300)) {
+            val item = requireNotNull(StoreCosmeticCatalog.findShopItem(id))
+            assertEquals(price, item.gemPrice)
+            assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.PLAY_PRODUCT), item.unlockChannels)
+            assertEquals(id, StoreCatalog.cosmeticProductId(id))
+        }
         assertEquals(setOf("dice_classic"), StoreCosmeticCatalog.defaultOwnedIds.filter { it.startsWith("dice_") }.toSet())
     }
 
@@ -103,6 +115,11 @@ class StoreCosmeticCatalogTest {
                 assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
                 assertEquals(if (it.id == "character_goat_lumi") 50 else 75, it.gemPrice)
                 assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.REWARDED_ADS), it.unlockChannels)
+            } else if (it.id == "character_giraffe") {
+                assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
+                assertEquals(300, it.gemPrice)
+                assertEquals(listOf(CosmeticUnlockKind.GEMS, CosmeticUnlockKind.PLAY_PRODUCT), it.unlockChannels)
+                assertEquals(it.id, StoreCatalog.cosmeticProductId(it.id))
             } else {
                 assertEquals(CosmeticUnlockKind.GEMS, it.unlockKind)
                 assertEquals(if (it.id in setOf("character_panda", "character_monkey")) 150 else 300, it.gemPrice)

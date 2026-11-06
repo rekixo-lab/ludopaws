@@ -24,12 +24,24 @@ Console. The app must always display the native Google Play
 | `character_elephant` | Elephant | ₹39 |
 | `character_horse` | Horse | ₹39 |
 | `character_rabbit` | Rabbit | ₹39 |
+| `character_giraffe` | Giraffe | ₹39 |
 | `board_astral` | Astral Garden | ₹39 |
 | `board_cloud_lagoon` | Cloud Lagoon | ₹39 |
 | `board_autumn_forest` | Autumn Forest | ₹39 |
 | `board_blossom_garden` | Blossom Garden | ₹39 |
 | `board_winter_haven` | Winter Haven | ₹39 |
 | `board_monsoon_mire` | Monsoon Mire | ₹39 |
+| `board_sunstone_palace` | Sunstone Palace | ₹39 |
+| `dice_forest_dew` | Forest Dew | ₹9 |
+| `dice_lagoon_pearl` | Lagoon Pearl | ₹9 |
+| `dice_frost_crystal` | Frost Crystal | ₹9 |
+| `dice_starlight` | Starlight | ₹9 |
+| `dice_ember_forge` | Ember Forge | ₹19 |
+| `dice_prism_royal` | Prism Royal | ₹19 |
+
+Before the next release, create and activate the eight new cosmetic IDs above as one-time, non-consumable Play products. Enter the listed India prices in Play Console. Verify prices in Play checkout; the app only shows the price returned by Play. If any of these cosmetics is managed by the published server catalog, add its matching Play product to that entry while keeping its Gems price.
+
+For the existing `board_astral` purchase option, update the India price from the reported ₹40 to ₹39 in Play Console at release. Confirm the regional price in both Shop and the Play checkout before closing the pricing review.
 
 All six Gem packs remain in the app Store. **Do not rename existing product IDs.**
 The SKU `gems_1500` grants **1,200** Gems and `gems_3500` grants **3,000**

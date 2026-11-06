@@ -127,7 +127,7 @@ internal fun OfflineGameActivity.renderPlayerRails(
     val presentationOutcome =
         presentationEvent?.effectiveOutcome
             ?: presentationEvent?.outcome
-    if (presentationOutcome != null) {
+    if (presentationOutcome != null && diceView?.isPresentingSpatialRoll != true) {
         diceView?.showOutcome(
             outcome = presentationOutcome,
             animate = false,

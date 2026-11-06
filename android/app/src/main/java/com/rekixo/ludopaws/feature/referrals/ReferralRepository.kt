@@ -2,6 +2,8 @@ package com.rekixo.ludopaws.feature.referrals
 
 import android.content.Context
 import android.net.Uri
+import com.rekixo.ludopaws.feature.sharing.PUBLIC_SHARE_HOST
+import com.rekixo.ludopaws.feature.sharing.isReferralShareLink
 import android.os.Handler
 import android.os.Looper
 import com.android.installreferrer.api.InstallReferrerClient
@@ -29,13 +31,26 @@ internal class ReferralRepository(context: Context) {
         val account = (if (createAccount) accounts.ensureGuestSession() else accounts.currentSession())
             ?: return JSONObject().put("enabled", false)
         val status = accounts.referralRequest("status", expectedAccountId = account.accountId)
-        if (status.optString("state") == "REWARDED") status.put("walletSynced", runCatching {
-            CosmeticInventoryStore(app).applyServerSnapshot(accounts.wallet(), account.accountId)
-        }.getOrDefault(false))
+        val timedOffer = TimedFriendshipOffer.from(status.optJSONObject("timedOffer"))
+        if (status.optString("state") == "REWARDED" || timedOffer != null) {
+            status.put("walletSynced", syncInventory(account.accountId))
+        }
         status.put("verificationState", if (prefs.getString("verification_account", null) == account.accountId) prefs.getString("verification_state", "NOT_STARTED") else "NOT_STARTED")
         status.put("localConsent", hasConsent(account.accountId))
         return status.put("localAccountId", account.accountId)
     }
+
+    fun showTimedOffer(accountId: String): TimedFriendshipOffer? {
+        if (!FamilyAgeScreen.optionalGoogleAllowed(app)) return null
+        val result = accounts.referralRequest("offer", JSONObject(), accountId)
+        val offer = TimedFriendshipOffer.from(result.optJSONObject("timedOffer"))
+        if (offer != null) syncInventory(accountId)
+        return offer
+    }
+
+    private fun syncInventory(accountId: String): Boolean = runCatching {
+        CosmeticInventoryStore(app).applyServerSnapshot(accounts.wallet(), accountId)
+    }.getOrDefault(false)
 
     private fun hasConsent(accountId: String) = prefs.getString("consented_account", null) == accountId &&
         prefs.getString("consent_terms", null) == TERMS_VERSION
@@ -61,13 +76,14 @@ internal class ReferralRepository(context: Context) {
         accounts.referralRequest("withdraw", JSONObject(), accountId)
     }
 
-    fun invite(expectedAccountId: String): String {
-        val value = accounts.referralRequest("invite", JSONObject(), expectedAccountId).getString("shareUrl")
+    fun invite(expectedAccountId: String, timed: Boolean = false): String {
+        val body = JSONObject()
+        if (timed) body.put("campaign", TimedFriendshipOffer.CAMPAIGN)
+        val value = accounts.referralRequest("invite", body, expectedAccountId).getString("shareUrl")
         val uri = Uri.parse(value)
-        require(uri.scheme == "https" && uri.host == "api.ludopaws.rekixo.com" &&
-            uri.path.orEmpty().matches(Regex("/r/[a-f0-9]{64}")) && uri.query == null && uri.fragment == null)
+        require(uri.isReferralShareLink())
         check(accounts.currentSession()?.accountId == expectedAccountId) { "Your account changed. Please retry." }
-        return value
+        return uri.buildUpon().authority(PUBLIC_SHARE_HOST).build().toString()
     }
 
     fun refreshAttribution(force: Boolean = false, onComplete: (() -> Unit)? = null) {
@@ -88,7 +104,7 @@ internal class ReferralRepository(context: Context) {
         executor.execute {
             try {
                 val snapshot = status()
-                if (snapshot.optBoolean("enabled") && snapshot.optBoolean("googleLinked") && snapshot.optBoolean("consented") && canContinue()) {
+                if (snapshot.optBoolean("verificationEnabled", snapshot.optBoolean("enabled")) && snapshot.optBoolean("googleLinked") && snapshot.optBoolean("consented") && canContinue()) {
                     main.post {
                         if (canContinue()) {
                             runCatching { startAttribution() }.onFailure { retryLater("STORE_UNAVAILABLE"); complete() }
@@ -177,7 +193,7 @@ internal class ReferralRepository(context: Context) {
             if (!canContinue()) return
             val click = prefs.getString("click", null) ?: run { if (prefs.getBoolean("referrer_read", false)) state("NO_INVITATION"); return }
             val status = status()
-            if (!status.optBoolean("enabled") || !status.optBoolean("googleLinked") || !status.optBoolean("consented") || !canContinue()) return
+            if (!status.optBoolean("verificationEnabled", status.optBoolean("enabled")) || !status.optBoolean("googleLinked") || !status.optBoolean("consented") || !canContinue()) return
             val accountId = status.getString("localAccountId")
             val challenge = accounts.referralRequest("challenge", JSONObject().put("click", click)
                 .put("installAt", prefs.getLong("install_at", 0L)).put("clickedAt", prefs.getLong("clicked_at", 0L)), accountId)

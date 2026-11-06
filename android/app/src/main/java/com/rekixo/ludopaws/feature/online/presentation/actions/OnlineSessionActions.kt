@@ -5,6 +5,7 @@ import android.util.Log
 import android.os.SystemClock
 import android.view.View
 import com.rekixo.ludopaws.*
+import com.rekixo.ludopaws.feature.sharing.GAME_SHARE_URL
 import org.json.JSONObject
 
 internal fun MainActivity.shareMatch() {
@@ -21,7 +22,12 @@ internal fun MainActivity.shareMatch() {
 
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TEXT, "Join my Ludo Paws match: $code")
+        val state = currentState
+        val host = if (gameMode == GameMode.FRIENDS && state?.hostPlayerId == playerId)
+            com.rekixo.ludopaws.feature.friends.data.local.FriendIdentityStore(this@shareMatch).load()?.friendId else null
+        val link = com.rekixo.ludopaws.feature.sharing.RoomLink.create(code, gameMode.wireValue, host)
+        putExtra(Intent.EXTRA_TEXT, link?.shareMessage()
+            ?: "Come play Ludo Paws! Use Friends to create a private room together.\n$GAME_SHARE_URL")
     }
     startActivity(Intent.createChooser(intent, "Share Ludo Paws match"))
 }

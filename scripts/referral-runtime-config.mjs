@@ -4,6 +4,7 @@ const FLAGS = [
   "LUDOPAWS_REFERRAL_SDK_REVIEW_APPROVED",
   "LUDOPAWS_REFERRAL_RELEASE_VALIDATED",
 ];
+const TIMED_FLAG = "LUDOPAWS_TIMED_REFERRALS_ENABLED";
 const SETTINGS = [
   "LUDOPAWS_INTEGRITY_PROJECT_NUMBER",
   "LUDOPAWS_PLAY_SIGNING_SHA256",
@@ -13,7 +14,7 @@ const SETTINGS = [
 
 export function buildReferralRuntimeVars(environment) {
   const vars = {};
-  for (const name of FLAGS) {
+  for (const name of [...FLAGS, TIMED_FLAG]) {
     const value = String(environment[name] ?? "").trim();
     if (value && value !== "true" && value !== "false") throw new Error(`${name} must be exactly "true" or "false".`);
     vars[name] = value || "false";
@@ -43,11 +44,14 @@ export function buildReferralRuntimeVars(environment) {
     if (environment.LUDOPAWS_GOOGLE_LINKING_ENABLED !== "true") throw new Error("Referral activation requires reviewed Google linking.");
     if (SETTINGS.some(name => !vars[name])) throw new Error("Referral activation requires the linked project, Play signing certificate, immutable start time and validated versionCode.");
   }
+  if (vars[TIMED_FLAG] === "true" && vars.LUDOPAWS_REFERRALS_ENABLED !== "true") {
+    throw new Error("Timed friendship rewards require reviewed referral activation.");
+  }
   return vars;
 }
 
 export function applyReferralRuntimeVars(existingVars, environment) {
   const vars = { ...existingVars };
-  for (const name of [...FLAGS, ...SETTINGS, "LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL", "LUDOPAWS_INTEGRITY_PRIVATE_KEY"]) delete vars[name];
+  for (const name of [...FLAGS, TIMED_FLAG, ...SETTINGS, "LUDOPAWS_INTEGRITY_SERVICE_ACCOUNT_EMAIL", "LUDOPAWS_INTEGRITY_PRIVATE_KEY"]) delete vars[name];
   return { ...vars, ...buildReferralRuntimeVars(environment) };
 }

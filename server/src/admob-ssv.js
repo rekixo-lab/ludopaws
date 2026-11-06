@@ -72,6 +72,8 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     throw ssvError(400, "SSV_CUSTOM_DATA_INVALID", "reward callback data is invalid");
   }
 
+  if (customData.dailyTicket != null && (customData.kind !== "gems" ||
+      !/^[a-f0-9-]{36}$/.test(String(customData.dailyTicket)))) throw ssvError(400, "SSV_CUSTOM_DATA_INVALID", "Daily bonus ticket is invalid.");
   // Prefer the production key only when its signature actually verifies.
   // A matching key_id can also occur in Google's test key set, so ID lookup alone
   // must not classify the callback or prevent trying the test signature.
@@ -133,7 +135,7 @@ export async function verifyAdMobSsvRequest(request, env, fetchImpl = fetch, now
     }
   }
 
-  return { accountId, transactionId, gemAmount, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
+  return { accountId, transactionId, gemAmount, ...(typeof customData.requestId === "string" && /^[a-f0-9-]{36}$/.test(customData.requestId) ? { requestId: customData.requestId } : {}), ...(customData.dailyTicket != null ? { dailyTicket: customData.dailyTicket } : {}), kind: customData.kind, cosmeticId: customData.cosmeticId ?? null, timestamp: timestampMs, ...(isTest ? { isTest: true } : {}) };
 }
 
 async function getKeys(fetchImpl, nowMs, refresh, keyUrl = KEY_URL) {

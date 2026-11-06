@@ -5,5 +5,11 @@ internal object GeneratedDiceRendererFactories {
     val factories: Map<String, (Float) -> DiceRenderer> = mapOf(
         "classic" to { density -> com.rekixo.ludopaws.feature.dice.content.classic.ClassicDiceRenderer(density) },
         "pearl_paw" to { density -> com.rekixo.ludopaws.feature.dice.content.pearl.PearlPawDiceRenderer() },
+        "forest_dew" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.ForestDiceRenderer() },
+        "lagoon_pearl" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.LagoonDiceRenderer() },
+        "frost_crystal" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.FrostDiceRenderer() },
+        "starlight" to { density -> com.rekixo.ludopaws.feature.dice.content.environment.StarlightDiceRenderer() },
+        "ember_forge" to { density -> com.rekixo.ludopaws.feature.dice.content.spatial.EmberForgeDiceRenderer() },
+        "prism_royal" to { density -> com.rekixo.ludopaws.feature.dice.content.spatial.PrismRoyalDiceRenderer() },
     )
 }

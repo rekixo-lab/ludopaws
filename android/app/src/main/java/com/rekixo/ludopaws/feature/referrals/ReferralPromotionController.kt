@@ -1,6 +1,9 @@
 package com.rekixo.ludopaws.feature.referrals
 
 import android.app.Activity
+import com.rekixo.ludopaws.feature.growth.AutomaticPromptGate
+import com.rekixo.ludopaws.feature.growth.GrowthMetrics
+import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import android.app.Dialog
 import android.content.Context
 import android.graphics.Typeface
@@ -42,7 +45,7 @@ internal class ReferralPromotionController(
     fun resume(home: Boolean = false) {
         resumed = true; generation++
         entries.keys.toList().forEach { host -> host.post { refreshEntry(host) } }
-        if (home && ReferralPopupSession.current.takeHomeOpportunity() &&
+        if (home && ReferralPopupSession.current.hasHomeOpportunity() &&
             !ReferralPopupSession.current.fullscreenRecently() && !ReferralPopupSession.current.automaticShown) {
             handler.postDelayed(automatic, 3000L)
         }
@@ -85,30 +88,42 @@ internal class ReferralPromotionController(
         opening = true
         fetch(fresh = true) { snapshot ->
             opening = false
-            if (snapshot == null || !eligible(snapshot) || !activity.hasWindowFocus() || !uiAvailable() ||
+            val timedOffer = if (automatic && snapshot?.optString("localAccountId") == currentAccount()) {
+                TimedFriendshipOffer.from(snapshot?.optJSONObject("timedOffer"))?.takeIf { it.canInvite }
+            } else null
+            if (snapshot == null || (!eligible(snapshot) && timedOffer == null) || !activity.hasWindowFocus() || !uiAvailable() ||
                 ReferralPopupSession.current.fullscreenRecently()) {
                 if (!automatic && resumed && activity.hasWindowFocus()) Toast.makeText(activity, "Friendship offer is unavailable right now. Check Share for progress.", Toast.LENGTH_SHORT).show()
                 return@fetch
             }
             val account = snapshot.optString("localAccountId")
-            val key = "${ReferralPopupPolicy.CAMPAIGN}:$account:"
+            val key = "${if (timedOffer != null) TimedFriendshipOffer.CAMPAIGN else ReferralPopupPolicy.CAMPAIGN}:$account:"
             val previous = history(key)
             val now = System.currentTimeMillis()
-            if (automatic && !ReferralPopupPolicy.canShowAutomatically(true, snapshot.optString("state"), previous, now,
+            if (timedOffer != null && previous.impressions > 0) return@fetch
+            if (automatic && !ReferralPopupPolicy.canShowAutomatically(true, if (timedOffer != null) "INVITE" else snapshot.optString("state"), previous, now,
                     ReferralPopupSession.current.automaticShown)) return@fetch
+            if (automatic && ProfileStore(activity).snapshot().totalGames < 2) return@fetch
+            if (automatic && !AutomaticPromptGate.reserve(activity, "referral")) return@fetch
             popupVisibility(true)
             try {
-                popup = showReferralBundlePopup(activity, snapshot.optString("state"), inventory.ownedCosmeticIds()) { deferred ->
+                popup = showReferralBundlePopup(activity, snapshot.optString("state"), inventory.ownedCosmeticIds(), timedOffer) { deferred ->
                     popup = null
                     if (deferred && resumed && currentAccount() == account) preferences.edit().putLong(key + "dismissed", System.currentTimeMillis()).apply()
                     popupVisibility(false)
+                    if (automatic) AutomaticPromptGate.release("referral")
+                    else AutomaticPromptGate.quietFor()
                 }
                 if (automatic) {
+                    AutomaticPromptGate.presented(activity, "referral")
+                    GrowthMetrics.increment(activity, "referral_prompt")
+                    ReferralPopupSession.current.takeHomeOpportunity()
                     preferences.edit().putInt(key + "count", previous.impressions + 1).putLong(key + "shown", now).apply()
                     ReferralPopupSession.current.markAutomaticShown()
                 }
             } catch (_: android.view.WindowManager.BadTokenException) {
                 popup = null; popupVisibility(false)
+                if (automatic) AutomaticPromptGate.release("referral")
             }
         }
     }
@@ -137,7 +152,7 @@ internal class ReferralPromotionController(
                 setPadding(dp(10), dp(7), dp(10), dp(7))
                 background = recessedPlywoodBackground(activity, outerCornerRadiusDp = 14f)
                 addView(android.widget.ImageView(activity).apply {
-                    setImageResource(com.rekixo.ludopaws.R.drawable.referral_gem_bucket_3d)
+                    setImageBitmap(com.rekixo.ludopaws.core.ui.art.RareGemArtwork.bucket(resources))
                     scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }, LinearLayout.LayoutParams(dp(44), dp(48)))

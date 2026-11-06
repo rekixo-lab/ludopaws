@@ -22,6 +22,7 @@ import com.rekixo.ludopaws.LudoProofApplication
 import com.rekixo.ludopaws.feature.referrals.FriendshipBundleView
 import com.rekixo.ludopaws.feature.referrals.ReferralActivity
 import com.rekixo.ludopaws.feature.referrals.ReferralRepository
+import com.rekixo.ludopaws.feature.referrals.TimedFriendshipOffer
 import com.rekixo.ludopaws.feature.store.presentation.components.GamePawsPromotionView
 import kotlin.math.abs
 
@@ -43,10 +44,18 @@ internal class HomePromotionCarousel(
         setOnClickListener { (context as? Activity)?.launchPlayerScreen(Intent(context, ReferralActivity::class.java)) }
     }
     private var bundleAvailable = false
-    private var bundleShown = false
-    private var bundleNext = true
+    private var timedBundle: FriendshipBundleView? = null
+    private var timedOffer: TimedFriendshipOffer? = null
+    private enum class Spotlight { TIMED_BUNDLE, BUNDLE, SHOP }
+    private var shown = Spotlight.TIMED_BUNDLE
+    private var next = Spotlight.TIMED_BUNDLE
     private var bundleGeneration = 0
-    private val hasOffers: Boolean get() = promotion.hasLockedOffers || bundleAvailable
+    private val choices: List<Spotlight> get() = buildList {
+        if (timedOffer?.canInvite == true) add(Spotlight.TIMED_BUNDLE)
+        if (bundleAvailable) add(Spotlight.BUNDLE)
+        if (promotion.hasLockedOffers) add(Spotlight.SHOP)
+    }
+    private val hasOffers: Boolean get() = choices.isNotEmpty()
     private val indicator = TextView(context)
     private var active = false
     private var page = 0
@@ -67,9 +76,6 @@ internal class HomePromotionCarousel(
         clipToPadding = true
         pages.clipChildren = true
         pages.addView(hero, LayoutParams(-1, -1))
-        // Preserve each card's own game-themed surface. In particular the
-        // friendship card's dark text must stay on its plywood background.
-        spotlight.background = com.rekixo.ludopaws.core.ui.art.plywoodBackground(context, cornerRadiusDp = 20f)
         spotlight.addView(promotion, LayoutParams(-1, -1))
         spotlight.addView(bundle, LayoutParams(-1, -1))
         pages.addView(spotlight, LayoutParams(-1, -1))
@@ -102,12 +108,19 @@ internal class HomePromotionCarousel(
         updatePageState()
     }
 
-    fun refreshConnectivity() { promotion.refreshOffers() }
+    fun refreshConnectivity() {
+        promotion.refreshOffers()
+        if (active) refreshBundle()
+    }
 
     fun setActive(value: Boolean) {
         active = value
         bundleGeneration++
-        if (value) { bundleAvailable = false; bundleShown = false }
+        if (value) {
+            bundleAvailable = false
+            timedOffer = null
+            next = Spotlight.TIMED_BUNDLE
+        }
         if (value) refreshBundle()
         if (value) promotion.refreshOffers()
         if (value) page = 0
@@ -123,16 +136,40 @@ internal class HomePromotionCarousel(
     }
 
     private fun refreshBundle() {
-        val generation = bundleGeneration
+        val generation = ++bundleGeneration
         ReferralRepository.executor.execute {
-            val snapshot = runCatching { ReferralRepository(context).status() }.getOrNull()
+            val repository = ReferralRepository(context)
+            val snapshot = runCatching { repository.status() }.getOrNull()
+            val accountId = snapshot?.optString("localAccountId").orEmpty()
+            val offer = TimedFriendshipOffer.from(snapshot?.optJSONObject("timedOffer"))
+                ?: if (accountId.isNotBlank() && snapshot?.optBoolean("timedOfferAvailable") == true) {
+                    runCatching { repository.showTimedOffer(accountId) }.getOrNull()
+                } else null
             post {
                 if (!active || bundleGeneration != generation || !isAttachedToWindow) return@post
                 val account = (context.applicationContext as LudoProofApplication).accountRepository.currentSession()
                 bundleAvailable = com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(context) &&
                     snapshot?.optBoolean("enabled") == true && snapshot.optString("state") != "REWARDED" &&
                     snapshot.optString("localAccountId") == account?.accountId
-                if (page == 0) bundleShown = bundleAvailable && bundleNext
+                if (accountId == account?.accountId &&
+                    com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(context) && offer?.canInvite == true) {
+                    timedOffer = offer
+                    val card = timedBundle ?: FriendshipBundleView(context, compact = true, timed = true).also {
+                        it.isClickable = true
+                        it.isFocusable = true
+                        it.setOnClickListener {
+                            (context as? Activity)?.launchPlayerScreen(Intent(context, ReferralActivity::class.java))
+                        }
+                        spotlight.addView(it, LayoutParams(-1, -1))
+                        timedBundle = it
+                    }
+                    card.bindOwnership(com.rekixo.ludopaws.feature.store.data.local.CosmeticInventoryStore(context).ownedCosmeticIds())
+                    card.bindOffer(offer) {
+                        timedOffer = null
+                        updatePageState()
+                        scheduleAutoSlide()
+                    }
+                }
                 (context as? com.rekixo.ludopaws.HomeActivity)?.refreshHomeGemBalance()
                 updatePageState()
                 scheduleAutoSlide()
@@ -159,19 +196,29 @@ internal class HomePromotionCarousel(
 
     private fun updatePageState() {
         if (!hasOffers) page = 0
-        if (!bundleAvailable) bundleShown = false
-        if (!promotion.hasLockedOffers && bundleAvailable) bundleShown = true
+        val available = choices
+        if (shown !in available || page == 0) shown = next.takeIf { it in available } ?: available.firstOrNull() ?: Spotlight.SHOP
         positionPages(-page * width.toFloat())
         hero.visibility = if (page == 0) VISIBLE else INVISIBLE
         spotlight.visibility = if (page == 1) VISIBLE else INVISIBLE
-        promotion.visibility = if (bundleShown) GONE else VISIBLE
-        bundle.visibility = if (bundleShown) VISIBLE else GONE
-        promotion.setActive(active && page == 1 && !bundleShown && hasWindowFocus() && windowVisibility == VISIBLE)
-        bundle.setActive(active && page == 1 && bundleShown && hasWindowFocus() && windowVisibility == VISIBLE)
+        updateSpotlightVisibility()
+        val showingSpotlight = active && page == 1 && hasWindowFocus() && windowVisibility == VISIBLE
+        promotion.setActive(showingSpotlight && shown == Spotlight.SHOP)
+        bundle.setActive(showingSpotlight && shown == Spotlight.BUNDLE)
+        timedBundle?.setActive(showingSpotlight && shown == Spotlight.TIMED_BUNDLE)
         indicator.text = if (page == 0) "●  ○" else "○  ●"
         indicator.visibility = if (hasOffers) VISIBLE else GONE
-        contentDescription = if (!hasOffers) "Ludo Paws hero" else if (page == 0) "Ludo Paws hero. Page 1 of 2. Swipe left to explore." else if (bundleShown)
-            "Friendship bundle. Page 2 of 2. Swipe right for Ludo Paws hero." else "Store spotlight. Page 2 of 2. Swipe right for Ludo Paws hero."
+        contentDescription = if (!hasOffers) "Ludo Paws hero" else if (page == 0) "Ludo Paws hero. Page 1 of 2. Swipe left to explore." else when (shown) {
+            Spotlight.TIMED_BUNDLE -> "Friendship Bundle 2. Swipe right for Ludo Paws hero."
+            Spotlight.BUNDLE -> "Friendship bundle. Swipe right for Ludo Paws hero."
+            Spotlight.SHOP -> "Store spotlight. Swipe right for Ludo Paws hero."
+        }
+    }
+
+    private fun updateSpotlightVisibility() {
+        promotion.visibility = if (shown == Spotlight.SHOP) VISIBLE else GONE
+        bundle.visibility = if (shown == Spotlight.BUNDLE) VISIBLE else GONE
+        timedBundle?.visibility = if (shown == Spotlight.TIMED_BUNDLE) VISIBLE else GONE
     }
 
     private fun stopTransition() {
@@ -189,11 +236,13 @@ internal class HomePromotionCarousel(
         removeCallbacks(autoSlide)
         transition?.cancel()
         transition = null
-        if (target == 0 && page == 1) bundleNext = !bundleShown
+        val available = choices
+        if (target == 0 && page == 1 && available.isNotEmpty()) {
+            next = available[(available.indexOf(shown) + 1) % available.size]
+        }
         if (target == 1 && page == 0) {
-            bundleShown = bundleAvailable && (!promotion.hasLockedOffers || bundleNext)
-            promotion.visibility = if (bundleShown) GONE else VISIBLE
-            bundle.visibility = if (bundleShown) VISIBLE else GONE
+            shown = next.takeIf { it in available } ?: available.firstOrNull() ?: Spotlight.SHOP
+            updateSpotlightVisibility()
         }
         nextAutoDelay = if (manual) 20000L else if (target == 0) 7000L else 10000L
         val destination = -target * width.toFloat()
@@ -207,6 +256,7 @@ internal class HomePromotionCarousel(
         spotlight.visibility = VISIBLE
         promotion.setActive(false)
         bundle.setActive(false)
+        timedBundle?.setActive(false)
         transition = ValueAnimator.ofFloat(offset, destination).apply {
             duration = 420L
             interpolator = DecelerateInterpolator()
@@ -246,6 +296,7 @@ internal class HomePromotionCarousel(
             spotlight.visibility = VISIBLE
             promotion.setActive(false)
             bundle.setActive(false)
+            timedBundle?.setActive(false)
         }
         if (dragging) positionPages((-page * width + delta).coerceIn(-width.toFloat(), 0f))
     }

@@ -12,12 +12,14 @@ import com.rekixo.ludopaws.BuildConfig
 import com.rekixo.ludopaws.LudoProofTheme
 import com.rekixo.ludopaws.core.ui.art.plywoodBackground
 import com.rekixo.ludopaws.core.ui.components.AppFocusRing
+import com.rekixo.ludopaws.feature.store.domain.SmartUnlockAction
 import com.rekixo.ludopaws.feature.store.domain.StoreCatalog
 import com.rekixo.ludopaws.feature.store.domain.RemoveAdsOfferState
 import com.rekixo.ludopaws.feature.store.domain.model.StoreProduct
 import com.rekixo.ludopaws.feature.store.domain.model.StoreTab
 import com.rekixo.ludopaws.feature.store.presentation.StoreActivity
 import com.rekixo.ludopaws.feature.store.presentation.art.GemClusterView
+import com.rekixo.ludopaws.feature.store.presentation.art.GemPackArtworkView
 import com.rekixo.ludopaws.ui.home.HomeIconKind
 import com.rekixo.ludopaws.ui.home.HomeIconView
 
@@ -81,8 +83,9 @@ private fun StoreActivity.gemsContent():
                 .filter {
                     !it.featured && it.kind == com.rekixo.ludopaws.feature.store.domain.model.StoreProductKind.CONSUMABLE_GEMS
                 }
+                .sortedBy { it.gemAmount }
 
-        packs.chunked(
+        packs.withIndex().chunked(
             2,
         ).forEach {
                 rowProducts ->
@@ -96,12 +99,9 @@ private fun StoreActivity.gemsContent():
                         Gravity.TOP
                 }
 
-            rowProducts.forEach {
-                    product ->
+            rowProducts.forEach { (tier, product) ->
                 row.addView(
-                    gemProductCard(
-                        product,
-                    ),
+                    gemProductCard(product, tier),
                     LinearLayout.LayoutParams(
                         0,
                         LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -349,7 +349,8 @@ private fun StoreActivity.featuredRemoveAdsCard(
             Button(
                 this@featuredRemoveAdsCard,
             ).apply {
-                text = when (removeAdsOfferState()) {
+                val state = removeAdsOfferState()
+                val label = when (state) {
                     RemoveAdsOfferState.BUY -> priceFor(product.productId, product.fallbackPrice)
                     RemoveAdsOfferState.ACTIVE -> "Ads Removed ✓"
                     RemoveAdsOfferState.VERIFYING -> "Restoring purchase…"
@@ -359,6 +360,9 @@ private fun StoreActivity.featuredRemoveAdsCard(
                     RemoveAdsOfferState.CHECKING -> "Checking Google Play…"
                     RemoveAdsOfferState.RETRY_CHECK -> "Retry Play check"
                 }
+                text = if (state == RemoveAdsOfferState.BUY) {
+                    StoreActionLabels.action(context, label, SmartUnlockAction.PLAY_PRODUCT, 16)
+                } else label
                 textSize =
                     18f
                 setTypeface(
@@ -389,7 +393,7 @@ private fun StoreActivity.featuredRemoveAdsCard(
                                 dp(15).toFloat(),
                             )
                     }
-                contentDescription = "Remove Ads: $text"
+                contentDescription = "Remove Ads: $label"
                 setOnClickListener { performRemoveAdsAction() }
                 AppFocusRing.apply(this, cornerRadiusDp = 10f)
             },
@@ -445,7 +449,7 @@ internal fun StoreActivity.rewardedAdCard():
         )
         addView(
             TextView(this@rewardedAdCard).apply {
-                text = "WATCH AD"
+                text = StoreActionLabels.action(context, "WATCH AD", SmartUnlockAction.WATCH_AD, 11)
                 textSize = 10.5f
                 setTypeface(Typeface.DEFAULT_BOLD)
                 setTextColor(Color.WHITE)
@@ -457,6 +461,7 @@ internal fun StoreActivity.rewardedAdCard():
 
 private fun StoreActivity.gemProductCard(
     product: StoreProduct,
+    tier: Int,
 ):
     LinearLayout =
     LinearLayout(this).apply {
@@ -500,16 +505,12 @@ private fun StoreActivity.gemProductCard(
         )
 
         addView(
-            GemClusterView(
-                this@gemProductCard,
-                gemCount = gemClusterSize(product.gemAmount),
-            ).apply {
-                // Keep the gem art on a transparent canvas; no recessed pocket behind it.
-                contentDescription = "${product.gemAmount} gems"
+            GemPackArtworkView(this@gemProductCard, tier).apply {
+                importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
             },
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(78),
+                dp(88),
             ),
         )
 
@@ -538,11 +539,9 @@ private fun StoreActivity.gemProductCard(
             Button(
                 this@gemProductCard,
             ).apply {
-                text =
-                    priceFor(
-                        product.productId,
-                        product.fallbackPrice,
-                    )
+                val price = priceFor(product.productId, product.fallbackPrice)
+                text = StoreActionLabels.action(context, price, SmartUnlockAction.PLAY_PRODUCT, 14)
+                contentDescription = "Buy ${product.gemAmount} Gems, $price"
                 textSize =
                     13f
                 setTypeface(
@@ -623,12 +622,4 @@ private fun StoreActivity.formatGemAmount(
         else ->
             amount
                 .toString()
-    }
-
-private fun StoreActivity.gemClusterSize(amount: Int): Int =
-    when {
-        amount >= 20_000 -> 5
-        amount >= 3_500 -> 4
-        amount >= 1_500 -> 3
-        else -> 2
     }

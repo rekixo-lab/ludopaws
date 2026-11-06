@@ -62,7 +62,7 @@ object LudoPawsComputerMovePolicy {
         val source =
             player.tokens.getOrNull(tokenIndex)
                 ?: return null
-        val destination =
+        val destination = if (state.pendingRoll?.comebackBonusApplied == true && source == -1) 0 else
             destinationForRoll(
                 position = source,
                 outcome = outcome,

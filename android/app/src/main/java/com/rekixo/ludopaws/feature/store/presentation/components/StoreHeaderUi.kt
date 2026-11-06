@@ -56,7 +56,7 @@ internal fun StoreActivity.storeHeader():
             if (compactCurrencyPill) 26 else 29
         // Allow room for larger balances without shrinking the gem and plus icons.
         val currencyPillWidthDp =
-            if (compactCurrencyPill) 124 else 138
+            if (compactCurrencyPill) 130 else 144
         // Match the full-height 50dp Store back button; keep the gem and plus artwork compact inside.
         val currencyPillHeightDp = 50
 
@@ -74,8 +74,8 @@ internal fun StoreActivity.storeHeader():
                         cornerRadiusDp = currencyPillHeightDp / 2f,
                     )
                 elevation = dp(5).toFloat()
-                setPadding(
-                    dp(4),
+                setPaddingRelative(
+                    dp(10),
                     dp(3),
                     dp(3),
                     dp(3),

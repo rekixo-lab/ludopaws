@@ -13,6 +13,7 @@ const RESTRICTED_API = Object.freeze([
   /^\/api\/friends(?:\/|$)/,
   /^\/api\/leaderboard(?:\/|$)/,
   /^\/api\/wallet(?:\/|$)/,
+  /^\/api\/rewards(?:\/|$)/,
   /^\/api\/referrals(?:\/|$)/,
   /^\/api\/store\/(?:catalog|purchases)(?:\/|$)/,
   /^\/api\/admob\/ssv$/,
@@ -43,7 +44,7 @@ export function ageSafetyBlockResponse(request, env) {
     const capabilities = familyCapabilities(env);
     const disabled = /^\/api\/friends\/messages(?:\/|$)/.test(url.pathname) ||
       (!capabilities.purchases && /^\/api\/store\/purchases(?:\/|$)/.test(url.pathname)) ||
-      (!capabilities.cosmetics && url.pathname === "/api/wallet/cosmetics/purchase") ||
+      (!capabilities.cosmetics && (url.pathname === "/api/wallet/cosmetics/purchase" || (url.pathname === "/api/rewards" && request.method === "POST"))) ||
       (!capabilities.advertising && url.pathname === "/api/admob/ssv") ||
       (!capabilities.newGoogleLinking && url.pathname === "/api/account/google/link");
     if (!disabled) return null;

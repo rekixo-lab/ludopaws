@@ -5,9 +5,22 @@ export const REFERRAL_REWARD = Object.freeze({
   gems: 100,
   cosmetics: ["dice_pearl_paw", "board_blossom_garden", "character_rabbit"],
 });
+export const TIMED_REFERRAL_CAMPAIGN = "friendship-bundle-v2";
+export const TIMED_REFERRAL_REWARD = Object.freeze({
+  gems: 150,
+  cosmetics: ["character_giraffe", "board_sunstone_palace", "dice_prism_royal"],
+});
+
+export function rewardForCampaign(campaign) {
+  if (campaign === REFERRAL_CAMPAIGN) return REFERRAL_REWARD;
+  if (campaign === TIMED_REFERRAL_CAMPAIGN) return TIMED_REFERRAL_REWARD;
+  return null;
+}
+
 export const REFERRAL_ORIGIN = "https://api.ludopaws.rekixo.com";
 export const REFERRAL_PACKAGE = "com.rekixo.ludopaws";
 export const DAY = 86_400_000;
+export const TIMED_REFERRAL_DURATION = 2 * DAY;
 export const REFERRAL_TERMS_VERSION = "friendship-2026-10-27";
 
 export function referralConfiguration(env) {
@@ -30,6 +43,13 @@ export function referralConfiguration(env) {
 export function referralsEnabled(env) {
   const start = Number(env?.LUDOPAWS_REFERRAL_START_MS);
   return referralsConfigured(env) && Date.now() >= start && Date.now() < start + 90 * DAY;
+}
+
+export function timedReferralsEnabled(env) {
+  const start = Number(env?.LUDOPAWS_REFERRAL_START_MS);
+  const now = Date.now();
+  return env?.LUDOPAWS_TIMED_REFERRALS_ENABLED === "true" && referralsConfigured(env) &&
+    now >= start && now < start + 90 * DAY + TIMED_REFERRAL_DURATION;
 }
 
 export function referralsConfigured(env) {

@@ -159,6 +159,19 @@
         "footstepFallback": "MOVE_STEP_CAT",
         "volume": 0.28
       }
+    },
+    {
+      "id": "giraffe",
+      "folder": "giraffe",
+      "definition": "GiraffeDefinition",
+      "renderer": "GiraffeRenderer",
+      "avatar": "GiraffeAvatarRenderer",
+      "audio": {
+        "voiceOwner": null,
+        "footstepStyle": "HOOF",
+        "footstepFallback": "MOVE_STEP_GOAT",
+        "volume": 0.42
+      }
     }
   ],
   "boards": [
@@ -251,6 +264,24 @@
       "folder": "penguin",
       "definition": "PenguinBoardDefinition",
       "rendererKey": "classic"
+    },
+    {
+      "id": "board_sunstone_palace",
+      "folder": "sunstone",
+      "definition": "SunstonePalaceBoardDefinition",
+      "rendererKey": "sunstone_palace"
+    },
+    {
+      "id": "board_dawn_meadow",
+      "folder": "dawn",
+      "definition": "DawnMeadowBoardDefinition",
+      "rendererKey": "meadow_grove"
+    },
+    {
+      "id": "board_moonlit_grove",
+      "folder": "moonlit",
+      "definition": "MoonlitGroveBoardDefinition",
+      "rendererKey": "meadow_grove"
     }
   ],
   "dice": [
@@ -265,6 +296,42 @@
       "folder": "pearl",
       "definition": "PearlPawDiceDefinition",
       "rendererKey": "pearl_paw"
+    },
+    {
+      "id": "dice_forest_dew",
+      "folder": "environment",
+      "definition": "ForestDiceDefinition",
+      "rendererKey": "forest_dew"
+    },
+    {
+      "id": "dice_lagoon_pearl",
+      "folder": "environment",
+      "definition": "LagoonDiceDefinition",
+      "rendererKey": "lagoon_pearl"
+    },
+    {
+      "id": "dice_frost_crystal",
+      "folder": "environment",
+      "definition": "FrostDiceDefinition",
+      "rendererKey": "frost_crystal"
+    },
+    {
+      "id": "dice_starlight",
+      "folder": "environment",
+      "definition": "StarlightDiceDefinition",
+      "rendererKey": "starlight"
+    },
+    {
+      "id": "dice_ember_forge",
+      "folder": "spatial",
+      "definition": "EmberForgeDiceDefinition",
+      "rendererKey": "ember_forge"
+    },
+    {
+      "id": "dice_prism_royal",
+      "folder": "spatial",
+      "definition": "PrismRoyalDiceDefinition",
+      "rendererKey": "prism_royal"
     },
     {
       "id": "dice_pumpkin",
@@ -344,6 +411,16 @@
       "key": "monsoon_mire",
       "folder": "monsoon",
       "className": "MonsoonBoardRenderer"
+    },
+    {
+      "key": "sunstone_palace",
+      "folder": "sunstone",
+      "className": "SunstonePalaceBoardRenderer"
+    },
+    {
+      "key": "meadow_grove",
+      "folder": "dawn",
+      "className": "MeadowGroveBoardRenderer"
     }
   ],
   "diceRenderers": [
@@ -357,6 +434,42 @@
       "key": "pearl_paw",
       "folder": "pearl",
       "className": "PearlPawDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "forest_dew",
+      "folder": "environment",
+      "className": "ForestDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "lagoon_pearl",
+      "folder": "environment",
+      "className": "LagoonDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "frost_crystal",
+      "folder": "environment",
+      "className": "FrostDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "starlight",
+      "folder": "environment",
+      "className": "StarlightDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "ember_forge",
+      "folder": "spatial",
+      "className": "EmberForgeDiceRenderer",
+      "densityArg": false
+    },
+    {
+      "key": "prism_royal",
+      "folder": "spatial",
+      "className": "PrismRoyalDiceRenderer",
       "densityArg": false
     }
   ]

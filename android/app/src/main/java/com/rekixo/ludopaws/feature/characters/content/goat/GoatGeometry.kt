@@ -10,7 +10,7 @@ internal object GoatGeometry {
         Ring(-.27f, .12f, .17f, centerZ = -.05f),
         Ring(-.19f, .29f, .33f, centerZ = -.05f),
         Ring(-.02f, .40f, .50f, centerZ = -.09f),
-        Ring(.19f, .43f, .51f, centerZ = -.12f),
+        Ring(.19f, .425f, .54f, centerZ = -.125f),
         Ring(.36f, .36f, .39f, centerZ = -.13f),
         Ring(.46f, .23f, .23f, centerZ = -.07f),
         Ring(.50f, .06f, .08f, centerZ = -.04f),
@@ -47,10 +47,10 @@ internal object GoatGeometry {
     val horn = MeshLoft.build((0..22).map { step ->
         val t = step / 22f
         val radius = .077f * (1f - t).pow(.8f) + .003f
-        val ridge = 1f + .035f * cos(t * PI.toFloat() * 26f)
-        Ring(t * .45f, radius * ridge, radius * ridge,
-            centerX = .035f * t + .055f * t * t,
-            centerZ = -.28f * t * t)
+        val ridge = 1f + .08f * (1f - t) * cos(t * PI.toFloat() * 22f)
+        Ring(t * .465f, radius * ridge, radius * ridge * .90f,
+            centerX = .032f * t + .079f * t * t,
+            centerZ = -.31f * t * t)
     }, 14)
     val shin = MeshLoft.build(listOf(
         Ring(-.5f, .64f, .70f), Ring(-.38f, .81f, .82f),
@@ -67,8 +67,9 @@ internal object GoatGeometry {
         Ring(.09f, .025f, .052f, centerZ = -.015f),
     ), 16)
     val beard = MeshLoft.build(listOf(
-        Ring(-.27f, .004f, .004f, centerZ = .035f),
-        Ring(-.16f, .045f, .025f, centerZ = .015f),
+        Ring(-.27f, .004f, .004f, centerZ = .049f),
+        Ring(-.21f, .023f, .018f, centerZ = .037f),
+        Ring(-.16f, .045f, .029f, centerZ = .015f),
         Ring(-.05f, .075f, .040f), Ring(0f, .055f, .035f),
     ), 14)
     val tuft = MeshLoft.build(listOf(

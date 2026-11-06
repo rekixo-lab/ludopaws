@@ -1,5 +1,7 @@
 package com.rekixo.ludopaws
 
+import com.rekixo.ludopaws.feature.sharing.isReferralShareLink
+
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -36,6 +38,16 @@ class HomeActivity : Activity() {
     internal lateinit var connectivityMonitor:
         ConnectivityMonitor
 
+    internal val homeRewards by lazy {
+        com.rekixo.ludopaws.feature.rewards.HomeRewardsController(
+            this,
+            canShow = {
+                isHomeReadyForPlatformConnection() && ::connectivityMonitor.isInitialized && connectivityMonitor.isOnline() &&
+                    com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)
+            },
+            canHint = { !referralPopupVisible && !startupPlayGames.authenticationBootstrapPending },
+        )
+    }
     private var promotionCarousel: HomePromotionCarousel? = null
     private var referralPopupVisible = false
     private var promotionsStarted = false
@@ -48,6 +60,11 @@ class HomeActivity : Activity() {
             })
     }
 
+    private val naturalReview by lazy {
+        com.rekixo.ludopaws.feature.growth.NaturalReviewController(this) {
+            isHomeReadyForPlatformConnection() && !referralPopupVisible && !startupPlayGames.authenticationBootstrapPending
+        }
+    }
     private val startupHandler = Handler(Looper.getMainLooper())
     private val startupSession get() = (application as LudoProofApplication).startupSession
     private val startupPlayGames get() = (application as LudoProofApplication).startupPlayGames
@@ -77,6 +94,7 @@ class HomeActivity : Activity() {
             updateSplash()
             updateStartupBanner(snapshot)
             maybeShowHome()
+            if (homeShown && resumed) homeRewards.refresh()
         }
     }
     private val privacyReady: () -> Unit = {
@@ -129,7 +147,7 @@ class HomeActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         LudoProofTheme.configureWindow(this)
-        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.host == "api.ludopaws.rekixo.com") {
+        if (intent?.action == Intent.ACTION_VIEW && intent?.data?.isReferralShareLink() == true) {
             android.widget.Toast.makeText(this, "Welcome! Only a new Play installation from an invitation can qualify. Your inviter receives the reward after verified play.", android.widget.Toast.LENGTH_LONG).show()
         }
         heroBitmap = (application as LudoProofApplication).startupArtwork
@@ -422,10 +440,8 @@ class HomeActivity : Activity() {
                 Gravity.BOTTOM or
                     Gravity.CENTER_HORIZONTAL,
             ).apply {
-                leftMargin =
-                    dp(if (isCompact()) 18 else 24)
-                rightMargin =
-                    dp(if (isCompact()) 18 else 24)
+                marginStart = dp(if (isCompact()) 12 else 18)
+                marginEnd = dp(if (isCompact()) 12 else 18)
                 bottomMargin =
                     dp(if (isCompact()) 46 else 54)
             },
@@ -546,11 +562,13 @@ class HomeActivity : Activity() {
     private fun resumeHomePromotions() {
         if (!isHomeReadyForPlatformConnection() || !com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)) return
         promotionCarousel?.setActive(!referralPopupVisible)
+        homeRewards.refresh()
         // The PGS host recreation must not consume and cancel the one-per-session
         // referral opportunity before the restored Home can display it.
         if (!com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.optionalGoogleAllowed(this) ||
             startupPlayGames.authenticationBootstrapPending || promotionsStarted) return
         promotionsStarted = true
+        naturalReview.resume()
         referralPromotions.resume(home = true)
         startupHandler.removeCallbacks(deferredHomePreparation)
         startupHandler.postDelayed(deferredHomePreparation, 1200L)
@@ -560,7 +578,9 @@ class HomeActivity : Activity() {
         resumed = false
         promotionsStarted = false
         startupHandler.removeCallbacks(deferredHomePreparation)
+        naturalReview.pause()
         referralPromotions.pause()
+        homeRewards.pause()
         promotionCarousel?.setActive(false)
         super.onPause()
     }
@@ -617,7 +637,9 @@ class HomeActivity : Activity() {
         }
         launchGate = null
         preparationGeneration += 1
+        naturalReview.pause()
         referralPromotions.pause()
+        homeRewards.close()
         com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.detach(this)
         startupSession.unsubscribe(startupObserver)
         startupHandler.removeCallbacksAndMessages(null)

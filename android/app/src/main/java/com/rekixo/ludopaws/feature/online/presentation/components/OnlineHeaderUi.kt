@@ -21,7 +21,7 @@ internal fun MainActivity.registerOnlineBackCallback() {
         onBackInvokedDispatcher.registerOnBackInvokedCallback(
             OnBackInvokedDispatcher.PRIORITY_DEFAULT,
         ) {
-            requestRemoteExit()
+            requestRemoteExitAfterWinInterstitial()
         }
     }
 }
