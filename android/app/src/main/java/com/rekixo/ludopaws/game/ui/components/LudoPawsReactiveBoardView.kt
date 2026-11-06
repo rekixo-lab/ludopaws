@@ -344,6 +344,10 @@ class LudoPawsReactiveBoardView @JvmOverloads constructor(
         pawn3DScene.setBoardThemeOverride(themeId)
     }
 
+    internal fun showTurnBoard(themeId: String, slot: OfflinePlayerLayout.Slot, matchThemeIds: Set<String>) {
+        board.showTurnBoard(themeId, slot, matchThemeIds, pawn3DScene::setBoardThemeOverride)
+    }
+
     override fun onDetachedFromWindow() {
         restoreOverflowDelegate()
         removeCallbacks(idleReactionRunnable)

@@ -183,6 +183,7 @@ class GameApi(
         playerCount: Int,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         characterAccountToken: String? = null,
+        matchStyle: JSONObject? = null,
     ): JSONObject =
         request(
             method = "POST",
@@ -193,6 +194,7 @@ class GameApi(
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
                 .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
+                .put("matchStyle", matchStyle)
                 .put("targetPlayerCount", playerCount)
                 .put("matchMode", "FRIENDS")
                 .put("rulesetKey", "CLASSIC_V7"),
@@ -206,6 +208,7 @@ class GameApi(
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         rulesetKey: String = "CLASSIC_V7",
         characterAccountToken: String? = null,
+        matchStyle: JSONObject? = null,
     ): JSONObject =
         request(
             method = "POST",
@@ -216,6 +219,7 @@ class GameApi(
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
                 .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
+                .put("matchStyle", matchStyle)
                 .put("playerCount", playerCount)
                 .put("rulesetKey", rulesetKey),
         )
@@ -255,6 +259,7 @@ class GameApi(
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         rulesetKey: String = "CLASSIC_V7",
         characterAccountToken: String? = null,
+        matchStyle: JSONObject? = null,
     ): JSONObject =
         request(
             method = "POST",
@@ -265,6 +270,7 @@ class GameApi(
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
                 .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
+                .put("matchStyle", matchStyle)
                 .put("rulesetKey", rulesetKey),
         )
 
@@ -276,6 +282,7 @@ class GameApi(
         friendJoinToken: String? = null,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         characterAccountToken: String? = null,
+        matchStyle: JSONObject? = null,
     ): JSONObject =
         request(
             method = "POST",
@@ -286,7 +293,8 @@ class GameApi(
             body = JSONObject()
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
-                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId)),
+                .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
+                .put("matchStyle", matchStyle),
         )
 
     fun state(matchId: String, playerToken: String): JSONObject =

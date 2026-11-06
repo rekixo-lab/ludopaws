@@ -19,6 +19,7 @@ class TeamMatchmakingApi(
         clientRequestId: String,
         characterId: String = LudoPawsCharacterRuntime.selectedCharacterId(),
         characterAccountToken: String? = null,
+        matchStyle: JSONObject? = null,
     ): JSONObject =
         request(
             path = "/api/team-matchmaking/search",
@@ -28,6 +29,7 @@ class TeamMatchmakingApi(
                 .put("displayName", com.rekixo.ludopaws.feature.safety.FamilyOnlineSafety.publicName(displayName))
                 .put("clientRequestId", clientRequestId)
                 .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
+                .put("matchStyle", matchStyle)
                 .put("rulesetKey", "TEAM_UP_V6"),
         )
 

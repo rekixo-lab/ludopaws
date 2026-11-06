@@ -69,7 +69,7 @@ class DiceView @JvmOverloads constructor(
         "dice_classic"
     private var rendererKey: String? = null
     private var renderer: DiceRenderer? = null
-    private var previewStyleId: String? = null
+    private var styleOverrideId: String? = null
     private var face = 1
     private var rolling = false
     private var settling = false
@@ -359,7 +359,7 @@ class DiceView @JvmOverloads constructor(
 
     fun reloadStyle() {
         diceStyleId =
-            previewStyleId
+            styleOverrideId
                 ?: CosmeticInventoryStore(
                     context,
                 )
@@ -369,9 +369,13 @@ class DiceView @JvmOverloads constructor(
         invalidate()
     }
 
-    /** Applies a store-only preview style without changing equipment or ownership. */
-    fun setPreviewStyle(styleId: String) {
-        previewStyleId = styleId
+    fun setPreviewStyle(styleId: String) = setStyleOverride(styleId)
+
+    /** Render the authoritative seat's style independently of local equipment. */
+    internal fun setMatchStyle(styleId: String) = setStyleOverride(styleId)
+
+    private fun setStyleOverride(styleId: String) {
+        styleOverrideId = styleId
         diceStyleId = styleId
         invalidate()
     }
