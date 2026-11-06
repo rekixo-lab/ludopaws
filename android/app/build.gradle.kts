@@ -142,6 +142,12 @@ val syncAuthoredAudioAssets =
     tasks.register<Sync>("syncAuthoredAudioAssets") {
         from(authoredAudioDir) {
             include("**/*.wav", "**/*.ogg", "**/*.mp3")
+            exclude {
+                val assetPath = it.relativePath.pathString
+                !it.isDirectory && it.file.length() == 0L &&
+                    (assetPath.startsWith("sfx/voices/giraffe/") ||
+                        assetPath.startsWith("sfx/gameplay/movement/step/giraffe/"))
+            }
         }
         into(generatedAudioAssetsDir.map { it.dir("audio") })
     }

@@ -2,7 +2,7 @@
 
 This folder is the source of truth for replaceable production audio. Drop real WAV or OGG files into SFX/voice folders, and WAV, OGG, or MP3 files into `audio/music/`. Android Gradle mirrors these files into APK assets at build time; do not copy them manually into `res/raw`.
 
-Do not add fake, silent, or zero-byte WAVs. Empty folders use .gitkeep until an authored sound is ready.
+Do not add fake, silent, or zero-byte WAVs. Empty folders use .gitkeep until an authored sound is ready. The named Giraffe recording slots are the exception and are skipped during packaging until replaced with real WAV recordings.
 
 ## Background music
 
@@ -71,7 +71,7 @@ Use exact cue names and numbered variants, for example:
 - audio/sfx/voices/duck/lp_vocal_duck_home_01.wav
 - audio/sfx/voices/goat/lp_vocal_goat_six_01.ogg
 
-Supported authored character IDs: dog, goat, duck, cat, donkey, goat_lumi, cock, pig, elephant, horse, rabbit, panda, monkey. Each character prefers its own folder. Lumi uses Goat as fallback when its own cue is missing; Donkey/Panda/Monkey stay silent without their own authored cue. See `audio/START_HERE.md` and each character folder README for all prompts and filenames. The reaction profile currently requests voice variants _01 and _02. Use short, non-verbal, original/licensed character takes. Normal movement and routine turn-start moments should remain vocally quiet; capture, home, third-six and final results may get a stronger reaction.
+Supported authored character IDs: dog, goat, duck, cat, donkey, goat_lumi, cock, pig, elephant, horse, rabbit, panda, monkey, giraffe. Each character prefers its own folder. Lumi uses Goat as fallback when its own cue is missing; Donkey/Panda/Monkey stay silent without their own authored cue. See `audio/START_HERE.md` and each character folder README for all prompts and filenames. The reaction profile currently requests voice variants _01 and _02. Use short, non-verbal, original/licensed character takes. Normal movement and routine turn-start moments should remain vocally quiet; capture, home, third-six and final results may get a stronger reaction.
 
 Existing Android res/raw voice names remain a compatibility fallback. If a matching root audio file exists, it is preferred.
 

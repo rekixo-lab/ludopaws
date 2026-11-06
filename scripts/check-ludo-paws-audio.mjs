@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseCharacterAudioProfiles } from './ludopaws-content-audio-tools.mjs';
+import { isEmptyGiraffeAudioSlot, parseCharacterAudioProfiles } from './ludopaws-content-audio-tools.mjs';
 
 const requiredSources = [
   'android/app/src/main/java/com/rekixo/ludopaws/core/audio/LudoPawsAudioCatalog.kt',
@@ -301,7 +301,7 @@ for (const file of authoredAudioSlots) {
 }
 
 // Validate real authored audio on every CI run. .gitkeep and documentation are
-// ignored; bogus zero-byte WAVs and mislabeled OGGs should fail before packaging.
+// ignored, along with designated empty Giraffe recording slots. Reject malformed audio.
 function listAudioFiles(directory) {
   if (!fs.existsSync(directory)) return [];
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap(entry => {
@@ -369,9 +369,12 @@ if (unregisteredSfxAssets.length > 0) {
     `Authored gameplay/UI SFX cannot be resolved by LudoPawsAudioCatalog: ${unregisteredSfxAssets.join(', ')}` ,
   );
 }
+let validatedAudioCount = 0;
 for (const file of authoredAudioFiles) {
   const bytes = fs.readFileSync(file);
+  if (isEmptyGiraffeAudioSlot(normalizeRepoPath(file), bytes.length)) continue;
   const lower = file.toLowerCase();
+  validatedAudioCount += 1;
   if (lower.endsWith('.wav')) {
     if (
       bytes.length < 44 ||
@@ -401,4 +404,4 @@ for (const file of authoredAudioFiles) {
   }
 }
 
-console.log(`Ludo Paws non-verbal replaceable audio gate passed; validated ${authoredAudioFiles.length} authored audio file(s).`);
+console.log(`Ludo Paws non-verbal replaceable audio gate passed; validated ${validatedAudioCount} authored audio file(s).`);
