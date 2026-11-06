@@ -110,7 +110,10 @@ internal class GrowthPage(activity: Activity, title: String, onBack: () -> Unit,
                 gravity = Gravity.CENTER; setTextColor(0xFFFFE4A1.toInt()); setShadowLayer(3f, 0f, dp(1).toFloat(), 0xFF51301B.toInt())
                 isAccessibilityHeading = true
             }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(8); marginEnd = dp(8) })
-            val trailing = onRefresh?.let { appIconActionButton(activity, "Refresh rewards", AppIconName.REFRESH, onClick = it) } ?: View(activity)
+            val trailing = onRefresh?.let { refresh ->
+                val icon = ImageView(activity).apply { setImageResource(R.drawable.ic_rewards_refresh) }
+                appIconActionButton(activity, "Refresh rewards", icon, sizeDp = 48, onClick = refresh)
+            } ?: View(activity)
             addView(trailing, LinearLayout.LayoutParams(dp(48), dp(48)))
         }
         page.addView(header, LinearLayout.LayoutParams(-1, -2))

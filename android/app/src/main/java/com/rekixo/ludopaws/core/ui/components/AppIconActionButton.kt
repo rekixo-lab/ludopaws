@@ -24,6 +24,18 @@ internal fun appIconActionButton(
     iconName: AppIconName,
     sizeDp: Int = 52,
     onClick: () -> Unit,
+): FrameLayout = appIconActionButton(
+    context, contentDescription,
+    AppIconView(context, iconName, iconTint = Color.WHITE, strokeWidthDp = AppUiTokens.Icon.EMPHASIS_STROKE_DP),
+    sizeDp, onClick,
+)
+
+internal fun appIconActionButton(
+    context: Context,
+    contentDescription: String,
+    icon: View,
+    sizeDp: Int = 52,
+    onClick: () -> Unit,
 ): FrameLayout =
     FrameLayout(context).apply {
         isClickable = true
@@ -41,13 +53,9 @@ internal fun appIconActionButton(
             AppUiTokens.Icon.ACTION_CONTENT_DP,
             sizeDp - AppUiTokens.Spacing.MD_DP,
         ).coerceAtLeast(AppUiTokens.Icon.STANDARD_DP)
+        icon.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
         addView(
-            AppIconView(
-                context = context,
-                iconName = iconName,
-                iconTint = Color.WHITE,
-                strokeWidthDp = AppUiTokens.Icon.EMPHASIS_STROKE_DP,
-            ),
+            icon,
             FrameLayout.LayoutParams(
                 LudoProofTheme.dp(context, iconSizeDp),
                 LudoProofTheme.dp(context, iconSizeDp),

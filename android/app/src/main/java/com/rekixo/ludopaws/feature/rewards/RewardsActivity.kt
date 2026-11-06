@@ -20,7 +20,8 @@ import com.rekixo.ludopaws.ui.dialogs.PlywoodAlertDialogBuilder
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.core.ui.art.recessedPlywoodBackground
 import com.rekixo.ludopaws.core.ui.components.appIconActionButton
-import com.rekixo.ludopaws.core.ui.icons.AppIconName
+import com.rekixo.ludopaws.ui.home.HomeIconKind
+import com.rekixo.ludopaws.ui.home.HomeIconView
 import com.rekixo.ludopaws.feature.characters.data.local.CharacterSelectionStore
 import com.rekixo.ludopaws.feature.growth.AutomaticPromptGate
 import com.rekixo.ludopaws.feature.growth.EngagementStore
@@ -299,7 +300,8 @@ class RewardsActivity : Activity() {
             contentDescription = if (progress >= target) "$title complete" else "$title: $progress of $target"
         }, LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(6) })
         if (share != null) {
-            track.addView(appIconActionButton(this, "Share challenge", AppIconName.SHARE, sizeDp = 48) { if (!busy) share() },
+            val shareIcon = HomeIconView(this).apply { kind = HomeIconKind.SHARE }
+            track.addView(appIconActionButton(this, "Share challenge", shareIcon, sizeDp = 48) { if (!busy) share() },
                 LinearLayout.LayoutParams(dp(48), dp(48)).apply { marginStart = dp(6) })
         }
         add(panel, track, 2)

@@ -1,33 +1,100 @@
 package com.rekixo.ludopaws.feature.growth
 
 import android.content.Context
-import android.graphics.*
+import android.graphics.Canvas
+import android.graphics.LinearGradient
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.RectF
+import android.graphics.Shader
 import android.view.View
 
-/** Static, lightweight medal; completion is supplied by the real challenge state. */
-internal class PawsBadgeView(context: Context, private val earned: Boolean) : View(context) {
+/** A raised medal drawn in the same coordinates at every screen density. */
+internal class PawsBadgeView(context: Context, earned: Boolean) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    init { importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO }
+    private val ribbon = Path().apply {
+        moveTo(26f, 53f)
+        lineTo(14f, 92f)
+        lineTo(29f, 87f)
+        lineTo(39f, 96f)
+        lineTo(50f, 65f)
+        lineTo(61f, 96f)
+        lineTo(71f, 87f)
+        lineTo(86f, 92f)
+        lineTo(74f, 53f)
+        close()
+    }
+    private val paw = Path().apply {
+        addOval(36f, 40f, 64f, 60f, Path.Direction.CW)
+        addOval(28f, 33f, 38f, 43f, Path.Direction.CW)
+        addOval(39f, 26f, 49f, 38f, Path.Direction.CW)
+        addOval(51f, 26f, 61f, 38f, Path.Direction.CW)
+        addOval(62f, 33f, 72f, 43f, Path.Direction.CW)
+    }
+    private val ribbonShade = gradient(48f, 96f,
+        if (earned) 0xFF55A799.toInt() else 0xFF76968C.toInt(), 0xFF153E39.toInt())
+    private val rim = gradient(9f, 78f,
+        if (earned) 0xFFFFEE9D.toInt() else 0xFFE8DFCE.toInt(),
+        if (earned) 0xFFB8752A.toInt() else 0xFF7D7363.toInt())
+    private val face = gradient(17f, 70f,
+        if (earned) 0xFF317F6D.toInt() else 0xFF546F66.toInt(), 0xFF142F2C.toInt())
+    private val stamp = gradient(26f, 61f,
+        if (earned) 0xFFFFF7C0.toInt() else 0xFFF0E8D8.toInt(),
+        if (earned) 0xFFC98835.toInt() else 0xFFA89A81.toInt())
+    private val bevelHighlight = RectF(19f, 13f, 81f, 75f)
+
+    init {
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
     override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
         val side = minOf(width, height).toFloat()
         if (side <= 0f) return
-        canvas.save(); canvas.translate((width-side)/2f, (height-side)/2f); canvas.scale(side/100f, side/100f)
-        paint.color = if (earned) 0xFF2972A7.toInt() else 0xFF7E8996.toInt()
-        val ribbons = Path().apply {
-            moveTo(28f, 54f); lineTo(13f, 95f); lineTo(31f, 90f); lineTo(40f, 99f); lineTo(52f, 62f); close()
-            moveTo(72f, 54f); lineTo(87f, 95f); lineTo(69f, 90f); lineTo(60f, 99f); lineTo(48f, 62f); close()
-        }
-        canvas.drawPath(ribbons, paint)
-        paint.shader = LinearGradient(0f, 10f, 0f, 80f,
-            if (earned) 0xFFFFEEA0.toInt() else 0xFFE9D9B7.toInt(), if (earned) 0xFFD6972D.toInt() else 0xFFB8A080.toInt(), Shader.TileMode.CLAMP)
-        canvas.drawCircle(50f, 43f, 35f, paint); paint.shader = null
-        paint.style = Paint.Style.STROKE; paint.strokeWidth = 2f; paint.color = 0xFF9A6929.toInt()
-        canvas.drawCircle(50f, 43f, 28f, paint); paint.style = Paint.Style.FILL
-        paint.color = if (earned) 0xFF3C7E50.toInt() else 0xFF8A775D.toInt()
-        canvas.drawOval(RectF(35f, 41f, 65f, 60f), paint)
-        for ((x,y) in listOf(30f to 33f, 43f to 27f, 57f to 27f, 70f to 33f)) {
-            canvas.drawOval(RectF(x-5f, y-7f, x+5f, y+7f), paint)
-        }
-        canvas.restore()
+        val saved = canvas.save()
+        canvas.translate((width - side) / 2f, (height - side) / 2f)
+        canvas.scale(side / 100f, side / 100f)
+
+        paint.color = 0x66301D10
+        canvas.drawOval(20f, 76f, 82f, 92f, paint)
+        paint.color = 0xFFFFFFFF.toInt()
+        paint.shader = ribbonShade
+        canvas.drawPath(ribbon, paint)
+        paint.shader = null
+
+        // Offset the rim and center stamp to give both surfaces visible thickness.
+        paint.color = 0xFF4F3828.toInt()
+        canvas.drawCircle(50f, 48f, 35f, paint)
+        paint.color = 0xFFFFFFFF.toInt()
+        paint.shader = rim
+        canvas.drawCircle(50f, 44f, 35f, paint)
+        paint.shader = null
+
+        paint.color = 0xFF3E2E23.toInt()
+        canvas.drawCircle(50f, 45f, 28f, paint)
+        paint.color = 0xFFFFFFFF.toInt()
+        paint.shader = face
+        canvas.drawCircle(50f, 44f, 26f, paint)
+        paint.shader = null
+
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 1.8f
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.color = 0xAAFFF9DE.toInt()
+        canvas.drawArc(bevelHighlight, 203f, 93f, false, paint)
+        paint.style = Paint.Style.FILL
+
+        canvas.translate(0f, 2.5f)
+        paint.color = 0xFF172421.toInt()
+        canvas.drawPath(paw, paint)
+        canvas.translate(0f, -2.5f)
+        paint.color = 0xFFFFFFFF.toInt()
+        paint.shader = stamp
+        canvas.drawPath(paw, paint)
+        paint.shader = null
+        canvas.restoreToCount(saved)
     }
+
+    private fun gradient(top: Float, bottom: Float, light: Int, dark: Int) =
+        LinearGradient(0f, top, 0f, bottom, light, dark, Shader.TileMode.CLAMP)
 }
