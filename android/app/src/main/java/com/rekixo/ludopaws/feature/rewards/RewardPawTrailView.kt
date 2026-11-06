@@ -5,20 +5,25 @@ import android.graphics.Canvas
 import android.graphics.Paint
 import android.view.View
 
-internal class RewardPawTrailView(context: Context, private val collected: Int) : View(context) {
+internal class RewardPawTrailView(
+    context: Context,
+    private val collected: Int,
+    private val total: Int = 7,
+    description: String = "$collected of $total gifts toward the Garden Friend badge",
+) : View(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     init {
-        contentDescription = "$collected of 7 gifts toward the Garden Friend badge"
+        contentDescription = description
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        val spacing = width / 7f
+        val spacing = width / total.toFloat()
         val size = minOf(spacing * .66f, height * .8f)
         if (size <= 0f) return
-        repeat(7) { index ->
+        repeat(total) { index ->
             val saved = canvas.save()
             canvas.translate(spacing * (index + .5f), height * .5f)
             canvas.scale(size, size)

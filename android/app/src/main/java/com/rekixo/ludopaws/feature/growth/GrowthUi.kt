@@ -75,20 +75,20 @@ internal object GrowthUi {
     fun portrait(context: Context, id: String?) = LudoPawsCharacterAvatarView(context).apply {
         bind(id, showCircularChrome = false); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
     }
-    fun preview(context: Context, id: String): View {
-        val item = StoreCosmeticCatalog.find(id) ?: return copy(context, "Preview unavailable", 11f)
+    fun preview(context: Context, id: String): View? {
+        val item = StoreCosmeticCatalog.find(id) ?: return null
         val preview = when (item.category) {
-            CosmeticCategory.BOARD -> if (com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(id) == null) copy(context, "Preview unavailable", 11f) else FrameLayout(context).apply {
+            CosmeticCategory.BOARD -> if (com.rekixo.ludopaws.feature.boards.domain.BoardRegistry.find(id) == null) null else FrameLayout(context).apply {
                 addView(LudoBoardView(context).apply { setBoardThemeOverride(id); setClassicTokenDrawingEnabled(false) }, FrameLayout.LayoutParams(-1, -1))
                 addView(LudoPawsBoardChromeView(context).apply { setBoardThemeOverride(id) }, FrameLayout.LayoutParams(-1, -1))
             }
-            CosmeticCategory.DICE -> if (com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(id) == null) copy(context, "Preview unavailable", 11f) else DiceView(context).apply { setPreviewStyle(id); showOutcome(1, animate = false); setPlayerTeamColor(null) }
+            CosmeticCategory.DICE -> if (com.rekixo.ludopaws.feature.dice.domain.DiceRegistry.find(id) == null) null else DiceView(context).apply { setPreviewStyle(id); showOutcome(1, animate = false); setPlayerTeamColor(null) }
             else -> {
                 val character = CharacterDefinitions.all.firstOrNull { StoreCosmeticCatalog.characterUnlock(it.character.id)?.id == id }
-                if (character == null) copy(context, "Preview unavailable", 11f) else portrait(context, character.character.id)
+                if (character == null) null else portrait(context, character.character.id)
             }
         }
-        return preview.apply {
+        return preview?.apply {
             isClickable = false; isFocusable = false; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         }
     }
