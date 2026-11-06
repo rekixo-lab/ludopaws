@@ -12,7 +12,6 @@ data class PlayerSnapshot(
     val teamId: String? = null,
     val characterId: String? = null,
     val playerType: String = "HUMAN",
-    val boardId: String? = null,
     val diceId: String? = null,
 )
 
@@ -553,7 +552,6 @@ object GameJson {
                                 .lowercase()
                                 .takeIf { it.isNotBlank() && it != "null" },
                         playerType = player.optString("playerType", "HUMAN"),
-                        boardId = player.optString("boardId").takeIf { it.startsWith("board_") },
                         diceId = player.optString("diceId").takeIf { it.startsWith("dice_") },
                     ),
                 )
