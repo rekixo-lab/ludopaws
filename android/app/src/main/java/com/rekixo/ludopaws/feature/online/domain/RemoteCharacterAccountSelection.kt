@@ -16,8 +16,8 @@ data class RemoteCharacterAccountSelection(
 ) {
     companion object {
         /**
-         * Capture this device's equipped style on the network worker. The
-         * server only publishes styles that pass its ownership checks.
+         * Capture the equipped Paw and dice for server ownership checks.
+         * The board is a local display preference.
          */
         fun current(
             context: Context,
@@ -25,14 +25,10 @@ data class RemoteCharacterAccountSelection(
             friendToken: String? = null,
         ): RemoteCharacterAccountSelection {
             val characterId = CharacterSelectionStore(context).load().characterId
-            val inventory = CosmeticInventoryStore(context)
-            val boardId = inventory.selectedId(CosmeticCategory.BOARD)
-            val diceId = inventory.selectedId(CosmeticCategory.DICE)
+            val diceId = CosmeticInventoryStore(context).selectedId(CosmeticCategory.DICE)
             val needsPaw = StoreCosmeticCatalog.characterEntitlementId(characterId) != null
-            val needsStyle = listOf(boardId, diceId).any { id ->
-                val item = StoreCosmeticCatalog.find(id)
-                item == null || item.unlockKind != CosmeticUnlockKind.FREE || item.requiredLevel > 0
-            }
+            val dice = StoreCosmeticCatalog.find(diceId)
+            val needsDice = dice == null || dice.unlockKind != CosmeticUnlockKind.FREE || dice.requiredLevel > 0
             fun linkedAccountToken(): String {
                 val repository = (context.applicationContext as LudoProofApplication).accountRepository
                 when {
@@ -44,13 +40,13 @@ data class RemoteCharacterAccountSelection(
             }
             val accountToken = when {
                 needsPaw -> linkedAccountToken()
-                needsStyle -> runCatching { linkedAccountToken() }.getOrNull()
+                needsDice -> runCatching { linkedAccountToken() }.getOrNull()
                 else -> null
             }
             return RemoteCharacterAccountSelection(
                 characterId,
                 accountToken,
-                JSONObject().put("boardId", boardId).put("diceId", diceId),
+                JSONObject().put("diceId", diceId),
             )
         }
     }

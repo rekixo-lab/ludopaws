@@ -84,19 +84,6 @@ internal object OnlineLudoPawsPresentation {
                 it.playerId == activity.playerId
             }?.color
 
-        val boardOwner = when (current.status) {
-            "ACTIVE" -> current.players.getOrNull(current.actingSeat ?: current.turnSeat)
-            "WAITING" -> current.players.firstOrNull { it.playerId == activity.playerId }
-                ?: current.players.firstOrNull()
-            else -> null
-        }
-        boardOwner?.let { owner ->
-            host.board.showTurnBoard(
-                themeId = owner.matchBoardStyleId(),
-                slot = playerSlot(owner, current.players.size, activity.playerId, localColor ?: "BLUE"),
-                matchThemeIds = current.players.mapTo(linkedSetOf()) { it.matchBoardStyleId() },
-            )
-        }
         activity.boardView.visibility = View.GONE
         host.board.visibility = View.VISIBLE
         host.board.bind(
@@ -760,17 +747,6 @@ internal object OnlineLudoPawsPresentation {
         )
     }
 
-    private fun playerSlot(
-        player: PlayerSnapshot,
-        playerCount: Int,
-        localPlayerId: String?,
-        preferredBottomLeftColor: String,
-    ): OfflinePlayerLayout.Slot =
-        if (playerCount == 2) {
-            if (player.playerId == localPlayerId) OfflinePlayerLayout.Slot.BOTTOM_LEFT
-            else OfflinePlayerLayout.Slot.TOP_RIGHT
-        } else OfflinePlayerLayout.slotForColor(player.color, preferredBottomLeftColor)
-
     private fun addPlayerSlot(
         activity: MainActivity,
         quickChatHost: Host,
@@ -783,7 +759,12 @@ internal object OnlineLudoPawsPresentation {
         characterIdsBySeat: List<String>,
     ) {
         val player = state.players.firstOrNull {
-            playerSlot(it, state.players.size, activity.playerId, preferredBottomLeftColor) == slot
+            val resolvedSlot = when {
+                state.players.size != 2 -> OfflinePlayerLayout.slotForColor(it.color, preferredBottomLeftColor)
+                it.playerId == activity.playerId -> OfflinePlayerLayout.Slot.BOTTOM_LEFT
+                else -> OfflinePlayerLayout.Slot.TOP_RIGHT
+            }
+            resolvedSlot == slot
         }
 
         val slotHost =

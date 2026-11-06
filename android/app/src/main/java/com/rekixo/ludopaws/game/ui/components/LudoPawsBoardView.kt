@@ -551,20 +551,6 @@ class LudoPawsBoardView @JvmOverloads constructor(
         boardChrome.setBoardThemeOverride(themeId)
     }
 
-    internal fun showTurnBoard(
-        themeId: String,
-        slot: OfflinePlayerLayout.Slot,
-        matchThemeIds: Set<String>,
-        onThemeApplied: (String) -> Unit,
-    ) {
-        boardChrome.onTurnThemeApplied = { applied ->
-            boardSurface.setBoardThemeOverride(applied)
-            baseBoard.setBoardThemeOverride(applied)
-            onThemeApplied(applied)
-        }
-        boardChrome.showTurnTheme(themeId, slot, matchThemeIds)
-    }
-
     // BOARD SIZE LOCK: exactly mirror the approved LudoBoardView square.
     override fun onMeasure(
         widthMeasureSpec: Int,

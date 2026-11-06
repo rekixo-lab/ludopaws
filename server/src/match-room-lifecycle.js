@@ -5,7 +5,7 @@ import {
 import {
   actingSeatForTurn,
   applyMove,
-  destinationForRoll,
+  destinationForTokenRoll,
   legalTokenIndexes,
   forfeitTimedOutTurn,
   isTeamUp,
@@ -433,7 +433,7 @@ export function forcedAutomaticTokenIndex(state) {
   if (canonical.length !== advertised.length ||
       !canonical.every(index => advertised.includes(index))) return null;
 
-  const destinations = canonical.map(index => destinationForRoll(player.tokens[index], roll));
+  const destinations = canonical.map(index => destinationForTokenRoll(state, seat, index, roll));
   if (destinations.some(destination => destination == null)) return null;
   if (new Set(destinations).size !== 1) return null;
   return Math.min(...canonical);

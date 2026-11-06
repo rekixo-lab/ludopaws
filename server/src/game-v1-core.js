@@ -2,7 +2,7 @@ import {
   DEFAULT_CHARACTER_ID,
   publicCharacterId,
 } from "./ludo-paws-characters.js";
-import { rulesetForKey } from "./rulesets.js";
+import { RULESET_V7_KEY, TEAM_RULESET_V6_KEY, rulesetForKey } from "./rulesets.js";
 
 export const COLORS = ["RED", "GREEN", "YELLOW", "BLUE"];
 
@@ -490,6 +490,19 @@ export function destinationForRoll(position, roll) {
   return destination <= RULESET.homePosition ? destination : null;
 }
 
+export function destinationForTokenRoll(state, seat, tokenIndex, roll) {
+  const tokens = state.players[seat].tokens;
+  const position = tokens[tokenIndex];
+  if (
+    position === -1 && Number.isInteger(roll) && roll >= 1 && roll < 6 &&
+    state.pendingRoll?.seat === seat && state.pendingRoll.comebackBonusApplied === true &&
+    (state.rulesetKey === RULESET_V7_KEY || state.rulesetKey === TEAM_RULESET_V6_KEY) &&
+    state.comebackWaits?.[seat] >= 2 && tokenIndex === tokens.indexOf(-1) &&
+    tokens.every(value => value === -1 || value === RULESET.homePosition)
+  ) return 0;
+  return destinationForRoll(position, roll);
+}
+
 export function legalTokenIndexes(state, seat, roll) {
   if (!Number.isInteger(roll) || roll < 1 || roll > 6) {
     throw gameError("INVALID_ROLL", "roll must be between 1 and 6");
@@ -498,8 +511,8 @@ export function legalTokenIndexes(state, seat, roll) {
   if (!player) throw gameError("INVALID_SEAT", "player seat is invalid");
 
   const legal = [];
-  player.tokens.forEach((position, index) => {
-    if (destinationForRoll(position, roll) !== null) {
+  player.tokens.forEach((_, index) => {
+    if (destinationForTokenRoll(state, seat, index, roll) !== null) {
       legal.push(index);
     }
   });
@@ -552,13 +565,7 @@ export function registerResolvedRoll(state, {
     };
   }
 
-  const comeback = next.pendingRoll.comebackBonusApplied === true &&
-    ["CLASSIC_V7", "TEAM_UP_V6"].includes(next.rulesetKey) &&
-    outcome !== 6 && next.comebackWaits?.[seat] >= 2 &&
-    next.players[seat].tokens.every(position => position === -1 || position === 57);
-  const legal = comeback
-    ? [next.players[seat].tokens.findIndex(position => position === -1)].filter(index => index >= 0)
-    : legalTokenIndexes(next, seat, outcome);
+  const legal = legalTokenIndexes(next, seat, outcome);
   if (legal.length === 0) {
     next.pendingRoll = null;
     if (!(ruleset.extraTurnOnSix && outcome === 6)) {
@@ -611,11 +618,8 @@ export function applyMove(state, { playerId, tokenIndex, now }) {
   const player = next.players[seat];
   const roll = pending.outcome;
   const current = player.tokens[tokenIndex];
-  const comeback = pending.comebackBonusApplied === true &&
-    ["CLASSIC_V7", "TEAM_UP_V6"].includes(next.rulesetKey) &&
-    roll !== 6 && current === -1 && next.comebackWaits?.[seat] >= 2 &&
-    player.tokens.every(position => position === -1 || position === 57);
-  const destination = comeback ? 0 : destinationForRoll(current, roll);
+  const destination = destinationForTokenRoll(next, seat, tokenIndex, roll);
+  const comeback = current === -1 && roll !== 6 && destination === 0;
   if (destination === null) {
     throw gameError("ILLEGAL_TOKEN_MOVE", "verified roll exceeds the home path");
   }

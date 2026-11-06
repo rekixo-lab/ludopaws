@@ -2,9 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   MatchRoom,
+  FORCED_MOVE_RECOVERY_MS,
   MOVE_SELECTION_TIMEOUT_MS,
   TURN_ROLL_TIMEOUT_MS,
+  forcedAutomaticTokenIndex,
 } from "../src/match-room-lifecycle.js";
+
+import { registerResolvedRoll } from "../src/game.js";
 
 class FakeStorage {
   constructor(state) {
@@ -120,6 +124,54 @@ test("resolved roll schedules the authoritative move-selection deadline", async 
   assert.equal(stored.pendingRoll.status, "RESOLVED");
   assert.equal(stored.turnSeat, 0);
 });
+
+for (const [matchMode, rulesetKey] of [
+  ["ONLINE", "CLASSIC_V7"], ["FRIENDS", "CLASSIC_V7"], ["TEAM_UP", "TEAM_UP_V6"],
+]) {
+  test(`${matchMode} recovers a third-roll comeback if the client never moves`, async () => {
+    const now = Date.now();
+    const resolvedAt = now - FORCED_MOVE_RECOVERY_MS - 1_000;
+    const state = stateWithResolvedMove(resolvedAt);
+    state.matchMode = matchMode;
+    state.rulesetKey = rulesetKey;
+    state.players[0].tokens = [57, -1, -1, -1];
+    if (matchMode === "TEAM_UP") {
+      state.targetPlayerCount = 4;
+      state.players.push(
+        { playerId: "p3", color: "YELLOW", tokens: [-1, -1, -1, -1] },
+        { playerId: "p4", color: "BLUE", tokens: [-1, -1, -1, -1] },
+      );
+      state.pendingRoll.scheduledSeat = 0;
+    }
+    state.openingRollConsumed = state.players.map(() => true);
+    state.comebackWaits = state.players.map((_, seat) => seat === 0 ? 2 : -1);
+    state.consecutiveSixes = state.players.map(() => 0);
+    state.pendingRoll.status = "COMMITTED";
+    const proofDigest = state.pendingRoll.proofDigest;
+    const resolved = registerResolvedRoll(state, { outcome: 3, proofDigest, now: resolvedAt });
+    assert.equal(resolved.comebackBonusApplied, true);
+    assert.deepEqual(resolved.legalTokenIndexes, [1]);
+    resolved.state.history[0] = {
+      ...resolved.state.history[0], proofDigest, outcome: 3, comebackBonusApplied: true,
+    };
+    const { room, storage } = makeRoom(resolved.state);
+
+    const invalid = structuredClone(resolved.state);
+    invalid.pendingRoll.legalTokenIndexes = [2];
+    assert.equal(forcedAutomaticTokenIndex(invalid), null);
+
+    await room.alarm();
+
+    const stored = await storage.get("match-state");
+    assert.deepEqual(stored.players[0].tokens, [57, 0, -1, -1]);
+    assert.equal(stored.comebackWaits[0], -1);
+    assert.equal(stored.pendingRoll, null);
+    assert.equal(stored.turnSeat, 1);
+    assert.equal(stored.history[0].outcome, 3);
+    assert.equal(stored.history[0].extraTurn, false);
+    assert.equal(stored.history[0].autoMoveSource, "SERVER_FORCED_MOVE_RECOVERY");
+  });
+}
 
 test("expired resolved roll forfeits the move and advances the turn", async () => {
   const resolvedAt = Date.now() - MOVE_SELECTION_TIMEOUT_MS - 5_000;
