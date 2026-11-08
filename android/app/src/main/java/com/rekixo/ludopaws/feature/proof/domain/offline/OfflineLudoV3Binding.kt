@@ -180,7 +180,8 @@ object OfflineLudoV3Binding {
             if (rulesetId == OfflineLudoV6Binding.RULESET_ID) rules + ("receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW)
             else if (LudoComebackPolicy.enabled(rulesetId)) rules + mapOf(
                 "receiptHistoryWindow" to OfflineLudoV6Binding.HISTORY_WINDOW,
-                "comebackPolicy" to "CAPTURE_STRANDED_THIRD_ROLL_ENTRY",
+                "comebackPolicy" to if (LudoComebackPolicy.countsWithoutCapture(rulesetId))
+                    "STRANDED_THIRD_ROLL_ENTRY" else "CAPTURE_STRANDED_THIRD_ROLL_ENTRY",
                 "comebackFailedRollsBeforeEntry" to 2,
                 "comebackEntryPosition" to 0,
                 "comebackTokensPerBonus" to 1,

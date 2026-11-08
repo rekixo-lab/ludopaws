@@ -1,6 +1,9 @@
 package com.rekixo.ludopaws.ui.online
 
+import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -81,7 +84,7 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
             gravity = Gravity.CENTER
             setPadding(dp(4), 0, dp(4), 0)
         }
-        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+        actions.addView(Button(this@onlineResultPanel).apply {
             text = "SHARE"
             isAllCaps = false
             LudoProofTheme.secondary(this)
@@ -99,29 +102,39 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
                 }
             }
         }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(5) })
-        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+        actions.addView(Button(this@onlineResultPanel).apply {
             text = if (gameMode == GameMode.FRIENDS) "INVITE AGAIN" else "PLAY AGAIN"
             isAllCaps = false
             LudoProofTheme.positive(this)
             setOnClickListener {
                 if (currentState?.status != "FINISHED" || !canSubmitOnlineGameplayAction()) return@setOnClickListener
                 val mode = gameMode
-                openGameMode(
-                    mode,
-                    resumeSavedMatch = false,
-                    beforeLaunch = {
-                        runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false)
-                    },
-                    onLaunched = { finish() },
-                )
+                continueAfterRemoteResultAd {
+                    openGameMode(
+                        mode,
+                        resumeSavedMatch = false,
+                        beforeLaunch = {
+                            runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false)
+                        },
+                        onLaunched = { finish() },
+                    )
+                }
             }
         }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(7) })
-        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+        actions.addView(Button(this@onlineResultPanel).apply {
             text = "HOME"
             isAllCaps = false
             LudoProofTheme.secondary(this)
             setOnClickListener { requestRemoteExitAfterWinInterstitial() }
         }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        for (index in 0 until actions.childCount) {
+            (actions.getChildAt(index) as Button).apply {
+                setPadding(dp(4), 0, dp(4), 0)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setAutoSizeTextTypeUniformWithConfiguration(9, 16, 1, TypedValue.COMPLEX_UNIT_SP)
+            }
+        }
         addView(actions, FrameLayout.LayoutParams(
             minOf(dp(360), resources.displayMetrics.widthPixels - dp(28)),
             dp(52),

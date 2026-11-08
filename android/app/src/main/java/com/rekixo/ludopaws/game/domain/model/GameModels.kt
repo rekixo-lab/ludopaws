@@ -112,6 +112,7 @@ object GameJson {
         "ludoproof-standard-v5",
         "ludoproof-standard-v6",
         "ludoproof-standard-v7",
+        LudoComebackPolicy.YARD_RULESET_ID,
         )
     private val teamRulesetIds =
         setOf(
@@ -121,6 +122,7 @@ object GameJson {
             "ludoproof-team-v4",
         "ludoproof-team-v5",
         "ludoproof-team-v6",
+        LudoComebackPolicy.TEAM_YARD_RULESET_ID,
         )
     private val colors = listOf("RED", "GREEN", "YELLOW", "BLUE")
     private val teamAssignments = listOf("A", "B", "A", "B")
@@ -292,7 +294,7 @@ object GameJson {
             schema(playersArray.length() == 4, "active/finished Team Up requires four players")
         }
 
-        if (rulesetId == LudoComebackPolicy.RULESET_ID || rulesetId == LudoComebackPolicy.TEAM_RULESET_ID) {
+        if (LudoComebackPolicy.enabled(rulesetId)) {
             val waits = value.requireArray("comebackWaits")
             schema(waits.length() == playersArray.length(), "comeback counter count does not match players")
             for (index in 0 until waits.length()) {

@@ -17,6 +17,7 @@ import com.rekixo.ludopaws.DiceView
 import com.rekixo.ludopaws.LudoPawsReactiveBoardView
 import com.rekixo.ludopaws.MainActivity
 import com.rekixo.ludopaws.GameMode
+import com.rekixo.ludopaws.LudoComebackPolicy
 import com.rekixo.ludopaws.MatchSnapshot
 import com.rekixo.ludopaws.OfflinePlayerLayout
 import com.rekixo.ludopaws.OnlineVerifiedDicePresentationPolicy
@@ -399,6 +400,7 @@ internal object OnlineLudoPawsPresentation {
         val activePlayer =
             state.players
                 .getOrNull(state.actingSeat ?: state.turnSeat)
+        val localTeamId = state.players.firstOrNull { it.playerId == activity.playerId }?.teamId
         val preferredBottomLeftColor =
             perspectiveColor
                 ?: state.players.firstOrNull()?.color
@@ -445,6 +447,7 @@ internal object OnlineLudoPawsPresentation {
                     compact = true,
                     localPlayer = player.playerId == activity.playerId,
                     portraitOnEnd = card.layoutDirection == View.LAYOUT_DIRECTION_RTL,
+                    localTeamId = localTeamId,
                 )
                 val control = diceControl(host, player.playerId)
                 val visible = state.status == "ACTIVE" && player.playerId == visibleDicePlayerId
@@ -510,6 +513,7 @@ internal object OnlineLudoPawsPresentation {
             activePlayer = activePlayer,
             preferredBottomLeftColor = preferredBottomLeftColor,
             characterIdsBySeat = characterIdsBySeat,
+            localTeamId = localTeamId,
         )
         addPlayerSlot(
             activity = activity,
@@ -521,6 +525,7 @@ internal object OnlineLudoPawsPresentation {
             activePlayer = activePlayer,
             preferredBottomLeftColor = preferredBottomLeftColor,
             characterIdsBySeat = characterIdsBySeat,
+            localTeamId = localTeamId,
         )
         addPlayerSlot(
             activity = activity,
@@ -532,6 +537,7 @@ internal object OnlineLudoPawsPresentation {
             activePlayer = activePlayer,
             preferredBottomLeftColor = preferredBottomLeftColor,
             characterIdsBySeat = characterIdsBySeat,
+            localTeamId = localTeamId,
         )
         addPlayerSlot(
             activity = activity,
@@ -543,6 +549,7 @@ internal object OnlineLudoPawsPresentation {
             activePlayer = activePlayer,
             preferredBottomLeftColor = preferredBottomLeftColor,
             characterIdsBySeat = characterIdsBySeat,
+            localTeamId = localTeamId,
         )
         bindRailState()
         alignPlayerRailsToBoard(activity, host)
@@ -729,7 +736,7 @@ internal object OnlineLudoPawsPresentation {
             state.rulesetId == "ludoproof-standard-v4" ||
                 state.rulesetId == "ludoproof-team-v4" ||
                 state.rulesetId == "ludoproof-standard-v5" || state.rulesetId == "ludoproof-team-v5" ||
-                state.rulesetId == "ludoproof-standard-v6" || state.rulesetId == "ludoproof-standard-v7" || state.rulesetId == "ludoproof-team-v6"
+                state.rulesetId == "ludoproof-standard-v6" || LudoComebackPolicy.enabled(state.rulesetId)
         val hasTrustedTimerContract =
             state.serverTimeAtSnapshot != null &&
                 state.turnRollTimeoutMillis?.let { it > 0L } == true
@@ -757,6 +764,7 @@ internal object OnlineLudoPawsPresentation {
         activePlayer: PlayerSnapshot?,
         preferredBottomLeftColor: String,
         characterIdsBySeat: List<String>,
+        localTeamId: String?,
     ) {
         val player = state.players.firstOrNull {
             val resolvedSlot = when {
@@ -786,7 +794,7 @@ internal object OnlineLudoPawsPresentation {
             val quickChatEnabled = GameSettingsStore(activity).snapshot().quickChatEnabled
             // Footer geometry stays fixed when Quick Chat is switched on/off.
             val reserveProfileFooter =
-                state.status == "ACTIVE"
+                state.status == "ACTIVE" || state.status == "FINISHED"
             val activeDiceControl = activeOnlineDiceControl(
                 activity = activity,
                 player = player,
@@ -811,6 +819,7 @@ internal object OnlineLudoPawsPresentation {
                 compact = true,
                 localPlayer = localPlayer,
                 portraitOnEnd = alignEnd,
+                localTeamId = localTeamId,
             )
             if (rail === quickChatHost.topRail) {
                 quickChatHost.topProfileCards += playerCard

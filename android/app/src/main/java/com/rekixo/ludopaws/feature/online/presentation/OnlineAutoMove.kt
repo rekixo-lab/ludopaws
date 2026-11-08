@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.online
 
+import com.rekixo.ludopaws.LudoComebackPolicy
 import com.rekixo.ludopaws.LudoTurnAutomationPolicy
 import com.rekixo.ludopaws.MatchSnapshot
 
@@ -17,8 +18,6 @@ internal object OnlineAutoMovePolicy {
         "ludoproof-standard-v6",
         "ludoproof-team-v4",
         "ludoproof-team-v5",
-        "ludoproof-standard-v7",
-        "ludoproof-team-v6",
     )
 
     fun resolve(
@@ -28,7 +27,7 @@ internal object OnlineAutoMovePolicy {
         hasAuthoritativeState: Boolean,
     ): OnlineAutoMoveDecision? {
         if (!isOnline || !hasAuthoritativeState || state.status != "ACTIVE") return null
-        if (state.rulesetId !in autoMoveRulesets) return null
+        if (state.rulesetId !in autoMoveRulesets && !LudoComebackPolicy.enabled(state.rulesetId)) return null
         val pending = state.pendingRoll ?: return null
         if (pending.status != "RESOLVED") return null
         val id = localPlayerId?.takeIf { it.isNotBlank() } ?: return null

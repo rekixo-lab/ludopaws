@@ -19,6 +19,9 @@ object ClassicRuleset {
     const val V7_ID = "ludoproof-standard-v7"
     const val V7_KEY = "CLASSIC_V7"
 
+    const val V8_ID = "ludoproof-standard-v8"
+    const val V8_KEY = "CLASSIC_V8"
+
     val SUPPORTED_IDS =
         setOf(
             ID,
@@ -27,6 +30,7 @@ object ClassicRuleset {
             V5_ID,
             V6_ID,
             V7_ID,
+            V8_ID,
             QuickMatchPolicy.RULESET_ID,
         )
 

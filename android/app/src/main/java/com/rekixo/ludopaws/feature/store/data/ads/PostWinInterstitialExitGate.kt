@@ -80,12 +80,16 @@ internal class PostWinInterstitialExitGate(
     fun interceptIfReady(onAdDismissed: () -> Unit, onSkipAd: () -> Unit): Boolean {
         if (closed || activity.isFinishing || activity.isDestroyed) return false
         if (showing) return true
-        if (!interstitial.isReady()) return false
+        if (!interstitial.isReady()) {
+            Log.d(TAG, "Skipping post-match ad because an eligible ad is not ready")
+            return false
+        }
         val verified = entitlement
         val accountId = sessions.load()?.accountId
         if (verified == null || verified.accountId != accountId ||
             SystemClock.elapsedRealtime() - verified.verifiedAt !in 0..MAX_ENTITLEMENT_AGE_MS ||
             !PostWinInterstitialPolicy.shouldShowFillerInterstitial(verified.adsRemoved) || walletStore.adsRemoved()) {
+            Log.d(TAG, "Skipping post-match ad because ad entitlement is unavailable or ads are removed")
             prepare()
             return false
         }

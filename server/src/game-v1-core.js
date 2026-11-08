@@ -2,7 +2,7 @@ import {
   DEFAULT_CHARACTER_ID,
   publicCharacterId,
 } from "./ludo-paws-characters.js";
-import { RULESET_V7_KEY, TEAM_RULESET_V6_KEY, rulesetForKey } from "./rulesets.js";
+import { hasComeback, rulesetForKey } from "./rulesets.js";
 
 export const COLORS = ["RED", "GREEN", "YELLOW", "BLUE"];
 
@@ -496,7 +496,7 @@ export function destinationForTokenRoll(state, seat, tokenIndex, roll) {
   if (
     position === -1 && Number.isInteger(roll) && roll >= 1 && roll < 6 &&
     state.pendingRoll?.seat === seat && state.pendingRoll.comebackBonusApplied === true &&
-    (state.rulesetKey === RULESET_V7_KEY || state.rulesetKey === TEAM_RULESET_V6_KEY) &&
+    hasComeback(state) &&
     state.comebackWaits?.[seat] >= 2 && tokenIndex === tokens.indexOf(-1) &&
     tokens.every(value => value === -1 || value === RULESET.homePosition)
   ) return 0;

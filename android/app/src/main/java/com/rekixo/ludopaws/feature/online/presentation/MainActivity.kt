@@ -577,6 +577,10 @@ class MainActivity : ComponentActivity() {
     }
 
     internal fun requestRemoteExitAfterWinInterstitial() {
+        continueAfterRemoteResultAd { requestRemoteExit() }
+    }
+
+    internal fun continueAfterRemoteResultAd(onContinue: () -> Unit) {
         val state = currentState
         val currentPlayer = state?.players?.firstOrNull { it.playerId == playerId }
         val completedResultEligible = PostWinInterstitialPolicy.shouldShowRemote(
@@ -597,12 +601,12 @@ class MainActivity : ComponentActivity() {
             finishedMatchId != null &&
             showPostWinInterstitialIfReady(
                 matchId = finishedMatchId,
-                onSkipAd = { requestRemoteExit() },
+                onSkipAd = onContinue,
             )
         ) {
             return
         }
-        requestRemoteExit()
+        onContinue()
     }
 
     override fun onStart() {

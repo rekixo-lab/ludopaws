@@ -29,7 +29,7 @@ const ASSIGNMENT_TTL_MS = 10 * 60 * 1000;
 const PROFILE_ASSERTION_TTL_MS = 15 * 60 * 1000;
 const ALLOWED_PLAYER_COUNTS = new Set([2, 4]);
 const DEFAULT_RULESET_KEY = "CLASSIC_V4";
-const CLASSIC_RULESET_KEYS = ["CLASSIC_V1", "CLASSIC_V2", "CLASSIC_V3", "CLASSIC_V4", "CLASSIC_V5", "CLASSIC_V6", "CLASSIC_V7"];
+const CLASSIC_RULESET_KEYS = ["CLASSIC_V1", "CLASSIC_V2", "CLASSIC_V3", "CLASSIC_V4", "CLASSIC_V5", "CLASSIC_V6", "CLASSIC_V7", "CLASSIC_V8"];
 
 export class MatchmakerQueue {
   constructor(ctx, env) {
@@ -556,6 +556,7 @@ export class MatchmakerQueue {
               characterId: normalizeCharacterId(participant.characterId),
               matchStyle: participant.matchStyle,
               clientRequestId: participant.clientRequestId,
+              supportedRulesetKey: participant.rulesetKey,
             }),
           }),
         );

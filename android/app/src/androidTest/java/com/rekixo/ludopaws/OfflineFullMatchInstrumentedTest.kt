@@ -129,17 +129,22 @@ class OfflineFullMatchInstrumentedTest {
     }
 
     @Test
-    fun newMatchesUseV7AndOlderSavesKeepTheirOriginalContracts() {
+    fun newMatchesUseV8AndOlderSavesKeepTheirOriginalContracts() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val engine = OfflineGameEngine(context, GameMode.PASS_AND_PLAY)
         engine.clear()
         try {
-            assertEquals(LudoComebackPolicy.RULESET_ID,
+            assertEquals(LudoComebackPolicy.YARD_RULESET_ID,
                 engine.start(playerCount = 2, preferredColor = "RED").rulesetId)
             flushCheckpointWrites()
             val prefs = context.getSharedPreferences("ludoproof_offline_game", Context.MODE_PRIVATE)
             val saved = JSONObject(requireNotNull(prefs.getString("state", null)))
-            for (ruleset in listOf(OfflineLudoV6Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID)) {
+            val olderRulesets = listOf(
+                LudoComebackPolicy.RULESET_ID,
+                OfflineLudoV6Binding.RULESET_ID,
+                OfflineLudoV5Binding.RULESET_ID,
+            )
+            for (ruleset in olderRulesets) {
                 saved.put("rulesetId", ruleset)
                 prefs.edit().putString("state", saved.toString()).commit()
                 forgetProcessCheckpoint()

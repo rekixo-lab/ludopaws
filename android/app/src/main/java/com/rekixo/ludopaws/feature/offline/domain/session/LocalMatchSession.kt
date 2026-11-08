@@ -23,7 +23,7 @@ class LocalMatchSession(
         )
 
     override val rulesetId: String
-        get() = engine.snapshot()?.rulesetId ?: LudoComebackPolicy.RULESET_ID
+        get() = engine.snapshot()?.rulesetId ?: LudoComebackPolicy.YARD_RULESET_ID
 
     override fun snapshot():
         MatchSnapshot? =

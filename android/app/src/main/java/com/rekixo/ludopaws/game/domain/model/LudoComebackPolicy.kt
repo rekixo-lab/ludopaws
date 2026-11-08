@@ -1,11 +1,20 @@
 package com.rekixo.ludopaws
 
-/** Shared next-update rule. -1 means not stranded by capture; 0..2 counts failed rolls. */
+/** A counter of -1 is inactive; 0..2 tracks eligible rolls without a six. */
 object LudoComebackPolicy {
     const val RULESET_ID = "ludoproof-standard-v7"
     const val TEAM_RULESET_ID = "ludoproof-team-v6"
 
-    fun enabled(rulesetId: String): Boolean = rulesetId in setOf(RULESET_ID, TEAM_RULESET_ID, QuickMatchPolicy.RULESET_ID)
+    const val YARD_RULESET_ID = ClassicRuleset.V8_ID
+    const val TEAM_YARD_RULESET_ID = "ludoproof-team-v7"
+    const val TEAM_YARD_RULESET_KEY = "TEAM_UP_V7"
+
+    fun countsWithoutCapture(rulesetId: String): Boolean =
+        rulesetId == YARD_RULESET_ID || rulesetId == TEAM_YARD_RULESET_ID
+
+    fun enabled(rulesetId: String): Boolean =
+        countsWithoutCapture(rulesetId) ||
+            rulesetId in setOf(RULESET_ID, TEAM_RULESET_ID, QuickMatchPolicy.RULESET_ID)
 
     fun stranded(tokens: List<Int>): Boolean =
         tokens.any { it == -1 } && tokens.all { it == -1 || it == 57 }
