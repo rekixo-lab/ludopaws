@@ -169,6 +169,7 @@ class LudoPawsPlayerCardView(
 
         val turnLabel =
             when {
+                player.forfeited -> "OUT"
                 active && isBot -> "BOT TURN"
                 active && computer -> "CPU TURN"
                 active && localPlayer -> "YOUR TURN"
@@ -221,6 +222,7 @@ class LudoPawsPlayerCardView(
                 append(", ")
                 append(player.displayName)
                 if (isBot) append(", bot player")
+                if (player.forfeited) append(", forfeited")
                 if (teamId != null) append(", Team $teamId")
                 if (teamRole != null) append(", $teamRole")
                 append(", ")

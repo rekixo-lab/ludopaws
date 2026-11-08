@@ -46,6 +46,21 @@ class OfflineGameEngine(
 
     fun hasSavedGame(): Boolean = state != null
 
+    internal fun hasActiveSavedGame(): Boolean = state?.status == "ACTIVE"
+
+    internal fun saveActiveGame(onSaved: (Boolean) -> Unit) {
+        val current = requireActiveState().frozenCopy()
+        synchronized(checkpoints) {
+            checkpoints[mode] = current
+            checkpointWrites.submit(mode) {
+                val saved = runCatching { writeCheckpoint(current) }
+                    .onFailure { android.util.Log.e("OfflineSave", "Could not save and exit", it) }
+                    .isSuccess
+                onSaved(saved)
+            }
+        }
+    }
+
     fun snapshot(): MatchSnapshot? {
         state?.takeIf { it.status == "FINISHED" }?.let { current ->
             enqueueFinishedResult(current)
@@ -691,8 +706,8 @@ class OfflineGameEngine(
             )
         }
 
-        if (!prefs.edit().putString(KEY_STATE, json.toString()).commit()) {
-            android.util.Log.e("OfflineSave", "Could not persist checkpoint revision ${current.revision}")
+        check(prefs.edit().putString(KEY_STATE, json.toString()).commit()) {
+            "Could not persist checkpoint revision ${current.revision}"
         }
     }
 

@@ -13,6 +13,8 @@ data class PlayerSnapshot(
     val characterId: String? = null,
     val playerType: String = "HUMAN",
     val diceId: String? = null,
+    val forfeited: Boolean = false,
+    val forfeitReason: String? = null,
 )
 
 data class PendingRollSnapshot(
@@ -79,6 +81,8 @@ data class MatchSnapshot(
     val turnRollTimeoutMillis: Long? = null,
     val serverTimeAtSnapshot: Long? = null,
     val comebackWaits: List<Int> = emptyList(),
+    val moveDeadlineAt: Long? = null,
+    val finishedAt: Long? = null,
 )
 
 data class GameEnvelope(
@@ -204,6 +208,8 @@ object GameJson {
             finishOrderPlayerIds = value.optJSONArray("finishOrderPlayerIds").toStringList(),
             matchGemRewards = parseMatchGemRewards(value.optJSONArray("matchGemRewards")),
             revision = value.optLong("revision", 0L),
+            moveDeadlineAt = value.optLong("moveDeadlineAt").takeIf { it > 0L },
+            finishedAt = value.optLong("finishedAt").takeIf { it > 0L },
             turnDeadlineAt =
                 if (value.has("turnDeadlineAt") && !value.isNull("turnDeadlineAt")) {
                     value.optLong("turnDeadlineAt").takeIf { it > 0L }
@@ -555,6 +561,8 @@ object GameJson {
                                 .takeIf { it.isNotBlank() && it != "null" },
                         playerType = player.optString("playerType", "HUMAN"),
                         diceId = player.optString("diceId").takeIf { it.startsWith("dice_") },
+                        forfeited = player.optBoolean("forfeited"),
+                        forfeitReason = player.optString("forfeitReason").takeIf { it.isNotBlank() },
                     ),
                 )
             }

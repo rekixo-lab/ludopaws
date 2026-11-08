@@ -25,6 +25,7 @@ import com.rekixo.ludopaws.feature.online.retryPendingRemoteForfeits
 import com.rekixo.ludopaws.ui.home.*
 
 class HomeActivity : Activity() {
+    internal var continueMatchesRow: LinearLayout? = null
     internal lateinit var connectivityText:
         TextView
     internal var homeProfileNameText:
@@ -546,6 +547,7 @@ class HomeActivity : Activity() {
     }
 
     private fun resumeHome() {
+        refreshContinueMatches()
         scheduleHomeHudRefresh()
         resumeHomePrivacy()
     }

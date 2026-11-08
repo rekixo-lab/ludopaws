@@ -13,6 +13,7 @@ export const RULESET_V5_KEY = "CLASSIC_V5";
 export const TEAM_RULESET_V5_KEY = "TEAM_UP_V5";
 
 export const TURN_ROLL_TIMEOUT_MS = 15_000;
+export const MOVE_SELECTION_TIMEOUT_MS = 45_000;
 export const MAX_MISSED_ROLLS_BEFORE_FORFEIT = 4;
 
 export const TEAM_ASSIGNMENTS = Object.freeze(["A", "B", "A", "B"]);

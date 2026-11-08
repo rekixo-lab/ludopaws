@@ -435,6 +435,16 @@ class LeaderboardActivity :
                 )
             }
 
+            snapshot == null && statusMessage != null -> {
+                if (owner() != null) {
+                    content.addView(Button(this).apply {
+                        text = "RETRY RANKINGS"
+                        LudoProofTheme.secondary(this)
+                        setOnClickListener { refreshLeaderboard() }
+                    }, sectionParams(10))
+                }
+            }
+
             snapshot
                 ?.entries
                 .isNullOrEmpty() -> {

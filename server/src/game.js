@@ -31,6 +31,7 @@ import {
   TEAM_RULESET_V4_KEY,
   TEAM_RULESET_V5,
   TEAM_RULESET_V5_KEY,
+  MOVE_SELECTION_TIMEOUT_MS,
   hasComeback,
   hasYardComeback,
   rulesetForKey,
@@ -325,6 +326,11 @@ export function publicState(state) {
     turnRollTimeoutMs: Number.isSafeInteger(rulesetForState(state).turnRollTimeoutMs)
       ? rulesetForState(state).turnRollTimeoutMs
       : null,
+    moveDeadlineAt: state.pendingRoll?.status === "RESOLVED" &&
+      Number.isSafeInteger(state.pendingRoll.resolvedAt)
+      ? state.pendingRoll.resolvedAt + MOVE_SELECTION_TIMEOUT_MS : null,
+    maxMissedTurnsBeforeForfeit: rulesetForState(state).maxMissedRollsBeforeForfeit ?? null,
+    finishedAt: Number.isSafeInteger(state.finishedAt) ? state.finishedAt : null,
     serverNow: Date.now(),
     ...(hasComeback(state) ? { comebackWaits: comebackState(state) } : {}),
     ...(isV3State(state)

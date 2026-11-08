@@ -9,6 +9,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.feature.online.abandonRemoteSessionState
+import com.rekixo.ludopaws.feature.online.proofDetails
 
 internal fun MainActivity.onlineMatchStatusPanel(): LinearLayout =
     LinearLayout(this).apply {
@@ -73,7 +74,7 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
     resultCard = LudoPawsResultCard(this)
     resultTitleText = resultCard.titleView
     resultSubtitleText = resultCard.subtitleView
-    return resultCardOverlay(this, resultCard, reserveBottomDp = 96).apply {
+    return resultCardOverlay(this, resultCard, reserveBottomDp = 148).apply {
         addView(GameResultArtView(this@onlineResultPanel).apply {
             mode = GameResultArtView.Mode.ONLINE
             importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -135,6 +136,18 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
                 setAutoSizeTextTypeUniformWithConfiguration(9, 16, 1, TypedValue.COMPLEX_UNIT_SP)
             }
         }
+        addView(Button(this@onlineResultPanel).apply {
+            text = "MATCH DETAILS"
+            LudoProofTheme.secondary(this)
+            textSize = 13f
+            setPadding(dp(12), 0, dp(12), 0)
+            setOnClickListener {
+                val state = currentState ?: return@setOnClickListener
+                ArcadeDialogs.showProofHistory(this@onlineResultPanel, "LAST ROLL", proofDetails(state))
+            }
+        }, FrameLayout.LayoutParams(-2, dp(48), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(94)
+        })
         addView(actions, FrameLayout.LayoutParams(
             minOf(dp(360), resources.displayMetrics.widthPixels - dp(28)),
             dp(52),

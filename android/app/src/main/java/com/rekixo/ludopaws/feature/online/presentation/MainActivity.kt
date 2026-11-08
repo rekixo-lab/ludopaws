@@ -81,53 +81,70 @@ class MainActivity : ComponentActivity() {
         }
     internal val mainHandler =
         Handler(Looper.getMainLooper())
-    internal var lastGemWalletSyncMatchId: String? = null
+    private var gemRewardOwner: String? = null
+    private var gemRewardPollInFlight = false
+    private var gemRewardPollDelay = 1_500L
+    private val gemRewardPoll = Runnable { pollMatchGemReward() }
 
     internal fun refreshMatchGemWalletAfterFinish(completedMatchId: String) {
-        if (lastGemWalletSyncMatchId == completedMatchId) return
         val repository = (application as LudoProofApplication).accountRepository
-        val expectedOwner = repository.currentSession()?.accountId ?: return
-        lastGemWalletSyncMatchId = completedMatchId
+        val owner = repository.currentSession()?.accountId ?: return
+        if (gemRewardStatusMatchId == completedMatchId && gemRewardOwner == owner) return
         gemRewardStatusMatchId = completedMatchId
+        gemRewardOwner = owner
         gemRewardLedgerStatus = null
         gemRewardConfirmedAmount = 0
-        // Rewards may settle after the game finishes. Read a match-specific
-        // wallet receipt, not a guessed balance delta. Reopening the game will
-        // start fresh reads; the server retains pending delivery on its own.
-        listOf(1_500L, 6_000L, 15_000L, 30_000L, 90_000L).forEach { delay ->
-            mainHandler.postDelayed({
-                if (isFinishing || isDestroyed || executor.isShutdown ||
-                    lastGemWalletSyncMatchId != completedMatchId) return@postDelayed
-                runCatching {
-                    executor.execute {
-                        if (repository.currentSession()?.accountId != expectedOwner) return@execute
-                        val status = runCatching {
-                            repository.matchRewardStatus(completedMatchId)
-                        }.getOrNull()
-                        runCatching {
-                            val session = repository.currentSession() ?: return@runCatching
-                            if (session.accountId != expectedOwner) return@runCatching
-                            val wallet = repository.wallet()
-                            if (repository.currentSession()?.accountId == expectedOwner) {
-                                GemWalletStore(this).applyServerSnapshot(wallet, expectedOwner)
-                            }
-                        }
-                        if (status != null && status.optString("matchId") == completedMatchId) {
-                            runOnUiThread {
-                                if (isFinishing || isDestroyed || matchId != completedMatchId ||
-                                    repository.currentSession()?.accountId != expectedOwner ||
-                                    gemRewardStatusMatchId != completedMatchId) return@runOnUiThread
-                                gemRewardLedgerStatus = status.optString("status")
-                                gemRewardConfirmedAmount = status.optInt("creditedGems", 0).coerceAtLeast(0)
-                                currentState?.takeIf {
-                                    it.matchId == completedMatchId && it.status == "FINISHED"
-                                }?.let(::updateTurnBanner)
-                            }
-                        }
+        gemRewardPollDelay = 1_500L
+        mainHandler.removeCallbacks(gemRewardPoll)
+        mainHandler.postDelayed(gemRewardPoll, gemRewardPollDelay)
+    }
+
+    private fun pollMatchGemReward() {
+        if (!screenStarted || !canRenderUi() || gemRewardPollInFlight) return
+        if (gemRewardLedgerStatus in setOf("CREDITED", "LIMIT_REACHED", "UNAVAILABLE")) return
+        val completedMatchId = gemRewardStatusMatchId ?: return
+        val owner = gemRewardOwner ?: return
+        val state = currentState ?: return
+        if (state.matchId != completedMatchId || state.status != "FINISHED") return
+        val repository = (application as LudoProofApplication).accountRepository
+        if (repository.currentSession()?.accountId != owner) return
+
+        gemRewardPollInFlight = true
+        val submitted = runCatching {
+            executor.execute {
+                val receipt = runCatching {
+                    check(repository.currentSession()?.accountId == owner)
+                    repository.matchRewardStatus(completedMatchId)
+                }.getOrNull()
+                if (receipt?.optString("status") == "CREDITED") runCatching {
+                    if (repository.currentSession()?.accountId == owner) {
+                        GemWalletStore(this).applyServerSnapshot(repository.wallet(), owner)
                     }
                 }
-            }, delay)
-        }
+                mainHandler.post {
+                    gemRewardPollInFlight = false
+                    if (!canRenderUi() || !screenStarted) return@post
+                    if (gemRewardStatusMatchId != completedMatchId || gemRewardOwner != owner) {
+                        pollMatchGemReward()
+                        return@post
+                    }
+                    val current = currentState
+                    if (current?.matchId != completedMatchId ||
+                        repository.currentSession()?.accountId != owner
+                    ) return@post
+                    if (receipt?.optString("matchId") == completedMatchId) {
+                        gemRewardLedgerStatus = receipt.optString("status")
+                        gemRewardConfirmedAmount = receipt.optInt("creditedGems", 0).coerceAtLeast(0)
+                        updateTurnBanner(current)
+                    }
+                    if (gemRewardLedgerStatus !in setOf("CREDITED", "LIMIT_REACHED", "UNAVAILABLE")) {
+                        gemRewardPollDelay = (gemRewardPollDelay * 2).coerceAtMost(60_000L)
+                        mainHandler.postDelayed(gemRewardPoll, gemRewardPollDelay)
+                    }
+                }
+            }
+        }.isSuccess
+        if (!submitted) gemRewardPollInFlight = false
     }
 
     internal lateinit var arcadeRootView: FrameLayout
@@ -251,7 +268,12 @@ class MainActivity : ComponentActivity() {
         -1L
 
     internal var lastTurnTimeoutNoticeAt = 0L
-    internal var timeoutExitScheduled = false
+    internal var matchTimeoutMessage: String? = null
+    internal var matchTimeoutMessageUntil = 0L
+    internal var gameplayDeadlineEpoch: Long? = null
+    internal var gameplayDeadlineElapsed = 0L
+    internal lateinit var gameplayPromptText: TextView
+    internal val gameplayPromptTick = Runnable { refreshGameplayPrompt() }
 
     internal var onlineGameplayActionBlockedUntilMillis = 0L
     internal var lastOnlineGameplayPacingKey: String? = null
@@ -614,6 +636,9 @@ class MainActivity : ComponentActivity() {
         // A new foreground session may have refreshed permissions or credentials.
         remoteSessionUnavailable = false
         screenStarted = true
+        mainHandler.removeCallbacks(gemRewardPoll)
+        mainHandler.post(gemRewardPoll)
+        refreshGameplayPrompt()
         preparePostWinInterstitialAd()
         connectivityMonitor.start()
         scheduleOnlineGameplayUnlock()
@@ -642,6 +667,8 @@ class MainActivity : ComponentActivity() {
     override fun onStop() {
         stopFriendsVoice("Voice paused when you left the match.")
         screenStarted = false
+        mainHandler.removeCallbacks(gemRewardPoll)
+        mainHandler.removeCallbacks(gameplayPromptTick)
         cancelScheduledOnlineAutoMove()
         mainHandler.removeCallbacks(onlineGameplayUnlockRunnable)
         uiStateHolder.update {
@@ -722,6 +749,7 @@ class MainActivity : ComponentActivity() {
             ::fourPlayerButton.isInitialized
 
     internal fun updateConnectionLabel() {
+        refreshGameplayPrompt()
         if (connectionTexts.isEmpty()) return
 
         val (label, tint) = when {

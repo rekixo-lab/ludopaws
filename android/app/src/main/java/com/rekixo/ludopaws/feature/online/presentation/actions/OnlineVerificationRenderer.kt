@@ -223,6 +223,12 @@ internal fun MainActivity.updateControls(
     if (finished && !finishingPresentation) com.rekixo.ludopaws.feature.store.presentation.PromotionInterest.showWhenFinished(this)
     boardFrame.visibility = if (showMatchStage) View.VISIBLE else View.GONE
     statusText.minLines = if (showMatchStage) 2 else 0
+    gameplayPromptText.visibility = when {
+        active -> View.VISIBLE
+        finished -> View.INVISIBLE
+        else -> View.GONE
+    }
+    refreshGameplayPrompt()
     actionPanel.visibility = View.VISIBLE
     if (waiting) {
         actionPanel.background =
@@ -280,6 +286,62 @@ internal fun MainActivity.updateControls(
     rollButton.isEnabled = rollAction.enabled
     rollButton.text = rollAction.label
 
+}
+
+internal fun MainActivity.refreshGameplayPrompt() {
+    mainHandler.removeCallbacks(gameplayPromptTick)
+    val state = currentState ?: return
+    if (!screenStarted || state.status != "ACTIVE") return
+    val player = state.players.firstOrNull { it.playerId == playerId }
+    val activePlayer = state.players.getOrNull(state.actingSeat ?: state.turnSeat)
+    val awaitingMove = state.pendingRoll?.status == "RESOLVED"
+    val now = SystemClock.elapsedRealtime()
+    val serverNow = state.serverTimeAtSnapshot
+    val deadline = (if (awaitingMove) state.moveDeadlineAt else state.turnDeadlineAt)
+        .takeIf { serverNow != null }
+    if (gameplayDeadlineEpoch != deadline) {
+        gameplayDeadlineEpoch = deadline
+        gameplayDeadlineElapsed = if (deadline != null && serverNow != null) {
+            now + (deadline - serverNow).coerceAtLeast(0L)
+        } else 0L
+    }
+    val remaining = (gameplayDeadlineElapsed - now).coerceAtLeast(0L)
+    val syncNeeded = isOnline && !hasAuthoritativeActionState()
+    val canSync = isOnline && playerToken != null && (syncNeeded || !realtimeConnected)
+    val leftMatch = player?.forfeited == true
+    val timeout = matchTimeoutMessage?.takeIf { now < matchTimeoutMessageUntil }
+    val action = when {
+        leftMatch -> "You were removed from this match · Tap for Home"
+        !isOnline -> "Connection lost · Match timer continues"
+        syncNeeded && canSync -> "Syncing match · Tap to retry"
+        syncNeeded -> "Waiting for match sync"
+        state.pendingRoll != null && !awaitingMove -> "Checking the dice…"
+        activePlayer?.playerId != playerId -> "${activePlayer?.displayName ?: "Player"}’s turn"
+        awaitingMove && state.actingSeat != null && state.actingSeat != state.turnSeat ->
+            "Partner handoff · Choose a paw"
+        awaitingMove -> "Your turn · Choose a paw"
+        state.actingSeat != null && state.actingSeat != state.turnSeat -> "Partner handoff · Roll the dice"
+        else -> "Your turn · Roll the dice"
+    }
+    val text = buildString {
+        append(action)
+        if (!leftMatch && isOnline && !syncNeeded && deadline != null) {
+            append(" · ").append((remaining + 999L) / 1_000L).append("s")
+        }
+        if (!leftMatch && timeout != null) appendLine().append(timeout)
+        else if (!leftMatch && canSync && !syncNeeded) appendLine().append("Reconnecting live updates · Tap to sync")
+    }
+    if (gameplayPromptText.text.toString() != text) gameplayPromptText.text = text
+    gameplayPromptText.setOnClickListener(when {
+        leftMatch -> View.OnClickListener { requestRemoteExitAfterWinInterstitial() }
+        canSync -> View.OnClickListener { refreshState(silent = false) }
+        else -> null
+    })
+    gameplayPromptText.isClickable = leftMatch || canSync
+    gameplayPromptText.isFocusable = leftMatch || canSync
+    if (!leftMatch && (remaining > 0L || timeout != null)) {
+        mainHandler.postDelayed(gameplayPromptTick, 1_000L)
+    }
 }
 
 internal fun MainActivity.updateRollButton() {

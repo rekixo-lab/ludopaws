@@ -376,7 +376,7 @@ export function forfeitTimedOutRoll(state, {
  * Expires an unrolled turn for a ruleset that opted into the v4 deadline.
  * Only the Durable Object alarm path calls this function.
  */
-export function forfeitTimedOutTurn(state, { now }) {
+export function forfeitTimedOutTurn(state, { now, phase = "ROLL" }) {
   requireStatus(state, "ACTIVE");
   if (state.pendingRoll != null) {
     throw gameError("ROLL_ALREADY_PENDING", "a roll is already in progress");
@@ -404,7 +404,7 @@ export function forfeitTimedOutTurn(state, { now }) {
   const player = next.players[seat];
   const count = Math.max(0, Number(next.turnTimeoutCounts?.[player.playerId]) || 0) + 1;
   next.turnTimeoutCounts = { ...(next.turnTimeoutCounts ?? {}), [player.playerId]: count };
-  next.turnTimeoutNotice = { playerId: player.playerId, count, at: now };
+  next.turnTimeoutNotice = { playerId: player.playerId, count, at: now, phase };
 
   let forfeited = false;
   if (count >= ruleset.maxMissedRollsBeforeForfeit) {
@@ -731,6 +731,7 @@ export function publicState(state) {
       seat,
       turnTimeoutCount: Math.max(0, Number(state.turnTimeoutCounts?.[player.playerId]) || 0),
       forfeited: Number.isSafeInteger(player.forfeitedAt),
+      ...(player.forfeitReason ? { forfeitReason: player.forfeitReason } : {}),
       ...(teamUp ? { teamId: teamIdForSeat(state, seat) } : {}),
       tokens: [...player.tokens],
     })),

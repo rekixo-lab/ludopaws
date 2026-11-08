@@ -12,6 +12,7 @@ import {
   publicState,
   rulesetForState,
 } from "./game.js";
+import { MOVE_SELECTION_TIMEOUT_MS } from "./rulesets.js";
 import { compactRollHistory } from "./match-events.js";
 
 const STATE_KEY = "match-state";
@@ -21,7 +22,7 @@ const FINISHED_IDLE_TTL_MS = 24 * 60 * 60 * 1000;
 // A resolved roll must not let a modified/disconnected client hold the room
 // indefinitely. Strategy stays client-controlled inside this window; once it
 // expires the move is forfeited and the authoritative turn advances.
-export const MOVE_SELECTION_TIMEOUT_MS = 45 * 1000;
+export { MOVE_SELECTION_TIMEOUT_MS };
 // After the client has time to render the proven dice, recover a truly forced
 // move at the authoritative server. Manual choices retain the full 45 seconds.
 export const FORCED_MOVE_RECOVERY_MS = 8 * 1000;
@@ -171,21 +172,14 @@ export class MatchRoom extends SocialMatchRoom {
     if (!Number.isSafeInteger(deadline)) {
       await this.#expireTurnRollIfNeeded();
       const refreshed = await this.ctx.storage.get(STATE_KEY);
+      if (refreshed?.status === "FINISHED") return this.#scheduleNextDeadline();
       if (!Number.isSafeInteger(refreshed?.turnDeadlineAt)) return false;
       await this.ctx.storage.setAlarm(refreshed.turnDeadlineAt);
       return true;
     }
     if (deadline <= Date.now()) {
       const expired = await this.#expireTurnRollIfNeeded();
-      if (expired) {
-        const refreshed = await this.ctx.storage.get(STATE_KEY);
-        const nextDeadline = refreshed?.turnDeadlineAt;
-        if (Number.isSafeInteger(nextDeadline)) {
-          await this.ctx.storage.setAlarm(nextDeadline);
-          return true;
-        }
-      }
-      return false;
+      return expired ? this.#scheduleNextDeadline() : false;
     }
     await this.ctx.storage.setAlarm(deadline);
     return true;
@@ -238,7 +232,7 @@ export class MatchRoom extends SocialMatchRoom {
         autoMoveSource: "SERVER_FORCED_MOVE_RECOVERY",
       };
       next.history = history;
-      await this.ctx.storage.put(STATE_KEY, next);
+      await this.#persistResolvedTurn(next);
       // Finished-match settlement can change the persisted leaderboard state.
       const finalState = next.status === "FINISHED"
         ? await this.recordFinishedMatchForLifecycle(next)
@@ -277,36 +271,43 @@ export class MatchRoom extends SocialMatchRoom {
     }
 
     next.pendingRoll = null;
+    const ruleset = rulesetForState(next);
+    if (Number.isSafeInteger(ruleset.maxMissedRollsBeforeForfeit)) {
+      // Missing a move consumes the same inactivity allowance as missing a roll.
+      next.turnDeadlineAt = deadline;
+      next.turnDeadlineSeat = seat;
+      const { state: expired } = forfeitTimedOutTurn(next, { now, phase: "MOVE" });
+      await this.#persistResolvedTurn(expired);
+      const finalState = expired.status === "FINISHED"
+        ? await this.recordFinishedMatchForLifecycle(expired)
+        : expired;
+      broadcastStateChanged(this.ctx, finalState, this.env);
+      return true;
+    }
+
     next.turnSeat = nextActiveSeat(
       next,
       Number.isInteger(next.turnSeat)
         ? next.turnSeat
         : seat,
     );
-    const nextTimeoutMs = rulesetForState(next).turnRollTimeoutMs;
-    const nextActingSeat = actingSeatForTurn(next);
-    if (
-      Number.isSafeInteger(nextTimeoutMs) &&
-      nextTimeoutMs > 0 &&
-      Number.isInteger(nextActingSeat) &&
-      nextActingSeat >= 0 &&
-      nextActingSeat < next.players.length
-    ) {
-      next.turnDeadlineSeat = nextActingSeat;
-      next.turnDeadlineAt = now + nextTimeoutMs;
-    } else {
-      next.turnDeadlineSeat = null;
-      next.turnDeadlineAt = null;
-    }
+    next.turnDeadlineSeat = null;
+    next.turnDeadlineAt = null;
     next.updatedAt = now;
     next.revision = Number(next.revision ?? 0) + 1;
 
-    await this.ctx.storage.put(STATE_KEY, next);
-    if (typeof this.ctx.storage.setAlarm === "function") {
-      await this.ctx.storage.setAlarm(now + ACTIVE_IDLE_TTL_MS);
-    }
+    await this.#persistResolvedTurn(next);
     broadcastStateChanged(this.ctx, next, this.env);
     return true;
+  }
+
+  async #persistResolvedTurn(state) {
+    await this.ctx.storage.put(STATE_KEY, state);
+    if (typeof this.ctx.storage.setAlarm !== "function") return;
+    const deadline = state.status === "FINISHED"
+      ? Date.now() + 60_000
+      : state.turnDeadlineAt ?? (state.updatedAt + ACTIVE_IDLE_TTL_MS);
+    await this.ctx.storage.setAlarm(deadline);
   }
 
   async #scheduleResolvedMoveDeadline() {
@@ -334,7 +335,8 @@ export class MatchRoom extends SocialMatchRoom {
       ? null
       : Number(pending.resolvedAt) + FORCED_MOVE_RECOVERY_MS;
     if (deadline <= now || (forcedAt != null && forcedAt <= now)) {
-      return this.#expireResolvedMoveIfNeeded();
+      if (await this.#expireResolvedMoveIfNeeded()) return this.#scheduleNextDeadline();
+      return false;
     }
 
     await this.ctx.storage.setAlarm(

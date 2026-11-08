@@ -35,7 +35,8 @@ internal fun MainActivity.abandonRemoteSessionState(): Boolean {
     val abandonedPlayerId = playerId
     val needsForfeitResolution =
         !abandonedMatchId.isNullOrBlank() &&
-            currentState?.status != "FINISHED"
+            currentState?.status != "FINISHED" &&
+            currentState?.players?.any { it.playerId == abandonedPlayerId && it.forfeited } != true
 
     if (
         needsForfeitResolution &&

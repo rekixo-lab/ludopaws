@@ -1495,7 +1495,7 @@ class StoreActivity :
             var confirmed = emptySet<String>()
             try {
                 check(accountRepository.requireSession().accountId == owner)
-                val candidate = accountRepository.wallet()
+                val candidate = accountRepository.wallet(records.map { it.requestId })
                 check(candidate.optString("accountId") == owner) { "Reward wallet owner changed" }
                 val receipts = candidate.optJSONArray("creditedAdRequestIds")
                 val credited = if (receipts == null) emptySet() else (0 until receipts.length()).map { receipts.optString(it) }.toSet()
