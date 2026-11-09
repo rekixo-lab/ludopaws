@@ -538,6 +538,13 @@ class HomeActivity : Activity() {
         playUpdateCoordinator.onResume()
     }
 
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // onResume may run before the Home window becomes focusable; recheck
+        // flexible updates already downloaded during gameplay or Play UI.
+        if (hasFocus && resumed && homeShown) playUpdateCoordinator.onResume()
+    }
+
     @Deprecated("Play Core update flow uses Activity request codes")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
