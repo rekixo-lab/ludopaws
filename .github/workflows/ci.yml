@@ -163,17 +163,6 @@ jobs:
         run: node scripts/check-ludo-paws-phase15.mjs
       - name: Android 16 release gate
         run: node scripts/android16-release-check.mjs
-      # Temporary checksum evidence for the new Play SDK. Verification remains enabled.
-      - name: Verify official SDK artifact digests
-        shell: bash
-        run: |
-          set -euo pipefail
-          url="https://dl.google.com/dl/android/maven2/com/google/android/play/app-update/2.1.0"
-          for ext in aar pom; do
-            curl --fail --location --silent --show-error --retry 2 "$url/app-update-2.1.0.$ext" \
-              --output "$RUNNER_TEMP/app-update-2.1.0.$ext"
-            sha256sum "$RUNNER_TEMP/app-update-2.1.0.$ext"
-          done
       - name: Android unit tests
         run: gradle -p android :app:testDebugUnitTest --stacktrace
       - name: Release lint
