@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import com.google.android.play.core.appupdate.AppUpdateInfo
@@ -30,6 +31,7 @@ internal class PlayUpdateCoordinator(private val activity: Activity) {
     private var listening = false
     private var checking = false
     private var gateFinished = false
+    private var lastHomeCheckElapsed = 0L
     private var destroyed = false
     private var updateFlowActive = false
     private var activeDialog: AlertDialog? = null
@@ -43,7 +45,13 @@ internal class PlayUpdateCoordinator(private val activity: Activity) {
 
     /** Call only after Home and privacy are ready, before referral/review prompts. */
     fun beforePromotions(onComplete: () -> Unit): Boolean {
-        if (gateFinished) return true
+        // An Activity may stay alive across several Play Store releases.
+        // Re-check after six hours whenever Home returns to the foreground.
+        if (gateFinished) {
+            if (SystemClock.elapsedRealtime() - lastHomeCheckElapsed < 6L * 60 * 60 * 1000)
+                return true
+            gateFinished = false
+        }
         if (checking || destroyed) return false
         checking = true
         onCheckFinished = onComplete
@@ -233,7 +241,9 @@ internal class PlayUpdateCoordinator(private val activity: Activity) {
 
     private fun finish() {
         if (gateFinished || destroyed) return
+        checking = false
         gateFinished = true
+        lastHomeCheckElapsed = SystemClock.elapsedRealtime()
         onCheckFinished?.let { callback ->
             onCheckFinished = null
             callback()
