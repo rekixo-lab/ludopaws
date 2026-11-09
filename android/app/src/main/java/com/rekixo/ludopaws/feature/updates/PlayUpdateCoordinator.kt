@@ -79,6 +79,10 @@ internal class PlayUpdateCoordinator(private val activity: Activity) {
         activeDialog?.setOnDismissListener(null)
         activeDialog?.dismiss()
         installDialog?.dismiss()
+        AutomaticPromptGate.release("play_update")
+        AutomaticPromptGate.release("whats_new")
+        activeDialog = null
+        installDialog = null
     }
 
     private fun registerListener() {
