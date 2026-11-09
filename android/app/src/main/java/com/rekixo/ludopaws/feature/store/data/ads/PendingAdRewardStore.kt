@@ -28,9 +28,9 @@ internal class PendingAdRewardStore(context: Context) {
         if (record.accountId in app.getSharedPreferences("ludoproof_profile", Context.MODE_PRIVATE)
                 .getStringSet("deleted_profile_accounts", emptySet()).orEmpty()) return@synchronized
         val all = read(record.accountId).filterNot { it.requestId == record.requestId }.toMutableList()
-        check(all.size < 64) { "Previous ad rewards still need verification. Retry their status before watching more ads." }
         all += record
-        write(record.accountId, all)
+        // Recovery hints are bounded; late signed credits still land in the wallet.
+        write(record.accountId, all.takeLast(MAX_RECORDS))
     }
 
     fun confirm(accountId: String, requestIds: Set<String>) = synchronized(LOCK) {
@@ -43,7 +43,7 @@ internal class PendingAdRewardStore(context: Context) {
 
     private fun read(accountId: String): List<PendingAdReward> {
         val json = JSONArray(prefs.getString("rewards:$accountId", "[]"))
-        check(json.length() <= 64) { "Reward recovery records need support review; keep the app installed." }
+        check(json.length() <= MAX_RECORDS) { "Reward recovery records need support review; keep the app installed." }
         val now = System.currentTimeMillis()
         return (0 until json.length()).map { index ->
             val row = json.getJSONObject(index)
@@ -54,9 +54,12 @@ internal class PendingAdRewardStore(context: Context) {
                 row.getLong("createdAt"), row.optBoolean("earned"), row.optBoolean("abandoned"),
                 if (row.has("dailyRewardDay") && !row.isNull("dailyRewardDay")) row.getLong("dailyRewardDay") else null)
         }.filter { record ->
-            // Never expire a reported earned reward. Old abandoned/prepared
-            // hints may disappear; their server-side grant can still arrive.
-            record.earned || now - record.createdAt < (if (record.abandoned) 300_000L else 86_400_000L)
+            val retention = when {
+                record.earned -> 7 * 86_400_000L
+                record.abandoned -> 300_000L
+                else -> 86_400_000L
+            }
+            now - record.createdAt < retention
         }
     }
 
@@ -77,6 +80,7 @@ internal class PendingAdRewardStore(context: Context) {
     }
 
     private companion object {
+        const val MAX_RECORDS = 64
         val LOCK = Any()
         val UUID = Regex("^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
     }

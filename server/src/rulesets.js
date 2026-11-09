@@ -13,6 +13,7 @@ export const RULESET_V5_KEY = "CLASSIC_V5";
 export const TEAM_RULESET_V5_KEY = "TEAM_UP_V5";
 
 export const TURN_ROLL_TIMEOUT_MS = 15_000;
+export const MOVE_SELECTION_TIMEOUT_MS = 45_000;
 export const MAX_MISSED_ROLLS_BEFORE_FORFEIT = 4;
 
 export const TEAM_ASSIGNMENTS = Object.freeze(["A", "B", "A", "B"]);
@@ -164,6 +165,25 @@ export const TEAM_RULESET_V6 = Object.freeze({
   ...TEAM_RULESET_V5, ...COMEBACK_POLICY, id: "ludoproof-team-v6",
 });
 
+export const RULESET_V8_KEY = "CLASSIC_V8";
+export const TEAM_RULESET_V7_KEY = "TEAM_UP_V7";
+const YARD_COMEBACK_POLICY = "STRANDED_THIRD_ROLL_ENTRY";
+export const RULESET_V8 = Object.freeze({
+  ...RULESET_V7, id: "ludoproof-standard-v8", comebackPolicy: YARD_COMEBACK_POLICY,
+});
+export const TEAM_RULESET_V7 = Object.freeze({
+  ...TEAM_RULESET_V6, id: "ludoproof-team-v7", comebackPolicy: YARD_COMEBACK_POLICY,
+});
+
+export function hasYardComeback(state) {
+  return state.rulesetKey === RULESET_V8_KEY || state.rulesetKey === TEAM_RULESET_V7_KEY;
+}
+
+export function hasComeback(state) {
+  return state.rulesetKey === RULESET_V7_KEY || state.rulesetKey === TEAM_RULESET_V6_KEY ||
+    hasYardComeback(state);
+}
+
 export function rulesetKeyForState(state, { teamUp = false } = {}) {
   const key = state?.rulesetKey;
   if (key == null) {
@@ -193,7 +213,9 @@ export function rulesetForKey(key) {
     case RULESET_V5_KEY: return RULESET_V5;
     case RULESET_V6_KEY: return RULESET_V6;
     case RULESET_V7_KEY: return RULESET_V7;
+    case RULESET_V8_KEY: return RULESET_V8;
     case TEAM_RULESET_V6_KEY: return TEAM_RULESET_V6;
+    case TEAM_RULESET_V7_KEY: return TEAM_RULESET_V7;
     case TEAM_RULESET_V5_KEY: return TEAM_RULESET_V5;
     default: {
       const error = new Error(`unsupported ruleset key: ${String(key)}`);

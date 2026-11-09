@@ -46,6 +46,21 @@ class OfflineGameEngine(
 
     fun hasSavedGame(): Boolean = state != null
 
+    internal fun hasActiveSavedGame(): Boolean = state?.status == "ACTIVE"
+
+    internal fun saveActiveGame(onSaved: (Boolean) -> Unit) {
+        val current = requireActiveState().frozenCopy()
+        synchronized(checkpoints) {
+            checkpoints[mode] = current
+            checkpointWrites.submit(mode) {
+                val saved = runCatching { writeCheckpoint(current) }
+                    .onFailure { android.util.Log.e("OfflineSave", "Could not save and exit", it) }
+                    .isSuccess
+                onSaved(saved)
+            }
+        }
+    }
+
     fun snapshot(): MatchSnapshot? {
         state?.takeIf { it.status == "FINISHED" }?.let { current ->
             enqueueFinishedResult(current)
@@ -140,7 +155,7 @@ class OfflineGameEngine(
 
         state =
             LocalState(
-                rulesetId = if (quickMatch) QuickMatchPolicy.RULESET_ID else LudoComebackPolicy.RULESET_ID,
+                rulesetId = if (quickMatch) QuickMatchPolicy.RULESET_ID else LudoComebackPolicy.YARD_RULESET_ID,
                 profileOwnerKnown = true,
                 profileOwnerAccountId = com.rekixo.ludopaws.feature.account.data.AccountSessionStore(profileContext).load()?.accountId,
                 matchId = "offline-${UUID.randomUUID()}",
@@ -185,7 +200,7 @@ class OfflineGameEngine(
         val result =
             OfflineLudoV3Binding.deriveRoll(
                 rulesetId = current.rulesetId,
-                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID))
+                opponentStackCapture = if (current.rulesetId in setOf(OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, LudoComebackPolicy.YARD_RULESET_ID, QuickMatchPolicy.RULESET_ID))
                     OfflineLudoV5Binding.OPPONENT_STACK_CAPTURE else "CAPTURE_ALL_ON_UNSAFE_CELL",
                 matchId = current.matchId,
                 status = current.status,
@@ -268,8 +283,16 @@ class OfflineGameEngine(
         val comebackBonusApplied = LudoComebackPolicy.enabled(current.rulesetId) &&
             !openingRollApplied && LudoComebackPolicy.applies(player.tokens, current.comebackWaits[seat], outcome)
         if (LudoComebackPolicy.enabled(current.rulesetId)) {
-            if (!LudoComebackPolicy.stranded(player.tokens) || openingRollApplied) current.comebackWaits[seat] = -1
-            else if (current.comebackWaits[seat] >= 0 && outcome != 6 && !comebackBonusApplied) current.comebackWaits[seat] += 1
+            val countsWithoutCapture = LudoComebackPolicy.countsWithoutCapture(current.rulesetId)
+            if (!LudoComebackPolicy.stranded(player.tokens) || openingRollApplied ||
+                (countsWithoutCapture && outcome == 6)
+            ) {
+                current.comebackWaits[seat] = -1
+            } else if (outcome != 6 && !comebackBonusApplied &&
+                (current.comebackWaits[seat] >= 0 || countsWithoutCapture)
+            ) {
+                current.comebackWaits[seat] = current.comebackWaits[seat].coerceAtLeast(0) + 1
+            }
         }
 
         current.eventIndex += 1
@@ -592,7 +615,7 @@ class OfflineGameEngine(
 
     private fun persist() {
         val active = state ?: return
-        if (active.rulesetId in setOf(OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID) && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
+        if (active.rulesetId in setOf(OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, LudoComebackPolicy.YARD_RULESET_ID, QuickMatchPolicy.RULESET_ID) && active.history.size > OfflineLudoV6Binding.HISTORY_WINDOW) {
             active.history.subList(0, active.history.size - OfflineLudoV6Binding.HISTORY_WINDOW).clear()
         }
         val current = active.frozenCopy()
@@ -683,8 +706,8 @@ class OfflineGameEngine(
             )
         }
 
-        if (!prefs.edit().putString(KEY_STATE, json.toString()).commit()) {
-            android.util.Log.e("OfflineSave", "Could not persist checkpoint revision ${current.revision}")
+        check(prefs.edit().putString(KEY_STATE, json.toString()).commit()) {
+            "Could not persist checkpoint revision ${current.revision}"
         }
     }
 
@@ -902,7 +925,7 @@ class OfflineGameEngine(
     }
 
     private fun validateRestoredState(restored: LocalState) {
-        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, QuickMatchPolicy.RULESET_ID))
+        check(restored.rulesetId in setOf(OfflineLudoV3Binding.RULESET_ID, OfflineLudoV5Binding.RULESET_ID, OfflineLudoV6Binding.RULESET_ID, LudoComebackPolicy.RULESET_ID, LudoComebackPolicy.YARD_RULESET_ID, QuickMatchPolicy.RULESET_ID))
 
         check(restored.players.size in 2..4) {
             "Offline save has an invalid player count"
@@ -1135,7 +1158,7 @@ class OfflineGameEngine(
     private data class LocalState(
         val profileOwnerKnown: Boolean = false,
         val profileOwnerAccountId: String? = null,
-        val rulesetId: String = LudoComebackPolicy.RULESET_ID,
+        val rulesetId: String = LudoComebackPolicy.YARD_RULESET_ID,
         val matchId: String,
         var status: String,
         val players: MutableList<LocalPlayer>,

@@ -1,3 +1,4 @@
+import { hasYardComeback } from "./rulesets.js";
 import { familyResponse, isFamilyMode, familyPlayerName } from "./family-safety.js";
 import { referralRequest, referralsConfigured } from "./referral-config.js";
 import { plannedMatchGemRewards } from "./match-gem-rewards.js";
@@ -54,6 +55,8 @@ import {
   RULESET_V6_KEY,
   RULESET_V7_KEY,
   TEAM_RULESET_V6_KEY,
+  RULESET_V8_KEY,
+  TEAM_RULESET_V7_KEY,
   TEAM_RULESET_KEY,
   TEAM_RULESET_V3_KEY,
   TEAM_RULESET_V4_KEY,
@@ -336,8 +339,8 @@ export class MatchRoom {
     if (requestedRulesetKey != null) {
       const acceptedRulesets =
         matchMode === "TEAM_UP"
-          ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY, TEAM_RULESET_V6_KEY]
-          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY, RULESET_V6_KEY, RULESET_V7_KEY];
+          ? [LEGACY_TEAM_RULESET_KEY, TEAM_RULESET_KEY, TEAM_RULESET_V3_KEY, TEAM_RULESET_V4_KEY, TEAM_RULESET_V5_KEY, TEAM_RULESET_V6_KEY, TEAM_RULESET_V7_KEY]
+          : [LEGACY_RULESET_KEY, RULESET_KEY, RULESET_V3_KEY, RULESET_V4_KEY, RULESET_V5_KEY, RULESET_V6_KEY, RULESET_V7_KEY, RULESET_V8_KEY];
       if (!acceptedRulesets.includes(requestedRulesetKey)) {
         throw httpError(
           400,
@@ -530,6 +533,9 @@ export class MatchRoom {
             state.matchMode,
         },
       );
+    if (hasYardComeback(state) && body?.supportedRulesetKey !== state.rulesetKey) {
+      throw httpError(409, "MATCH_RULESET_UPDATE_REQUIRED", "Update Ludo Paws to join this match.");
+    }
     let friendJoin =
       null;
     if (

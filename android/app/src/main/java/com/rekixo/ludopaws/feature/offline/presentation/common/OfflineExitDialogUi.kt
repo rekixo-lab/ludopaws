@@ -1,6 +1,5 @@
 package com.rekixo.ludopaws.ui.offline.common
 
-import android.view.Gravity
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -86,100 +85,62 @@ internal fun OfflineGameActivity.requestOfflineExit() {
             showBrandBadge = false,
         )
 
-    panel.addView(
-        TextView(this).apply {
-            text =
-                "Your current game is still in progress. If you exit, this match will be discarded."
-            LudoProofTheme.body(
-                this,
-                if (isCompactSetup()) 12f else 13f,
-                centered = true,
-                bright = true,
-            )
-            setPadding(
-                dp(8),
-                dp(12),
-                dp(8),
-                dp(4),
-            )
-        },
-        fullWidthParams(
-            this,
-            8,
-        ),
-    )
+    val message = TextView(this).apply {
+        text = "Save this match to continue later, or discard it and return Home."
+        LudoProofTheme.body(this, 13f, centered = true, bright = true)
+        setPadding(dp(8), dp(12), dp(8), dp(4))
+    }
+    panel.addView(message, fullWidthParams(this, 8))
 
-    panel.addView(
-        TextView(this).apply {
-            text =
-                "Cancel to keep playing, or Exit Game to leave and return Home."
-            LudoProofTheme.body(
-                this,
-                if (isCompactSetup()) 10.5f else 11.5f,
-                centered = true,
-            )
-        },
-        fullWidthParams(
-            this,
-            4,
-        ),
-    )
-
-    val actions =
-        LinearLayout(this).apply {
-            orientation =
-                LinearLayout.HORIZONTAL
-            gravity =
-                Gravity.CENTER
+    val actions = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+    }
+    val keepPlaying = Button(this).apply {
+        text = "KEEP PLAYING"
+        LudoProofTheme.secondary(this)
+        setOnClickListener { dialog.dismiss() }
+    }
+    val discard = Button(this).apply {
+        text = "DISCARD MATCH"
+        LudoProofTheme.danger(this)
+        setOnClickListener {
+            session.clear()
+            prepareOfflineUiTransition()
+            dialog.dismiss()
+            finish()
         }
-
-    actions.addView(
-        Button(this).apply {
-            text = "CANCEL"
-            contentDescription =
-                "Cancel exit and continue game"
-            LudoProofTheme.secondary(this)
-            setOnClickListener {
-                dialog.dismiss()
+    }
+    val save = Button(this).apply {
+        text = "SAVE & EXIT"
+        LudoProofTheme.positive(this)
+        setOnClickListener {
+            isEnabled = false
+            discard.isEnabled = false
+            keepPlaying.isEnabled = false
+            dialog.setCancelable(false)
+            message.text = "Saving your match…"
+            engine.saveActiveGame { saved ->
+                runOnUiThread {
+                    if (isFinishing || isDestroyed) return@runOnUiThread
+                    if (saved) {
+                        prepareOfflineUiTransition()
+                        finish()
+                        dialog.dismiss()
+                    } else if (dialog.isShowing) {
+                        message.text = "Match could not be saved. Try again or keep playing."
+                        isEnabled = true
+                        discard.isEnabled = true
+                        keepPlaying.isEnabled = true
+                        dialog.setCancelable(true)
+                    }
+                }
             }
-        },
-        LinearLayout.LayoutParams(
-            0,
-            dp(if (isCompactSetup()) 48 else 52),
-            1f,
-        ),
-    )
-
-    actions.addView(
-        Button(this).apply {
-            text = "EXIT GAME"
-            contentDescription =
-                "Confirm exit and discard current game"
-            LudoProofTheme.danger(this)
-            setOnClickListener {
-                session.clear()
-                prepareOfflineUiTransition()
-                dialog.dismiss()
-                finish()
-            }
-        },
-        LinearLayout.LayoutParams(
-            0,
-            dp(if (isCompactSetup()) 48 else 52),
-            1f,
-        ).apply {
-            marginStart =
-                dp(10)
-        },
-    )
-
-    panel.addView(
-        actions,
-        fullWidthParams(
-            this,
-            14,
-        ),
-    )
+        }
+    }
+    for (action in listOf(save, keepPlaying, discard)) {
+        actions.addView(action, fullWidthParams(this, 6))
+    }
+    panel.addView(actions, fullWidthParams(this, 12))
 
     dialog.setContentView(
         panel,

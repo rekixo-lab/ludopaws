@@ -191,9 +191,9 @@ class OfflineGameActivity : ComponentActivity() {
             shouldResumeSavedGame &&
             session.hasSavedGame()
         ) {
-            showGame(
-                session.snapshot(),
-            )
+            val saved = session.snapshot()
+            intent.putExtra("QUICK_MATCH", saved?.rulesetId == QuickMatchPolicy.RULESET_ID)
+            showGame(saved)
         } else {
             showSetup()
         }

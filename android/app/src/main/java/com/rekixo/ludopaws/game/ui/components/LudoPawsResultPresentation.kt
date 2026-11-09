@@ -31,7 +31,16 @@ object LudoPawsResultPresentation {
             myRank == 4 -> "4TH PLACE"
             else -> "MATCH COMPLETE"
         }
+        val forfeitedPlayers = match.players.filter { it.forfeited }
+        val viewerForfeited = forfeitedPlayers.any { it.playerId == viewerId }
+        val timeoutForfeit = forfeitedPlayers.any {
+            it.forfeitReason in setOf("TURN_TIMEOUT", "TEAMMATE_TURN_TIMEOUT")
+        }
         val subtitle = when {
+            viewerForfeited && timeoutForfeit -> "Your side forfeited after missed turns."
+            viewerForfeited -> "Your side forfeited the match."
+            forfeitedPlayers.isNotEmpty() && timeoutForfeit -> "Match ended after a turn timeout."
+            forfeitedPlayers.isNotEmpty() -> "Match ended after a player left."
             teamMode && won -> "A brilliant team victory!"
             teamMode -> "Well played, team!"
             myRank == 1 -> "Champion! Fantastic game."
@@ -76,6 +85,8 @@ object LudoPawsResultPresentation {
                 "+$creditedGems Gems · Credited" to "Confirmed in your Wallet"
             gemLedgerStatus == "LIMIT_REACHED" && planned != null ->
                 "Reward limit reached" to "Friends Gems are limited to 3 rewards per 24 hours"
+            gemLedgerStatus == "UNAVAILABLE" && planned != null ->
+                "Reward unavailable" to "No credit was confirmed in your Wallet"
             planned != null ->
                 "+$planned Gems · Verifying" to
                     "Pending Wallet confirmation · no Gems credited on this screen"

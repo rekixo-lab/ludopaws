@@ -7,6 +7,7 @@ import android.graphics.Typeface
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.View
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -21,6 +22,13 @@ internal fun HomeActivity.modeSection(): LinearLayout =
         // spacing does not move: compact 262dp, regular 296dp.
         val rowHeight = dp(if (isCompact()) 82 else 92)
         val rowGap = dp(if (isCompact()) 8 else 10)
+
+        val continueRow = LinearLayout(this@modeSection).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        continueMatchesRow = continueRow
+        addView(continueRow, LinearLayout.LayoutParams(-1, -2))
+        refreshContinueMatches()
 
         addView(
             homeModeRow(
@@ -52,7 +60,7 @@ internal fun HomeActivity.modeSection(): LinearLayout =
                         HomeModeCard(
                             mode = GameMode.FRIENDS,
                             title = "Friends",
-                            subtitle = "Private",
+                            subtitle = "Private room",
                             artMode = ModeArtView.Mode.FRIENDS,
                             tone = HomeModeTone.FRIENDS,
                         ),
@@ -79,7 +87,7 @@ internal fun HomeActivity.modeSection(): LinearLayout =
                 HomeModeCard(
                     mode = GameMode.PASS_AND_PLAY,
                     title = "Pass & Play",
-                    subtitle = "Offline",
+                    subtitle = "Same phone",
                     artMode = ModeArtView.Mode.PASS_AND_PLAY,
                     tone = HomeModeTone.PASS_AND_PLAY,
                 ),
@@ -94,6 +102,20 @@ internal fun HomeActivity.modeSection(): LinearLayout =
             },
         )
     }
+
+internal fun HomeActivity.refreshContinueMatches() {
+    val row = continueMatchesRow ?: return
+    row.removeAllViews()
+    for ((mode, label) in listOf(GameMode.COMPUTER to "Robot", GameMode.PASS_AND_PLAY to "Pass & Play")) {
+        if (!OfflineGameEngine(this, mode).hasActiveSavedGame()) continue
+        row.addView(Button(this).apply {
+            text = "Continue Match · $label"
+            LudoProofTheme.secondary(this)
+            setOnClickListener { openGameMode(mode, resumeSavedMatch = true) }
+        }, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+    }
+    row.visibility = if (row.childCount > 0) View.VISIBLE else View.GONE
+}
 
 private data class HomeModeCard(
     val mode: GameMode,

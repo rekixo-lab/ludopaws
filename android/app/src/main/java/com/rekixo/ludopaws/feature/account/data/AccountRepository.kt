@@ -184,15 +184,21 @@ class AccountRepository(context: Context) {
         return request("GET", "/api/rewards/availability", token = session.accessToken)
     }
 
-    fun engagementRewards(body: JSONObject? = null, expectedAccountId: String? = null): JSONObject {
+    fun engagementRewards(body: JSONObject? = null, expectedAccountId: String? = null, adReceiptIds: List<String> = emptyList()): JSONObject {
         val session = ensureGuestSession()
         check(expectedAccountId == null || session.accountId == expectedAccountId) { "Account changed. Reopen Rewards." }
-        return request(if (body == null) "GET" else "POST", "/api/rewards", body, token = session.accessToken)
+        return request(if (body == null) "GET" else "POST", "/api/rewards" + adReceiptQuery(adReceiptIds), body, token = session.accessToken)
     }
 
-    fun wallet(): JSONObject {
+    private fun adReceiptQuery(ids: List<String>): String {
+        if (ids.isEmpty()) return ""
+        val valid = ids.distinct().filter { it.matches(Regex("^[a-f0-9-]{36}$")) }.take(64)
+        return if (valid.isEmpty()) "" else "?adReceiptIds=" + valid.joinToString(",")
+    }
+
+    fun wallet(adReceiptIds: List<String> = emptyList()): JSONObject {
         val session = requireSession()
-        return request("GET", "/api/wallet", token = session.accessToken)
+        return request("GET", "/api/wallet" + adReceiptQuery(adReceiptIds), token = session.accessToken)
             .getJSONObject("wallet")
     }
 

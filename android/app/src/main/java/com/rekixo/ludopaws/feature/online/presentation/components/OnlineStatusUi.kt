@@ -1,11 +1,15 @@
 package com.rekixo.ludopaws.ui.online
 
+import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Gravity
+import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.feature.online.abandonRemoteSessionState
+import com.rekixo.ludopaws.feature.online.proofDetails
 
 internal fun MainActivity.onlineMatchStatusPanel(): LinearLayout =
     LinearLayout(this).apply {
@@ -70,7 +74,7 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
     resultCard = LudoPawsResultCard(this)
     resultTitleText = resultCard.titleView
     resultSubtitleText = resultCard.subtitleView
-    return resultCardOverlay(this, resultCard, reserveBottomDp = 96).apply {
+    return resultCardOverlay(this, resultCard, reserveBottomDp = 148).apply {
         addView(GameResultArtView(this@onlineResultPanel).apply {
             mode = GameResultArtView.Mode.ONLINE
             importantForAccessibility = android.view.View.IMPORTANT_FOR_ACCESSIBILITY_NO
@@ -81,7 +85,7 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
             gravity = Gravity.CENTER
             setPadding(dp(4), 0, dp(4), 0)
         }
-        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+        actions.addView(Button(this@onlineResultPanel).apply {
             text = "SHARE"
             isAllCaps = false
             LudoProofTheme.secondary(this)
@@ -99,29 +103,51 @@ internal fun MainActivity.onlineResultPanel(): FrameLayout {
                 }
             }
         }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(5) })
-        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+        actions.addView(Button(this@onlineResultPanel).apply {
             text = if (gameMode == GameMode.FRIENDS) "INVITE AGAIN" else "PLAY AGAIN"
             isAllCaps = false
             LudoProofTheme.positive(this)
             setOnClickListener {
                 if (currentState?.status != "FINISHED" || !canSubmitOnlineGameplayAction()) return@setOnClickListener
                 val mode = gameMode
-                openGameMode(
-                    mode,
-                    resumeSavedMatch = false,
-                    beforeLaunch = {
-                        runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false)
-                    },
-                    onLaunched = { finish() },
-                )
+                continueAfterRemoteResultAd {
+                    openGameMode(
+                        mode,
+                        resumeSavedMatch = false,
+                        beforeLaunch = {
+                            runCatching { this@onlineResultPanel.abandonRemoteSessionState() }.getOrDefault(false)
+                        },
+                        onLaunched = { finish() },
+                    )
+                }
             }
         }, LinearLayout.LayoutParams(0, dp(52), 1f).apply { marginEnd = dp(7) })
-        actions.addView(android.widget.Button(this@onlineResultPanel).apply {
+        actions.addView(Button(this@onlineResultPanel).apply {
             text = "HOME"
             isAllCaps = false
             LudoProofTheme.secondary(this)
             setOnClickListener { requestRemoteExitAfterWinInterstitial() }
         }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        for (index in 0 until actions.childCount) {
+            (actions.getChildAt(index) as Button).apply {
+                setPadding(dp(4), 0, dp(4), 0)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                setAutoSizeTextTypeUniformWithConfiguration(9, 16, 1, TypedValue.COMPLEX_UNIT_SP)
+            }
+        }
+        addView(Button(this@onlineResultPanel).apply {
+            text = "MATCH DETAILS"
+            LudoProofTheme.secondary(this)
+            textSize = 13f
+            setPadding(dp(12), 0, dp(12), 0)
+            setOnClickListener {
+                val state = currentState ?: return@setOnClickListener
+                ArcadeDialogs.showProofHistory(this@onlineResultPanel, "LAST ROLL", proofDetails(state))
+            }
+        }, FrameLayout.LayoutParams(-2, dp(48), Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            bottomMargin = dp(94)
+        })
         addView(actions, FrameLayout.LayoutParams(
             minOf(dp(360), resources.displayMetrics.widthPixels - dp(28)),
             dp(52),

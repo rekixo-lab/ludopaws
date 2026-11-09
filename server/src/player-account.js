@@ -107,6 +107,7 @@ export class PlayerAccount {
       sql.exec("CREATE TABLE IF NOT EXISTS cosmetic_pricing_migrations (id INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)");
       sql.exec("CREATE INDEX IF NOT EXISTS idx_wallet_tx_created ON wallet_transactions(created_at DESC)");
       sql.exec("CREATE TABLE IF NOT EXISTS ad_reward_receipts (request_id TEXT PRIMARY KEY, credited_at INTEGER NOT NULL)");
+      sql.exec("CREATE INDEX IF NOT EXISTS ad_reward_receipts_by_time ON ad_reward_receipts(credited_at)");
       sql.exec("CREATE TABLE IF NOT EXISTS wallet_revision (id INTEGER PRIMARY KEY CHECK(id = 1), revision INTEGER NOT NULL)");
       sql.exec("INSERT OR IGNORE INTO wallet_revision (id, revision) VALUES (1, 0)");
       for (const [table, operations] of [
@@ -375,7 +376,8 @@ export class PlayerAccount {
     const body = await readJson(request), accountId = requireAccountId(body?.accountId), sessionId = requireSessionId(body?.sessionId);
     this.#requireActiveSession(accountId, sessionId);
     await this.#enrollLegacyPurchases(accountId);
-    return json(200, { ok: true, wallet: this.#walletSnapshot(accountId) });
+    this.#requireActiveSession(accountId, sessionId);
+    return json(200, { ok: true, wallet: this.#walletSnapshot(accountId, body.adReceiptIds) });
   }
 
   // Read-only, account-scoped receipt. A planned match reward is NOT proof of
@@ -608,7 +610,7 @@ export class PlayerAccount {
   #recordAdReceipt(requestId) {
     if (typeof requestId !== "string" || !/^[a-f0-9-]{36}$/.test(requestId)) return;
     this.ctx.storage.sql.exec("INSERT OR IGNORE INTO ad_reward_receipts (request_id, credited_at) VALUES (?, ?)", requestId, Date.now());
-    this.ctx.storage.sql.exec("DELETE FROM ad_reward_receipts WHERE request_id NOT IN (SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100)");
+    this.ctx.storage.sql.exec("DELETE FROM ad_reward_receipts WHERE credited_at < ?", Date.now() - 8 * 86_400_000);
   }
 
   async #grantAdReward(request) {
@@ -694,6 +696,7 @@ export class PlayerAccount {
     const cosmeticId = String(body?.cosmeticId ?? ""), requestId = requireClientRequestId(body?.clientRequestId);
     const cosmetic = await this.#resolveCosmetic(cosmeticId, body?.catalogCountry);
     if (!cosmetic || !cosmetic.available) throw httpError(400, "COSMETIC_UNAVAILABLE", "this cosmetic is not currently available for purchase");
+    this.#requireActiveSession(accountId, sessionId);
     this.#requireSupportedCosmeticCategory(cosmetic);
     let purchaseKind = cosmetic.kind;
     if (cosmetic.channels.length > 1 || cosmetic.catalogManaged) {
@@ -717,7 +720,7 @@ export class PlayerAccount {
     if (purchaseKind === "FREE") {
       let alreadyOwned = false;
       this.ctx.storage.transactionSync(() => {
-        this.#requireAccountNotDeleting(accountId);
+        this.#requireActiveSession(accountId, sessionId);
         const now = Date.now();
         const inserted = this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'DEFAULT', ?, NULL)", cosmeticId, cosmetic.category, now);
         alreadyOwned = Number(inserted.rowsWritten ?? 0) === 0;
@@ -739,7 +742,7 @@ export class PlayerAccount {
       const sourceRefHash = await sha256Hex("ludoproof:cosmetic-purchase:v1:" + requestId);
       let result;
       this.ctx.storage.transactionSync(() => {
-        this.#requireAccountNotDeleting(accountId);
+        this.#requireActiveSession(accountId, sessionId);
         const prior = [...this.ctx.storage.sql.exec("SELECT payload_hash, balance_after FROM wallet_transactions WHERE idempotency_key = ? LIMIT 1", idem)];
         if (prior.length) {
           if (String(prior[0].payload_hash) !== payloadHash) throw httpError(409, "WALLET_IDEMPOTENCY_CONFLICT", "purchase request ID was reused for a different operation");
@@ -767,7 +770,7 @@ export class PlayerAccount {
       if (progress < cosmetic.ads) throw httpError(409, "NEED_REWARDED_ADS", "this cosmetic needs more verified rewarded ads");
       let alreadyOwned = false;
       this.ctx.storage.transactionSync(() => {
-        this.#requireAccountNotDeleting(accountId);
+        this.#requireActiveSession(accountId, sessionId);
         const now = Date.now();
         const inserted = this.ctx.storage.sql.exec("INSERT OR IGNORE INTO owned_cosmetics (cosmetic_id, category, source, acquired_at, source_ref_hash) VALUES (?, ?, 'REWARDED_ADS', ?, NULL)", cosmeticId, cosmetic.category, now);
         alreadyOwned = Number(inserted.rowsWritten ?? 0) === 0;
@@ -787,6 +790,7 @@ export class PlayerAccount {
     if (!cosmetic || (!cosmetic.available && !RETIRED_BOARD_IDS.includes(cosmeticId))) {
       throw httpError(400, "COSMETIC_UNAVAILABLE", "this cosmetic is not currently available");
     }
+    this.#requireActiveSession(accountId, sessionId);
     this.#requireSupportedCosmeticCategory(cosmetic);
     if ([...this.ctx.storage.sql.exec("SELECT cosmetic_id FROM owned_cosmetics WHERE cosmetic_id = ? LIMIT 1", cosmeticId)].length !== 1) throw httpError(403, "COSMETIC_NOT_OWNED", "this cosmetic is not owned by this account");
     this.ctx.storage.sql.exec("INSERT INTO selected_cosmetics (category, cosmetic_id, updated_at) VALUES (?, ?, ?) ON CONFLICT(category) DO UPDATE SET cosmetic_id = excluded.cosmetic_id, updated_at = excluded.updated_at", cosmetic.category, cosmeticId, Date.now());
@@ -874,7 +878,7 @@ export class PlayerAccount {
     // Catalog reads yield to other requests. Recheck logout/deletion and use the
     // latest wallet after all awaits, so ownership and displayed quotes agree.
     this.#requireActiveSession(accountId, sessionId);
-    const wallet = this.#walletSnapshot(accountId);
+    const wallet = this.#walletSnapshot(accountId, body.adReceiptIds);
     const collections = availableCollections.map(({ collection, prices }) => ({
       ...collection, ...collectionQuote(collection, wallet.ownedCosmetics, prices),
     }));
@@ -1010,7 +1014,16 @@ export class PlayerAccount {
     if (!rows.length) throw httpError(404, "ACCOUNT_NOT_FOUND", "account was not found");
     return { accountId: String(rows[0].account_id), displayName: String(rows[0].display_name), createdAt: Number(rows[0].created_at), updatedAt: Number(rows[0].updated_at) };
   }
-  #walletSnapshot(accountId) {
+  #walletSnapshot(accountId, adReceiptIds) {
+    const requestedIds = typeof adReceiptIds === "string" && adReceiptIds.length <= 64 * 37
+      ? [...new Set(adReceiptIds.split(",").filter(id => /^[a-f0-9-]{36}$/.test(id)))].slice(0, 64)
+      : [];
+    const receipts = [...(requestedIds.length > 0
+      ? this.ctx.storage.sql.exec(
+          "SELECT request_id FROM ad_reward_receipts WHERE request_id IN (" +
+            requestedIds.map(() => "?").join(",") + ")", ...requestedIds)
+      : this.ctx.storage.sql.exec("SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100"))]
+      .map(row => String(row.request_id));
     const rows = [...this.ctx.storage.sql.exec(
       "SELECT balance, ads_removed, updated_at FROM wallet WHERE account_id = ? LIMIT 1",
       accountId,
@@ -1041,7 +1054,7 @@ export class PlayerAccount {
       ownedCosmetics,
       selectedCosmetics,
       rewardedAdProgress,
-      creditedAdRequestIds: [...this.ctx.storage.sql.exec("SELECT request_id FROM ad_reward_receipts ORDER BY credited_at DESC LIMIT 100")].map(row => String(row.request_id)),
+      creditedAdRequestIds: receipts,
       // Legacy Android builds still use this optional 10/day preflight field.
       // The updated 2-Gem app does not read or enforce any daily ad cap.
       // Signed SSV callbacks are always credited, including delayed callbacks.

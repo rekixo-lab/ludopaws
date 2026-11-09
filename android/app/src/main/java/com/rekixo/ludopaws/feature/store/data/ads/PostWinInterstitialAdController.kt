@@ -57,13 +57,11 @@ internal class PostWinInterstitialAdController(
 
     private fun scheduleRetry() {
         if (closed || activity.isFinishing || activity.isDestroyed) return
-        if (retryAttempt >= MAX_RETRIES) {
-            // Later lifecycle/result preparation may retry, but never on every state poll.
-            retryAt = SystemClock.elapsedRealtime() + RETRY_COOLDOWN_MS
-            return
+        val delay = if (retryAttempt >= MAX_RETRIES) {
+            RETRY_COOLDOWN_MS
+        } else {
+            (15_000L shl retryAttempt).also { retryAttempt += 1 }
         }
-        val delay = 15_000L shl retryAttempt
-        retryAttempt += 1
         retryAt = SystemClock.elapsedRealtime() + delay
         handler.removeCallbacks(retryTask)
         handler.postDelayed(retryTask, delay)

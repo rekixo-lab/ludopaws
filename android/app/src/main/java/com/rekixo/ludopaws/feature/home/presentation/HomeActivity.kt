@@ -22,9 +22,12 @@ import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
 import com.rekixo.ludopaws.feature.profile.domain.model.ProfileGameMode
 import com.rekixo.ludopaws.feature.profile.domain.model.ProfileMatchSource
 import com.rekixo.ludopaws.feature.online.retryPendingRemoteForfeits
+import com.rekixo.ludopaws.feature.updates.PlayUpdateCoordinator
 import com.rekixo.ludopaws.ui.home.*
 
 class HomeActivity : Activity() {
+    private val playUpdateCoordinator by lazy { PlayUpdateCoordinator(this) }
+    internal var continueMatchesRow: LinearLayout? = null
     internal lateinit var connectivityText:
         TextView
     internal var homeProfileNameText:
@@ -532,6 +535,22 @@ class HomeActivity : Activity() {
         super.onResume()
         resumed = true
         if (homeShown) resumeHome() else maybeShowHome()
+        playUpdateCoordinator.onResume()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        // onResume may run before the Home window becomes focusable; recheck
+        // flexible updates already downloaded during gameplay or Play UI.
+        if (hasFocus && resumed && homeShown) playUpdateCoordinator.onResume()
+    }
+
+    @Deprecated("Play Core update flow uses Activity request codes")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == PlayUpdateCoordinator.REQUEST_CODE) {
+            playUpdateCoordinator.onUpdateResult(resultCode)
+        }
     }
 
     private fun prepareHomeRemoteExit() {
@@ -546,6 +565,7 @@ class HomeActivity : Activity() {
     }
 
     private fun resumeHome() {
+        refreshContinueMatches()
         scheduleHomeHudRefresh()
         resumeHomePrivacy()
     }
@@ -561,6 +581,10 @@ class HomeActivity : Activity() {
 
     private fun resumeHomePromotions() {
         if (!isHomeReadyForPlatformConnection() || !com.rekixo.ludopaws.feature.safety.FamilyAgeScreen.hasChoice(this)) return
+        // Update/What's New has precedence over review and referral promotions.
+        if (!playUpdateCoordinator.beforePromotions {
+                if (isHomeReadyForPlatformConnection()) resumeHomePromotions()
+            }) return
         promotionCarousel?.setActive(!referralPopupVisible)
         homeRewards.refresh()
         // The PGS host recreation must not consume and cancel the one-per-session
@@ -631,6 +655,7 @@ class HomeActivity : Activity() {
     }
 
     override fun onDestroy() {
+        playUpdateCoordinator.onDestroy()
         observedStorePrefs.unregisterOnSharedPreferenceChangeListener(walletChanged)
         launchGate?.let { gate ->
             if (window.decorView.viewTreeObserver.isAlive) window.decorView.viewTreeObserver.removeOnPreDrawListener(gate)

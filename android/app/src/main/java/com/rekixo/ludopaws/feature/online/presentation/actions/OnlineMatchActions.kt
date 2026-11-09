@@ -5,7 +5,6 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
-import android.view.HapticFeedbackConstants
 import android.os.Looper
 import android.os.SystemClock
 import android.text.InputType
@@ -77,7 +76,7 @@ internal fun MainActivity.createMatch() {
                 characterId = character.characterId,
                 characterAccountToken = character.accountToken,
                 matchStyle = character.matchStyle,
-                rulesetKey = "CLASSIC_V7",
+                rulesetKey = ClassicRuleset.V8_KEY,
             )
         },
         onSuccess = {
@@ -326,7 +325,6 @@ internal fun MainActivity.moveToken(
             previewRequestedAt.takeIf { previewStarted }
         // The pawn begins a presentation-only preview immediately. The server
         // response remains the sole source of truth for its committed position.
-        boardFrame.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
         runNetwork(
             action = {
                 session.move(code, token, index, eventIndex, requestId)

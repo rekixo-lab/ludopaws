@@ -13,6 +13,8 @@ data class PlayerSnapshot(
     val characterId: String? = null,
     val playerType: String = "HUMAN",
     val diceId: String? = null,
+    val forfeited: Boolean = false,
+    val forfeitReason: String? = null,
 )
 
 data class PendingRollSnapshot(
@@ -79,6 +81,8 @@ data class MatchSnapshot(
     val turnRollTimeoutMillis: Long? = null,
     val serverTimeAtSnapshot: Long? = null,
     val comebackWaits: List<Int> = emptyList(),
+    val moveDeadlineAt: Long? = null,
+    val finishedAt: Long? = null,
 )
 
 data class GameEnvelope(
@@ -112,6 +116,7 @@ object GameJson {
         "ludoproof-standard-v5",
         "ludoproof-standard-v6",
         "ludoproof-standard-v7",
+        LudoComebackPolicy.YARD_RULESET_ID,
         )
     private val teamRulesetIds =
         setOf(
@@ -121,6 +126,7 @@ object GameJson {
             "ludoproof-team-v4",
         "ludoproof-team-v5",
         "ludoproof-team-v6",
+        LudoComebackPolicy.TEAM_YARD_RULESET_ID,
         )
     private val colors = listOf("RED", "GREEN", "YELLOW", "BLUE")
     private val teamAssignments = listOf("A", "B", "A", "B")
@@ -202,6 +208,8 @@ object GameJson {
             finishOrderPlayerIds = value.optJSONArray("finishOrderPlayerIds").toStringList(),
             matchGemRewards = parseMatchGemRewards(value.optJSONArray("matchGemRewards")),
             revision = value.optLong("revision", 0L),
+            moveDeadlineAt = value.optLong("moveDeadlineAt").takeIf { it > 0L },
+            finishedAt = value.optLong("finishedAt").takeIf { it > 0L },
             turnDeadlineAt =
                 if (value.has("turnDeadlineAt") && !value.isNull("turnDeadlineAt")) {
                     value.optLong("turnDeadlineAt").takeIf { it > 0L }
@@ -292,7 +300,7 @@ object GameJson {
             schema(playersArray.length() == 4, "active/finished Team Up requires four players")
         }
 
-        if (rulesetId == LudoComebackPolicy.RULESET_ID || rulesetId == LudoComebackPolicy.TEAM_RULESET_ID) {
+        if (LudoComebackPolicy.enabled(rulesetId)) {
             val waits = value.requireArray("comebackWaits")
             schema(waits.length() == playersArray.length(), "comeback counter count does not match players")
             for (index in 0 until waits.length()) {
@@ -553,6 +561,8 @@ object GameJson {
                                 .takeIf { it.isNotBlank() && it != "null" },
                         playerType = player.optString("playerType", "HUMAN"),
                         diceId = player.optString("diceId").takeIf { it.startsWith("dice_") },
+                        forfeited = player.optBoolean("forfeited"),
+                        forfeitReason = player.optString("forfeitReason").takeIf { it.isNotBlank() },
                     ),
                 )
             }

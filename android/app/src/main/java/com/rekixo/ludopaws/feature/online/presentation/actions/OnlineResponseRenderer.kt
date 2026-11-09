@@ -1,5 +1,6 @@
 package com.rekixo.ludopaws.feature.online
 
+import android.os.SystemClock
 import android.view.View
 import com.rekixo.ludopaws.*
 import com.rekixo.ludopaws.feature.profile.data.local.ProfileStore
@@ -95,6 +96,12 @@ internal fun MainActivity.applyResponse(
     }
 
     val previousState = currentState
+    if (previousState?.matchId != state.matchId) {
+        lastTurnTimeoutNoticeAt = 0L
+        matchTimeoutMessage = null
+        matchTimeoutMessageUntil = 0L
+        gameplayDeadlineEpoch = null
+    }
     currentState = state
     applyOnlineGameplayPacing(previousState, state)
     LudoProofTheme.setGameplayBackground(
@@ -131,8 +138,15 @@ internal fun MainActivity.applyResponse(
             if (state.players.any { it.playerId == playerId }) runCatching {
                 com.rekixo.ludopaws.feature.growth.EngagementStore(this).completed(state.matchId)
             }
-            runCatching { com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).completed(
-                state.matchId, state.players.firstOrNull { it.playerId == playerId }?.characterId?.let(::listOf).orEmpty()) }
+            state.finishedAt?.let { finishedAt ->
+                runCatching {
+                    com.rekixo.ludopaws.feature.growth.WeeklyChallengeStore(this).completed(
+                        state.matchId,
+                        state.players.firstOrNull { it.playerId == playerId }?.characterId?.let(::listOf).orEmpty(),
+                        completedAt = finishedAt,
+                    )
+                }
+            }
             com.rekixo.ludopaws.feature.referrals.ReferralPopupSession.current.completedMatch(state.matchId)
         }
     }
@@ -243,42 +257,16 @@ internal fun MainActivity.applyResponse(
         timeoutAt > lastTurnTimeoutNoticeAt
     ) {
         lastTurnTimeoutNoticeAt = timeoutAt
-        // Keep timeout history in the authoritative state, but do not render it
-        // as repetitive activity-log text during gameplay.
+        val name = state.players.firstOrNull { it.playerId == timeoutPlayerId }?.displayName
+        val subject = if (timeoutPlayerId == playerId) "You" else name ?: "Player"
+        val missed = if (timeoutNotice?.optString("phase") == "MOVE") "missed a move" else "missed a roll"
+        val limit = wireState.optInt("maxMissedTurnsBeforeForfeit", 4)
+        val message = "$subject $missed · $timeoutCount/$limit"
+        matchTimeoutMessage = message
+        matchTimeoutMessageUntil = SystemClock.elapsedRealtime() + 5_000L
+        if (state.status == "ACTIVE") gameplayPromptText.announceForAccessibility(message)
     }
-
-    val wirePlayers = wireState.optJSONArray("players")
-    val localPlayerWasForfeited = wirePlayers != null && (0 until wirePlayers.length()).any { index ->
-        val wirePlayer = wirePlayers.optJSONObject(index)
-        wirePlayer != null &&
-            wirePlayer.optString("playerId") == playerId &&
-            wirePlayer.optBoolean("forfeited", false)
-    }
-    if (
-        source == OnlineStateSource.AUTHORITATIVE &&
-        localPlayerWasForfeited &&
-        !timeoutExitScheduled
-    ) {
-        timeoutExitScheduled = true
-        mainHandler.postDelayed(
-            {
-                if (canRenderUi()) {
-                    secureSessionStore.clear()
-                    cachedMatchStore.clear()
-                    publicMatchmakingStore.clear()
-                    matchId = null
-                    playerToken = null
-                    playerId = null
-                    currentState = null
-                    realtimeConnected = false
-                    realtimeClient.disconnect()
-                    LudoProofTheme.setGameplayBackground(root = arcadeRootView, enabled = false)
-                    finish()
-                }
-            },
-            1_800L,
-        )
-    }
+    refreshGameplayPrompt()
     scheduleOnlineAutoMove(state)
 }
 

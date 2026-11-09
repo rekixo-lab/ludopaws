@@ -182,14 +182,20 @@ fun resultCardOverlay(context: Context, card: LudoPawsResultCard, reserveBottomD
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density + .5f).toInt()
         val metrics = resources.displayMetrics
-        val maxWidth = minOf(dp(360), (metrics.widthPixels - dp(28)).coerceAtLeast(dp(240)))
+        val maxWidth = dp(360)
         val maxHeight = minOf(dp(470), (metrics.heightPixels * .65f).toInt())
         val scroll = object : android.widget.ScrollView(context) {
             // Wrap short results tightly, but scroll long names and larger fonts.
             override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+                val width = minOf(maxWidth, View.MeasureSpec.getSize(widthMeasureSpec))
+                val heightLimit = if (View.MeasureSpec.getMode(heightMeasureSpec) == View.MeasureSpec.UNSPECIFIED) {
+                    maxHeight
+                } else {
+                    minOf(maxHeight, View.MeasureSpec.getSize(heightMeasureSpec))
+                }
                 super.onMeasure(
-                    widthMeasureSpec,
-                    View.MeasureSpec.makeMeasureSpec(maxHeight, View.MeasureSpec.AT_MOST),
+                    View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(heightLimit, View.MeasureSpec.AT_MOST),
                 )
             }
         }.apply {
@@ -198,7 +204,11 @@ fun resultCardOverlay(context: Context, card: LudoPawsResultCard, reserveBottomD
             clipToPadding = false
             addView(card, FrameLayout.LayoutParams(-1, -2))
         }
-        addView(scroll, FrameLayout.LayoutParams(maxWidth, -2, Gravity.CENTER).apply {
+        val cardArea = FrameLayout(context).apply {
+            setPadding(dp(14), 0, dp(14), 0)
+            addView(scroll, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
+        }
+        addView(cardArea, FrameLayout.LayoutParams(-1, -1).apply {
             bottomMargin = dp(reserveBottomDp)
         })
     }

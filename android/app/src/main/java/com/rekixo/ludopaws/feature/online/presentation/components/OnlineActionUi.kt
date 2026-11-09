@@ -184,6 +184,15 @@ internal fun MainActivity.onlineActionPanel(): LinearLayout =
                     visibility = View.GONE
                 }
 
+            gameplayPromptText = TextView(this@onlineActionPanel).apply {
+                LudoProofTheme.body(this, 12f, centered = true, bright = true)
+                minLines = 2
+                maxLines = 2
+                setPadding(dp(8), dp(3), dp(8), dp(3))
+                visibility = View.GONE
+            }
+            addView(gameplayPromptText)
+
             statusText =
                 TextView(
                     this@onlineActionPanel,

@@ -27,7 +27,7 @@ export function plannedMatchGemRewards(state) {
     }));
   }
   if (!["ONLINE", "FRIENDS"].includes(state.matchMode)) return [];
-  if (!(count in GEM_REWARD_TABLE) || !["CLASSIC_V6", "CLASSIC_V7"].includes(state.rulesetKey)) return [];
+  if (!(count in GEM_REWARD_TABLE) || !["CLASSIC_V6", "CLASSIC_V7", "CLASSIC_V8"].includes(state.rulesetKey)) return [];
   const order = state.finishOrderPlayerIds;
   const ids = state.players.map(player => player.playerId);
   if (!Array.isArray(order) || order.length !== count ||

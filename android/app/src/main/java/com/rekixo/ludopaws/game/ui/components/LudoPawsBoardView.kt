@@ -345,7 +345,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
         when {
             state.status != "ACTIVE" -> notice("Match complete")
             !inputReady() || localPlayerId == null -> notice("Please wait for the current turn or paw action")
-            state.players.getOrNull(state.turnSeat)?.playerId != localPlayerId ||
+            state.players.getOrNull(state.actingSeat ?: state.turnSeat)?.playerId != localPlayerId ||
                 target.playerId != localPlayerId -> notice("It is not this character's turn")
             state.pendingRoll == null -> notice("Roll the dice first")
             state.pendingRoll.status != "RESOLVED" -> notice("Wait for the dice result")
@@ -411,7 +411,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
                     } else RectF(screen.first - halfWidth, footY - bodyHeight * 1.14f,
                         screen.first + halfWidth, footY + radius * .18f)
                     val legal = player.playerId == localPlayerId &&
-                        state.players.getOrNull(state.turnSeat)?.playerId == localPlayerId &&
+                        state.players.getOrNull(state.actingSeat ?: state.turnSeat)?.playerId == localPlayerId &&
                         state.pendingRoll?.status == "RESOLVED" &&
                         index in state.pendingRoll.legalTokenIndexes
                     add(PawnTarget(player.playerId, index, bounds, legal, footY,
@@ -461,10 +461,11 @@ class LudoPawsBoardView @JvmOverloads constructor(
                 setSource(this@LudoPawsBoardView, id)
                 setParent(this@LudoPawsBoardView)
                 packageName = context.packageName
-                className = "android.widget.Button"
+                val canMove = target.legal && inputReady()
+                className = if (canMove) "android.widget.Button" else "android.view.View"
                 contentDescription = target.label
-                isEnabled = true
-                isClickable = true
+                isEnabled = canMove
+                isClickable = canMove
                 isFocusable = true
                 isVisibleToUser = isShown
                 isAccessibilityFocused = focusedToken == id
@@ -475,7 +476,7 @@ class LudoPawsBoardView @JvmOverloads constructor(
                 getLocationOnScreen(location)
                 rect.offset(location[0], location[1])
                 setBoundsInScreen(rect)
-                addAction(AccessibilityNodeInfo.ACTION_CLICK)
+                if (canMove) addAction(AccessibilityNodeInfo.ACTION_CLICK)
                 addAction(if (focusedToken == id) AccessibilityNodeInfo.ACTION_CLEAR_ACCESSIBILITY_FOCUS
                     else AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS)
             }
@@ -489,7 +490,10 @@ class LudoPawsBoardView @JvmOverloads constructor(
             val target = targets().firstOrNull { it.playerId == localPlayerId && it.tokenIndex == id }
                 ?: return false
             when (action) {
-                AccessibilityNodeInfo.ACTION_CLICK -> activate(target)
+                AccessibilityNodeInfo.ACTION_CLICK -> {
+                    if (!target.legal || !inputReady()) return false
+                    activate(target)
+                }
                 AccessibilityNodeInfo.ACTION_ACCESSIBILITY_FOCUS -> {
                     if (focusedToken >= 0) sendVirtualEvent(focusedToken,
                         AccessibilityEvent.TYPE_VIEW_ACCESSIBILITY_FOCUS_CLEARED)

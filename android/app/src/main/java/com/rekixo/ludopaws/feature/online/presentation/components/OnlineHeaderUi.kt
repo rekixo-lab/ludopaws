@@ -36,7 +36,8 @@ internal fun MainActivity.requestRemoteExit() {
             currentState?.status != "FINISHED"
     val activeMatch = currentState?.status == "ACTIVE"
 
-    if (!hasUnfinishedMatch) {
+    val localPlayerForfeited = currentState?.players?.any { it.playerId == playerId && it.forfeited } == true
+    if (!hasUnfinishedMatch || localPlayerForfeited) {
         remoteExitConfirmationDialog?.dismiss()
         remoteExitConfirmationDialog = null
         if (abandonRemoteSessionState()) finish()

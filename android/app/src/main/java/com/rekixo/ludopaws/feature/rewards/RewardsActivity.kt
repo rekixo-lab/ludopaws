@@ -404,7 +404,10 @@ class RewardsActivity : Activity() {
             val result = runCatching {
                 val session = repository.ensureGuestSession()
                 if (expectedOwner != null) check(session.accountId == expectedOwner) { "Account changed. Reopen Rewards." }
-                val response = repository.engagementRewards(request, session.accountId)
+                val pendingReceiptIds = runCatching {
+                    PendingAdRewardStore(this).forAccount(session.accountId).map { it.requestId }
+                }.getOrDefault(emptyList())
+                val response = repository.engagementRewards(request, session.accountId, pendingReceiptIds)
                 val rewards = response.getJSONObject("rewards")
                 check(rewards.getLong("day") >= 0 && rewards.getLong("resetsAt") > 0) { "Reward status could not be read. Retry." }
                 response.getJSONArray("collections")

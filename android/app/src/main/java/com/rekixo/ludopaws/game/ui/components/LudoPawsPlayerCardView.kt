@@ -27,6 +27,7 @@ class LudoPawsPlayerCardView(
         TextView(context)
     private val progressText =
         TextView(context)
+    private val teamText = TextView(context)
     private val copy =
         LinearLayout(context)
 
@@ -70,7 +71,15 @@ class LudoPawsPlayerCardView(
             maxLines = 1
         }
 
+        teamText.apply {
+            setTypeface(Typeface.DEFAULT_BOLD)
+            textSize = 8f
+            maxLines = 2
+            textDirection = View.TEXT_DIRECTION_LTR
+            visibility = View.GONE
+        }
         copy.addView(nameText)
+        copy.addView(teamText)
         copy.addView(stateText)
         copy.addView(progressText)
         addView(
@@ -86,6 +95,7 @@ class LudoPawsPlayerCardView(
     private data class Binding(
         val player: PlayerSnapshot, val characterId: String?, val active: Boolean,
         val computer: Boolean, val compact: Boolean, val localPlayer: Boolean, val portraitOnEnd: Boolean,
+        val localTeamId: String?,
     )
     private var lastBinding: Binding? = null
 
@@ -97,8 +107,9 @@ class LudoPawsPlayerCardView(
         compact: Boolean,
         localPlayer: Boolean = true,
         portraitOnEnd: Boolean = false,
+        localTeamId: String? = null,
     ) {
-        val next = Binding(player, characterId, active, computer, compact, localPlayer, portraitOnEnd)
+        val next = Binding(player, characterId, active, computer, compact, localPlayer, portraitOnEnd, localTeamId)
         if (lastBinding == next) return
         lastBinding = next
         layoutDirection =
@@ -141,14 +152,28 @@ class LudoPawsPlayerCardView(
         nameText.textSize =
             if (compact) 10.5f else 11.5f
 
+        val teamId = player.teamId
+        val teamRole = when {
+            teamId == null -> null
+            localPlayer -> "YOU"
+            teamId == localTeamId -> "PARTNER"
+            else -> null
+        }
+        teamText.text = when {
+            teamId == null -> ""
+            teamRole == null -> "TEAM $teamId"
+            else -> "$teamId · $teamRole"
+        }
+        teamText.setTextColor(if (teamId == "A") LudoPawsBoardPalette.gold else LudoPawsBoardPalette.aqua)
+        teamText.visibility = if (teamId == null) View.GONE else View.VISIBLE
+
         val turnLabel =
             when {
+                player.forfeited -> "OUT"
                 active && isBot -> "BOT TURN"
                 active && computer -> "CPU TURN"
                 active && localPlayer -> "YOUR TURN"
-                active && player.teamId != null -> "TEAM ${player.teamId} TURN"
                 active -> "TURN"
-                player.teamId != null -> "TEAM ${player.teamId}"
                 else -> "WAITING"
             }
         stateText.text = "$characterName • $turnLabel"
@@ -197,6 +222,9 @@ class LudoPawsPlayerCardView(
                 append(", ")
                 append(player.displayName)
                 if (isBot) append(", bot player")
+                if (player.forfeited) append(", forfeited")
+                if (teamId != null) append(", Team $teamId")
+                if (teamRole != null) append(", $teamRole")
                 append(", ")
                 append(player.color.lowercase())
                 append(", ")

@@ -1,6 +1,7 @@
 package com.rekixo.ludopaws.feature.team.data.remote
 
 import com.rekixo.ludopaws.BuildConfig
+import com.rekixo.ludopaws.LudoComebackPolicy
 import com.rekixo.ludopaws.feature.characters.data.local.LudoPawsCharacterRuntime
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -30,7 +31,7 @@ class TeamMatchmakingApi(
                 .put("clientRequestId", clientRequestId)
                 .put("characterId", com.rekixo.ludopaws.feature.online.domain.LudoPawsCharacterIdentityContract.resolveForRequest(characterId))
                 .put("matchStyle", matchStyle)
-                .put("rulesetKey", "TEAM_UP_V6"),
+                .put("rulesetKey", LudoComebackPolicy.TEAM_YARD_RULESET_KEY),
         )
 
     fun status(
