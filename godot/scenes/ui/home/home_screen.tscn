@@ -1,0 +1,226 @@
+[gd_scene format=3]
+[ext_resource type="Script" path="res://scripts/ui/home/home_screen.gd" id="home"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/menu_tile.tscn" id="tile"]
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/moonlit_meadow.webp" id="backdrop"]
+[ext_resource type="Texture2D" path="res://assets/ui/brand/home_woodland_hero.webp" id="hero"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/brand_title.tscn" id="brand_title"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/profile_paw_crest.svg" id="profile_paw"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/globe.svg" id="globe"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/team.svg" id="team"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/friends.svg" id="friends"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/robot.svg" id="robot"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/pass_play.svg" id="pass_play"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/gem.svg" id="gem"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/continue_match_card.tscn" id="continue_card"]
+
+
+[ext_resource type="PackedScene" path="res://scenes/ui/components/bottom_navigation.tscn" id="bottom_navigation"]
+
+[ext_resource type="Shader" path="res://assets/ui/backgrounds/illustration_edge_blend.gdshader" id="hero_edge_blend"]
+
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/chestnut_wood_grain.webp" id="wood_grain"]
+[ext_resource type="Shader" path="res://assets/ui/backgrounds/wooden_medallion.gdshader" id="medallion_shader"]
+
+
+
+[ext_resource type="PackedScene" path="res://scenes/ui/components/currency_bar.tscn" id="currency_bar"]
+
+[sub_resource type="ShaderMaterial" id="medallion_material"]
+shader = ExtResource("medallion_shader")
+
+[sub_resource type="StyleBoxEmpty" id="badge_empty"]
+
+[sub_resource type="ShaderMaterial" id="hero_material"]
+resource_local_to_scene = true
+shader = ExtResource("hero_edge_blend")
+
+[sub_resource type="StyleBoxFlat" id="badge_focus"]
+bg_color = Color(0, 0, 0, 0)
+border_color = Color(1, 0.93, 0.74, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 36
+corner_radius_top_right = 36
+corner_radius_bottom_right = 36
+corner_radius_bottom_left = 36
+
+[node name="HomeScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("home")
+
+[node name="Surround" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.02, 0.075, 0.06, 1)
+
+[node name="Meadow" type="TextureRect" parent="."]
+offset_left = 0.0
+offset_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+texture = ExtResource("backdrop")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="Canvas" type="Control" parent="."]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 430.0
+offset_bottom = 826.0
+
+[node name="PlayContent" type="Control" parent="Canvas"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+
+[node name="WoodlandHero" type="TextureRect" parent="Canvas/PlayContent"]
+offset_right = 430.0
+anchor_bottom = 1.0
+offset_bottom = -372.0
+mouse_filter = 2
+material = SubResource("hero_material")
+texture = ExtResource("hero")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="BrandTitle" instance=ExtResource("brand_title") parent="Canvas/PlayContent"]
+offset_left = 94.0
+offset_top = 65.0
+offset_right = 340.0
+offset_bottom = 204.0
+
+[node name="ProfileShortcut" type="Button" parent="Canvas/PlayContent" groups=["home_routes"]]
+offset_left = 17.0
+offset_top = 23.0
+offset_right = 86.0
+offset_bottom = 92.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Profile"
+theme_override_styles/normal = SubResource("badge_empty")
+theme_override_styles/hover = SubResource("badge_empty")
+theme_override_styles/pressed = SubResource("badge_empty")
+theme_override_styles/focus = SubResource("badge_focus")
+metadata/route = &"profile"
+
+[node name="WoodMedallion" type="TextureRect" parent="Canvas/PlayContent/ProfileShortcut"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+material = SubResource("medallion_material")
+texture = ExtResource("wood_grain")
+expand_mode = 1
+
+[node name="Paw" type="TextureRect" parent="Canvas/PlayContent/ProfileShortcut"]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -24.5
+offset_top = -27.0
+offset_right = 24.5
+offset_bottom = 22.0
+mouse_filter = 2
+texture = ExtResource("profile_paw")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Currencies" type="HBoxContainer" parent="Canvas/PlayContent"]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -270.0
+offset_top = 18.0
+offset_right = -17.0
+offset_bottom = 49.0
+grow_horizontal = 0
+mouse_filter = 2
+alignment = 2
+
+[node name="Gems" instance=ExtResource("currency_bar") parent="Canvas/PlayContent/Currencies"]
+layout_mode = 2
+icon = ExtResource("gem")
+
+[node name="ContinueMatch" instance=ExtResource("continue_card") parent="Canvas/PlayContent" groups=["home_routes"]]
+offset_left = 13.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -447.0
+offset_right = 417.0
+offset_bottom = -373.0
+metadata/route = &"continue_match"
+
+[node name="ModeGrid" type="Control" parent="Canvas/PlayContent"]
+offset_left = 16.0
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -360.0
+offset_right = 414.0
+offset_bottom = -131.0
+
+[node name="Online" instance=ExtResource("tile") parent="Canvas/PlayContent/ModeGrid" groups=["home_routes"]]
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 125.0
+offset_bottom = 110.0
+title = "Online"
+glyph = ExtResource("globe")
+glyph_size = 50
+metadata/route = &"online"
+
+[node name="TeamUp" instance=ExtResource("tile") parent="Canvas/PlayContent/ModeGrid" groups=["home_routes"]]
+offset_left = 137.0
+offset_top = 0.0
+offset_right = 262.0
+offset_bottom = 110.0
+title = "Team Up"
+glyph = ExtResource("team")
+glyph_size = 66
+glyph_height = 50
+metadata/route = &"team_up"
+
+[node name="Friends" instance=ExtResource("tile") parent="Canvas/PlayContent/ModeGrid" groups=["home_routes"]]
+offset_left = 274.0
+offset_top = 0.0
+offset_right = 399.0
+offset_bottom = 110.0
+title = "Friends"
+glyph = ExtResource("friends")
+glyph_size = 74
+glyph_height = 51
+metadata/route = &"friends"
+
+[node name="Robot" instance=ExtResource("tile") parent="Canvas/PlayContent/ModeGrid" groups=["home_routes"]]
+offset_left = 0.0
+offset_top = 122.0
+offset_right = 194.0
+offset_bottom = 228.0
+title = "Robot"
+glyph = ExtResource("robot")
+glyph_size = 70
+glyph_height = 55
+metadata/route = &"robot"
+
+[node name="PassAndPlay" instance=ExtResource("tile") parent="Canvas/PlayContent/ModeGrid" groups=["home_routes"]]
+offset_left = 204.0
+offset_top = 122.0
+offset_right = 398.0
+offset_bottom = 228.0
+title = "Pass & Play"
+glyph = ExtResource("pass_play")
+glyph_size = 92
+glyph_height = 56
+metadata/route = &"pass_and_play"
+
+[node name="BottomNavigation" instance=ExtResource("bottom_navigation") parent="Canvas"]
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -90.0
+offset_right = 430.0
+offset_bottom = 0.0

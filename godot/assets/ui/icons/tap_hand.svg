@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 160" width="128" height="160">
+  <!-- V2 Moonlit Meadow tap hand: index finger tapping (tip at 45,8), warm cream with top
+       light, dark rim for every background, mint cuff with a gold band, soft drop shadow. -->
+  <defs>
+    <linearGradient id="skin" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#FFFFFB"/>
+      <stop offset="0.45" stop-color="#FBF1DF"/>
+      <stop offset="1" stop-color="#E7D3B2"/>
+    </linearGradient>
+    <linearGradient id="cuff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9BF2C8"/>
+      <stop offset="1" stop-color="#3FAE80"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- soft drop shadow: two offset copies at low opacity -->
+  <g transform="translate(5 8)" opacity="0.16" fill="#04140F">
+    <path d="M34 22 Q34 8 45 8 Q56 8 56 22 L56 64 Q58 56 68 57 Q76 58 77 66 Q80 60 88 61 Q95 63 95 71 Q99 67 105 69 Q112 72 111 82 L109 108 Q106 124 94 130 L52 130 Q38 128 30 116 L14 92 Q8 82 16 78 Q23 75 29 82 L34 88 Z"/>
+    <rect x="46" y="126" width="56" height="24" rx="7"/>
+  </g>
+  <g transform="translate(3 5)" opacity="0.22" fill="#04140F">
+    <path d="M34 22 Q34 8 45 8 Q56 8 56 22 L56 64 Q58 56 68 57 Q76 58 77 66 Q80 60 88 61 Q95 63 95 71 Q99 67 105 69 Q112 72 111 82 L109 108 Q106 124 94 130 L52 130 Q38 128 30 116 L14 92 Q8 82 16 78 Q23 75 29 82 L34 88 Z"/>
+  </g>
+  <!-- cuff -->
+  <rect x="46" y="124" width="56" height="24" rx="7" fill="url(#cuff)" stroke="#173A2C" stroke-width="3"/>
+  <rect x="46" y="124" width="56" height="6" rx="3" fill="#F2C75C" stroke="#173A2C" stroke-width="2"/>
+  <!-- hand -->
+  <path d="M34 22 Q34 8 45 8 Q56 8 56 22 L56 64 Q58 56 68 57 Q76 58 77 66 Q80 60 88 61 Q95 63 95 71 Q99 67 105 69 Q112 72 111 82 L109 108 Q106 124 94 130 L52 130 Q38 128 30 116 L14 92 Q8 82 16 78 Q23 75 29 82 L34 88 Z"
+        fill="url(#skin)" stroke="#2A2117" stroke-width="3.6" stroke-linejoin="round"/>
+  <!-- curled finger tops and creases -->
+  <path d="M56 64 Q57 74 66 76" fill="none" stroke="#B89A74" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M77 66 Q78 76 86 78" fill="none" stroke="#B89A74" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M95 71 Q96 80 103 82" fill="none" stroke="#B89A74" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M38 52 Q45 55 52 52" fill="none" stroke="#C9AE88" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M38 36 Q45 39 52 36" fill="none" stroke="#D6BF9C" stroke-width="1.6" stroke-linecap="round"/>
+  <path d="M30 98 Q38 104 46 102" fill="none" stroke="#C9AE88" stroke-width="2" stroke-linecap="round"/>
+  <!-- highlights: index finger, knuckles, palm -->
+  <path d="M39 20 Q39 13 45 12 L45 60 Q41 60 39 56 Z" fill="url(#shine)" opacity="0.9"/>
+  <ellipse cx="68" cy="63" rx="5" ry="2.6" fill="#FFFFFF" opacity="0.85"/>
+  <ellipse cx="87" cy="67" rx="4.5" ry="2.4" fill="#FFFFFF" opacity="0.8"/>
+  <ellipse cx="104" cy="75" rx="3.6" ry="2.2" fill="#FFFFFF" opacity="0.75"/>
+  <path d="M60 90 Q80 84 100 92" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+  <!-- nail -->
+  <path d="M40 18 Q40 12 45 12 Q50 12 50 18 Q45 21 40 18 Z" fill="#FFF6EC" stroke="#CDB596" stroke-width="1.2"/>
+</svg>

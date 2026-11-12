@@ -1,0 +1,48 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
+[application]
+
+config/name="Ludo Paws"
+run/main_scene="res://scenes/ui/home/home_screen.tscn"
+config/quit_on_go_back=false
+config/features=PackedStringArray("4.7", "GL Compatibility")
+boot_splash/show_image=false
+boot_splash/bg_color=Color(0.0431373, 0.145098, 0.188235, 1)
+boot_splash/fullsize=true
+boot_splash/use_filter=true
+config/icon="res://assets/branding/icon/icon_godot_192.png"
+run/main_scene.mobile="res://scenes/ui/home/home_screen.tscn"
+
+[autoload]
+
+GameAudio="*res://scripts/game/audio/game_audio.gd"
+DevHooks="*res://scripts/game/dev_hooks.gd"
+Guidance="*res://scripts/ui/hints/guidance.gd"
+Account="*res://scripts/game/account/account.gd"
+
+[display]
+
+window/size/viewport_width=900
+window/size/viewport_height=1600
+window/stretch/mode="canvas_items"
+window/handheld/orientation=1
+
+[rendering]
+
+environment/defaults/default_clear_color=Color(0.0431373, 0.145098, 0.188235, 1)
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true

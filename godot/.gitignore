@@ -1,0 +1,24 @@
+# Godot generated editor cache / imports
+.godot/
+.import/
+# Local exports / credentials / signing (never commit)
+build/
+dist/
+exports/
+*.apk
+*.aab
+*.keystore
+*.jks
+*.p12
+*.pfx
+# Local IDE / OS
+.DS_Store
+.idea/
+*.swp
+*.swo
+.env
+.env.*
+!.env.example
+# Release-only values (signing, AdMob IDs, backend URL) — never commit
+config/*.local.cfg
+tests/fixtures/reactions_gen/inputs.json

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 32 32">
+ <defs>
+  <linearGradient id="gold" x2=".12" y2="1"><stop stop-color="#fff7d3"/><stop offset=".38" stop-color="#ffe9aa"/><stop offset=".78" stop-color="#edc77b"/><stop offset="1" stop-color="#cd954a"/></linearGradient>
+  <linearGradient id="edge" x2="0" y2="1"><stop stop-color="#fff2bd"/><stop offset="1" stop-color="#9c6636"/></linearGradient>
+ </defs>
+ <path d="M16 15.2c-2.9 0-7.6 6.1-8.2 8.6-.9 4 3.5 5.6 6.3 4.6l1.9-.7 1.9.7c2.8 1 7.2-.6 6.3-4.6-.6-2.5-5.3-8.6-8.2-8.6Z" transform="translate(0 .95)" fill="#17321f" opacity=".63"/>
+ <g fill="#17321f" opacity=".62" transform="translate(0 .9)">
+  <ellipse cx="6.4" cy="13.5" rx="2.8" ry="3.75" transform="rotate(-27 6.4 13.5)"/><ellipse cx="12.1" cy="8.3" rx="3.05" ry="4.25" transform="rotate(-12 12.1 8.3)"/><ellipse cx="19.9" cy="8.3" rx="3.05" ry="4.25" transform="rotate(12 19.9 8.3)"/><ellipse cx="25.6" cy="13.5" rx="2.8" ry="3.75" transform="rotate(27 25.6 13.5)"/>
+ </g>
+ <g fill="url(#gold)" stroke="url(#edge)" stroke-width=".62">
+  <path d="M16 15.2c-2.9 0-7.6 6.1-8.2 8.6-.9 4 3.5 5.6 6.3 4.6l1.9-.7 1.9.7c2.8 1 7.2-.6 6.3-4.6-.6-2.5-5.3-8.6-8.2-8.6Z"/>
+  <ellipse cx="6.4" cy="13.5" rx="2.8" ry="3.75" transform="rotate(-27 6.4 13.5)"/><ellipse cx="12.1" cy="8.3" rx="3.05" ry="4.25" transform="rotate(-12 12.1 8.3)"/><ellipse cx="19.9" cy="8.3" rx="3.05" ry="4.25" transform="rotate(12 19.9 8.3)"/><ellipse cx="25.6" cy="13.5" rx="2.8" ry="3.75" transform="rotate(27 25.6 13.5)"/>
+ </g>
+ <path d="M11.1 21.5q2.6-4.4 4.9-4.9M10.4 6.6q.5-1.4 1.5-1.5m6.1 1.2q.8-1.1 1.7-1.1" fill="none" stroke="#fffbe2" stroke-opacity=".64" stroke-width=".65" stroke-linecap="round"/>
+</svg>

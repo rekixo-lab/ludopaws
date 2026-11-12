@@ -1,0 +1,43 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/brand_title.gd" id="title"]
+[ext_resource type="Texture2D" path="res://assets/ui/brand/woodland_title_plaque.webp" id="plaque"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/paw.svg" id="paw"]
+
+[ext_resource type="Shader" path="res://assets/ui/brand/brand_lettering.gdshader" id="lettering"]
+
+[sub_resource type="ShaderMaterial" id="lettering_material"]
+shader = ExtResource("lettering")
+
+[node name="BrandTitle" type="Control"]
+offset_right = 246.0
+offset_bottom = 139.0
+mouse_filter = 2
+material = SubResource("lettering_material")
+script = ExtResource("title")
+
+[node name="WoodPlaque" type="TextureRect" parent="."]
+show_behind_parent = true
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -5.0
+offset_bottom = -10.0
+mouse_filter = 2
+self_modulate = Color(0.79, 0.88, 1, 1)
+texture = ExtResource("plaque")
+expand_mode = 1
+stretch_mode = 0
+
+[node name="PawCrest" type="TextureRect" parent="."]
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -14.5
+offset_top = 90.5
+offset_right = 14.5
+offset_bottom = 119.5
+mouse_filter = 2
+self_modulate = Color(1.12, 0.89, 0.54, 1)
+texture = ExtResource("paw")
+expand_mode = 1
+stretch_mode = 5

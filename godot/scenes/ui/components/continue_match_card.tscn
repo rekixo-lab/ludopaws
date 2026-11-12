@@ -1,0 +1,117 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/mode_card_surface.svg" id="surface"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/ludo_board.svg" id="ludo_board"]
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/mint_pill.svg" id="mint_pill"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/play.svg" id="play"]
+[ext_resource type="Font" path="res://assets/ui/brand/ui_sans_bold.tres" id="sans"]
+
+[sub_resource type="StyleBoxTexture" id="normal"]
+texture = ExtResource("surface")
+texture_margin_left = 22.0
+texture_margin_top = 22.0
+texture_margin_right = 22.0
+texture_margin_bottom = 22.0
+
+[sub_resource type="StyleBoxTexture" id="hover"]
+texture = ExtResource("surface")
+texture_margin_left = 22.0
+texture_margin_top = 22.0
+texture_margin_right = 22.0
+texture_margin_bottom = 22.0
+modulate_color = Color(1.13, 1.13, 1.13, 1)
+
+[sub_resource type="StyleBoxTexture" id="pressed"]
+texture = ExtResource("surface")
+texture_margin_left = 22.0
+texture_margin_top = 22.0
+texture_margin_right = 22.0
+texture_margin_bottom = 22.0
+modulate_color = Color(0.83, 0.83, 0.83, 1)
+
+[sub_resource type="StyleBoxFlat" id="focus"]
+bg_color = Color(0, 0, 0, 0)
+border_color = Color(1, 0.94, 0.77, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+corner_radius_top_left = 19
+corner_radius_top_right = 19
+corner_radius_bottom_right = 19
+corner_radius_bottom_left = 19
+
+[node name="ContinueMatchCard" type="Button"]
+custom_minimum_size = Vector2(300, 74)
+offset_right = 404.0
+offset_bottom = 74.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Continue Match"
+theme_override_styles/normal = SubResource("normal")
+theme_override_styles/hover = SubResource("hover")
+theme_override_styles/pressed = SubResource("pressed")
+theme_override_styles/focus = SubResource("focus")
+
+[node name="ModeIcon" type="TextureRect" parent="."]
+offset_left = 3.0
+offset_top = 3.0
+offset_right = 101.0
+offset_bottom = 74.0
+mouse_filter = 2
+texture = ExtResource("ludo_board")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Title" type="Label" parent="."]
+anchor_right = 1.0
+offset_left = 106.0
+offset_top = 8.0
+offset_right = -70.0
+offset_bottom = 38.0
+mouse_filter = 2
+text = "Continue Match"
+theme_override_fonts/font = ExtResource("sans")
+theme_override_font_sizes/font_size = 21
+theme_override_colors/font_color = Color(1, 0.94, 0.81, 1)
+horizontal_alignment = 0
+text_overrun_behavior = 3
+vertical_alignment = 1
+
+[node name="Summary" type="Label" parent="."]
+anchor_right = 1.0
+offset_left = 106.0
+offset_top = 35.0
+offset_right = -70.0
+offset_bottom = 63.0
+mouse_filter = 2
+text = "Online  •  4 Players"
+theme_override_font_sizes/font_size = 17
+theme_override_colors/font_color = Color(1, 0.94, 0.81, 1)
+horizontal_alignment = 0
+text_overrun_behavior = 3
+vertical_alignment = 1
+
+[node name="PlayChip" type="TextureRect" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -65.0
+offset_top = 16.0
+offset_right = -15.0
+offset_bottom = 58.0
+mouse_filter = 2
+texture = ExtResource("mint_pill")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PlayIcon" type="TextureRect" parent="."]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -50.0
+offset_top = 25.0
+offset_right = -28.0
+offset_bottom = 47.0
+self_modulate = Color(0.04, 0.21, 0.16, 1)
+mouse_filter = 2
+texture = ExtResource("play")
+expand_mode = 1
+stretch_mode = 5

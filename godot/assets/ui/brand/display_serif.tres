@@ -1,0 +1,9 @@
+[gd_resource type="FontVariation" load_steps=2 format=3]
+
+[sub_resource type="SystemFont" id="serif"]
+font_names = PackedStringArray("DejaVu Serif", "Noto Serif", "Georgia")
+font_weight = 700
+
+[resource]
+base_font = SubResource("serif")
+variation_embolden = 0.55

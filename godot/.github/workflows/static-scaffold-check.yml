@@ -1,0 +1,14 @@
+name: Static Godot scaffold check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  structure:
+    name: Validate project file structure (not gameplay)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate starter files
+        run: python3 scripts/validate_project.py

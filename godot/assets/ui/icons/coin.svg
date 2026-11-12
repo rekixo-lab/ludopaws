@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 40 40">
+ <defs>
+  <linearGradient id="rim" x2=".17" y2="1">
+   <stop stop-color="#fff8bb"/><stop offset=".26" stop-color="#ffe47a"/>
+   <stop offset=".57" stop-color="#edac3f"/><stop offset=".83" stop-color="#ffc95e"/>
+   <stop offset="1" stop-color="#d88e23"/>
+  </linearGradient>
+  <linearGradient id="edge" x2=".1" y2="1">
+   <stop stop-color="#ffe992"/><stop offset=".42" stop-color="#d48d22"/><stop offset="1" stop-color="#985517"/>
+  </linearGradient>
+  <radialGradient id="face" cx=".37" cy=".27" r=".83">
+   <stop stop-color="#efb84a"/><stop offset=".62" stop-color="#dc982e"/><stop offset="1" stop-color="#a9641d"/>
+  </radialGradient>
+  <linearGradient id="stamp" x2=".13" y2="1">
+   <stop stop-color="#fff2a5"/><stop offset=".56" stop-color="#ffe277"/><stop offset="1" stop-color="#e5a43e"/>
+  </linearGradient>
+ </defs>
+ <ellipse cx="20.3" cy="21.5" rx="17.8" ry="17.1" fill="#081c1d" opacity=".77"/>
+ <circle cx="20" cy="20.2" r="17.6" fill="url(#edge)" stroke="#9c601b" stroke-width=".85"/>
+ <circle cx="20" cy="19.55" r="16.65" fill="url(#rim)" stroke="#ffce56" stroke-width=".8"/>
+ <circle cx="20" cy="19.65" r="13.05" fill="#a96a20" stroke="#ffde73" stroke-width=".95"/>
+ <circle cx="20" cy="19.85" r="11.95" fill="url(#face)" stroke="#ce8c28" stroke-width=".56"/>
+ <path d="M5.55 15.7a15 15 0 0 1 26.9-6.1" fill="none" stroke="#fff9b6" stroke-width="1.05" stroke-opacity=".77" stroke-linecap="round"/>
+ <path d="M8.7 27.35a13.5 13.5 0 0 0 23 0" fill="none" stroke="#fff1a0" stroke-width=".65" stroke-opacity=".59" stroke-linecap="round"/>
+ <g fill="#98591b" stroke="#a96a21" stroke-width="1.05" opacity=".72" transform="translate(0 .45)">
+  <ellipse cx="12.15" cy="18.3" rx="2.05" ry="2.35" transform="rotate(-26 12.15 18.3)"/>
+  <ellipse cx="17.15" cy="14.45" rx="2.18" ry="2.72" transform="rotate(-12 17.15 14.45)"/>
+  <ellipse cx="22.85" cy="14.45" rx="2.18" ry="2.72" transform="rotate(12 22.85 14.45)"/>
+  <ellipse cx="27.8" cy="18.3" rx="2.05" ry="2.35" transform="rotate(26 27.8 18.3)"/>
+  <path d="M20 18.75c2.05 0 3.55 1.62 5.55 4.15 1.65 2.07 1.8 3.72.47 5.02-.98.97-2.54.95-3.84.49-.85-.3-1.44-.48-2.18-.48s-1.33.18-2.18.48c-1.3.46-2.86.48-3.84-.49-1.33-1.3-1.18-2.95.47-5.02 2-2.53 3.5-4.15 5.55-4.15Z"/>
+ </g>
+ <g fill="url(#stamp)" stroke="#f6cc60" stroke-width=".42">
+  <ellipse cx="12.15" cy="18.3" rx="2.05" ry="2.35" transform="rotate(-26 12.15 18.3)"/>
+  <ellipse cx="17.15" cy="14.45" rx="2.18" ry="2.72" transform="rotate(-12 17.15 14.45)"/>
+  <ellipse cx="22.85" cy="14.45" rx="2.18" ry="2.72" transform="rotate(12 22.85 14.45)"/>
+  <ellipse cx="27.8" cy="18.3" rx="2.05" ry="2.35" transform="rotate(26 27.8 18.3)"/>
+  <path d="M20 18.75c2.05 0 3.55 1.62 5.55 4.15 1.65 2.07 1.8 3.72.47 5.02-.98.97-2.54.95-3.84.49-.85-.3-1.44-.48-2.18-.48s-1.33.18-2.18.48c-1.3.46-2.86.48-3.84-.49-1.33-1.3-1.18-2.95.47-5.02 2-2.53 3.5-4.15 5.55-4.15Z"/>
+ </g>
+</svg>

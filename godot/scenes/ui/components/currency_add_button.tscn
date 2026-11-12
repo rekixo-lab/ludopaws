@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/currency_add_surface.svg" id="surface"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/add.svg" id="add"]
+
+[sub_resource type="StyleBoxTexture" id="normal"]
+texture = ExtResource("surface")
+
+[sub_resource type="StyleBoxTexture" id="hover"]
+texture = ExtResource("surface")
+modulate_color = Color(1.08, 1.08, 1.08, 1)
+
+[sub_resource type="StyleBoxTexture" id="pressed"]
+texture = ExtResource("surface")
+modulate_color = Color(0.87, 0.87, 0.87, 1)
+
+[sub_resource type="StyleBoxFlat" id="focus"]
+bg_color = Color(0, 0, 0, 0)
+border_color = Color(1, 0.96, 0.79, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+corner_radius_top_left = 9
+corner_radius_top_right = 9
+corner_radius_bottom_left = 9
+corner_radius_bottom_right = 9
+
+[node name="CurrencyAddButton" type="Button"]
+custom_minimum_size = Vector2(30, 30)
+offset_right = 30.0
+offset_bottom = 30.0
+mouse_default_cursor_shape = 2
+tooltip_text = "Shop"
+theme_override_styles/normal = SubResource("normal")
+theme_override_styles/hover = SubResource("hover")
+theme_override_styles/pressed = SubResource("pressed")
+theme_override_styles/focus = SubResource("focus")
+
+[node name="Plus" type="TextureRect" parent="."]
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -8.5
+offset_top = -9.0
+offset_right = 8.5
+offset_bottom = 8.0
+mouse_filter = 2
+texture = ExtResource("add")
+expand_mode = 1
+stretch_mode = 5

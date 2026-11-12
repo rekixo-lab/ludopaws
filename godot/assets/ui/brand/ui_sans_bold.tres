@@ -1,0 +1,5 @@
+[gd_resource type="SystemFont" format=3]
+
+[resource]
+font_names = PackedStringArray("Noto Sans", "DejaVu Sans", "Arial")
+font_weight = 700

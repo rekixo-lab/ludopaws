@@ -1,0 +1,53 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/components/currency_bar.gd" id="script"]
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/currency_rail.svg" id="rail"]
+[ext_resource type="Font" path="res://assets/ui/brand/ui_sans_bold.tres" id="font"]
+[ext_resource type="PackedScene" path="res://scenes/ui/components/currency_add_button.tscn" id="add"]
+
+[node name="CurrencyBar" type="Control"]
+custom_minimum_size = Vector2(103, 31)
+offset_right = 103.0
+offset_bottom = 31.0
+mouse_filter = 2
+script = ExtResource("script")
+
+[node name="Rail" type="TextureRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 24.0
+mouse_filter = 2
+texture = ExtResource("rail")
+expand_mode = 1
+
+[node name="Icon" type="TextureRect" parent="."]
+offset_left = -3.0
+offset_top = -3.5
+offset_right = 37.0
+offset_bottom = 36.5
+mouse_filter = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Balance" type="Label" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 36.0
+offset_right = -34.0
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")
+theme_override_font_sizes/font_size = 16
+theme_override_colors/font_color = Color(1, 0.94, 0.81, 1)
+text = "0"
+horizontal_alignment = 1
+vertical_alignment = 1
+text_overrun_behavior = 3
+
+[node name="OpenShop" instance=ExtResource("add") parent="." groups=["home_routes"]]
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -30.0
+offset_top = 1.0
+offset_right = 0.0
+offset_bottom = 31.0
+metadata/route = &"shop"
