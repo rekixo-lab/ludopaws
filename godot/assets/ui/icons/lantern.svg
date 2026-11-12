@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <defs>
+    <radialGradient id="glow"><stop stop-color="#ffdb73" stop-opacity=".65"/><stop offset="1" stop-color="#ffb837" stop-opacity="0"/></radialGradient>
+    <radialGradient id="glass"><stop stop-color="#fff8ce"/><stop offset=".45" stop-color="#ffd66b"/><stop offset="1" stop-color="#a74e13"/></radialGradient>
+    <linearGradient id="metal" x2="0%" y2="100%"><stop stop-color="#a26638"/><stop offset=".48" stop-color="#643a24"/><stop offset="1" stop-color="#281b16"/></linearGradient>
+  </defs>
+  <circle cx="48" cy="53" r="45" fill="url(#glow)"/>
+  <path d="M40 20v-5a8 8 0 0 1 16 0v5" fill="none" stroke="#ad7950" stroke-width="3"/>
+  <path d="m30 35 5-10 13-6 13 6 5 10-5 38H35z" fill="url(#glass)" stroke="#63391e" stroke-width="4"/>
+  <path d="m23 36 10-13 15-4 15 4 10 13-8 4H31zM27 74h42l5 9-6 4H28l-6-4z" fill="url(#metal)" stroke="#432b1f" stroke-width="2"/>
+  <path d="m34 40 5 33m23-33-5 33M48 40v33" fill="none" stroke="#794724" stroke-width="2.5"/>
+  <path d="M29 34h38M29 79h38" fill="none" stroke="#c6884f" stroke-width="2" stroke-linecap="round"/>
+</svg>

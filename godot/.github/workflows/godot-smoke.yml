@@ -1,0 +1,53 @@
+name: Godot 4.7.2 headless smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  godot:
+    name: Import, parse and launch Godot scene
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Godot 4.7.2 stable (standard edition)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fL --retry 3 -o /tmp/godot.zip \
+            https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          mkdir -p /tmp/godot
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          chmod +x /tmp/godot/Godot_v4.7.2-stable_linux.x86_64
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --version
+      - name: Import project and compile scripts
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --editor --path . --quit 2>&1 | tee /tmp/godot-import.log
+          if grep -Ei 'SCRIPT ERROR|Parse Error|Failed to load script|ERROR:.*parser' /tmp/godot-import.log; then
+            echo 'Godot import or script parsing failed.'
+            exit 1
+          fi
+      - name: Launch preview for 10 headless frames
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --quit-after 10 2>&1 | tee /tmp/godot-preview.log
+          if grep -Ei 'SCRIPT ERROR|Parse Error|Failed to load script|ERROR:.*parser' /tmp/godot-preview.log; then
+            echo 'Godot preview startup failed.'
+            exit 1
+          fi
+      - name: Rule tests and live parity fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --script res://tests/run_tests.gd 2>&1 | tee /tmp/rules.log
+          if grep -Ei 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/rules.log; then exit 1; fi
+      - name: UI match flow (Home -> match -> results)
+        shell: bash
+        run: |
+          set -euo pipefail
+          /tmp/godot/Godot_v4.7.2-stable_linux.x86_64 --headless --path . --script res://tests/match_flow_smoke.gd 2>&1 | tee /tmp/flow.log
+          if grep -Ei 'SCRIPT ERROR|Parse Error|Failed to load script' /tmp/flow.log; then exit 1; fi

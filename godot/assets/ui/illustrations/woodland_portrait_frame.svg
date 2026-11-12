@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="360" height="360" viewBox="0 0 180 180">
+  <defs>
+    <linearGradient id="gold" x1="0" x2=".6" y1="0" y2="1">
+      <stop stop-color="#fff1b3"/><stop offset=".23" stop-color="#dfbf65"/>
+      <stop offset=".51" stop-color="#92813d"/><stop offset=".75" stop-color="#d8ad45"/>
+      <stop offset="1" stop-color="#f5c766"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" x2=".5" y1="0" y2="1">
+      <stop stop-color="#fff9ce"/><stop offset=".44" stop-color="#bfbe72"/>
+      <stop offset=".75" stop-color="#886729"/><stop offset="1" stop-color="#ffe286"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" x2=".3" y1="0" y2="1">
+      <stop stop-color="#729449"/><stop offset=".42" stop-color="#4c7634"/><stop offset="1" stop-color="#254522"/>
+    </linearGradient>
+    <linearGradient id="wing" x1="0" x2=".4" y1="0" y2="1">
+      <stop stop-color="#fff1a2"/><stop offset=".46" stop-color="#ffce5b"/><stop offset="1" stop-color="#b87521"/>
+    </linearGradient>
+    <g id="sprout">
+      <path d="M0 0Q-20-4-23-22Q-6-23 1-10Q3-6 0 0Z" fill="#162b18"/>
+      <path d="M0-1Q-18-4-22-21Q-7-21 0-10Q2-5 0-1Z" fill="url(#leaf)"/>
+      <path d="M-2-3Q-12-11-19-18M-9-10l-2-6m1 5-5 1" fill="none" stroke="#a1ad64" stroke-opacity=".49" stroke-width=".7" stroke-linecap="round"/>
+    </g>
+    <g id="butterfly">
+      <path d="M-1 0C-8 2-11-6-8-9C-5-12-2-8-1-3C1-12 9-14 8-7C8-4 4 0 1 1C8-1 11 6 6 7C3 8 1 5 0 3C-1 9-8 9-7 4C-7 2-4 0-1 0Z" fill="#6c4018" stroke="#6c4018" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M-1 0C-8 2-11-6-8-9C-5-12-2-8-1-3C1-12 9-14 8-7C8-4 4 0 1 1C8-1 11 6 6 7C3 8 1 5 0 3C-1 9-8 9-7 4C-7 2-4 0-1 0Z" fill="url(#wing)" stroke="#f7cf68" stroke-width=".8" stroke-linejoin="round"/>
+      <path d="M-1 4L1-5M2-4l3-4M-3-2l-4-4" fill="none" stroke="#85501e" stroke-width="1.15" stroke-linecap="round"/>
+      <path d="M2-5Q2-9 5-11M-1-4Q-3-8-5-8" fill="none" stroke="#ffe38c" stroke-width=".7" stroke-linecap="round"/>
+    </g>
+  </defs>
+  <use xlink:href="#sprout" transform="translate(35 144) rotate(-24)"/>
+  <use xlink:href="#sprout" transform="translate(40 145) rotate(-54) scale(.84)"/>
+  <use xlink:href="#sprout" transform="translate(52 149) rotate(-93) scale(.94)"/>
+  <use xlink:href="#sprout" transform="translate(69 156) rotate(-136) scale(.76)"/>
+  <use xlink:href="#sprout" transform="translate(147 145) rotate(99) scale(.72)"/>
+  <use xlink:href="#sprout" transform="translate(147 148) rotate(143) scale(.67)"/>
+  <use xlink:href="#sprout" transform="translate(23 64) rotate(14) scale(.48)"/>
+  <circle cx="90" cy="92" r="75.5" fill="none" stroke="#21180e" stroke-opacity=".7" stroke-width="10"/>
+  <circle cx="90" cy="90" r="75.5" fill="none" stroke="#5a4323" stroke-width="8"/>
+  <circle cx="90" cy="89.5" r="75.5" fill="none" stroke="url(#gold)" stroke-width="6.5"/>
+  <circle cx="90" cy="89" r="76.7" fill="none" stroke="url(#shine)" stroke-width="1.7"/>
+  <circle cx="90" cy="89.5" r="72.8" fill="none" stroke="#624520" stroke-opacity=".78" stroke-width="1.4"/>
+  <path d="M42 30A77 77 0 0 1 135 26M79 166A77 77 0 0 0 134 152" fill="none" stroke="#fff1ac" stroke-opacity=".55" stroke-width="1.1" stroke-linecap="round"/>
+  <use xlink:href="#sprout" transform="translate(37 149) rotate(-76) scale(.63)"/>
+  <use xlink:href="#sprout" transform="translate(68 162) rotate(-141) scale(.52)"/>
+  <use xlink:href="#butterfly" transform="translate(21 47) rotate(-21) scale(.94)"/>
+  <use xlink:href="#butterfly" transform="translate(151 149) rotate(22) scale(.82)"/>
+</svg>

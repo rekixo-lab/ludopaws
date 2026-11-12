@@ -41,3 +41,11 @@ Thumbs.db
 /ludoproof-android-release.sha256
 /server/.wrangler-family-dry-run/
 dependency-advisories.json
+
+# Godot client (Ludo Paws 2.x): generated / local-only files
+godot/.godot/
+godot/android/build/
+godot/build/
+godot/config/release.local.cfg
+*.aab
+*.apk

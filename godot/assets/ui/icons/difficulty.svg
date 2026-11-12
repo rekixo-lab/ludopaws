@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 60 60">
+ <defs>
+ <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+  <stop stop-color="#ffe9a9"/><stop offset=".35" stop-color="#f6ce7d"/>
+  <stop offset=".78" stop-color="#e9b75d"/><stop offset="1" stop-color="#ca8840"/>
+ </linearGradient>
+ <linearGradient id="edge" x1="0" y1="0" x2="0" y2="1">
+  <stop stop-color="#fff3c8"/><stop offset=".55" stop-color="#dfb66d"/>
+  <stop offset="1" stop-color="#95612e"/>
+ </linearGradient>
+ </defs>
+ <g fill="#102c22" opacity=".78" transform="translate(0 1.8)"><rect x="6" y="34" width="12" height="18" rx="2.5"/><rect x="24" y="22" width="12" height="30" rx="2.5"/><rect x="42" y="8" width="12" height="44" rx="2.5"/></g>
+ <g fill="url(#gold)" stroke="url(#edge)" stroke-width="1.15" stroke-linejoin="round"><rect x="6" y="34" width="12" height="18" rx="2.5"/><rect x="24" y="22" width="12" height="30" rx="2.5"/><rect x="42" y="8" width="12" height="44" rx="2.5"/></g>
+</svg>

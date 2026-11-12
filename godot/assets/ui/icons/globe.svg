@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 52 52">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#ffe7ae"/>
+      <stop offset=".31" stop-color="#ffe4a6"/>
+      <stop offset=".66" stop-color="#f4c574"/>
+      <stop offset="1" stop-color="#d29249"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff3cf"/>
+      <stop offset=".6" stop-color="#d39d5d"/>
+      <stop offset="1" stop-color="#8d5629"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="26" cy="27.5" rx="22.8" ry="22" fill="none" stroke="#091c14" stroke-opacity=".67" stroke-width="5.8"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M26 4.3C20.3 4.3 16 14.1 16 25.9S20.3 47.5 26 47.5 36 37.7 36 25.9 31.7 4.3 26 4.3ZM6.3 16.5C14.1 18.1 20.1 18.5 26 18.5S37.9 18.1 45.7 16.5M6.3 35.3C14.1 33.7 20.1 33.3 26 33.3S37.9 33.7 45.7 35.3" stroke="#805225" stroke-width="4.6" transform="translate(0 .7)"/>
+    <path d="M26 4.3C20.3 4.3 16 14.1 16 25.9S20.3 47.5 26 47.5 36 37.7 36 25.9 31.7 4.3 26 4.3ZM6.3 16.5C14.1 18.1 20.1 18.5 26 18.5S37.9 18.1 45.7 16.5M6.3 35.3C14.1 33.7 20.1 33.3 26 33.3S37.9 33.7 45.7 35.3" stroke="url(#gold)" stroke-width="3.8"/>
+    <ellipse cx="26" cy="25.9" rx="22.3" ry="21.6" stroke="url(#rim)" stroke-width="5.1"/>
+    <ellipse cx="26" cy="25.9" rx="22.3" ry="21.6" stroke="url(#gold)" stroke-width="3.7"/>
+    <path d="M9.9 12.4C13.9 7.5 20 4.7 26 4.7S38.1 7.5 42.1 12.4" stroke="#fff4d2" stroke-opacity=".66" stroke-width=".8"/>
+  </g>
+</svg>

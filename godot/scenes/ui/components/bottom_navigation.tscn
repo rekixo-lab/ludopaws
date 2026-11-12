@@ -1,0 +1,96 @@
+[gd_scene format=3]
+
+[ext_resource type="PackedScene" path="res://scenes/ui/components/menu_tile.tscn" id="tile"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/paw.svg" id="paw"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/gift.svg" id="gift"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/shop.svg" id="shop"]
+[ext_resource type="Texture2D" path="res://assets/ui/icons/profile.svg" id="profile"]
+[ext_resource type="Texture2D" path="res://assets/ui/backgrounds/chestnut_wood_grain.webp" id="wood_grain"]
+
+[ext_resource type="Texture2D" path="res://assets/ui/icons/notification_dot.svg" id="notification_dot"]
+
+[ext_resource type="Script" path="res://scripts/ui/components/bottom_navigation.gd" id="navigation"]
+
+[ext_resource type="Shader" path="res://assets/ui/backgrounds/wood_panel.gdshader" id="wood_shader"]
+
+[sub_resource type="ShaderMaterial" id="wood_material"]
+shader = ExtResource("wood_shader")
+
+[sub_resource type="ButtonGroup" id="tabs"]
+
+[node name="BottomNavigation" type="Control"]
+offset_right = 430.0
+offset_bottom = 90.0
+script = ExtResource("navigation")
+
+[node name="Wood" type="TextureRect" parent="."]
+offset_right = 430.0
+offset_bottom = 90.0
+mouse_filter = 2
+material = SubResource("wood_material")
+texture = ExtResource("wood_grain")
+expand_mode = 1
+
+[node name="Play" instance=ExtResource("tile") parent="." groups=["home_routes"]]
+offset_left = 16.0
+offset_top = 0.0
+offset_right = 110.0
+offset_bottom = 69.0
+title = "Play"
+glyph = ExtResource("paw")
+glyph_size = 35
+metadata/route = &"play"
+toggle_mode = true
+button_group = SubResource("tabs")
+navigation_item = true
+button_pressed = true
+current = true
+
+[node name="Rewards" instance=ExtResource("tile") parent="." groups=["home_routes"]]
+offset_left = 117.0
+offset_top = 0.0
+offset_right = 211.0
+offset_bottom = 69.0
+title = "Rewards"
+glyph = ExtResource("gift")
+glyph_size = 34
+metadata/route = &"rewards"
+toggle_mode = true
+button_group = SubResource("tabs")
+navigation_item = true
+
+[node name="Shop" instance=ExtResource("tile") parent="." groups=["home_routes"]]
+offset_left = 218.0
+offset_top = 0.0
+offset_right = 312.0
+offset_bottom = 69.0
+title = "Shop"
+glyph = ExtResource("shop")
+glyph_size = 36
+metadata/route = &"shop"
+toggle_mode = true
+button_group = SubResource("tabs")
+navigation_item = true
+
+[node name="Profile" instance=ExtResource("tile") parent="." groups=["home_routes"]]
+offset_left = 319.0
+offset_top = 0.0
+offset_right = 413.0
+offset_bottom = 69.0
+title = "Profile"
+glyph = ExtResource("profile")
+glyph_size = 32
+metadata/route = &"profile"
+toggle_mode = true
+button_group = SubResource("tabs")
+navigation_item = true
+
+[node name="RewardDot" type="TextureRect" parent="Rewards"]
+offset_left = 66.0
+offset_top = 3.0
+offset_right = 81.0
+offset_bottom = 18.0
+mouse_filter = 2
+texture = ExtResource("notification_dot")
+expand_mode = 1
+stretch_mode = 5

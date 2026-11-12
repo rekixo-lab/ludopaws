@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 9-11 starting window: same background, logo (288 dp canvas, centred) and
+     "by Rekixo" (200x80 dp, bottom) as the Android 12+ system splash. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/launch_background" />
+    <item android:width="288dp" android:height="288dp" android:gravity="center"
+        android:drawable="@drawable/launch_logo" />
+    <item android:width="200dp" android:height="80dp" android:gravity="bottom|center_horizontal"
+        android:bottom="@dimen/launch_branding_bottom" android:drawable="@drawable/launch_branding" />
+</layer-list>

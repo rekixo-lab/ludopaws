@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Single launch screen (system splash + Godot launch screen share these values). -->
+<resources>
+    <color name="launch_background">#0B2530</color>
+    <!-- Bottom inset of "by Rekixo", measured from the Android 12+ system splash on the A71
+         and reused by the Android 9-11 window background and the Godot launch screen. -->
+    <dimen name="launch_branding_bottom">60dp</dimen>
+</resources>
